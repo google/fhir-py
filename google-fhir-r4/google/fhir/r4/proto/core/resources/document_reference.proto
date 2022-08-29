@@ -1,0 +1,369 @@
+//    Copyright 2019 Google Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        https://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+syntax = "proto3";
+
+package google.fhir.r4.core;
+
+import "google/protobuf/any.proto";
+import "google/fhir/core/proto/annotations.proto";
+import "google/fhir/r4/proto/core/codes.proto";
+import "google/fhir/r4/proto/core/datatypes.proto";
+
+option java_multiple_files = true;
+option java_package = "com.google.fhir.r4.core";
+option (.google.fhir.proto.fhir_version) = R4;
+
+// Auto-generated from StructureDefinition for DocumentReference.
+// A reference to a document.
+// See http://hl7.org/fhir/StructureDefinition/DocumentReference
+message DocumentReference {
+  option (.google.fhir.proto.structure_definition_kind) = KIND_RESOURCE;
+  option (.google.fhir.proto.fhir_structure_definition_url) =
+      "http://hl7.org/fhir/StructureDefinition/DocumentReference";
+  option (.google.fhir.proto.search_parameter) = {
+    name: "authenticator"
+    type: REFERENCE
+    expression: "DocumentReference.authenticator"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "author"
+    type: REFERENCE
+    expression: "DocumentReference.author"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "category"
+    type: TOKEN
+    expression: "DocumentReference.category"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "contenttype"
+    type: TOKEN
+    expression: "DocumentReference.content.attachment.contentType"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "custodian"
+    type: REFERENCE
+    expression: "DocumentReference.custodian"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "date"
+    type: DATE
+    expression: "DocumentReference.date"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "description"
+    type: STRING
+    expression: "DocumentReference.description"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "encounter"
+    type: REFERENCE
+    expression: "Composition.encounter | DeviceRequest.encounter | DiagnosticReport.encounter | DocumentReference.context.encounter | Flag.encounter | List.encounter | NutritionOrder.encounter | Observation.encounter | Procedure.encounter | RiskAssessment.encounter | ServiceRequest.encounter | VisionPrescription.encounter"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "event"
+    type: TOKEN
+    expression: "DocumentReference.context.event"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "facility"
+    type: TOKEN
+    expression: "DocumentReference.context.facilityType"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "format"
+    type: TOKEN
+    expression: "DocumentReference.content.format"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "identifier"
+    type: TOKEN
+    expression: "AllergyIntolerance.identifier | CarePlan.identifier | CareTeam.identifier | Composition.identifier | Condition.identifier | Consent.identifier | DetectedIssue.identifier | DeviceRequest.identifier | DiagnosticReport.identifier | DocumentManifest.masterIdentifier | DocumentManifest.identifier | DocumentReference.masterIdentifier | DocumentReference.identifier | Encounter.identifier | EpisodeOfCare.identifier | FamilyMemberHistory.identifier | Goal.identifier | ImagingStudy.identifier | Immunization.identifier | List.identifier | MedicationAdministration.identifier | MedicationDispense.identifier | MedicationRequest.identifier | MedicationStatement.identifier | NutritionOrder.identifier | Observation.identifier | Procedure.identifier | RiskAssessment.identifier | ServiceRequest.identifier | SupplyDelivery.identifier | SupplyRequest.identifier | VisionPrescription.identifier"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "language"
+    type: TOKEN
+    expression: "DocumentReference.content.attachment.language"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "location"
+    type: URI
+    expression: "DocumentReference.content.attachment.url"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "patient"
+    type: REFERENCE
+    expression: "AllergyIntolerance.patient | CarePlan.subject.where(resolve() is Patient) | CareTeam.subject.where(resolve() is Patient) | ClinicalImpression.subject.where(resolve() is Patient) | Composition.subject.where(resolve() is Patient) | Condition.subject.where(resolve() is Patient) | Consent.patient | DetectedIssue.patient | DeviceRequest.subject.where(resolve() is Patient) | DeviceUseStatement.subject | DiagnosticReport.subject.where(resolve() is Patient) | DocumentManifest.subject.where(resolve() is Patient) | DocumentReference.subject.where(resolve() is Patient) | Encounter.subject.where(resolve() is Patient) | EpisodeOfCare.patient | FamilyMemberHistory.patient | Flag.subject.where(resolve() is Patient) | Goal.subject.where(resolve() is Patient) | ImagingStudy.subject.where(resolve() is Patient) | Immunization.patient | List.subject.where(resolve() is Patient) | MedicationAdministration.subject.where(resolve() is Patient) | MedicationDispense.subject.where(resolve() is Patient) | MedicationRequest.subject.where(resolve() is Patient) | MedicationStatement.subject.where(resolve() is Patient) | NutritionOrder.patient | Observation.subject.where(resolve() is Patient) | Procedure.subject.where(resolve() is Patient) | RiskAssessment.subject.where(resolve() is Patient) | ServiceRequest.subject.where(resolve() is Patient) | SupplyDelivery.patient | VisionPrescription.patient"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "period"
+    type: DATE
+    expression: "DocumentReference.context.period"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "related"
+    type: REFERENCE
+    expression: "DocumentReference.context.related"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "relatesto"
+    type: REFERENCE
+    expression: "DocumentReference.relatesTo.target"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "relation"
+    type: TOKEN
+    expression: "DocumentReference.relatesTo.code"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "relationship"
+    type: COMPOSITE
+    expression: "DocumentReference.relatesTo"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "security-label"
+    type: TOKEN
+    expression: "DocumentReference.securityLabel"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "setting"
+    type: TOKEN
+    expression: "DocumentReference.context.practiceSetting"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "status"
+    type: TOKEN
+    expression: "DocumentReference.status"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "subject"
+    type: REFERENCE
+    expression: "DocumentReference.subject"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "type"
+    type: TOKEN
+    expression: "AllergyIntolerance.type | Composition.type | DocumentManifest.type | DocumentReference.type | Encounter.type | EpisodeOfCare.type"
+  };
+
+  // Logical id of this artifact
+  Id id = 1;
+
+  // Metadata about the resource
+  Meta meta = 2;
+
+  // A set of rules under which this content was created
+  Uri implicit_rules = 3;
+
+  // Language of the resource content
+  Code language = 4;
+
+  // Text summary of the resource, for human interpretation
+  Narrative text = 5;
+
+  // Contained, inline Resources
+  repeated protobuf.Any contained = 6;
+
+  // Field 7 reserved for strongly-typed ContainedResource for id:
+  // DocumentReference.contained
+  reserved 7;
+
+  // Additional content defined by implementations
+  repeated Extension extension = 8;
+
+  // Extensions that cannot be ignored
+  repeated Extension modifier_extension = 9;
+
+  // Master Version Specific Identifier
+  Identifier master_identifier = 10;
+
+  // Other identifiers for the document
+  repeated Identifier identifier = 11;
+
+  // current | superseded | entered-in-error
+  message StatusCode {
+    option (.google.fhir.proto.structure_definition_kind) = KIND_PRIMITIVE_TYPE;
+    option (.google.fhir.proto.fhir_valueset_url) =
+        "http://hl7.org/fhir/ValueSet/document-reference-status";
+    option (.google.fhir.proto.fhir_profile_base) =
+        "http://hl7.org/fhir/StructureDefinition/code";
+
+    DocumentReferenceStatusCode.Value value = 1;
+
+    String id = 2;
+
+    repeated Extension extension = 3;
+  }
+  StatusCode status = 12
+      [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+  // preliminary | final | amended | entered-in-error
+  message DocStatusCode {
+    option (.google.fhir.proto.structure_definition_kind) = KIND_PRIMITIVE_TYPE;
+    option (.google.fhir.proto.fhir_valueset_url) =
+        "http://hl7.org/fhir/ValueSet/composition-status";
+    option (.google.fhir.proto.fhir_profile_base) =
+        "http://hl7.org/fhir/StructureDefinition/code";
+
+    CompositionStatusCode.Value value = 1;
+
+    String id = 2;
+
+    repeated Extension extension = 3;
+  }
+  DocStatusCode doc_status = 13;
+
+  // Kind of document (LOINC if possible)
+  CodeableConcept type = 14;
+
+  // Categorization of document
+  repeated CodeableConcept category = 15;
+
+  // Who/what is the subject of the document
+  Reference subject = 16 [
+    (.google.fhir.proto.valid_reference_type) = "Patient",
+    (.google.fhir.proto.valid_reference_type) = "Practitioner",
+    (.google.fhir.proto.valid_reference_type) = "Group",
+    (.google.fhir.proto.valid_reference_type) = "Device"
+  ];
+
+  // When this document reference was created
+  Instant date = 17;
+
+  // Who and/or what authored the document
+  repeated Reference author = 18 [
+    (.google.fhir.proto.valid_reference_type) = "Practitioner",
+    (.google.fhir.proto.valid_reference_type) = "PractitionerRole",
+    (.google.fhir.proto.valid_reference_type) = "Organization",
+    (.google.fhir.proto.valid_reference_type) = "Device",
+    (.google.fhir.proto.valid_reference_type) = "Patient",
+    (.google.fhir.proto.valid_reference_type) = "RelatedPerson"
+  ];
+
+  // Who/what authenticated the document
+  Reference authenticator = 19 [
+    (.google.fhir.proto.valid_reference_type) = "Practitioner",
+    (.google.fhir.proto.valid_reference_type) = "PractitionerRole",
+    (.google.fhir.proto.valid_reference_type) = "Organization"
+  ];
+
+  // Organization which maintains the document
+  Reference custodian = 20
+      [(.google.fhir.proto.valid_reference_type) = "Organization"];
+
+  // Relationships to other documents
+  message RelatesTo {
+    // Unique id for inter-element referencing
+    String id = 1;
+
+    // Additional content defined by implementations
+    repeated Extension extension = 2;
+
+    // Extensions that cannot be ignored even if unrecognized
+    repeated Extension modifier_extension = 3;
+
+    // replaces | transforms | signs | appends
+    message CodeType {
+      option (.google.fhir.proto.structure_definition_kind) =
+          KIND_PRIMITIVE_TYPE;
+      option (.google.fhir.proto.fhir_valueset_url) =
+          "http://hl7.org/fhir/ValueSet/document-relationship-type";
+      option (.google.fhir.proto.fhir_profile_base) =
+          "http://hl7.org/fhir/StructureDefinition/code";
+
+      DocumentRelationshipTypeCode.Value value = 1;
+
+      String id = 2;
+
+      repeated Extension extension = 3;
+    }
+    CodeType code = 4
+        [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+    // Target of the relationship
+    Reference target = 5 [
+      (.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR,
+      (.google.fhir.proto.valid_reference_type) = "DocumentReference"
+    ];
+  }
+  repeated RelatesTo relates_to = 21;
+
+  // Human-readable description
+  String description = 22;
+
+  // Document security-tags
+  repeated CodeableConcept security_label = 23;
+
+  // Document referenced
+  message Content {
+    // Unique id for inter-element referencing
+    String id = 1;
+
+    // Additional content defined by implementations
+    repeated Extension extension = 2;
+
+    // Extensions that cannot be ignored even if unrecognized
+    repeated Extension modifier_extension = 3;
+
+    // Where to access the document
+    Attachment attachment = 4
+        [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+    // Format/content rules for the document
+    Coding format = 5;
+  }
+  repeated Content content = 24
+      [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+  // Clinical context of document
+  message Context {
+    // Unique id for inter-element referencing
+    String id = 1;
+
+    // Additional content defined by implementations
+    repeated Extension extension = 2;
+
+    // Extensions that cannot be ignored even if unrecognized
+    repeated Extension modifier_extension = 3;
+
+    // Context of the document  content
+    repeated Reference encounter = 4 [
+      (.google.fhir.proto.valid_reference_type) = "Encounter",
+      (.google.fhir.proto.valid_reference_type) = "EpisodeOfCare"
+    ];
+
+    // Main clinical acts documented
+    repeated CodeableConcept event = 5;
+
+    // Time of service that is being documented
+    Period period = 6;
+
+    // Kind of facility where patient was seen
+    CodeableConcept facility_type = 7;
+
+    // Additional details about where the content was created (e.g. clinical
+    // specialty)
+    CodeableConcept practice_setting = 8;
+
+    // Patient demographics from source
+    Reference source_patient_info = 9
+        [(.google.fhir.proto.valid_reference_type) = "Patient"];
+
+    // Related identifiers or resources
+    repeated Reference related = 10
+        [(.google.fhir.proto.valid_reference_type) = "Resource"];
+  }
+  Context context = 25;
+}

@@ -1,0 +1,181 @@
+//    Copyright 2019 Google Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        https://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+syntax = "proto3";
+
+package google.fhir.r4.core;
+
+import "google/protobuf/any.proto";
+import "google/fhir/core/proto/annotations.proto";
+import "google/fhir/r4/proto/core/datatypes.proto";
+
+option java_multiple_files = true;
+option java_package = "com.google.fhir.r4.core";
+option (.google.fhir.proto.fhir_version) = R4;
+
+// Auto-generated from StructureDefinition for OrganizationAffiliation.
+// Defines an affiliation/assotiation/relationship between 2 distinct
+// oganizations, that is not a part-of relationship/sub-division relationship.
+// See http://hl7.org/fhir/StructureDefinition/OrganizationAffiliation
+message OrganizationAffiliation {
+  option (.google.fhir.proto.structure_definition_kind) = KIND_RESOURCE;
+  option (.google.fhir.proto.fhir_structure_definition_url) =
+      "http://hl7.org/fhir/StructureDefinition/OrganizationAffiliation";
+  option (.google.fhir.proto.search_parameter) = {
+    name: "active"
+    type: TOKEN
+    expression: "OrganizationAffiliation.active"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "date"
+    type: DATE
+    expression: "OrganizationAffiliation.period"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "email"
+    type: TOKEN
+    expression: "OrganizationAffiliation.telecom.where(system='email')"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "endpoint"
+    type: REFERENCE
+    expression: "OrganizationAffiliation.endpoint"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "identifier"
+    type: TOKEN
+    expression: "OrganizationAffiliation.identifier"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "location"
+    type: REFERENCE
+    expression: "OrganizationAffiliation.location"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "network"
+    type: REFERENCE
+    expression: "OrganizationAffiliation.network"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "participating-organization"
+    type: REFERENCE
+    expression: "OrganizationAffiliation.participatingOrganization"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "phone"
+    type: TOKEN
+    expression: "OrganizationAffiliation.telecom.where(system='phone')"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "primary-organization"
+    type: REFERENCE
+    expression: "OrganizationAffiliation.organization"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "role"
+    type: TOKEN
+    expression: "OrganizationAffiliation.code"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "service"
+    type: REFERENCE
+    expression: "OrganizationAffiliation.healthcareService"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "specialty"
+    type: TOKEN
+    expression: "OrganizationAffiliation.specialty"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "telecom"
+    type: TOKEN
+    expression: "OrganizationAffiliation.telecom"
+  };
+
+  // Logical id of this artifact
+  Id id = 1;
+
+  // Metadata about the resource
+  Meta meta = 2;
+
+  // A set of rules under which this content was created
+  Uri implicit_rules = 3;
+
+  // Language of the resource content
+  Code language = 4;
+
+  // Text summary of the resource, for human interpretation
+  Narrative text = 5;
+
+  // Contained, inline Resources
+  repeated protobuf.Any contained = 6;
+
+  // Field 7 reserved for strongly-typed ContainedResource for id:
+  // OrganizationAffiliation.contained
+  reserved 7;
+
+  // Additional content defined by implementations
+  repeated Extension extension = 8;
+
+  // Extensions that cannot be ignored
+  repeated Extension modifier_extension = 9;
+
+  // Business identifiers that are specific to this role
+  repeated Identifier identifier = 10;
+
+  // Whether this organization affiliation record is in active use
+  Boolean active = 11;
+
+  // The period during which the participatingOrganization is affiliated with
+  // the primary organization
+  Period period = 12;
+
+  // Organization where the role is available
+  Reference organization = 13
+      [(.google.fhir.proto.valid_reference_type) = "Organization"];
+
+  // Organization that provides/performs the role (e.g. providing services or is
+  // a member of)
+  Reference participating_organization = 14
+      [(.google.fhir.proto.valid_reference_type) = "Organization"];
+
+  // Health insurance provider network in which the participatingOrganization
+  // provides the role's services (if defined) at the indicated locations (if
+  // defined)
+  repeated Reference network = 15
+      [(.google.fhir.proto.valid_reference_type) = "Organization"];
+
+  // Definition of the role the participatingOrganization plays
+  repeated CodeableConcept code = 16;
+
+  // Specific specialty of the participatingOrganization in the context of the
+  // role
+  repeated CodeableConcept specialty = 17;
+
+  // The location(s) at which the role occurs
+  repeated Reference location = 18
+      [(.google.fhir.proto.valid_reference_type) = "Location"];
+
+  // Healthcare services provided through the role
+  repeated Reference healthcare_service = 19
+      [(.google.fhir.proto.valid_reference_type) = "HealthcareService"];
+
+  // Contact details at the participatingOrganization relevant to this
+  // Affiliation
+  repeated ContactPoint telecom = 20;
+
+  // Technical endpoints providing access to services operated for this role
+  repeated Reference endpoint = 21
+      [(.google.fhir.proto.valid_reference_type) = "Endpoint"];
+}

@@ -1,0 +1,457 @@
+//    Copyright 2019 Google Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        https://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+syntax = "proto3";
+
+package google.fhir.r4.core;
+
+import "google/protobuf/any.proto";
+import "google/fhir/core/proto/annotations.proto";
+import "google/fhir/r4/proto/core/codes.proto";
+import "google/fhir/r4/proto/core/datatypes.proto";
+
+option java_multiple_files = true;
+option java_package = "com.google.fhir.r4.core";
+option (.google.fhir.proto.fhir_version) = R4;
+
+// Auto-generated from StructureDefinition for ValueSet.
+// A set of codes drawn from one or more code systems.
+// See http://hl7.org/fhir/StructureDefinition/ValueSet
+message ValueSet {
+  option (.google.fhir.proto.structure_definition_kind) = KIND_RESOURCE;
+  option (.google.fhir.proto.fhir_structure_definition_url) =
+      "http://hl7.org/fhir/StructureDefinition/ValueSet";
+  option (.google.fhir.proto.fhir_path_message_warning_constraint) =
+      "name.matches('[A-Z]([A-Za-z0-9_]){0,254}')";
+  option (.google.fhir.proto.search_parameter) = {
+    name: "code"
+    type: TOKEN
+    expression: "ValueSet.expansion.contains.code | ValueSet.compose.include.concept.code"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "context"
+    type: TOKEN
+    expression: "(CapabilityStatement.useContext.value as CodeableConcept) | (CodeSystem.useContext.value as CodeableConcept) | (CompartmentDefinition.useContext.value as CodeableConcept) | (ConceptMap.useContext.value as CodeableConcept) | (GraphDefinition.useContext.value as CodeableConcept) | (ImplementationGuide.useContext.value as CodeableConcept) | (MessageDefinition.useContext.value as CodeableConcept) | (NamingSystem.useContext.value as CodeableConcept) | (OperationDefinition.useContext.value as CodeableConcept) | (SearchParameter.useContext.value as CodeableConcept) | (StructureDefinition.useContext.value as CodeableConcept) | (StructureMap.useContext.value as CodeableConcept) | (TerminologyCapabilities.useContext.value as CodeableConcept) | (ValueSet.useContext.value as CodeableConcept)"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "context-quantity"
+    type: QUANTITY
+    expression: "(CapabilityStatement.useContext.value as Quantity) | (CapabilityStatement.useContext.value as Range) | (CodeSystem.useContext.value as Quantity) | (CodeSystem.useContext.value as Range) | (CompartmentDefinition.useContext.value as Quantity) | (CompartmentDefinition.useContext.value as Range) | (ConceptMap.useContext.value as Quantity) | (ConceptMap.useContext.value as Range) | (GraphDefinition.useContext.value as Quantity) | (GraphDefinition.useContext.value as Range) | (ImplementationGuide.useContext.value as Quantity) | (ImplementationGuide.useContext.value as Range) | (MessageDefinition.useContext.value as Quantity) | (MessageDefinition.useContext.value as Range) | (NamingSystem.useContext.value as Quantity) | (NamingSystem.useContext.value as Range) | (OperationDefinition.useContext.value as Quantity) | (OperationDefinition.useContext.value as Range) | (SearchParameter.useContext.value as Quantity) | (SearchParameter.useContext.value as Range) | (StructureDefinition.useContext.value as Quantity) | (StructureDefinition.useContext.value as Range) | (StructureMap.useContext.value as Quantity) | (StructureMap.useContext.value as Range) | (TerminologyCapabilities.useContext.value as Quantity) | (TerminologyCapabilities.useContext.value as Range) | (ValueSet.useContext.value as Quantity) | (ValueSet.useContext.value as Range)"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "context-type"
+    type: TOKEN
+    expression: "CapabilityStatement.useContext.code | CodeSystem.useContext.code | CompartmentDefinition.useContext.code | ConceptMap.useContext.code | GraphDefinition.useContext.code | ImplementationGuide.useContext.code | MessageDefinition.useContext.code | NamingSystem.useContext.code | OperationDefinition.useContext.code | SearchParameter.useContext.code | StructureDefinition.useContext.code | StructureMap.useContext.code | TerminologyCapabilities.useContext.code | ValueSet.useContext.code"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "context-type-quantity"
+    type: COMPOSITE
+    expression: "CapabilityStatement.useContext | CodeSystem.useContext | CompartmentDefinition.useContext | ConceptMap.useContext | GraphDefinition.useContext | ImplementationGuide.useContext | MessageDefinition.useContext | NamingSystem.useContext | OperationDefinition.useContext | SearchParameter.useContext | StructureDefinition.useContext | StructureMap.useContext | TerminologyCapabilities.useContext | ValueSet.useContext"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "context-type-value"
+    type: COMPOSITE
+    expression: "CapabilityStatement.useContext | CodeSystem.useContext | CompartmentDefinition.useContext | ConceptMap.useContext | GraphDefinition.useContext | ImplementationGuide.useContext | MessageDefinition.useContext | NamingSystem.useContext | OperationDefinition.useContext | SearchParameter.useContext | StructureDefinition.useContext | StructureMap.useContext | TerminologyCapabilities.useContext | ValueSet.useContext"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "date"
+    type: DATE
+    expression: "CapabilityStatement.date | CodeSystem.date | CompartmentDefinition.date | ConceptMap.date | GraphDefinition.date | ImplementationGuide.date | MessageDefinition.date | NamingSystem.date | OperationDefinition.date | SearchParameter.date | StructureDefinition.date | StructureMap.date | TerminologyCapabilities.date | ValueSet.date"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "description"
+    type: STRING
+    expression: "CapabilityStatement.description | CodeSystem.description | CompartmentDefinition.description | ConceptMap.description | GraphDefinition.description | ImplementationGuide.description | MessageDefinition.description | NamingSystem.description | OperationDefinition.description | SearchParameter.description | StructureDefinition.description | StructureMap.description | TerminologyCapabilities.description | ValueSet.description"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "expansion"
+    type: URI
+    expression: "ValueSet.expansion.identifier"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "identifier"
+    type: TOKEN
+    expression: "CodeSystem.identifier | ConceptMap.identifier | MessageDefinition.identifier | StructureDefinition.identifier | StructureMap.identifier | ValueSet.identifier"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "jurisdiction"
+    type: TOKEN
+    expression: "CapabilityStatement.jurisdiction | CodeSystem.jurisdiction | ConceptMap.jurisdiction | GraphDefinition.jurisdiction | ImplementationGuide.jurisdiction | MessageDefinition.jurisdiction | NamingSystem.jurisdiction | OperationDefinition.jurisdiction | SearchParameter.jurisdiction | StructureDefinition.jurisdiction | StructureMap.jurisdiction | TerminologyCapabilities.jurisdiction | ValueSet.jurisdiction"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "name"
+    type: STRING
+    expression: "CapabilityStatement.name | CodeSystem.name | CompartmentDefinition.name | ConceptMap.name | GraphDefinition.name | ImplementationGuide.name | MessageDefinition.name | NamingSystem.name | OperationDefinition.name | SearchParameter.name | StructureDefinition.name | StructureMap.name | TerminologyCapabilities.name | ValueSet.name"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "publisher"
+    type: STRING
+    expression: "CapabilityStatement.publisher | CodeSystem.publisher | CompartmentDefinition.publisher | ConceptMap.publisher | GraphDefinition.publisher | ImplementationGuide.publisher | MessageDefinition.publisher | NamingSystem.publisher | OperationDefinition.publisher | SearchParameter.publisher | StructureDefinition.publisher | StructureMap.publisher | TerminologyCapabilities.publisher | ValueSet.publisher"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "reference"
+    type: URI
+    expression: "ValueSet.compose.include.system"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "status"
+    type: TOKEN
+    expression: "CapabilityStatement.status | CodeSystem.status | CompartmentDefinition.status | ConceptMap.status | GraphDefinition.status | ImplementationGuide.status | MessageDefinition.status | NamingSystem.status | OperationDefinition.status | SearchParameter.status | StructureDefinition.status | StructureMap.status | TerminologyCapabilities.status | ValueSet.status"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "title"
+    type: STRING
+    expression: "CapabilityStatement.title | CodeSystem.title | ConceptMap.title | ImplementationGuide.title | MessageDefinition.title | OperationDefinition.title | StructureDefinition.title | StructureMap.title | TerminologyCapabilities.title | ValueSet.title"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "url"
+    type: URI
+    expression: "CapabilityStatement.url | CodeSystem.url | CompartmentDefinition.url | ConceptMap.url | GraphDefinition.url | ImplementationGuide.url | MessageDefinition.url | OperationDefinition.url | SearchParameter.url | StructureDefinition.url | StructureMap.url | TerminologyCapabilities.url | ValueSet.url"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "version"
+    type: TOKEN
+    expression: "CapabilityStatement.version | CodeSystem.version | CompartmentDefinition.version | ConceptMap.version | GraphDefinition.version | ImplementationGuide.version | MessageDefinition.version | OperationDefinition.version | SearchParameter.version | StructureDefinition.version | StructureMap.version | TerminologyCapabilities.version | ValueSet.version"
+  };
+
+  // Logical id of this artifact
+  Id id = 1;
+
+  // Metadata about the resource
+  Meta meta = 2;
+
+  // A set of rules under which this content was created
+  Uri implicit_rules = 3;
+
+  // Language of the resource content
+  Code language = 4;
+
+  // Text summary of the resource, for human interpretation
+  Narrative text = 5;
+
+  // Contained, inline Resources
+  repeated protobuf.Any contained = 6;
+
+  // Field 7 reserved for strongly-typed ContainedResource for id:
+  // ValueSet.contained
+  reserved 7;
+
+  // Additional content defined by implementations
+  repeated Extension extension = 8;
+
+  // Extensions that cannot be ignored
+  repeated Extension modifier_extension = 9;
+
+  // Canonical identifier for this value set, represented as a URI (globally
+  // unique)
+  Uri url = 10;
+
+  // Additional identifier for the value set (business identifier)
+  repeated Identifier identifier = 11;
+
+  // Business version of the value set
+  String version = 12;
+
+  // Name for this value set (computer friendly)
+  String name = 13;
+
+  // Name for this value set (human friendly)
+  String title = 14;
+
+  // draft | active | retired | unknown
+  message StatusCode {
+    option (.google.fhir.proto.structure_definition_kind) = KIND_PRIMITIVE_TYPE;
+    option (.google.fhir.proto.fhir_valueset_url) =
+        "http://hl7.org/fhir/ValueSet/publication-status";
+    option (.google.fhir.proto.fhir_profile_base) =
+        "http://hl7.org/fhir/StructureDefinition/code";
+
+    PublicationStatusCode.Value value = 1;
+
+    String id = 2;
+
+    repeated Extension extension = 3;
+  }
+  StatusCode status = 15
+      [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+  // For testing purposes, not real usage
+  Boolean experimental = 16;
+
+  // Date last changed
+  DateTime date = 17;
+
+  // Name of the publisher (organization or individual)
+  String publisher = 18;
+
+  // Contact details for the publisher
+  repeated ContactDetail contact = 19;
+
+  // Natural language description of the value set
+  Markdown description = 20;
+
+  // The context that the content is intended to support
+  repeated UsageContext use_context = 21;
+
+  // Intended jurisdiction for value set (if applicable)
+  repeated CodeableConcept jurisdiction = 22;
+
+  // Indicates whether or not any change to the content logical definition may
+  // occur
+  Boolean immutable = 23;
+
+  // Why this value set is defined
+  Markdown purpose = 24;
+
+  // Use and/or publishing restrictions
+  Markdown copyright = 25;
+
+  // Content logical definition of the value set (CLD)
+  message Compose {
+    // Unique id for inter-element referencing
+    String id = 1;
+
+    // Additional content defined by implementations
+    repeated Extension extension = 2;
+
+    // Extensions that cannot be ignored even if unrecognized
+    repeated Extension modifier_extension = 3;
+
+    // Fixed date for references with no specified version (transitive)
+    Date locked_date = 4;
+
+    // Whether inactive codes are in the value set
+    Boolean inactive = 5;
+
+    // Include one or more codes from a code system or other value set(s)
+    message ConceptSet {
+      option (.google.fhir.proto.fhir_path_message_constraint) =
+          "valueSet.exists() or system.exists()";
+      option (.google.fhir.proto.fhir_path_message_constraint) =
+          "(concept.exists() or filter.exists()) implies system.exists()";
+      option (.google.fhir.proto.fhir_path_message_constraint) =
+          "concept.empty() or filter.empty()";
+
+      // Unique id for inter-element referencing
+      String id = 1;
+
+      // Additional content defined by implementations
+      repeated Extension extension = 2;
+
+      // Extensions that cannot be ignored even if unrecognized
+      repeated Extension modifier_extension = 3;
+
+      // The system the codes come from
+      Uri system = 4;
+
+      // Specific version of the code system referred to
+      String version = 5;
+
+      // A concept defined in the system
+      message ConceptReference {
+        // Unique id for inter-element referencing
+        String id = 1;
+
+        // Additional content defined by implementations
+        repeated Extension extension = 2;
+
+        // Extensions that cannot be ignored even if unrecognized
+        repeated Extension modifier_extension = 3;
+
+        // Code or expression from system
+        Code code = 4
+            [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+        // Text to display for this code for this value set in this valueset
+        String display = 5;
+
+        // Additional representations for this concept
+        message Designation {
+          // Unique id for inter-element referencing
+          String id = 1;
+
+          // Additional content defined by implementations
+          repeated Extension extension = 2;
+
+          // Extensions that cannot be ignored even if unrecognized
+          repeated Extension modifier_extension = 3;
+
+          // Human language of the designation
+          Code language = 4;
+
+          // Types of uses of designations
+          Coding use = 5;
+
+          // The text value for this designation
+          String value = 6
+              [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+        }
+        repeated Designation designation = 6;
+      }
+      repeated ConceptReference concept = 6;
+
+      // Select codes/concepts by their properties (including relationships)
+      message Filter {
+        // Unique id for inter-element referencing
+        String id = 1;
+
+        // Additional content defined by implementations
+        repeated Extension extension = 2;
+
+        // Extensions that cannot be ignored even if unrecognized
+        repeated Extension modifier_extension = 3;
+
+        // A property/filter defined by the code system
+        Code property = 4
+            [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+        // = | is-a | descendent-of | is-not-a | regex | in | not-in |
+        // generalizes | exists
+        message OpCode {
+          option (.google.fhir.proto.structure_definition_kind) =
+              KIND_PRIMITIVE_TYPE;
+          option (.google.fhir.proto.fhir_valueset_url) =
+              "http://hl7.org/fhir/ValueSet/filter-operator";
+          option (.google.fhir.proto.fhir_profile_base) =
+              "http://hl7.org/fhir/StructureDefinition/code";
+
+          FilterOperatorCode.Value value = 1;
+
+          String id = 2;
+
+          repeated Extension extension = 3;
+        }
+        OpCode op = 5
+            [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+        // Code from the system, or regex criteria, or boolean value for exists
+        String value = 6
+            [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+      }
+      repeated Filter filter = 7;
+
+      // Select the contents included in this value set
+      repeated Canonical value_set = 8;
+    }
+    repeated ConceptSet include = 6
+        [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+    // Explicitly exclude codes from a code system or other value sets
+    repeated ConceptSet exclude = 7;
+  }
+  Compose compose = 26;
+
+  // Used when the value set is "expanded"
+  message Expansion {
+    // Unique id for inter-element referencing
+    String id = 1;
+
+    // Additional content defined by implementations
+    repeated Extension extension = 2;
+
+    // Extensions that cannot be ignored even if unrecognized
+    repeated Extension modifier_extension = 3;
+
+    // Identifies the value set expansion (business identifier)
+    Uri identifier = 4;
+
+    // Time ValueSet expansion happened
+    DateTime timestamp = 5
+        [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+    // Total number of codes in the expansion
+    Integer total = 6;
+
+    // Offset at which this resource starts
+    Integer offset = 7;
+
+    // Parameter that controlled the expansion process
+    message Parameter {
+      // Unique id for inter-element referencing
+      String id = 1;
+
+      // Additional content defined by implementations
+      repeated Extension extension = 2;
+
+      // Extensions that cannot be ignored even if unrecognized
+      repeated Extension modifier_extension = 3;
+
+      // Name as assigned by the client or server
+      String name = 4
+          [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+      // Value of the named parameter
+      message ValueX {
+        option (.google.fhir.proto.is_choice_type) = true;
+
+        oneof choice {
+          String string_value = 1 [json_name = "string"];
+          Boolean boolean = 2;
+          Integer integer = 3;
+          Decimal decimal = 4;
+          Uri uri = 5;
+          Code code = 6;
+          DateTime date_time = 7;
+        }
+      }
+      ValueX value = 5;
+    }
+    repeated Parameter parameter = 8;
+
+    // Codes in the value set
+    message Contains {
+      option (.google.fhir.proto.fhir_path_message_constraint) =
+          "code.exists() or display.exists()";
+      option (.google.fhir.proto.fhir_path_message_constraint) =
+          "code.exists() or abstract = true";
+      option (.google.fhir.proto.fhir_path_message_constraint) =
+          "code.empty() or system.exists()";
+
+      // Unique id for inter-element referencing
+      String id = 1;
+
+      // Additional content defined by implementations
+      repeated Extension extension = 2;
+
+      // Extensions that cannot be ignored even if unrecognized
+      repeated Extension modifier_extension = 3;
+
+      // System value for the code
+      Uri system = 4;
+
+      // If user cannot select this entry
+      Boolean abstract = 5;
+
+      // If concept is inactive in the code system
+      Boolean inactive = 6;
+
+      // Version in which this code/display is defined
+      String version = 7;
+
+      // Code - if blank, this is not a selectable code
+      Code code = 8;
+
+      // User display for the concept
+      String display = 9;
+
+      // Additional representations for this item
+      repeated Compose.ConceptSet.ConceptReference.Designation designation = 10;
+
+      // Codes contained under this entry
+      repeated Contains contains = 11;
+    }
+    repeated Contains contains = 9;
+  }
+  Expansion expansion = 27;
+}

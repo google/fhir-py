@@ -1,0 +1,306 @@
+//    Copyright 2019 Google Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        https://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+syntax = "proto3";
+
+package google.fhir.r4.core;
+
+import "google/protobuf/any.proto";
+import "google/fhir/core/proto/annotations.proto";
+import "google/fhir/r4/proto/core/codes.proto";
+import "google/fhir/r4/proto/core/datatypes.proto";
+
+option java_multiple_files = true;
+option java_package = "com.google.fhir.r4.core";
+option (.google.fhir.proto.fhir_version) = R4;
+
+// Auto-generated from StructureDefinition for AllergyIntolerance.
+// Allergy or Intolerance (generally: Risk of adverse reaction to a substance).
+// See http://hl7.org/fhir/StructureDefinition/AllergyIntolerance
+message AllergyIntolerance {
+  option (.google.fhir.proto.structure_definition_kind) = KIND_RESOURCE;
+  option (.google.fhir.proto.fhir_structure_definition_url) =
+      "http://hl7.org/fhir/StructureDefinition/AllergyIntolerance";
+  option (.google.fhir.proto.fhir_path_message_constraint) =
+      "verificationStatus.coding.where(system = 'http://terminology.hl7.org/CodeSystem/allergyintolerance-verification' and code = 'entered-in-error').exists() or clinicalStatus.exists()";
+  option (.google.fhir.proto.fhir_path_message_constraint) =
+      "verificationStatus.coding.where(system = 'http://terminology.hl7.org/CodeSystem/allergyintolerance-verification' and code = 'entered-in-error').empty() or clinicalStatus.empty()";
+  option (.google.fhir.proto.search_parameter) = {
+    name: "asserter"
+    type: REFERENCE
+    expression: "AllergyIntolerance.asserter"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "category"
+    type: TOKEN
+    expression: "AllergyIntolerance.category"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "clinical-status"
+    type: TOKEN
+    expression: "AllergyIntolerance.clinicalStatus"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "code"
+    type: TOKEN
+    expression: "AllergyIntolerance.code | AllergyIntolerance.reaction.substance | Condition.code | (DeviceRequest.code as CodeableConcept) | DiagnosticReport.code | FamilyMemberHistory.condition.code | List.code | Medication.code | (MedicationAdministration.medication as CodeableConcept) | (MedicationDispense.medication as CodeableConcept) | (MedicationRequest.medication as CodeableConcept) | (MedicationStatement.medication as CodeableConcept) | Observation.code | Procedure.code | ServiceRequest.code"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "criticality"
+    type: TOKEN
+    expression: "AllergyIntolerance.criticality"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "date"
+    type: DATE
+    expression: "AllergyIntolerance.recordedDate | CarePlan.period | CareTeam.period | ClinicalImpression.date | Composition.date | Consent.dateTime | DiagnosticReport.effective | Encounter.period | EpisodeOfCare.period | FamilyMemberHistory.date | Flag.period | Immunization.occurrence | List.date | Observation.effective | Procedure.performed | (RiskAssessment.occurrence as dateTime) | SupplyRequest.authoredOn"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "identifier"
+    type: TOKEN
+    expression: "AllergyIntolerance.identifier | CarePlan.identifier | CareTeam.identifier | Composition.identifier | Condition.identifier | Consent.identifier | DetectedIssue.identifier | DeviceRequest.identifier | DiagnosticReport.identifier | DocumentManifest.masterIdentifier | DocumentManifest.identifier | DocumentReference.masterIdentifier | DocumentReference.identifier | Encounter.identifier | EpisodeOfCare.identifier | FamilyMemberHistory.identifier | Goal.identifier | ImagingStudy.identifier | Immunization.identifier | List.identifier | MedicationAdministration.identifier | MedicationDispense.identifier | MedicationRequest.identifier | MedicationStatement.identifier | NutritionOrder.identifier | Observation.identifier | Procedure.identifier | RiskAssessment.identifier | ServiceRequest.identifier | SupplyDelivery.identifier | SupplyRequest.identifier | VisionPrescription.identifier"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "last-date"
+    type: DATE
+    expression: "AllergyIntolerance.lastOccurrence"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "manifestation"
+    type: TOKEN
+    expression: "AllergyIntolerance.reaction.manifestation"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "onset"
+    type: DATE
+    expression: "AllergyIntolerance.reaction.onset"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "patient"
+    type: REFERENCE
+    expression: "AllergyIntolerance.patient | CarePlan.subject.where(resolve() is Patient) | CareTeam.subject.where(resolve() is Patient) | ClinicalImpression.subject.where(resolve() is Patient) | Composition.subject.where(resolve() is Patient) | Condition.subject.where(resolve() is Patient) | Consent.patient | DetectedIssue.patient | DeviceRequest.subject.where(resolve() is Patient) | DeviceUseStatement.subject | DiagnosticReport.subject.where(resolve() is Patient) | DocumentManifest.subject.where(resolve() is Patient) | DocumentReference.subject.where(resolve() is Patient) | Encounter.subject.where(resolve() is Patient) | EpisodeOfCare.patient | FamilyMemberHistory.patient | Flag.subject.where(resolve() is Patient) | Goal.subject.where(resolve() is Patient) | ImagingStudy.subject.where(resolve() is Patient) | Immunization.patient | List.subject.where(resolve() is Patient) | MedicationAdministration.subject.where(resolve() is Patient) | MedicationDispense.subject.where(resolve() is Patient) | MedicationRequest.subject.where(resolve() is Patient) | MedicationStatement.subject.where(resolve() is Patient) | NutritionOrder.patient | Observation.subject.where(resolve() is Patient) | Procedure.subject.where(resolve() is Patient) | RiskAssessment.subject.where(resolve() is Patient) | ServiceRequest.subject.where(resolve() is Patient) | SupplyDelivery.patient | VisionPrescription.patient"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "recorder"
+    type: REFERENCE
+    expression: "AllergyIntolerance.recorder"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "route"
+    type: TOKEN
+    expression: "AllergyIntolerance.reaction.exposureRoute"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "severity"
+    type: TOKEN
+    expression: "AllergyIntolerance.reaction.severity"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "type"
+    type: TOKEN
+    expression: "AllergyIntolerance.type | Composition.type | DocumentManifest.type | DocumentReference.type | Encounter.type | EpisodeOfCare.type"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "verification-status"
+    type: TOKEN
+    expression: "AllergyIntolerance.verificationStatus"
+  };
+
+  // Logical id of this artifact
+  Id id = 1;
+
+  // Metadata about the resource
+  Meta meta = 2;
+
+  // A set of rules under which this content was created
+  Uri implicit_rules = 3;
+
+  // Language of the resource content
+  Code language = 4;
+
+  // Text summary of the resource, for human interpretation
+  Narrative text = 5;
+
+  // Contained, inline Resources
+  repeated protobuf.Any contained = 6;
+
+  // Field 7 reserved for strongly-typed ContainedResource for id:
+  // AllergyIntolerance.contained
+  reserved 7;
+
+  // Additional content defined by implementations
+  repeated Extension extension = 8;
+
+  // Extensions that cannot be ignored
+  repeated Extension modifier_extension = 9;
+
+  // External ids for this item
+  repeated Identifier identifier = 10;
+
+  // active | inactive | resolved
+  CodeableConcept clinical_status = 11;
+
+  // unconfirmed | confirmed | refuted | entered-in-error
+  CodeableConcept verification_status = 12;
+
+  // allergy | intolerance - Underlying mechanism (if known)
+  message TypeCode {
+    option (.google.fhir.proto.structure_definition_kind) = KIND_PRIMITIVE_TYPE;
+    option (.google.fhir.proto.fhir_valueset_url) =
+        "http://hl7.org/fhir/ValueSet/allergy-intolerance-type";
+    option (.google.fhir.proto.fhir_profile_base) =
+        "http://hl7.org/fhir/StructureDefinition/code";
+
+    AllergyIntoleranceTypeCode.Value value = 1;
+
+    String id = 2;
+
+    repeated Extension extension = 3;
+  }
+  TypeCode type = 13;
+
+  // food | medication | environment | biologic
+  message CategoryCode {
+    option (.google.fhir.proto.structure_definition_kind) = KIND_PRIMITIVE_TYPE;
+    option (.google.fhir.proto.fhir_valueset_url) =
+        "http://hl7.org/fhir/ValueSet/allergy-intolerance-category";
+    option (.google.fhir.proto.fhir_profile_base) =
+        "http://hl7.org/fhir/StructureDefinition/code";
+
+    AllergyIntoleranceCategoryCode.Value value = 1;
+
+    String id = 2;
+
+    repeated Extension extension = 3;
+  }
+  repeated CategoryCode category = 14;
+
+  // low | high | unable-to-assess
+  message CriticalityCode {
+    option (.google.fhir.proto.structure_definition_kind) = KIND_PRIMITIVE_TYPE;
+    option (.google.fhir.proto.fhir_valueset_url) =
+        "http://hl7.org/fhir/ValueSet/allergy-intolerance-criticality";
+    option (.google.fhir.proto.fhir_profile_base) =
+        "http://hl7.org/fhir/StructureDefinition/code";
+
+    AllergyIntoleranceCriticalityCode.Value value = 1;
+
+    String id = 2;
+
+    repeated Extension extension = 3;
+  }
+  CriticalityCode criticality = 15;
+
+  // Code that identifies the allergy or intolerance
+  CodeableConcept code = 16;
+
+  // Who the sensitivity is for
+  Reference patient = 17 [
+    (.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR,
+    (.google.fhir.proto.valid_reference_type) = "Patient"
+  ];
+
+  // Encounter when the allergy or intolerance was asserted
+  Reference encounter = 18
+      [(.google.fhir.proto.valid_reference_type) = "Encounter"];
+
+  // When allergy or intolerance was identified
+  message OnsetX {
+    option (.google.fhir.proto.is_choice_type) = true;
+
+    oneof choice {
+      DateTime date_time = 1;
+      Age age = 2;
+      Period period = 3;
+      Range range = 4;
+      String string_value = 5 [json_name = "string"];
+    }
+  }
+  OnsetX onset = 19;
+
+  // Date first version of the resource instance was recorded
+  DateTime recorded_date = 20;
+
+  // Who recorded the sensitivity
+  Reference recorder = 21 [
+    (.google.fhir.proto.valid_reference_type) = "Practitioner",
+    (.google.fhir.proto.valid_reference_type) = "PractitionerRole",
+    (.google.fhir.proto.valid_reference_type) = "Patient",
+    (.google.fhir.proto.valid_reference_type) = "RelatedPerson"
+  ];
+
+  // Source of the information about the allergy
+  Reference asserter = 22 [
+    (.google.fhir.proto.valid_reference_type) = "Patient",
+    (.google.fhir.proto.valid_reference_type) = "RelatedPerson",
+    (.google.fhir.proto.valid_reference_type) = "Practitioner",
+    (.google.fhir.proto.valid_reference_type) = "PractitionerRole"
+  ];
+
+  // Date(/time) of last known occurrence of a reaction
+  DateTime last_occurrence = 23;
+
+  // Additional text not captured in other fields
+  repeated Annotation note = 24;
+
+  // Adverse Reaction Events linked to exposure to substance
+  message Reaction {
+    // Unique id for inter-element referencing
+    String id = 1;
+
+    // Additional content defined by implementations
+    repeated Extension extension = 2;
+
+    // Extensions that cannot be ignored even if unrecognized
+    repeated Extension modifier_extension = 3;
+
+    // Specific substance or pharmaceutical product considered to be responsible
+    // for event
+    CodeableConcept substance = 4;
+
+    // Clinical symptoms/signs associated with the Event
+    repeated CodeableConcept manifestation = 5
+        [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+    // Description of the event as a whole
+    String description = 6;
+
+    // Date(/time) when manifestations showed
+    DateTime onset = 7;
+
+    // mild | moderate | severe (of event as a whole)
+    message SeverityCode {
+      option (.google.fhir.proto.structure_definition_kind) =
+          KIND_PRIMITIVE_TYPE;
+      option (.google.fhir.proto.fhir_valueset_url) =
+          "http://hl7.org/fhir/ValueSet/reaction-event-severity";
+      option (.google.fhir.proto.fhir_profile_base) =
+          "http://hl7.org/fhir/StructureDefinition/code";
+
+      AllergyIntoleranceSeverityCode.Value value = 1;
+
+      String id = 2;
+
+      repeated Extension extension = 3;
+    }
+    SeverityCode severity = 8;
+
+    // How the subject was exposed to the substance
+    CodeableConcept exposure_route = 9;
+
+    // Text about event not captured in other fields
+    repeated Annotation note = 10;
+  }
+  repeated Reaction reaction = 25;
+}

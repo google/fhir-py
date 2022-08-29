@@ -1,0 +1,237 @@
+//    Copyright 2019 Google Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        https://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+syntax = "proto3";
+
+package google.fhir.r4.core;
+
+import "google/protobuf/any.proto";
+import "google/fhir/core/proto/annotations.proto";
+import "google/fhir/r4/proto/core/codes.proto";
+import "google/fhir/r4/proto/core/datatypes.proto";
+
+option java_multiple_files = true;
+option java_package = "com.google.fhir.r4.core";
+option (.google.fhir.proto.fhir_version) = R4;
+
+// Auto-generated from StructureDefinition for Goal.
+// Describes the intended objective(s) for a patient, group or organization.
+// See http://hl7.org/fhir/StructureDefinition/Goal
+message Goal {
+  option (.google.fhir.proto.structure_definition_kind) = KIND_RESOURCE;
+  option (.google.fhir.proto.fhir_structure_definition_url) =
+      "http://hl7.org/fhir/StructureDefinition/Goal";
+  option (.google.fhir.proto.search_parameter) = {
+    name: "achievement-status"
+    type: TOKEN
+    expression: "Goal.achievementStatus"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "category"
+    type: TOKEN
+    expression: "Goal.category"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "identifier"
+    type: TOKEN
+    expression: "AllergyIntolerance.identifier | CarePlan.identifier | CareTeam.identifier | Composition.identifier | Condition.identifier | Consent.identifier | DetectedIssue.identifier | DeviceRequest.identifier | DiagnosticReport.identifier | DocumentManifest.masterIdentifier | DocumentManifest.identifier | DocumentReference.masterIdentifier | DocumentReference.identifier | Encounter.identifier | EpisodeOfCare.identifier | FamilyMemberHistory.identifier | Goal.identifier | ImagingStudy.identifier | Immunization.identifier | List.identifier | MedicationAdministration.identifier | MedicationDispense.identifier | MedicationRequest.identifier | MedicationStatement.identifier | NutritionOrder.identifier | Observation.identifier | Procedure.identifier | RiskAssessment.identifier | ServiceRequest.identifier | SupplyDelivery.identifier | SupplyRequest.identifier | VisionPrescription.identifier"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "lifecycle-status"
+    type: TOKEN
+    expression: "Goal.lifecycleStatus"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "patient"
+    type: REFERENCE
+    expression: "AllergyIntolerance.patient | CarePlan.subject.where(resolve() is Patient) | CareTeam.subject.where(resolve() is Patient) | ClinicalImpression.subject.where(resolve() is Patient) | Composition.subject.where(resolve() is Patient) | Condition.subject.where(resolve() is Patient) | Consent.patient | DetectedIssue.patient | DeviceRequest.subject.where(resolve() is Patient) | DeviceUseStatement.subject | DiagnosticReport.subject.where(resolve() is Patient) | DocumentManifest.subject.where(resolve() is Patient) | DocumentReference.subject.where(resolve() is Patient) | Encounter.subject.where(resolve() is Patient) | EpisodeOfCare.patient | FamilyMemberHistory.patient | Flag.subject.where(resolve() is Patient) | Goal.subject.where(resolve() is Patient) | ImagingStudy.subject.where(resolve() is Patient) | Immunization.patient | List.subject.where(resolve() is Patient) | MedicationAdministration.subject.where(resolve() is Patient) | MedicationDispense.subject.where(resolve() is Patient) | MedicationRequest.subject.where(resolve() is Patient) | MedicationStatement.subject.where(resolve() is Patient) | NutritionOrder.patient | Observation.subject.where(resolve() is Patient) | Procedure.subject.where(resolve() is Patient) | RiskAssessment.subject.where(resolve() is Patient) | ServiceRequest.subject.where(resolve() is Patient) | SupplyDelivery.patient | VisionPrescription.patient"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "start-date"
+    type: DATE
+    expression: "(Goal.start as date)"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "subject"
+    type: REFERENCE
+    expression: "Goal.subject"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "target-date"
+    type: DATE
+    expression: "(Goal.target.due as date)"
+  };
+
+  // Logical id of this artifact
+  Id id = 1;
+
+  // Metadata about the resource
+  Meta meta = 2;
+
+  // A set of rules under which this content was created
+  Uri implicit_rules = 3;
+
+  // Language of the resource content
+  Code language = 4;
+
+  // Text summary of the resource, for human interpretation
+  Narrative text = 5;
+
+  // Contained, inline Resources
+  repeated protobuf.Any contained = 6;
+
+  // Field 7 reserved for strongly-typed ContainedResource for id:
+  // Goal.contained
+  reserved 7;
+
+  // Additional content defined by implementations
+  repeated Extension extension = 8;
+
+  // Extensions that cannot be ignored
+  repeated Extension modifier_extension = 9;
+
+  // External Ids for this goal
+  repeated Identifier identifier = 10;
+
+  // proposed | planned | accepted | active | on-hold | completed | cancelled |
+  // entered-in-error | rejected
+  message LifecycleStatusCode {
+    option (.google.fhir.proto.structure_definition_kind) = KIND_PRIMITIVE_TYPE;
+    option (.google.fhir.proto.fhir_valueset_url) =
+        "http://hl7.org/fhir/ValueSet/goal-status";
+    option (.google.fhir.proto.fhir_profile_base) =
+        "http://hl7.org/fhir/StructureDefinition/code";
+
+    GoalLifecycleStatusCode.Value value = 1;
+
+    String id = 2;
+
+    repeated Extension extension = 3;
+  }
+  LifecycleStatusCode lifecycle_status = 11
+      [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+  // in-progress | improving | worsening | no-change | achieved | sustaining |
+  // not-achieved | no-progress | not-attainable
+  CodeableConcept achievement_status = 12;
+
+  // E.g. Treatment, dietary, behavioral, etc.
+  repeated CodeableConcept category = 13;
+
+  // high-priority | medium-priority | low-priority
+  CodeableConcept priority = 14;
+
+  // Code or text describing goal
+  CodeableConcept description = 15
+      [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+  // Who this goal is intended for
+  Reference subject = 16 [
+    (.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR,
+    (.google.fhir.proto.valid_reference_type) = "Patient",
+    (.google.fhir.proto.valid_reference_type) = "Group",
+    (.google.fhir.proto.valid_reference_type) = "Organization"
+  ];
+
+  // When goal pursuit begins
+  message StartX {
+    option (.google.fhir.proto.is_choice_type) = true;
+
+    oneof choice {
+      Date date = 1;
+      CodeableConcept codeable_concept = 2;
+    }
+  }
+  StartX start = 17;
+
+  // Target outcome for the goal
+  message Target {
+    option (.google.fhir.proto.fhir_path_message_constraint) =
+        "(detail.exists() and measure.exists()) or detail.exists().not()";
+
+    // Unique id for inter-element referencing
+    String id = 1;
+
+    // Additional content defined by implementations
+    repeated Extension extension = 2;
+
+    // Extensions that cannot be ignored even if unrecognized
+    repeated Extension modifier_extension = 3;
+
+    // The parameter whose value is being tracked
+    CodeableConcept measure = 4;
+
+    // The target value to be achieved
+    message DetailX {
+      option (.google.fhir.proto.is_choice_type) = true;
+
+      oneof choice {
+        Quantity quantity = 1;
+        Range range = 2;
+        CodeableConcept codeable_concept = 3;
+        String string_value = 4 [json_name = "string"];
+        Boolean boolean = 5;
+        Integer integer = 6;
+        Ratio ratio = 7;
+      }
+    }
+    DetailX detail = 5;
+
+    // Reach goal on or before
+    message DueX {
+      option (.google.fhir.proto.is_choice_type) = true;
+
+      oneof choice {
+        Date date = 1;
+        Duration duration = 2;
+      }
+    }
+    DueX due = 6;
+  }
+  repeated Target target = 18;
+
+  // When goal status took effect
+  Date status_date = 19;
+
+  // Reason for current status
+  String status_reason = 20;
+
+  // Who's responsible for creating Goal?
+  Reference expressed_by = 21 [
+    (.google.fhir.proto.valid_reference_type) = "Patient",
+    (.google.fhir.proto.valid_reference_type) = "Practitioner",
+    (.google.fhir.proto.valid_reference_type) = "PractitionerRole",
+    (.google.fhir.proto.valid_reference_type) = "RelatedPerson"
+  ];
+
+  // Issues addressed by this goal
+  repeated Reference addresses = 22 [
+    (.google.fhir.proto.valid_reference_type) = "Condition",
+    (.google.fhir.proto.valid_reference_type) = "Observation",
+    (.google.fhir.proto.valid_reference_type) = "MedicationStatement",
+    (.google.fhir.proto.valid_reference_type) = "NutritionOrder",
+    (.google.fhir.proto.valid_reference_type) = "ServiceRequest",
+    (.google.fhir.proto.valid_reference_type) = "RiskAssessment"
+  ];
+
+  // Comments about the goal
+  repeated Annotation note = 23;
+
+  // What result was achieved regarding the goal?
+  repeated CodeableConcept outcome_code = 24;
+
+  // Observation that resulted from goal
+  repeated Reference outcome_reference = 25
+      [(.google.fhir.proto.valid_reference_type) = "Observation"];
+}

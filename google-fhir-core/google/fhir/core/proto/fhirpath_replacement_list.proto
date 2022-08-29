@@ -1,0 +1,40 @@
+//    Copyright 2022 Google Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        https://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+syntax = "proto3";
+
+package google.fhir.proto;
+
+// Defines a list of fhir path expressions to be replaced.
+message FHIRPathReplacementList {
+  repeated Replacement replacement = 1;
+}
+
+// Defines all the information needed to replace a FHIR Path expression during
+// FHIRPath to SQL encoding.
+message Replacement {
+  // The full path from the parent resource to the field containing the
+  // expression to be replaced.
+  // E.g., if Patient has a subfield meta and meta has a field id, this could be
+  // `Patient.meta.id`.
+  // If not specified, this will apply to all expressions matching
+  // `expression_to_replace`, regardless of element.
+  string element_path = 1;
+  // The expression to be replaced.
+  string expression_to_replace = 2;
+  // The expression to be replaced with.
+  // TODO: Look into adding a special token (like `$`) that
+  // will be replaced with the name of the current resource.
+  string replacement_expression = 3;
+}

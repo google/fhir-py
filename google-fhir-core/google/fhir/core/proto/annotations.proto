@@ -1,0 +1,210 @@
+//    Copyright 2018 Google Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        https://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+// This file defines extensions to FieldOptions and MessageOptions to enable
+// adding FHIR-specific metadata to the proto implementation of the FHIR spec.
+
+syntax = "proto3";
+
+package google.fhir.proto;
+
+import "google/protobuf/descriptor.proto";
+
+option java_outer_classname = "Annotations";
+option java_package = "com.google.fhir.proto";
+
+enum FhirVersion {
+  FHIR_VERSION_UNKNOWN = 0;
+  DSTU2 = 1;
+  STU3 = 2;
+  R4 = 4;
+  R5 = 5;
+}
+
+// TODO: Unify with StructureDefinitionKindCode
+enum StructureDefinitionKindValue {
+  KIND_UNKNOWN = 0;
+  KIND_PRIMITIVE_TYPE = 1;
+  KIND_COMPLEX_TYPE = 2;
+  KIND_RESOURCE = 3;
+  KIND_LOGICAL = 4;
+}
+
+// To annotate cardinality constraints.
+enum Requirement {
+  NOT_REQUIRED = 0;
+  REQUIRED_BY_FHIR = 1;
+}
+
+enum SearchParameterType {
+  INVALID_SEARCH_PARAMETER_TYPE = 0;
+  NUMBER = 1;
+  DATE = 2;
+  STRING = 3;
+  TOKEN = 4;
+  REFERENCE = 5;
+  COMPOSITE = 6;
+  QUANTITY = 7;
+  URI = 8;
+  SPECIAL = 9;
+}
+
+message SearchParameter {
+  string name = 1;
+  SearchParameterType type = 2;
+  string expression = 3;
+}
+
+extend google.protobuf.MessageOptions {
+  // If this message is a Code constrained to a specific valueset, this is the
+  // valueset identifier.
+  string fhir_valueset_url = 180887441;
+
+  // If this message is a Reference, the reference is constrained to these
+  // resource types.
+  repeated string fhir_reference_type = 183546385;
+
+  // What type of fhir structure does this message represent?
+  StructureDefinitionKindValue structure_definition_kind = 182131192;
+
+  // For primitive types, values must match this regex if present.
+  string value_regex = 204543906;
+
+  // Url for the structure definition this message was built from.
+  string fhir_structure_definition_url = 207562726;
+
+  // Url for the structure definition this analytics message was built from.
+  string analytic_proto_for = 255621908;
+
+  // A list of structure definitions of elements that this element is a
+  // profile of.
+  // In the case of a profile of a profile, this will have the Structure
+  // definition of all elements in this profile's inheritance chain.
+  repeated string fhir_profile_base = 206336851;
+
+  // This message refers to an abstract type in FHIR
+  bool is_abstract_type = 228208334;
+
+  // Is this message a wrapper around a choice type?
+  bool is_choice_type = 228595764;
+
+  string fhir_fixed_system = 255621907;
+
+  // FHIRPath-based constraints that apply to the message in question.
+  // These constraints are propagated from the constraint.expression
+  // field on the FHIR ElementDefinition and may be used for data validation.
+  repeated string fhir_path_message_constraint = 276863075;
+  repeated string fhir_path_message_warning_constraint = 378630899;
+
+  // Used to differentiate complex vs simple extensions in the case where it is
+  // ambiguous.  Specifically, any extension with only a single fhir datatype
+  // field will be assumed to be a simple extension UNLESS this annotation is
+  // present.
+  // Note that this option is NOT set on messages where it can be determined
+  // they are complex extensions via inspecting the structure alone (e.g., an
+  // extension with more than one data field).
+  bool is_complex_extension = 339293157;
+
+  // DEPRECATED: use fhir_profile_base to identify extension, and
+  // fhir_structure_definition_url to get the extension url.
+  string fhir_extension_url = 177048773 [deprecated = true];
+
+  // A list of search parameters defined on the Resource.
+  repeated SearchParameter search_parameter = 325037910;
+}
+
+extend google.protobuf.EnumOptions {
+  // If this message CodeSystem enum, this is the url for the CodeSystem
+  string fhir_code_system_url = 268060945;
+
+  // If this message ValueSet enum, this is the url for the CodeSystem
+  string enum_valueset_url = 276877913;
+}
+
+extend google.protobuf.EnumValueOptions {
+  // If we had to rename this code to make a valid enum identifier, what was
+  // the original name?
+  string fhir_original_code = 181000551;
+
+  // If the code system cannot be determined by the enum it is a part of,
+  // (e.g., a valueset with multiple codesystems), this lists the source system.
+  string source_code_system = 275176953;
+
+  // Flag indicating that the code value has been deprecated.
+  bool deprecated_code = 371253959;
+}
+
+extend google.protobuf.FieldOptions {
+  // Is this field required?
+  Requirement validation_requirement = 162282766;
+
+  // If this field has slices on it, this indicates the subfield to slice it by
+  // (slicing.discriminator.path in the structure definition).
+  string fhir_slice_by = 211855060;
+
+  // This field is a slice of another field with this name.
+  string fhir_slice_of = 211842556;
+
+  // If this field is a slice, this is the value of the field indicated by the
+  // fhir_slice_by_field on the main field that should be placed in this slice.
+  string fhir_slice_value = 211855323;
+
+  // Indicates the url for an extension slice.
+  // This is a special case of the fhir_slice_value annotation that implies:
+  // * fhir_slice_by = "url"  on the extension field
+  // * fhir_slice_of = "extension" on this field
+  // This has the additional behavior of inlining simple extensions (i.e.,
+  // extensions with a value, rather than sub-extensions) as the value
+  // itself.
+  string fhir_inlined_extension_url = 206340037;
+
+  // Indicates the system for a coding slice within a codeable concept.
+  // This is a special case of the fhir_slice_value annotation that implies:
+  // * fhir_slice_by = "code"  on the coding field
+  // * fhir_slice_of = "coding" on this field
+  // This has the additional behavior of inlining the code directly, instead
+  // of a coding with fixed system.
+  string fhir_inlined_coding_system = 211854975;
+
+  // Indicates the code for a coding slice within a codeable concept.
+  // This should only be used on fields that have fhir_inlined_coding_system
+  // set.  In addition to the implications of fhir_inlined_coding_system,
+  // this also sets a fixed code.
+  string fhir_inlined_coding_code = 212122564;
+
+  // FHIRPath-based constraints that apply to the field in question.
+  // These constraints are propagated from the constraint.expression
+  // field on the FHIR ElementDefinition and may be used for data validation.
+  repeated string fhir_path_constraint = 244450286;
+  repeated string fhir_path_warning_constraint = 378479518;
+
+  // Indicates which resource types can be valid references.
+  repeated string valid_reference_type = 218884094;
+
+  // Indicates the base FHIR resource type a ReferenceId field points to.
+  string referenced_fhir_type = 239446062;
+}
+
+extend google.protobuf.OneofOptions {
+  // Whether or not this oneof is optional
+  // If absent, oneofs are assumed to be REQUIRED if their containing message is
+  // set. The most common case of oneofs is choice types, where the requirements
+  // should be applied to the containing message.
+  bool fhir_oneof_is_optional = 214472422;
+}
+
+extend google.protobuf.FileOptions {
+  // What version of FHIR the protos in this file use (e.g., STU3, R4)
+  proto.FhirVersion fhir_version = 248874083;
+}

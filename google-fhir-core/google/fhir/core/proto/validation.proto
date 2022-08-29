@@ -1,0 +1,116 @@
+//    Copyright 2021 Google Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        https://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+syntax = "proto3";
+
+package google.fhir.proto.validation;
+
+option java_package = "com.google.fhir.proto.validation";
+option java_multiple_files = true;
+
+// This file represents validation protos that are independent of FHIR version
+// or programming languages
+
+// Enum representing the severity of a FHIRPath expression.
+// This is a FHIR-version independent representation of
+// http://hl7.org/fhir/constraint-severity
+enum ValidationSeverity {
+  SEVERITY_UNINITIALIZED = 0;
+  SEVERITY_ERROR = 1;
+  SEVERITY_WARNING = 2;
+}
+
+// Enum representing the type of a validation
+enum ValidationType {
+  VALIDATION_TYPE_UNINITIALIZED = 0;
+
+  // A validation originating from a FHIRPath Constraint
+  // See: hl7.org/fhir/conformance-rules.html#constraints
+  VALIDATION_TYPE_FHIR_PATH_CONSTRAINT = 1;
+
+  // A validation originating from a Cardinality requirement
+  // See: hl7.org/fhir/conformance-rules.html#cardinality
+  VALIDATION_TYPE_CARDINALITY = 2;
+
+  // A validation originating from violating requirements of a Choice type,
+  // i.e., multiple values within a choice type set.
+  // See: hl7.org/fhir/formats.html#choice
+  VALIDATION_TYPE_CHOICE_TYPE = 5;
+
+  // A validation originating from violating the regex requirements on primitive
+  // types.
+  // See: hl7.org/fhir/datatypes.html#primitive
+  VALIDATION_TYPE_PRIMITIVE_REGEX = 4;
+
+  // A validation originating from a ValueSet binding.
+  // See: hl7.org/fhir/terminologies.html#binding
+  VALIDATION_TYPE_VALUE_SET_BINDING = 6;
+}
+
+// A representation of a Validation requirement defined by a FHIR Profile,
+// expressed as a SQL expression over Analytic FHIR.
+message SqlRequirement {
+  // A name to use for the resulting column, that reflects the path name to the
+  // constrained resource or datatype, suffixed with an underscore-separated
+  // constraint key.
+  string column_name = 1;
+
+  // The constraint in Standard SQL.
+  string sql_expression = 2;
+
+  // The severity of the constraint.
+  ValidationSeverity severity = 3;
+
+  // The type of validation that this requirement represents (e.g.
+  // `VALIDATION_TYPE_CARDINALITY` for missing required field, or
+  // `VALIDATION_TYPE_FHIR_PATH_CONSTRAINT` for FHIRPath Constraint).
+  ValidationType type = 4;
+
+  // The FHIRPath to the context element (dot-delimited camelCase) for the
+  // fhir_path_expression. The fhir_path_expression is evaluated relative to the
+  // element_path.
+  // For example, a proto like:
+  // element_path: Person.name
+  // fhir_path_expression: first.exists() or last.exists()
+  // means that if Person.name is present, then the expression first.exists()
+  // or last.exists() will be evaluated against Person.name.
+  string element_path = 5;
+
+  // A human-readable description of the requirement.
+  string description = 6;
+
+  // If type is `VALIDATION_TYPE_FHIR_PATH_CONSTRAINT`:
+  //   Then this field is the FHIR key for the constraint.
+  //   Not guaranteed to be unique beyond the current element.
+  //   See: hl7.org/fhir/elementdefinition-definitions.html#ElementDefinition.constraint.key
+  // Otherwise:
+  //  These fields are synthetic and represent unique identifiers.
+  string fhir_path_key = 7;
+
+  // This field is the expression that was used to generate this SqlRequirement.
+  // If type is `VALIDATION_TYPE_FHIR_PATH_CONSTRAINT`:
+  //   The expression is the FhirPath expression from the FHIR Profile.
+  //   See: hl7.org/fhir/elementdefinition-definitions.html#ElementDefinition.constraint.expression
+  // Otherwise:
+  //   The expression is a synthetic FhirPath expression generated in order to
+  //  evaluate the constraint. For example, a cardinality constraint for min
+  //  size of 1 could be rendered as the synthetic expression
+  //  `field.exists()`. These are included here for debugging purposes.
+  string fhir_path_expression = 8;
+
+  // The field names referenced by the above fhir_path_expresion. For example,
+  // an expression like 'a.b.where(c > d.e)' references fields
+  // ['a.b', 'a.b.c', 'a.b.d.e']
+  repeated string fields_referenced_by_expression = 9;
+}

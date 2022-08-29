@@ -1,0 +1,273 @@
+//    Copyright 2019 Google Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        https://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+syntax = "proto3";
+
+package google.fhir.r4.core;
+
+import "google/protobuf/any.proto";
+import "google/fhir/core/proto/annotations.proto";
+import "google/fhir/r4/proto/core/datatypes.proto";
+import "google/fhir/r4/proto/core/valuesets.proto";
+
+option java_multiple_files = true;
+option java_package = "com.google.fhir.r4.core";
+option (.google.fhir.proto.fhir_version) = R4;
+
+// Auto-generated from StructureDefinition for ClinicalImpression.
+// A clinical assessment performed when planning treatments and management
+// strategies for a patient. See
+// http://hl7.org/fhir/StructureDefinition/ClinicalImpression
+message ClinicalImpression {
+  option (.google.fhir.proto.structure_definition_kind) = KIND_RESOURCE;
+  option (.google.fhir.proto.fhir_structure_definition_url) =
+      "http://hl7.org/fhir/StructureDefinition/ClinicalImpression";
+  option (.google.fhir.proto.search_parameter) = {
+    name: "assessor"
+    type: REFERENCE
+    expression: "ClinicalImpression.assessor"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "date"
+    type: DATE
+    expression: "AllergyIntolerance.recordedDate | CarePlan.period | CareTeam.period | ClinicalImpression.date | Composition.date | Consent.dateTime | DiagnosticReport.effective | Encounter.period | EpisodeOfCare.period | FamilyMemberHistory.date | Flag.period | Immunization.occurrence | List.date | Observation.effective | Procedure.performed | (RiskAssessment.occurrence as dateTime) | SupplyRequest.authoredOn"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "encounter"
+    type: REFERENCE
+    expression: "ClinicalImpression.encounter"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "finding-code"
+    type: TOKEN
+    expression: "ClinicalImpression.finding.itemCodeableConcept"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "finding-ref"
+    type: REFERENCE
+    expression: "ClinicalImpression.finding.itemReference"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "identifier"
+    type: TOKEN
+    expression: "ClinicalImpression.identifier"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "investigation"
+    type: REFERENCE
+    expression: "ClinicalImpression.investigation.item"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "patient"
+    type: REFERENCE
+    expression: "AllergyIntolerance.patient | CarePlan.subject.where(resolve() is Patient) | CareTeam.subject.where(resolve() is Patient) | ClinicalImpression.subject.where(resolve() is Patient) | Composition.subject.where(resolve() is Patient) | Condition.subject.where(resolve() is Patient) | Consent.patient | DetectedIssue.patient | DeviceRequest.subject.where(resolve() is Patient) | DeviceUseStatement.subject | DiagnosticReport.subject.where(resolve() is Patient) | DocumentManifest.subject.where(resolve() is Patient) | DocumentReference.subject.where(resolve() is Patient) | Encounter.subject.where(resolve() is Patient) | EpisodeOfCare.patient | FamilyMemberHistory.patient | Flag.subject.where(resolve() is Patient) | Goal.subject.where(resolve() is Patient) | ImagingStudy.subject.where(resolve() is Patient) | Immunization.patient | List.subject.where(resolve() is Patient) | MedicationAdministration.subject.where(resolve() is Patient) | MedicationDispense.subject.where(resolve() is Patient) | MedicationRequest.subject.where(resolve() is Patient) | MedicationStatement.subject.where(resolve() is Patient) | NutritionOrder.patient | Observation.subject.where(resolve() is Patient) | Procedure.subject.where(resolve() is Patient) | RiskAssessment.subject.where(resolve() is Patient) | ServiceRequest.subject.where(resolve() is Patient) | SupplyDelivery.patient | VisionPrescription.patient"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "previous"
+    type: REFERENCE
+    expression: "ClinicalImpression.previous"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "problem"
+    type: REFERENCE
+    expression: "ClinicalImpression.problem"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "status"
+    type: TOKEN
+    expression: "ClinicalImpression.status"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "subject"
+    type: REFERENCE
+    expression: "ClinicalImpression.subject"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "supporting-info"
+    type: REFERENCE
+    expression: "ClinicalImpression.supportingInfo"
+  };
+
+  // Logical id of this artifact
+  Id id = 1;
+
+  // Metadata about the resource
+  Meta meta = 2;
+
+  // A set of rules under which this content was created
+  Uri implicit_rules = 3;
+
+  // Language of the resource content
+  Code language = 4;
+
+  // Text summary of the resource, for human interpretation
+  Narrative text = 5;
+
+  // Contained, inline Resources
+  repeated protobuf.Any contained = 6;
+
+  // Field 7 reserved for strongly-typed ContainedResource for id:
+  // ClinicalImpression.contained
+  reserved 7;
+
+  // Additional content defined by implementations
+  repeated Extension extension = 8;
+
+  // Extensions that cannot be ignored
+  repeated Extension modifier_extension = 9;
+
+  // Business identifier
+  repeated Identifier identifier = 10;
+
+  // in-progress | completed | entered-in-error
+  message StatusCode {
+    option (.google.fhir.proto.structure_definition_kind) = KIND_PRIMITIVE_TYPE;
+    option (.google.fhir.proto.fhir_valueset_url) =
+        "http://hl7.org/fhir/ValueSet/clinicalimpression-status";
+    option (.google.fhir.proto.fhir_profile_base) =
+        "http://hl7.org/fhir/StructureDefinition/code";
+
+    ClinicalImpressionStatusValueSet.Value value = 1;
+
+    String id = 2;
+
+    repeated Extension extension = 3;
+  }
+  StatusCode status = 11
+      [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+  // Reason for current status
+  CodeableConcept status_reason = 12;
+
+  // Kind of assessment performed
+  CodeableConcept code = 13;
+
+  // Why/how the assessment was performed
+  String description = 14;
+
+  // Patient or group assessed
+  Reference subject = 15 [
+    (.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR,
+    (.google.fhir.proto.valid_reference_type) = "Patient",
+    (.google.fhir.proto.valid_reference_type) = "Group"
+  ];
+
+  // Encounter created as part of
+  Reference encounter = 16
+      [(.google.fhir.proto.valid_reference_type) = "Encounter"];
+
+  // Time of assessment
+  message EffectiveX {
+    option (.google.fhir.proto.is_choice_type) = true;
+
+    oneof choice {
+      DateTime date_time = 1;
+      Period period = 2;
+    }
+  }
+  EffectiveX effective = 17;
+
+  // When the assessment was documented
+  DateTime date = 18;
+
+  // The clinician performing the assessment
+  Reference assessor = 19 [
+    (.google.fhir.proto.valid_reference_type) = "Practitioner",
+    (.google.fhir.proto.valid_reference_type) = "PractitionerRole"
+  ];
+
+  // Reference to last assessment
+  Reference previous = 20
+      [(.google.fhir.proto.valid_reference_type) = "ClinicalImpression"];
+
+  // Relevant impressions of patient state
+  repeated Reference problem = 21 [
+    (.google.fhir.proto.valid_reference_type) = "Condition",
+    (.google.fhir.proto.valid_reference_type) = "AllergyIntolerance"
+  ];
+
+  // One or more sets of investigations (signs, symptoms, etc.)
+  message Investigation {
+    // Unique id for inter-element referencing
+    String id = 1;
+
+    // Additional content defined by implementations
+    repeated Extension extension = 2;
+
+    // Extensions that cannot be ignored even if unrecognized
+    repeated Extension modifier_extension = 3;
+
+    // A name/code for the set
+    CodeableConcept code = 4
+        [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+    // Record of a specific investigation
+    repeated Reference item = 5 [
+      (.google.fhir.proto.valid_reference_type) = "Observation",
+      (.google.fhir.proto.valid_reference_type) = "QuestionnaireResponse",
+      (.google.fhir.proto.valid_reference_type) = "FamilyMemberHistory",
+      (.google.fhir.proto.valid_reference_type) = "DiagnosticReport",
+      (.google.fhir.proto.valid_reference_type) = "RiskAssessment",
+      (.google.fhir.proto.valid_reference_type) = "ImagingStudy",
+      (.google.fhir.proto.valid_reference_type) = "Media"
+    ];
+  }
+  repeated Investigation investigation = 22;
+
+  // Clinical Protocol followed
+  repeated Uri protocol = 23;
+
+  // Summary of the assessment
+  String summary = 24;
+
+  // Possible or likely findings and diagnoses
+  message Finding {
+    // Unique id for inter-element referencing
+    String id = 1;
+
+    // Additional content defined by implementations
+    repeated Extension extension = 2;
+
+    // Extensions that cannot be ignored even if unrecognized
+    repeated Extension modifier_extension = 3;
+
+    // What was found
+    CodeableConcept item_codeable_concept = 4;
+
+    // What was found
+    Reference item_reference = 5 [
+      (.google.fhir.proto.valid_reference_type) = "Condition",
+      (.google.fhir.proto.valid_reference_type) = "Observation",
+      (.google.fhir.proto.valid_reference_type) = "Media"
+    ];
+
+    // Which investigations support finding
+    String basis = 6;
+  }
+  repeated Finding finding = 25;
+
+  // Estimate of likely outcome
+  repeated CodeableConcept prognosis_codeable_concept = 26;
+
+  // RiskAssessment expressing likely outcome
+  repeated Reference prognosis_reference = 27
+      [(.google.fhir.proto.valid_reference_type) = "RiskAssessment"];
+
+  // Information supporting the clinical impression
+  repeated Reference supporting_info = 28
+      [(.google.fhir.proto.valid_reference_type) = "Resource"];
+
+  // Comments made about the ClinicalImpression
+  repeated Annotation note = 29;
+}

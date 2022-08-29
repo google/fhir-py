@@ -1,0 +1,572 @@
+//    Copyright 2019 Google Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        https://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
+syntax = "proto3";
+
+package google.fhir.r4.core;
+
+import "google/fhir/core/proto/annotations.proto";
+import "google/fhir/r4/proto/core/codes.proto";
+import "google/fhir/r4/proto/core/datatypes.proto";
+import "google/fhir/r4/proto/core/resources/account.proto";
+import "google/fhir/r4/proto/core/resources/activity_definition.proto";
+import "google/fhir/r4/proto/core/resources/adverse_event.proto";
+import "google/fhir/r4/proto/core/resources/allergy_intolerance.proto";
+import "google/fhir/r4/proto/core/resources/appointment.proto";
+import "google/fhir/r4/proto/core/resources/appointment_response.proto";
+import "google/fhir/r4/proto/core/resources/audit_event.proto";
+import "google/fhir/r4/proto/core/resources/basic.proto";
+import "google/fhir/r4/proto/core/resources/binary.proto";
+import "google/fhir/r4/proto/core/resources/biologically_derived_product.proto";
+import "google/fhir/r4/proto/core/resources/body_structure.proto";
+import "google/fhir/r4/proto/core/resources/capability_statement.proto";
+import "google/fhir/r4/proto/core/resources/care_plan.proto";
+import "google/fhir/r4/proto/core/resources/care_team.proto";
+import "google/fhir/r4/proto/core/resources/catalog_entry.proto";
+import "google/fhir/r4/proto/core/resources/charge_item.proto";
+import "google/fhir/r4/proto/core/resources/charge_item_definition.proto";
+import "google/fhir/r4/proto/core/resources/claim.proto";
+import "google/fhir/r4/proto/core/resources/claim_response.proto";
+import "google/fhir/r4/proto/core/resources/clinical_impression.proto";
+import "google/fhir/r4/proto/core/resources/code_system.proto";
+import "google/fhir/r4/proto/core/resources/communication.proto";
+import "google/fhir/r4/proto/core/resources/communication_request.proto";
+import "google/fhir/r4/proto/core/resources/compartment_definition.proto";
+import "google/fhir/r4/proto/core/resources/composition.proto";
+import "google/fhir/r4/proto/core/resources/concept_map.proto";
+import "google/fhir/r4/proto/core/resources/condition.proto";
+import "google/fhir/r4/proto/core/resources/consent.proto";
+import "google/fhir/r4/proto/core/resources/contract.proto";
+import "google/fhir/r4/proto/core/resources/coverage.proto";
+import "google/fhir/r4/proto/core/resources/coverage_eligibility_request.proto";
+import "google/fhir/r4/proto/core/resources/coverage_eligibility_response.proto";
+import "google/fhir/r4/proto/core/resources/detected_issue.proto";
+import "google/fhir/r4/proto/core/resources/device.proto";
+import "google/fhir/r4/proto/core/resources/device_definition.proto";
+import "google/fhir/r4/proto/core/resources/device_metric.proto";
+import "google/fhir/r4/proto/core/resources/device_request.proto";
+import "google/fhir/r4/proto/core/resources/device_use_statement.proto";
+import "google/fhir/r4/proto/core/resources/diagnostic_report.proto";
+import "google/fhir/r4/proto/core/resources/document_manifest.proto";
+import "google/fhir/r4/proto/core/resources/document_reference.proto";
+import "google/fhir/r4/proto/core/resources/effect_evidence_synthesis.proto";
+import "google/fhir/r4/proto/core/resources/encounter.proto";
+import "google/fhir/r4/proto/core/resources/endpoint.proto";
+import "google/fhir/r4/proto/core/resources/enrollment_request.proto";
+import "google/fhir/r4/proto/core/resources/enrollment_response.proto";
+import "google/fhir/r4/proto/core/resources/episode_of_care.proto";
+import "google/fhir/r4/proto/core/resources/event_definition.proto";
+import "google/fhir/r4/proto/core/resources/evidence.proto";
+import "google/fhir/r4/proto/core/resources/evidence_variable.proto";
+import "google/fhir/r4/proto/core/resources/example_scenario.proto";
+import "google/fhir/r4/proto/core/resources/explanation_of_benefit.proto";
+import "google/fhir/r4/proto/core/resources/family_member_history.proto";
+import "google/fhir/r4/proto/core/resources/flag.proto";
+import "google/fhir/r4/proto/core/resources/goal.proto";
+import "google/fhir/r4/proto/core/resources/graph_definition.proto";
+import "google/fhir/r4/proto/core/resources/group.proto";
+import "google/fhir/r4/proto/core/resources/guidance_response.proto";
+import "google/fhir/r4/proto/core/resources/healthcare_service.proto";
+import "google/fhir/r4/proto/core/resources/imaging_study.proto";
+import "google/fhir/r4/proto/core/resources/immunization.proto";
+import "google/fhir/r4/proto/core/resources/immunization_evaluation.proto";
+import "google/fhir/r4/proto/core/resources/immunization_recommendation.proto";
+import "google/fhir/r4/proto/core/resources/implementation_guide.proto";
+import "google/fhir/r4/proto/core/resources/insurance_plan.proto";
+import "google/fhir/r4/proto/core/resources/invoice.proto";
+import "google/fhir/r4/proto/core/resources/library.proto";
+import "google/fhir/r4/proto/core/resources/linkage.proto";
+import "google/fhir/r4/proto/core/resources/list.proto";
+import "google/fhir/r4/proto/core/resources/location.proto";
+import "google/fhir/r4/proto/core/resources/measure.proto";
+import "google/fhir/r4/proto/core/resources/measure_report.proto";
+import "google/fhir/r4/proto/core/resources/media.proto";
+import "google/fhir/r4/proto/core/resources/medication.proto";
+import "google/fhir/r4/proto/core/resources/medication_administration.proto";
+import "google/fhir/r4/proto/core/resources/medication_dispense.proto";
+import "google/fhir/r4/proto/core/resources/medication_knowledge.proto";
+import "google/fhir/r4/proto/core/resources/medication_request.proto";
+import "google/fhir/r4/proto/core/resources/medication_statement.proto";
+import "google/fhir/r4/proto/core/resources/medicinal_product.proto";
+import "google/fhir/r4/proto/core/resources/medicinal_product_authorization.proto";
+import "google/fhir/r4/proto/core/resources/medicinal_product_contraindication.proto";
+import "google/fhir/r4/proto/core/resources/medicinal_product_indication.proto";
+import "google/fhir/r4/proto/core/resources/medicinal_product_ingredient.proto";
+import "google/fhir/r4/proto/core/resources/medicinal_product_interaction.proto";
+import "google/fhir/r4/proto/core/resources/medicinal_product_manufactured.proto";
+import "google/fhir/r4/proto/core/resources/medicinal_product_packaged.proto";
+import "google/fhir/r4/proto/core/resources/medicinal_product_pharmaceutical.proto";
+import "google/fhir/r4/proto/core/resources/medicinal_product_undesirable_effect.proto";
+import "google/fhir/r4/proto/core/resources/message_definition.proto";
+import "google/fhir/r4/proto/core/resources/message_header.proto";
+import "google/fhir/r4/proto/core/resources/metadata_resource.proto";
+import "google/fhir/r4/proto/core/resources/molecular_sequence.proto";
+import "google/fhir/r4/proto/core/resources/naming_system.proto";
+import "google/fhir/r4/proto/core/resources/nutrition_order.proto";
+import "google/fhir/r4/proto/core/resources/observation.proto";
+import "google/fhir/r4/proto/core/resources/observation_definition.proto";
+import "google/fhir/r4/proto/core/resources/operation_definition.proto";
+import "google/fhir/r4/proto/core/resources/operation_outcome.proto";
+import "google/fhir/r4/proto/core/resources/organization.proto";
+import "google/fhir/r4/proto/core/resources/organization_affiliation.proto";
+import "google/fhir/r4/proto/core/resources/parameters.proto";
+import "google/fhir/r4/proto/core/resources/patient.proto";
+import "google/fhir/r4/proto/core/resources/payment_notice.proto";
+import "google/fhir/r4/proto/core/resources/payment_reconciliation.proto";
+import "google/fhir/r4/proto/core/resources/person.proto";
+import "google/fhir/r4/proto/core/resources/plan_definition.proto";
+import "google/fhir/r4/proto/core/resources/practitioner.proto";
+import "google/fhir/r4/proto/core/resources/practitioner_role.proto";
+import "google/fhir/r4/proto/core/resources/procedure.proto";
+import "google/fhir/r4/proto/core/resources/provenance.proto";
+import "google/fhir/r4/proto/core/resources/questionnaire.proto";
+import "google/fhir/r4/proto/core/resources/questionnaire_response.proto";
+import "google/fhir/r4/proto/core/resources/related_person.proto";
+import "google/fhir/r4/proto/core/resources/request_group.proto";
+import "google/fhir/r4/proto/core/resources/research_definition.proto";
+import "google/fhir/r4/proto/core/resources/research_element_definition.proto";
+import "google/fhir/r4/proto/core/resources/research_study.proto";
+import "google/fhir/r4/proto/core/resources/research_subject.proto";
+import "google/fhir/r4/proto/core/resources/risk_assessment.proto";
+import "google/fhir/r4/proto/core/resources/risk_evidence_synthesis.proto";
+import "google/fhir/r4/proto/core/resources/schedule.proto";
+import "google/fhir/r4/proto/core/resources/search_parameter.proto";
+import "google/fhir/r4/proto/core/resources/service_request.proto";
+import "google/fhir/r4/proto/core/resources/slot.proto";
+import "google/fhir/r4/proto/core/resources/specimen.proto";
+import "google/fhir/r4/proto/core/resources/specimen_definition.proto";
+import "google/fhir/r4/proto/core/resources/structure_definition.proto";
+import "google/fhir/r4/proto/core/resources/structure_map.proto";
+import "google/fhir/r4/proto/core/resources/subscription.proto";
+import "google/fhir/r4/proto/core/resources/substance.proto";
+import "google/fhir/r4/proto/core/resources/substance_nucleic_acid.proto";
+import "google/fhir/r4/proto/core/resources/substance_polymer.proto";
+import "google/fhir/r4/proto/core/resources/substance_protein.proto";
+import "google/fhir/r4/proto/core/resources/substance_reference_information.proto";
+import "google/fhir/r4/proto/core/resources/substance_source_material.proto";
+import "google/fhir/r4/proto/core/resources/substance_specification.proto";
+import "google/fhir/r4/proto/core/resources/supply_delivery.proto";
+import "google/fhir/r4/proto/core/resources/supply_request.proto";
+import "google/fhir/r4/proto/core/resources/task.proto";
+import "google/fhir/r4/proto/core/resources/terminology_capabilities.proto";
+import "google/fhir/r4/proto/core/resources/test_report.proto";
+import "google/fhir/r4/proto/core/resources/test_script.proto";
+import "google/fhir/r4/proto/core/resources/value_set.proto";
+import "google/fhir/r4/proto/core/resources/verification_result.proto";
+import "google/fhir/r4/proto/core/resources/vision_prescription.proto";
+
+option java_multiple_files = true;
+option java_package = "com.google.fhir.r4.core";
+option (.google.fhir.proto.fhir_version) = R4;
+
+// Auto-generated from StructureDefinition for Bundle.
+// Contains a collection of resources.
+// See http://hl7.org/fhir/StructureDefinition/Bundle
+message Bundle {
+  option (.google.fhir.proto.structure_definition_kind) = KIND_RESOURCE;
+  option (.google.fhir.proto.fhir_structure_definition_url) =
+      "http://hl7.org/fhir/StructureDefinition/Bundle";
+  option (.google.fhir.proto.fhir_path_message_constraint) =
+      "total.empty() or (type = 'searchset') or (type = 'history')";
+  option (.google.fhir.proto.fhir_path_message_constraint) =
+      "entry.search.empty() or (type = 'searchset')";
+  option (.google.fhir.proto.fhir_path_message_constraint) =
+      "entry.all(request.exists() = (%resource.type = 'batch' or %resource.type = 'transaction' or %resource.type = 'history'))";
+  option (.google.fhir.proto.fhir_path_message_constraint) =
+      "entry.all(response.exists() = (%resource.type = 'batch-response' or %resource.type = 'transaction-response' or %resource.type = 'history'))";
+  option (.google.fhir.proto.fhir_path_message_constraint) =
+      "(type = 'history') or entry.where(fullUrl.exists()).select(fullUrl&resource.meta.versionId).isDistinct()";
+  option (.google.fhir.proto.fhir_path_message_constraint) =
+      "type = 'document' implies (identifier.system.exists() and identifier.value.exists())";
+  option (.google.fhir.proto.fhir_path_message_constraint) =
+      "type = 'document' implies (timestamp.hasValue())";
+  option (.google.fhir.proto.fhir_path_message_constraint) =
+      "type = 'document' implies entry.first().resource.is(Composition)";
+  option (.google.fhir.proto.fhir_path_message_constraint) =
+      "type = 'message' implies entry.first().resource.is(MessageHeader)";
+  option (.google.fhir.proto.search_parameter) = {
+    name: "composition"
+    type: REFERENCE
+    expression: "Bundle.entry[0].resource"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "identifier"
+    type: TOKEN
+    expression: "Bundle.identifier"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "message"
+    type: REFERENCE
+    expression: "Bundle.entry[0].resource"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "timestamp"
+    type: DATE
+    expression: "Bundle.timestamp"
+  };
+  option (.google.fhir.proto.search_parameter) = {
+    name: "type"
+    type: TOKEN
+    expression: "Bundle.type"
+  };
+
+  // Logical id of this artifact
+  Id id = 1;
+
+  // Metadata about the resource
+  Meta meta = 2;
+
+  // A set of rules under which this content was created
+  Uri implicit_rules = 3;
+
+  // Language of the resource content
+  Code language = 4;
+
+  // Persistent identifier for the bundle
+  Identifier identifier = 5;
+
+  // document | message | transaction | transaction-response | batch |
+  // batch-response | history | searchset | collection
+  message TypeCode {
+    option (.google.fhir.proto.structure_definition_kind) = KIND_PRIMITIVE_TYPE;
+    option (.google.fhir.proto.fhir_valueset_url) =
+        "http://hl7.org/fhir/ValueSet/bundle-type";
+    option (.google.fhir.proto.fhir_profile_base) =
+        "http://hl7.org/fhir/StructureDefinition/code";
+
+    BundleTypeCode.Value value = 1;
+
+    String id = 2;
+
+    repeated Extension extension = 3;
+  }
+  TypeCode type = 6
+      [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+  // When the bundle was assembled
+  Instant timestamp = 7;
+
+  // If search, the total number of matches
+  UnsignedInt total = 8;
+
+  // Links related to this Bundle
+  message Link {
+    // Unique id for inter-element referencing
+    String id = 1;
+
+    // Additional content defined by implementations
+    repeated Extension extension = 2;
+
+    // Extensions that cannot be ignored even if unrecognized
+    repeated Extension modifier_extension = 3;
+
+    // See
+    // http://www.iana.org/assignments/link-relations/link-relations.xhtml#link-relations-1
+    String relation = 4
+        [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+    // Reference details for the link
+    Uri url = 5
+        [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+  }
+  repeated Link link = 9;
+
+  // Entry in the bundle - will have a resource or information
+  message Entry {
+    option (.google.fhir.proto.fhir_path_message_constraint) =
+        "resource.exists() or request.exists() or response.exists()";
+
+    // Unique id for inter-element referencing
+    String id = 1;
+
+    // Additional content defined by implementations
+    repeated Extension extension = 2;
+
+    // Extensions that cannot be ignored even if unrecognized
+    repeated Extension modifier_extension = 3;
+
+    // Links related to this entry
+    repeated Link link = 4;
+
+    // URI for resource (Absolute URL server address or URI for UUID/OID)
+    Uri full_url = 5;
+
+    // A resource in the bundle
+    ContainedResource resource = 6;
+
+    // Search related information
+    message Search {
+      // Unique id for inter-element referencing
+      String id = 1;
+
+      // Additional content defined by implementations
+      repeated Extension extension = 2;
+
+      // Extensions that cannot be ignored even if unrecognized
+      repeated Extension modifier_extension = 3;
+
+      // match | include | outcome - why this is in the result set
+      message ModeCode {
+        option (.google.fhir.proto.structure_definition_kind) =
+            KIND_PRIMITIVE_TYPE;
+        option (.google.fhir.proto.fhir_valueset_url) =
+            "http://hl7.org/fhir/ValueSet/search-entry-mode";
+        option (.google.fhir.proto.fhir_profile_base) =
+            "http://hl7.org/fhir/StructureDefinition/code";
+
+        SearchEntryModeCode.Value value = 1;
+
+        String id = 2;
+
+        repeated Extension extension = 3;
+      }
+      ModeCode mode = 4;
+
+      // Search ranking (between 0 and 1)
+      Decimal score = 5;
+    }
+    Search search = 7;
+
+    // Additional execution information (transaction/batch/history)
+    message Request {
+      // Unique id for inter-element referencing
+      String id = 1;
+
+      // Additional content defined by implementations
+      repeated Extension extension = 2;
+
+      // Extensions that cannot be ignored even if unrecognized
+      repeated Extension modifier_extension = 3;
+
+      // GET | HEAD | POST | PUT | DELETE | PATCH
+      message MethodCode {
+        option (.google.fhir.proto.structure_definition_kind) =
+            KIND_PRIMITIVE_TYPE;
+        option (.google.fhir.proto.fhir_valueset_url) =
+            "http://hl7.org/fhir/ValueSet/http-verb";
+        option (.google.fhir.proto.fhir_profile_base) =
+            "http://hl7.org/fhir/StructureDefinition/code";
+
+        HTTPVerbCode.Value value = 1;
+
+        String id = 2;
+
+        repeated Extension extension = 3;
+      }
+      MethodCode method = 4
+          [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+      // URL for HTTP equivalent of this entry
+      Uri url = 5
+          [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+      // For managing cache currency
+      String if_none_match = 6;
+
+      // For managing cache currency
+      Instant if_modified_since = 7;
+
+      // For managing update contention
+      String if_match = 8;
+
+      // For conditional creates
+      String if_none_exist = 9;
+    }
+    Request request = 8;
+
+    // Results of execution (transaction/batch/history)
+    message Response {
+      // Unique id for inter-element referencing
+      String id = 1;
+
+      // Additional content defined by implementations
+      repeated Extension extension = 2;
+
+      // Extensions that cannot be ignored even if unrecognized
+      repeated Extension modifier_extension = 3;
+
+      // Status response code (text optional)
+      String status = 4
+          [(.google.fhir.proto.validation_requirement) = REQUIRED_BY_FHIR];
+
+      // The location (if the operation returns a location)
+      Uri location = 5;
+
+      // The Etag for the resource (if relevant)
+      String etag = 6;
+
+      // Server's date time modified
+      Instant last_modified = 7;
+
+      // OperationOutcome with hints and warnings (for batch/transaction)
+      ContainedResource outcome = 8;
+    }
+    Response response = 9;
+  }
+  repeated Entry entry = 10;
+
+  // Digital Signature
+  Signature signature = 11;
+}
+
+message ContainedResource {
+  oneof oneof_resource {
+    Account account = 1;
+    ActivityDefinition activity_definition = 2;
+    AdverseEvent adverse_event = 3;
+    AllergyIntolerance allergy_intolerance = 4;
+    Appointment appointment = 5;
+    AppointmentResponse appointment_response = 6;
+    AuditEvent audit_event = 7;
+    Basic basic = 8;
+    Binary binary = 9;
+    BiologicallyDerivedProduct biologically_derived_product = 10;
+    BodyStructure body_structure = 11;
+    Bundle bundle = 12;
+    CapabilityStatement capability_statement = 13;
+    CarePlan care_plan = 14;
+    CareTeam care_team = 15;
+    CatalogEntry catalog_entry = 16;
+    ChargeItem charge_item = 17;
+    ChargeItemDefinition charge_item_definition = 18;
+    Claim claim = 19;
+    ClaimResponse claim_response = 20;
+    ClinicalImpression clinical_impression = 21;
+    CodeSystem code_system = 22;
+    Communication communication = 23;
+    CommunicationRequest communication_request = 24;
+    CompartmentDefinition compartment_definition = 25;
+    Composition composition = 26;
+    ConceptMap concept_map = 27;
+    Condition condition = 28;
+    Consent consent = 29;
+    Contract contract = 30;
+    Coverage coverage = 31;
+    CoverageEligibilityRequest coverage_eligibility_request = 32;
+    CoverageEligibilityResponse coverage_eligibility_response = 33;
+    DetectedIssue detected_issue = 34;
+    Device device = 35;
+    DeviceDefinition device_definition = 36;
+    DeviceMetric device_metric = 37;
+    DeviceRequest device_request = 38;
+    DeviceUseStatement device_use_statement = 39;
+    DiagnosticReport diagnostic_report = 40;
+    DocumentManifest document_manifest = 41;
+    DocumentReference document_reference = 42;
+    EffectEvidenceSynthesis effect_evidence_synthesis = 43;
+    Encounter encounter = 44;
+    Endpoint endpoint = 45;
+    EnrollmentRequest enrollment_request = 46;
+    EnrollmentResponse enrollment_response = 47;
+    EpisodeOfCare episode_of_care = 48;
+    EventDefinition event_definition = 49;
+    Evidence evidence = 50;
+    EvidenceVariable evidence_variable = 51;
+    ExampleScenario example_scenario = 52;
+    ExplanationOfBenefit explanation_of_benefit = 53;
+    FamilyMemberHistory family_member_history = 54;
+    Flag flag = 55;
+    Goal goal = 56;
+    GraphDefinition graph_definition = 57;
+    Group group = 58;
+    GuidanceResponse guidance_response = 59;
+    HealthcareService healthcare_service = 60;
+    ImagingStudy imaging_study = 61;
+    Immunization immunization = 62;
+    ImmunizationEvaluation immunization_evaluation = 63;
+    ImmunizationRecommendation immunization_recommendation = 64;
+    ImplementationGuide implementation_guide = 65;
+    InsurancePlan insurance_plan = 66;
+    Invoice invoice = 67;
+    Library library = 68;
+    Linkage linkage = 69;
+    List list = 70;
+    Location location = 71;
+    Measure measure = 72;
+    MeasureReport measure_report = 73;
+    Media media = 74;
+    Medication medication = 75;
+    MedicationAdministration medication_administration = 76;
+    MedicationDispense medication_dispense = 77;
+    MedicationKnowledge medication_knowledge = 78;
+    MedicationRequest medication_request = 79;
+    MedicationStatement medication_statement = 80;
+    MedicinalProduct medicinal_product = 81;
+    MedicinalProductAuthorization medicinal_product_authorization = 82;
+    MedicinalProductContraindication medicinal_product_contraindication = 83;
+    MedicinalProductIndication medicinal_product_indication = 84;
+    MedicinalProductIngredient medicinal_product_ingredient = 85;
+    MedicinalProductInteraction medicinal_product_interaction = 86;
+    MedicinalProductManufactured medicinal_product_manufactured = 87;
+    MedicinalProductPackaged medicinal_product_packaged = 88;
+    MedicinalProductPharmaceutical medicinal_product_pharmaceutical = 89;
+    MedicinalProductUndesirableEffect medicinal_product_undesirable_effect = 90;
+    MessageDefinition message_definition = 91;
+    MessageHeader message_header = 92;
+    MolecularSequence molecular_sequence = 93;
+    NamingSystem naming_system = 94;
+    NutritionOrder nutrition_order = 95;
+    Observation observation = 96;
+    ObservationDefinition observation_definition = 97;
+    OperationDefinition operation_definition = 98;
+    OperationOutcome operation_outcome = 99;
+    Organization organization = 100;
+    OrganizationAffiliation organization_affiliation = 101;
+    Parameters parameters = 102;
+    Patient patient = 103;
+    PaymentNotice payment_notice = 104;
+    PaymentReconciliation payment_reconciliation = 105;
+    Person person = 106;
+    PlanDefinition plan_definition = 107;
+    Practitioner practitioner = 108;
+    PractitionerRole practitioner_role = 109;
+    Procedure procedure = 110;
+    Provenance provenance = 111;
+    Questionnaire questionnaire = 112;
+    QuestionnaireResponse questionnaire_response = 113;
+    RelatedPerson related_person = 114;
+    RequestGroup request_group = 115;
+    ResearchDefinition research_definition = 116;
+    ResearchElementDefinition research_element_definition = 117;
+    ResearchStudy research_study = 118;
+    ResearchSubject research_subject = 119;
+    RiskAssessment risk_assessment = 120;
+    RiskEvidenceSynthesis risk_evidence_synthesis = 121;
+    Schedule schedule = 122;
+    SearchParameter search_parameter = 123;
+    ServiceRequest service_request = 124;
+    Slot slot = 125;
+    Specimen specimen = 126;
+    SpecimenDefinition specimen_definition = 127;
+    StructureDefinition structure_definition = 128;
+    StructureMap structure_map = 129;
+    Subscription subscription = 130;
+    Substance substance = 131;
+    SubstanceNucleicAcid substance_nucleic_acid = 132;
+    SubstancePolymer substance_polymer = 133;
+    SubstanceProtein substance_protein = 134;
+    SubstanceReferenceInformation substance_reference_information = 135;
+    SubstanceSourceMaterial substance_source_material = 136;
+    SubstanceSpecification substance_specification = 137;
+    SupplyDelivery supply_delivery = 138;
+    SupplyRequest supply_request = 139;
+    Task task = 140;
+    TerminologyCapabilities terminology_capabilities = 141;
+    TestReport test_report = 142;
+    TestScript test_script = 143;
+    ValueSet value_set = 144;
+    VerificationResult verification_result = 145;
+    VisionPrescription vision_prescription = 146;
+  }
+}
