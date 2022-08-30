@@ -11,6 +11,10 @@ This is not an officially supported Google product.
 These libraries are installed via pip.
 
 ## From PyPi
+
+__Note: Installation directly from PyPi is not yet supported, but is coming
+soon. Please install from source for now.__
+
 Users interested in FHIR Views and the underlying libraries can simply run
 `pip install google-fhir-views[r4,bigquery]` to install that and its FHIR R4
 and BigQuery dependencies.
