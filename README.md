@@ -36,5 +36,26 @@ pip install ./google-fhir-views[r4,bigquery]
 See the [Google FHIR Views](google-fhir-views/README.md) documentation for
 details on use.
 
+# Contributors
+
+Due to the nature of the initial commit squashing internal contributor history,
+we would like to recognize some of those who contributed to the intial
+commit work:
+Ryan Brush ([@rbrush](https://github.com/rbrush)),
+Cameron Tew ([@cam2337](https://github.com/cam2337)),
+Ose Umolu ([@luid101](https://github.com/luid101)),
+Walt Askew ([@waltaskew](https://github.com/waltaskew)),
+Nick George ([@nickgeorge](https://github.com/nickgeorge)),
+Wilson Sun ([@wilsonssun](https://github.com/wilsonssun))
+Lisa Yin ([@lisayin](https://github.com/lisayin)),
+Suyash Kumar ([@suyashkumar](https://github.com/suyashkumar)), and other Googlers.
+
+In addition, contributors who committed after the initial squash commit can be
+found in the
+[GitHub contributors tab](https://github.com/google/fhir-py/graphs/contributors).
+
+Thank you to all contributors!
+
 # Trademark
+
 FHIR® is the registered trademark of HL7 and is used with the permission of HL7. Use of the FHIR trademark does not constitute endorsement of this product by HL7.
