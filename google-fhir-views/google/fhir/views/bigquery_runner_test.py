@@ -568,13 +568,13 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
     obs_with_value = obs.select({
         'id': obs.id,
-        'value': obs.value.ofType('quantity').value,
-        'unit': obs.value.ofType('quantity').unit
+        'value': obs.value.ofType('Quantity').value,
+        'unit': obs.value.ofType('Quantity').unit
     })
 
     self.assertMultiLineEqual(
-        'SELECT (SELECT id) AS id,(SELECT value.quantity.value) AS value,'
-        '(SELECT value.quantity.unit) AS unit,'
+        'SELECT (SELECT id) AS id,(SELECT value.Quantity.value) AS value,'
+        '(SELECT value.Quantity.unit) AS unit,'
         '(SELECT subject.patientId AS idFor_) AS __patientId__ '
         'FROM `test_project.test_dataset`.Observation',
         self.runner.to_sql(obs_with_value))

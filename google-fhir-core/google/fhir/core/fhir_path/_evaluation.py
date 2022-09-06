@@ -503,9 +503,14 @@ class FunctionNode(ExpressionNode):
   a ValueError if the parameters do not meet function needs.
   """
 
-  def __init__(self, name: str, operand: ExpressionNode,
-               params: List[ExpressionNode]) -> None:
-    super().__init__(None)
+  def __init__(
+      self,
+      name: str,
+      operand: ExpressionNode,
+      params: List[ExpressionNode],
+      return_type: Optional[_fhir_path_data_types.FhirPathDataType] = None
+  ) -> None:
+    super().__init__(return_type)
     self._name = name
     self._operand = operand
     self._params = params
@@ -658,17 +663,29 @@ class OfTypeFunction(FunctionNode):
 
   def __init__(self, operand: ExpressionNode,
                params: List[ExpressionNode]) -> None:
-    super().__init__('ofType', operand, params)
     if not (len(params) == 1 and isinstance(params[0], LiteralNode) and
             fhir_types.is_string(cast(LiteralNode, params[0]).get_value())):
       raise ValueError(
           'ofType function requires a single parameter of the datatype.')
 
-    fhir_type = cast(Any, params[0]).get_value().value
+    # Determine the expected FHIR type to use as the node's return type.
+    type_param_str = cast(Any, params[0]).get_value().value
+    # Trim the FHIR prefix used for primitive types, if applicable.
+    base_type_str = type_param_str[5:] if type_param_str.startswith(
+        'FHIR.') else type_param_str
+    self.struct_def_url = f'http://hl7.org/fhir/StructureDefinition/{base_type_str}'
 
-    # Trim the FHIR prefix used for primitive types
-    fhir_type = fhir_type[5:] if fhir_type.startswith('FHIR.') else fhir_type
-    self.struct_def_url = f'http://hl7.org/fhir/StructureDefinition/{fhir_type}'
+    # Check to see if it is a primitive, otherwise treat as a structure type.
+    primitive_type = _fhir_path_data_types.primitive_type_from_type_code(
+        base_type_str)
+
+    if primitive_type is not None:
+      fhir_type = primitive_type
+    else:
+      fhir_type = _fhir_path_data_types.StructureDataType(
+          self.struct_def_url, base_type_str)
+
+    super().__init__('ofType', operand, params, fhir_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)
@@ -822,7 +839,7 @@ class WhereFunction(FunctionNode):
     if len(params) != 1:
       raise ValueError('Where expressions require a single parameter.')
 
-    super().__init__('where', operand, params)
+    super().__init__('where', operand, params, operand.return_type())
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     results = []

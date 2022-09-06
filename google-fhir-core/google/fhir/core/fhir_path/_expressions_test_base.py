@@ -999,6 +999,26 @@ class FhirPathExpressionsTest(
     observation.value.string_value.value = 'foo'
     self.assert_expression_result(compiled_expr, built_expr, observation, 'foo')
 
+  def testChoiceType_withOftype_returnsExpectedFields(self) -> None:
+    """Ensure ofType operations return expected child node type."""
+    self.assertContainsSubset(
+        ['value', 'unit', 'system', 'code'],
+        dir(self.builder('Observation').value.ofType('Quantity')))
+    self.assertNoCommonElements(
+        ['coding', 'text'],
+        dir(self.builder('Observation').value.ofType('Quantity')))
+
+    self.assertContainsSubset(
+        ['coding', 'text'],
+        dir(self.builder('Observation').value.ofType('CodeableConcept')))
+    self.assertNoCommonElements(
+        ['value', 'unit', 'system', 'code'],
+        dir(self.builder('Observation').value.ofType('CodeableConcept')))
+
+    self.assertNoCommonElements(
+        ['coding', 'text', 'value', 'unit', 'system', 'code'],
+        dir(self.builder('Observation').value.ofType('string')))
+
   def testNotFunction_succeeds(self) -> None:
     """Tests not_()."""
     patient = self._new_patient()
@@ -1087,6 +1107,11 @@ class FhirPathExpressionsTest(
             'Patient', 'address.where(period.where(start.exists())).count()'),
         pat.address.where(period.where(period.start.exists())).count(), patient,
         0)
+
+  def testWhereFunctionBuilder_preservesFields(self):
+    pat = self.builder('Patient')
+    self.assertContainsSubset(['use', 'line', 'city', 'state', 'postalCode'],
+                              dir(pat.address.where(pat.address.use == 'home')))
 
   def testAllExpression_succeeds(self):
     """Test FHIRPath all() expressions."""
