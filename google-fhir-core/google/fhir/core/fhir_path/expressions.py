@@ -297,7 +297,9 @@ class Builder:
     return self._node.to_fhir_path()
 
   def __getattr__(self, name: str) -> 'Builder':
-    # TODO): throw errors for invalid names.
+    # If the node has a known return type, ensure the field exists on it.
+    if self._node.return_type() and name not in self.fhir_path_fields():
+      raise AttributeError(f'No such field {name} in {self.fhir_path}.')
     return Builder(
         _evaluation.InvokeExpressionNode(self._context, name, self._node),
         self._context, self._handler)

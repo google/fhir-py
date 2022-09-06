@@ -27,13 +27,18 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     raise NotImplementedError('Subclasses *must* implement get_views.')
 
   def testPythonKeywordAccess_forEncounter_succeeds(self):
+    """Tests appending underscores to keyword fields succeeds."""
     enc = self.get_views().view_of('Encounter')
 
-    enc_class = (enc.select({'class': enc.class_, 'coding': enc.class_.coding}))
+    enc_class = (
+        enc.select({
+            'class': enc.class_,
+            'display': enc.class_.display
+        }))
 
     expressions = enc_class.get_select_expressions()
     self.assertEqual('class', expressions['class'].fhir_path)
-    self.assertEqual('class.coding', expressions['coding'].fhir_path)
+    self.assertEqual('class.display', expressions['display'].fhir_path)
 
   def testCreateSimpleView_forPatient_succeeds(self):
     """Test minimal view definition."""

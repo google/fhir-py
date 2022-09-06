@@ -121,6 +121,15 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'active'),
         self.builder('Patient').active, patient, True)
 
+  def testMissingFieldRaisesError(self):
+    pat = self.builder('Patient')
+    with self.assertRaises(AttributeError):
+      pat.noSuchField  # pylint: disable=pointless-statement
+
+    self.assertIsNotNone(pat.address)
+    with self.assertRaises(AttributeError):
+      pat.address.noSuchField  # pylint: disable=pointless-statement
+
   def testNestedField_forResource_hasExpectedValue(self):
     patient = self._new_patient()
     patient.address.add().city.value = 'Seattle'

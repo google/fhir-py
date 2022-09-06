@@ -233,6 +233,9 @@ def get_backbone_element_fields(structdef: StructureDefinition,
     if elem.id.value.startswith(qualified_path):
       relative_path = elem.id.value[len(qualified_path) + 1:]
       if relative_path and '.' not in relative_path:
+        # Trim choice field annotation if present.
+        if relative_path.endswith('[x]'):
+          relative_path = relative_path[:-3]
         results.append(relative_path)
 
   return results

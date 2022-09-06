@@ -187,6 +187,10 @@ class FhirPathUtilitiesTest(parameterized.TestCase):
         id_='Patient.contact.name',
         type_codes=['HumanName'],
         cardinality=sdefs.Cardinality(0, '1'))
+    patient_deceased = sdefs.build_element_definition(
+        id_='Patient.deceased[x]',
+        type_codes=['boolean', 'dateTime'],
+        cardinality=sdefs.Cardinality(0, '*'))
     cls._patient_structdef = sdefs.build_resource_definition(
         id_='Patient',
         element_definitions=[
@@ -195,6 +199,7 @@ class FhirPathUtilitiesTest(parameterized.TestCase):
             patient_addresses,
             patient_contact,
             patient_contact_name,
+            patient_deceased,
         ])
 
   @parameterized.named_parameters(
@@ -256,7 +261,8 @@ class FhirPathUtilitiesTest(parameterized.TestCase):
     self.assertEqual(actual, expected)
 
   def testListBackboneElementFields_Succeeds(self):
-    self.assertEqual(['name', 'addresses', 'contact'],
+    # Include normal and choice type field to ensure proper conversion.
+    self.assertEqual(['name', 'addresses', 'contact', 'deceased'],
                      _utils.get_backbone_element_fields(self._patient_structdef,
                                                         ''))
     self.assertEqual(['name'],
