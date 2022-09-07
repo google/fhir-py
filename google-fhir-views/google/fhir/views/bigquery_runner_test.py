@@ -117,7 +117,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM (SELECT name_element_
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-        WHERE given_element_ IS NOT NULL) AS name,(SELECT birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
+        WHERE given_element_ IS NOT NULL) AS name,PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
                        ), self.runner.to_sql(simple_view))
 
   def testSnakeCaseTableName_forPatient_succeeds(self):
@@ -132,7 +132,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     simple_view = pat.select({'birthDate': pat.birthDate})
     self.assertMultiLineEqual(
         textwrap.dedent("""\
-          SELECT (SELECT birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.patient"""
+          SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.patient"""
                        ), snake_case_runner.to_sql(simple_view))
 
     med_rec = self._views.view_of('MedicationRequest')
@@ -157,7 +157,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM (SELECT name_element_
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-        WHERE given_element_ IS NOT NULL) AS name,(SELECT birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        WHERE given_element_ IS NOT NULL) AS name,PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT active
         FROM (SELECT active)
@@ -190,7 +190,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM (SELECT name_element_
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-        WHERE given_element_ IS NOT NULL) AS name,(SELECT birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        WHERE given_element_ IS NOT NULL) AS name,PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT comparison_
         FROM (SELECT (birthDate < '1960-01-01') AS comparison_)
@@ -233,7 +233,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
-        SELECT (SELECT birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -268,7 +268,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
-        SELECT (SELECT birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -305,7 +305,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
-        SELECT (SELECT birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT eq_
         FROM (SELECT ((SELECT memberof_
@@ -339,7 +339,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://loinc.org" as system, "10346-5" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://loinc.org" as system, "10486-9" as code)
-        SELECT (SELECT id) AS id,(SELECT status) AS status,(SELECT issued) AS time,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation
+        SELECT (SELECT id) AS id,(SELECT status) AS status,PARSE_DATETIME("%Y-%m-%dT%H:%M:%E*S+00:00", (SELECT issued)) AS time,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -373,7 +373,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://loinc.org" as system, "10346-5" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://loinc.org" as system, "10486-9" as code)
-        SELECT (SELECT id) AS id,(SELECT status) AS status,(SELECT issued) AS time,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation
+        SELECT (SELECT id) AS id,(SELECT status) AS status,PARSE_DATETIME("%Y-%m-%dT%H:%M:%E*S+00:00", (SELECT issued)) AS time,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -443,7 +443,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.assertMultiLineEqual(
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM vs_project.vs_dataset.vs_table)
-        SELECT (SELECT birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -471,7 +471,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.assertMultiLineEqual(
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM vs_project.vs_dataset.vs_table)
-        SELECT (SELECT birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_

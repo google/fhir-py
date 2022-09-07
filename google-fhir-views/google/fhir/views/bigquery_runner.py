@@ -29,6 +29,7 @@ import sqlalchemy
 import sqlalchemy_bigquery
 
 from google.fhir.core.fhir_path import _evaluation
+from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import expressions
 from google.fhir.core.fhir_path import fhir_path
 from google.fhir.r4.terminology import terminology_service_client
@@ -37,6 +38,13 @@ from google.fhir.r4.terminology import value_sets
 from google.fhir.views import views
 
 _CODEABLE_CONCEPT = 'http://hl7.org/fhir/StructureDefinition/CodeableConcept'
+
+# DateTime format to convert ISO strings into BigQuery DateTime types.
+# This uses the structure from FHIR store exports.
+_DATE_TIME_FORMAT = '%Y-%m-%dT%H:%M:%E*S+00:00'
+
+# ISO format of dates used by FHIR.
+_DATE_FORMAT = '%Y-%m-%d'
 
 
 class BigQueryRunner:
@@ -163,6 +171,36 @@ class BigQueryRunner:
     else:
       return raw_name
 
+  def _expression_to_sql(self, expr: expressions.Builder,
+                         encoder: fhir_path.FhirPathStandardSqlEncoder,
+                         struct_def: fhir_path.StructureDefinition,
+                         elem_def: fhir_path.ElementDefinition) -> str:
+    """Converts FHIRPath expression builder to SQL."""
+    sql_expression = encoder.encode(
+        structure_definition=struct_def,
+        element_definition=elem_def,
+        fhir_path_expression=expr.to_expression().fhir_path,
+        select_scalars_as_array=False)
+
+    # Dates and datetime types are stored as strings to preseve completeness
+    # of the underlying data, but views converts to date and datetime types
+    # for ease of use.
+
+    # pylint: disable=protected-access
+    node_type = expr._node.return_type()
+    # pylint: enable=protected-access
+
+    # Use date format constants drawn from the FHIR Store export conventions
+    # for simplicity. If users encounter different formats in practice, we
+    # could allow these formats to be overridden when constructing the runner
+    # or check the string format explicitily on each row.
+    if node_type == _fhir_path_data_types.DateTime:
+      sql_expression = f'PARSE_DATETIME("{_DATE_TIME_FORMAT}", {sql_expression})'
+    elif node_type == _fhir_path_data_types.Date:
+      sql_expression = f'PARSE_DATE("{_DATE_FORMAT}", {sql_expression})'
+
+    return sql_expression
+
   def to_sql(self,
              view: views.View,
              limit: Optional[int] = None,
@@ -189,11 +227,8 @@ class BigQueryRunner:
 
     select_expressions = []
     for (field, expr) in view.get_select_expressions().items():
-      select_expression = encoder.encode(
-          structure_definition=struct_def,
-          element_definition=elem_def,
-          fhir_path_expression=expr.to_expression().fhir_path,
-          select_scalars_as_array=False)
+      select_expression = self._expression_to_sql(expr, encoder, struct_def,
+                                                  elem_def)
 
       select_expressions.append(f'{select_expression} AS {field}')
 
