@@ -241,7 +241,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         EXISTS(
         SELECT 1
         FROM UNNEST(maritalStatus.coding) AS codings
-        INNER JOIN VALUESET_VIEW vs ON
+        INNER JOIN `VALUESET_VIEW` vs ON
         vs.valueseturi='urn:test:valueset'
         AND vs.system=codings.system
         AND vs.code=codings.code
@@ -276,7 +276,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         EXISTS(
         SELECT 1
         FROM UNNEST(maritalStatus.coding) AS codings
-        INNER JOIN VALUESET_VIEW vs ON
+        INNER JOIN `VALUESET_VIEW` vs ON
         vs.valueseturi='urn:test:valueset'
         AND vs.system=codings.system
         AND vs.code=codings.code
@@ -313,7 +313,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         EXISTS(
         SELECT 1
         FROM UNNEST(maritalStatus.coding) AS codings
-        INNER JOIN VALUESET_VIEW vs ON
+        INNER JOIN `VALUESET_VIEW` vs ON
         vs.valueseturi='urn:test:valueset'
         AND vs.system=codings.system
         AND vs.code=codings.code
@@ -347,7 +347,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         EXISTS(
         SELECT 1
         FROM UNNEST(code.coding) AS codings
-        INNER JOIN VALUESET_VIEW vs ON
+        INNER JOIN `VALUESET_VIEW` vs ON
         vs.valueseturi='urn:test:valueset'
         AND vs.system=codings.system
         AND vs.code=codings.code
@@ -381,7 +381,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         EXISTS(
         SELECT 1
         FROM UNNEST(code.coding) AS codings
-        INNER JOIN VALUESET_VIEW vs ON
+        INNER JOIN `VALUESET_VIEW` vs ON
         vs.valueseturi='urn:test:valueset'
         AND vs.system=codings.system
         AND vs.code=codings.code
@@ -421,7 +421,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM UNNEST(contact) AS contact_element_ WITH OFFSET AS element_offset),
         UNNEST(contact_element_.relationship) AS relationship_element_ WITH OFFSET AS element_offset,
         UNNEST(relationship_element_.coding) AS codings
-        INNER JOIN VALUESET_VIEW vs ON
+        INNER JOIN `VALUESET_VIEW` vs ON
         vs.valueseturi='urn:test:valueset'
         AND vs.system=codings.system
         AND vs.code=codings.code
@@ -451,7 +451,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         EXISTS(
         SELECT 1
         FROM UNNEST(maritalStatus.coding) AS codings
-        INNER JOIN VALUESET_VIEW vs ON
+        INNER JOIN `VALUESET_VIEW` vs ON
         vs.valueseturi='http://a-value.set/id'
         AND vs.system=codings.system
         AND vs.code=codings.code
@@ -479,7 +479,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         EXISTS(
         SELECT 1
         FROM UNNEST(maritalStatus.coding) AS codings
-        INNER JOIN VALUESET_VIEW vs ON
+        INNER JOIN `VALUESET_VIEW` vs ON
         vs.valueseturi='http://a-value.set/id'
         AND vs.valuesetversion='1.0'
         AND vs.system=codings.system

@@ -73,6 +73,8 @@ class _FhirPathFunctionStandardSqlEncoder(abc.ABC):
       function: _ast.Function,
       operand_result: Optional[_sql_data_types.Select],
       params_result: List[_sql_data_types.StandardSqlExpression],
+      # Individual classes may specify additional kwargs they accept.
+      **kwargs,
   ) -> _sql_data_types.Select:
     raise NotImplementedError('Subclasses *must* implement `__call__`.')
 
@@ -481,14 +483,20 @@ class _MatchesFunction(_FhirPathFunctionStandardSqlEncoder):
               (operand_result.select_part, params_result[0])))
 
 
-# TODO: Add/document the need for a VALUESET_VIEW table.
-# This is a minimal pass to support query generation for analytic tools
-# wrapping this, so the logic here assumes a VALUESET_VIEW table is provided.
 class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
   """Returns `TRUE` if the operand is a value in the given valueset.
 
   See the memberOf function in https://build.fhir.org/fhirpath.html#functions
   for the full specification.
+
+  The generated SQL assumes the existence of a value set codes table as defined
+  here:
+  https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md#valueset-support
+
+  By default, the generated SQL will refer to a value set codes table named
+  VALUESET_VIEW. A value_set_codes_table argument may be supplied to this
+  class's __call__ method to use a different table name. The process executing
+  the generated SQL must have permission to read this table.
 
   This function takes one param (`valueset`) in addition to the operand. The
   valueset must be a URI referring to a valueset known in a VALUESET_VIEW table
@@ -575,7 +583,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
       function: _ast.Function,
       operand_result: _sql_data_types.IdentifierSelect,
       params_result: List[_sql_data_types.StandardSqlExpression],
-  ) -> _sql_data_types.Select:
+      value_set_codes_table: str = 'VALUESET_VIEW') -> _sql_data_types.Select:
     # Use the AST to figure out the type of the operand memberOf is called on.
     operand_node = function.parent.children[0]
     is_collection = isinstance(operand_node.data_type,
@@ -638,7 +646,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
                      '[], [\n'
                      'EXISTS(\n'
                      'SELECT 1\n'
-                     'FROM VALUESET_VIEW vs\n'
+                     f'FROM `{value_set_codes_table}` vs\n'
                      'WHERE\n'
                      f'vs.valueseturi={value_set_uri_expr}\n'
                      f'{value_set_version_predicate}'
@@ -670,7 +678,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
               # Find offsets for all array elements present in the value set.
               f'SELECT element_offset\n'
               f'FROM {operand_result.from_part}\n'
-              'INNER JOIN VALUESET_VIEW vs ON\n'
+              f'INNER JOIN `{value_set_codes_table}` vs ON\n'
               f'vs.valueseturi={value_set_uri_expr}\n'
               f'{value_set_version_predicate}'
               f'AND vs.code={operand_result.select_part}\n'
@@ -689,7 +697,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
                      '[], [\n'
                      'EXISTS(\n'
                      'SELECT 1\n'
-                     'FROM VALUESET_VIEW vs\n'
+                     f'FROM `{value_set_codes_table}` vs\n'
                      'WHERE\n'
                      f'vs.valueseturi={value_set_uri_expr}\n'
                      f'{value_set_version_predicate}'
@@ -723,7 +731,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
               # Find offsets for all array elements present in the value set.
               f'SELECT element_offset\n'
               f'FROM {operand_result.from_part}\n'
-              'INNER JOIN VALUESET_VIEW vs ON\n'
+              f'INNER JOIN `{value_set_codes_table}` vs ON\n'
               f'vs.valueseturi={value_set_uri_expr}\n'
               f'{value_set_version_predicate}'
               f'AND vs.system={operand_result.select_part}.system\n'
@@ -745,7 +753,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
               'EXISTS(\n'
               'SELECT 1\n'
               f'FROM UNNEST({operand_result.select_part}.coding) AS codings\n'
-              'INNER JOIN VALUESET_VIEW vs ON\n'
+              f'INNER JOIN `{value_set_codes_table}` vs ON\n'
               f'vs.valueseturi={value_set_uri_expr}\n'
               f'{value_set_version_predicate}'
               f'AND vs.system=codings.system\n'
@@ -781,7 +789,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
               f'SELECT DISTINCT element_offset\n'
               f'FROM {operand_result.from_part},\n'
               f'UNNEST({operand_result.select_part}.coding) AS codings\n'
-              'INNER JOIN VALUESET_VIEW vs ON\n'
+              f'INNER JOIN `{value_set_codes_table}` vs ON\n'
               f'vs.valueseturi={value_set_uri_expr}\n'
               f'{value_set_version_predicate}'
               'AND vs.system=codings.system\n'

@@ -18,6 +18,8 @@ import copy
 import textwrap
 from typing import Dict, List, Optional
 
+from google.cloud import bigquery
+
 from absl.testing import absltest
 
 from google.fhir.core.proto import validation_pb2
@@ -1542,7 +1544,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           FROM UNNEST((SELECT IF(codeFlavor.code IS NULL, [], [
           EXISTS(
           SELECT 1
-          FROM VALUESET_VIEW vs
+          FROM `VALUESET_VIEW` vs
           WHERE
           vs.valueseturi='http://value.set/id'
           AND vs.code=codeFlavor.code
@@ -1557,7 +1559,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           FROM UNNEST((SELECT IF(codeFlavor.code IS NULL, [], [
           EXISTS(
           SELECT 1
-          FROM VALUESET_VIEW vs
+          FROM `VALUESET_VIEW` vs
           WHERE
           vs.valueseturi='http://value.set/id'
           AND vs.valuesetversion='1.0'
@@ -1576,7 +1578,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           FROM UNNEST(ARRAY(SELECT element_offset FROM (
           SELECT element_offset
           FROM UNNEST(codeFlavors) AS codeFlavors_element_ WITH OFFSET AS element_offset
-          INNER JOIN VALUESET_VIEW vs ON
+          INNER JOIN `VALUESET_VIEW` vs ON
           vs.valueseturi='http://value.set/id'
           AND vs.code=codeFlavors_element_.code
           ))) AS element_offset
@@ -1593,7 +1595,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           FROM UNNEST((SELECT IF(codeFlavor.coding IS NULL, [], [
           EXISTS(
           SELECT 1
-          FROM VALUESET_VIEW vs
+          FROM `VALUESET_VIEW` vs
           WHERE
           vs.valueseturi='http://value.set/id'
           AND vs.system=codeFlavor.coding.system
@@ -1609,7 +1611,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           FROM UNNEST((SELECT IF(codeFlavor.coding IS NULL, [], [
           EXISTS(
           SELECT 1
-          FROM VALUESET_VIEW vs
+          FROM `VALUESET_VIEW` vs
           WHERE
           vs.valueseturi='http://value.set/id'
           AND vs.valuesetversion='1.0'
@@ -1629,7 +1631,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           FROM UNNEST(ARRAY(SELECT element_offset FROM (
           SELECT element_offset
           FROM UNNEST(codeFlavors) AS codeFlavors_element_ WITH OFFSET AS element_offset
-          INNER JOIN VALUESET_VIEW vs ON
+          INNER JOIN `VALUESET_VIEW` vs ON
           vs.valueseturi='http://value.set/id'
           AND vs.system=codeFlavors_element_.coding.system
           AND vs.code=codeFlavors_element_.coding.code
@@ -1648,7 +1650,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           EXISTS(
           SELECT 1
           FROM UNNEST(codeFlavor.codeableConcept.coding) AS codings
-          INNER JOIN VALUESET_VIEW vs ON
+          INNER JOIN `VALUESET_VIEW` vs ON
           vs.valueseturi='http://value.set/id'
           AND vs.system=codings.system
           AND vs.code=codings.code
@@ -1667,7 +1669,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           SELECT DISTINCT element_offset
           FROM UNNEST(codeFlavors) AS codeFlavors_element_ WITH OFFSET AS element_offset,
           UNNEST(codeFlavors_element_.codeableConcept.coding) AS codings
-          INNER JOIN VALUESET_VIEW vs ON
+          INNER JOIN `VALUESET_VIEW` vs ON
           vs.valueseturi='http://value.set/id'
           AND vs.system=codings.system
           AND vs.code=codings.code
@@ -2458,7 +2460,43 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     FhirProfileStandardSqlEncoderTestBase):
   """Tests various configurations and behaviors of the profile encoder."""
 
-  def testEncode_withValueSetBindings_producesValueSetConstraint(self):
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='_withAddValueSetBindingsOption',
+          options=fhir_path.SqlGenerationOptions(add_value_set_bindings=True),
+          expected_sql=textwrap.dedent("""\
+      ARRAY(SELECT memberof_
+      FROM (SELECT memberof_
+      FROM UNNEST((SELECT IF(bar.code IS NULL, [], [
+      EXISTS(
+      SELECT 1
+      FROM `VALUESET_VIEW` vs
+      WHERE
+      vs.valueseturi='http://value.set/id'
+      AND vs.code=bar.code
+      )]))) AS memberof_)
+      WHERE memberof_ IS NOT NULL)""")),
+      dict(
+          testcase_name='_withValueSetCodesTableOption',
+          options=fhir_path.SqlGenerationOptions(
+              add_value_set_bindings=True,
+              value_set_codes_table=bigquery.TableReference(
+                  bigquery.DatasetReference('project', 'dataset'), 'table')),
+          expected_sql=textwrap.dedent("""\
+      ARRAY(SELECT memberof_
+      FROM (SELECT memberof_
+      FROM UNNEST((SELECT IF(bar.code IS NULL, [], [
+      EXISTS(
+      SELECT 1
+      FROM `project.dataset.table` vs
+      WHERE
+      vs.valueseturi='http://value.set/id'
+      AND vs.code=bar.code
+      )]))) AS memberof_)
+      WHERE memberof_ IS NOT NULL)""")),
+  )
+  def testEncode_withValueSetBindings_producesValueSetConstraint(
+      self, options, expected_sql):
     foo_root = sdefs.build_element_definition(
         id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
     foo_bar_element_definition = sdefs.build_element_definition(
@@ -2480,7 +2518,6 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         id_='Bar', element_definitions=[bar_root, bar_code_element_definition])
 
     error_reporter = fhir_errors.ListErrorReporter()
-    options = fhir_path.SqlGenerationOptions(add_value_set_bindings=True)
     encoder = fhir_path.FhirProfileStandardSqlEncoder([foo, bar],
                                                       error_reporter,
                                                       options=options)
@@ -2493,20 +2530,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
                      "code.memberOf('http://value.set/id')")
     self.assertEqual(actual_bindings[0].fields_referenced_by_expression,
                      ['code'])
-    self.assertEqual(
-        actual_bindings[0].sql_expression,
-        textwrap.dedent("""\
-    ARRAY(SELECT memberof_
-    FROM (SELECT memberof_
-    FROM UNNEST((SELECT IF(bar.code IS NULL, [], [
-    EXISTS(
-    SELECT 1
-    FROM VALUESET_VIEW vs
-    WHERE
-    vs.valueseturi='http://value.set/id'
-    AND vs.code=bar.code
-    )]))) AS memberof_)
-    WHERE memberof_ IS NOT NULL)"""))
+    self.assertEqual(actual_bindings[0].sql_expression, expected_sql)
 
   def testSkipKeys_withValidResource_producesNoConstraints(self):
     # Setup resource with a defined constraint

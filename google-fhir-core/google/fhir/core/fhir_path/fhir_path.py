@@ -19,6 +19,8 @@ import dataclasses
 import decimal
 from typing import Any, Collection, Dict, List, Optional, Set, cast
 
+from google.cloud import bigquery
+
 from google.protobuf import message
 from google.fhir.core.proto import fhirpath_replacement_list_pb2
 from google.fhir.core.proto import validation_pb2
@@ -273,12 +275,36 @@ class State:
   containing_type: StructureDefinition
 
 
+@dataclasses.dataclass
+class SqlGenerationOptions:
+  """Used by FhirProfileStandardSqlEncoder to define optional settings.
+
+  Attributes:
+    skip_keys: A set of constraint keys that should be skipped during encoding.
+    add_primitive_regexes: Whether or not to add constraints requiring primitive
+      fields to match their corresponding regex.
+    add_value_set_bindings: Whether or not to add constraints enforcing
+      membership of codes in the value sets defined by the implementation guide
+    expr_replace_list: A list that specifies fhir path expressions to be
+      replaced. It also specifies what they should be replaced with.
+    value_set_codes_table: The name of the database table containing value set
+      code definitions. Used when building SQL for memberOf expressions.
+  """
+  skip_keys: Set[str] = dataclasses.field(default_factory=set)
+  add_primitive_regexes: bool = False
+  expr_replace_list: fhirpath_replacement_list_pb2.FHIRPathReplacementList = (
+      fhirpath_replacement_list_pb2.FHIRPathReplacementList())
+  add_value_set_bindings: bool = False
+  value_set_codes_table: bigquery.TableReference = None
+
+
 class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
   """Encodes a FHIRPath Constraint into a Standard SQL expression."""
 
   def __init__(
       self,
       structure_definitions: List[StructureDefinition],
+      options: Optional[SqlGenerationOptions] = None,
       validation_options: Optional[
           fhir_path_options.SqlValidationOptions] = None,
   ) -> None:
@@ -287,9 +313,11 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     Args:
       structure_definitions: The list of `StructureDefinition`s comprising the
         FHIR resource "graph" for traversal and encoding of constraints.
+      options: Optional settings for influencing SQL Generation.
       validation_options: Optional settings for influencing validation behavior.
     """
     self._env = _navigation._Environment(structure_definitions)
+    self._options = options or SqlGenerationOptions()
     self._semantic_analyzer = _semant.FhirPathSemanticAnalyzer(
         self._env, validation_options=validation_options)
 
@@ -929,27 +957,15 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     # used.
     func = _fhir_path_to_sql_functions.FUNCTION_MAP.get(
         function.identifier.value)
-    return func(function, operand_result, params_result)
 
-
-@dataclasses.dataclass
-class SqlGenerationOptions:
-  """Used by FhirProfileStandardSqlEncoder to define optional settings.
-
-  Attributes:
-    skip_keys: A set of constraint keys that should be skipped during encoding.
-    add_primitive_regexes: Whether or not to add constraints requiring primitive
-      fields to match their corresponding regex.
-    add_value_set_bindings: Whether or not to add constraints enforcing
-      membership of codes in the value sets defined by the implementation guide
-    expr_replace_list: A list that specifies fhir path expressions to be
-      replaced. It also specifies what they should be replaced with.
-  """
-  skip_keys: Set[str] = dataclasses.field(default_factory=set)
-  add_primitive_regexes: bool = False
-  expr_replace_list: fhirpath_replacement_list_pb2.FHIRPathReplacementList = (
-      fhirpath_replacement_list_pb2.FHIRPathReplacementList())
-  add_value_set_bindings: bool = False
+    if function.identifier.value == _ast.Function.Name.MEMBER_OF:
+      kwargs = {}
+      if self._options.value_set_codes_table is not None:
+        kwargs['value_set_codes_table'] = str(
+            self._options.value_set_codes_table)
+      return func(function, operand_result, params_result, **kwargs)
+    else:
+      return func(function, operand_result, params_result)
 
 
 class FhirProfileStandardSqlEncoder:
@@ -996,10 +1012,12 @@ class FhirProfileStandardSqlEncoder:
     # Persistent state provided during initialization that the profile encoder
     # uses for navigation, error reporting, configuration, etc.
     self._env = _navigation._Environment(structure_definitions)
-    self._fhir_path_encoder = FhirPathStandardSqlEncoder(
-        structure_definitions, validation_options=validation_options)
     self._error_reporter = error_reporter
     self._options = options or SqlGenerationOptions()
+    self._fhir_path_encoder = FhirPathStandardSqlEncoder(
+        structure_definitions,
+        options=self._options,
+        validation_options=validation_options)
     # Add keys that currently cause issues internally.
     self._options.skip_keys.update(_SKIP_KEYS)
 
