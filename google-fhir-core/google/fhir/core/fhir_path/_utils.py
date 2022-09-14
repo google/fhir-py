@@ -175,11 +175,13 @@ def is_repeated_element(element_definition: ElementDefinition) -> bool:
 
 def get_element(structdef: StructureDefinition,
                 path: str) -> Optional[ElementDefinition]:
-
+  """Returns the ElementDefintion proto for a path."""
   struct_id = cast(Any, structdef).id.value
   qualified_path = struct_id + '.' + path if path else struct_id
+  qualified_choice_path = qualified_path + '[x]'
   for elem in cast(Any, structdef).snapshot.element:
-    if elem.id.value == qualified_path:
+    if (elem.id.value == qualified_path or
+        elem.id.value == qualified_choice_path):
       return elem
 
   return None
@@ -190,6 +192,10 @@ def is_backbone_element(elem: ElementDefinition) -> bool:
     if elem_type.code.value == 'BackboneElement':
       return True
   return False
+
+
+def is_polymorphic_element(elem: ElementDefinition) -> bool:
+  return '[x]' in cast(Any, elem).id.value
 
 
 def get_patient_reference_element_paths(

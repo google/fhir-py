@@ -184,16 +184,15 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
     type_codes = _utils.element_type_codes(walker.element)
     type_code = type_codes[0] if len(type_codes) == 1 else None
     primitive_type = _fhir_path_data_types.primitive_type_from_type_code(
-        type_code)
+        type_code) if type_code else None
 
-    if primitive_type is not None:
+    if primitive_type:
       data_type = primitive_type
-    elif walker.current_type is not None:
+    elif walker.current_type:
       # TODO: Use a protocol when structural typing is added.
       # Until then cast to Any to get the structdef url and type fields.
       struct_def = cast(Any, walker.current_type)
-      data_type = _fhir_path_data_types.StructureDataType(
-          struct_def.url.value, struct_def.type.value)
+      data_type = _fhir_path_data_types.StructureDataType(struct_def)
     else:
       data_type = _fhir_path_data_types.Empty
 

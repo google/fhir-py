@@ -19,13 +19,14 @@ import decimal
 import keyword
 import math
 import textwrap
-from typing import List, Union
+from typing import List, Union, cast
 
 from google.protobuf import descriptor
 from google.protobuf import message
 from google.protobuf import symbol_database
 from absl.testing import parameterized
 from google.fhir.core.fhir_path import _evaluation
+from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import context
 from google.fhir.core.fhir_path import expressions
 
@@ -78,7 +79,7 @@ class FhirPathExpressionsTest(
   def assert_expression_result(
       self, parsed_expression: expressions.CompiledExpression,
       builder: expressions.Builder, resource: message.Message,
-      expected_result: Union[bool, str, float]):
+      expected_result: Union[bool, str, float, int]):
     # Confirm the expressions themselves match.
     self.assertEqual(parsed_expression.fhir_path, builder.fhir_path)
 
@@ -90,15 +91,36 @@ class FhirPathExpressionsTest(
     if expected_result is None:
       self.assertFalse(parsed_result.has_value())
       self.assertFalse(built_result.has_value())
-    elif isinstance(expected_result, bool):
+      return
+
+    expected_type = _fhir_path_data_types.Empty
+    if isinstance(expected_result, bool):
       self.assertEqual(expected_result, parsed_result.as_bool())
       self.assertEqual(expected_result, built_result.as_bool())
-    elif isinstance(expected_result, float):
+      expected_type = _fhir_path_data_types.Boolean
+    elif isinstance(expected_result, float) or isinstance(expected_result, int):
       self.assertTrue(math.isclose(expected_result, parsed_result.as_decimal()))
       self.assertTrue(math.isclose(expected_result, built_result.as_decimal()))
+      if isinstance(expected_result, float):
+        expected_type = _fhir_path_data_types.Decimal
+      else:
+        expected_type = _fhir_path_data_types.Integer
     else:
       self.assertEqual(expected_result, parsed_result.as_string())
       self.assertEqual(expected_result, built_result.as_string())
+      expected_type = _fhir_path_data_types.String
+
+    builder_type = builder.get_node().return_type()
+    if isinstance(builder_type, _fhir_path_data_types.PolymorphicDataType):
+      self.assertIn(
+          expected_type,
+          cast(_fhir_path_data_types.PolymorphicDataType,
+               builder_type).types().values())
+    else:
+      if _fhir_path_data_types.is_numeric(expected_type):
+        self.assertTrue(_fhir_path_data_types.is_numeric(builder_type))
+      else:
+        self.assertEqual(expected_type, builder_type)
 
   # Exclude parameter type info to work with multiple FHIR versions.
   def _set_fhir_enum_by_name(self, enum_wrapper, enum_value_name) -> None:
@@ -129,6 +151,15 @@ class FhirPathExpressionsTest(
     self.assertIsNotNone(pat.address)
     with self.assertRaises(AttributeError):
       pat.address.noSuchField  # pylint: disable=pointless-statement
+
+  def testExpressionsWithWrongTypeRaisesError(self):
+    pat = self.builder('Patient')
+    patient = self._new_patient()
+    patient.address.add().city.value = 'Seattle'
+    patient.telecom.add().rank.value = 5
+
+    with self.assertRaises(ValueError):
+      pat.address.city + pat.telecom.rank  # pylint: disable=pointless-statement
 
   def testNestedField_forResource_hasExpectedValue(self):
     patient = self._new_patient()
@@ -663,8 +694,9 @@ class FhirPathExpressionsTest(
   def testNonLiteralNegativePolarity(self):
     """Tests FHIRPath expressions with negative polarity on non-literals."""
     patient = self._new_patient()
-    expr = self.compile_expression('Patient', '-multipleBirth')
-    self.assertEqual(expr.fhir_path, '-multipleBirth')
+    expr = self.compile_expression('Patient',
+                                   "-multipleBirth.ofType('Integer')")
+    self.assertEqual(expr.fhir_path, "-multipleBirth.ofType('Integer')")
     self.assertFalse(expr.evaluate(patient).has_value())
     patient.multiple_birth.integer.value = 2
     self.assertEqual(expr.evaluate(patient).as_decimal(), -2)
@@ -674,8 +706,9 @@ class FhirPathExpressionsTest(
   def testNonLiteralPositivePolarity(self):
     """Tests FHIRPath expressions with positive polarity on non-literals."""
     patient = self._new_patient()
-    expr = self.compile_expression('Patient', '+multipleBirth')
-    self.assertEqual(expr.fhir_path, '+multipleBirth')
+    expr = self.compile_expression('Patient',
+                                   "+multipleBirth.ofType('Integer')")
+    self.assertEqual(expr.fhir_path, "+multipleBirth.ofType('Integer')")
     self.assertFalse(expr.evaluate(patient).has_value())
     patient.multiple_birth.integer.value = 2
     self.assertEqual(expr.evaluate(patient).as_decimal(), 2)
@@ -983,6 +1016,13 @@ class FhirPathExpressionsTest(
     observation.value.boolean.value = True
     self.assert_expression_result(compiled_expr, built_expr, observation, True)
 
+  def testChoiceType_withoutOfType_fails(self) -> None:
+    # Choice types should only be accessed directly or with ofType.
+    with self.assertRaisesRegex(
+        AttributeError, r'Cannot directly access polymorphic fields. '
+        r"Please use ofType\['quantity'\] instead."):
+      _ = self.builder('Observation').value.quantity  # pylint: disable=pointless-statement
+
   def testChoiceType_withOfType_succeeds(self) -> None:
     """Tests ofType access of choice types succeeds."""
     observation = self._new_observation()
@@ -1174,7 +1214,29 @@ class FhirPathExpressionsTest(
         | | + Patient <RootMessageNode> ())
         | + use = 'home' <EqualityNode> (
         | | + use <InvokeExpressionNode> (
-        | | | +  <RootMessageNode> ())
+        | | | + Address <RootMessageNode> ())
         | | + 'home' <LiteralNode> ()))"""),
         self.builder('Patient').address.all(
             self.builder('Patient').address.use == 'home').debug_string())
+
+    # Complicated FHIRView with type printing
+    self.assertMultiLineEqual(
+        textwrap.dedent("""\
+        + address.all(use = 'home') <AllFunction type=<BooleanFhirPathDataType>> (
+        | + address <InvokeExpressionNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>> (
+        | | + Patient <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Patient)>> ())
+        | + use = 'home' <EqualityNode type=<BooleanFhirPathDataType>> (
+        | | + use <InvokeExpressionNode type=<StringFhirPathDataType>> (
+        | | | + Address <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>> ())
+        | | + 'home' <LiteralNode type=None> ()))"""),
+        self.builder('Patient').address.all(
+            self.builder('Patient').address.use == 'home').debug_string(
+                with_typing=True))
+
+    # Polymorphic choice type printing.
+    self.assertMultiLineEqual(
+        textwrap.dedent("""\
+      + value <InvokeExpressionNode type=<PolymorphicDataType(types=['quantity: http://hl7.org/fhir/StructureDefinition/Quantity', 'codeableconcept: http://hl7.org/fhir/StructureDefinition/CodeableConcept', 'string: http://hl7.org/fhirpath/System.String', 'boolean: http://hl7.org/fhirpath/System.Boolean', 'integer: http://hl7.org/fhirpath/System.Integer', 'range: http://hl7.org/fhir/StructureDefinition/Range', 'ratio: http://hl7.org/fhir/StructureDefinition/Ratio', 'sampleddata: http://hl7.org/fhir/StructureDefinition/SampledData', 'time: http://hl7.org/fhirpath/System.DateTime', 'datetime: http://hl7.org/fhirpath/System.DateTime', 'period: http://hl7.org/fhir/StructureDefinition/Period'])>> (
+      | + Observation <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Observation)>> ())"""
+                       ),
+        self.builder('Observation').value.debug_string(with_typing=True))

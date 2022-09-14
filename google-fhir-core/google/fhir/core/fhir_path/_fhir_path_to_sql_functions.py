@@ -1131,9 +1131,8 @@ def _string_to_fhir_type(
   if type_code == 'string':
     return _fhir_path_data_types.String
   elif type_code == 'codeableconcept':
-    return _fhir_path_data_types.StructureDataType(
-        url='http://hl7.org/fhir/StructureDefinition/CodeableConcept',
-        base_type='')
+    # TODO: Refactor out needing to compute this mapping.
+    return _fhir_path_data_types.Any_
   fhir_type = _fhir_path_data_types.primitive_type_from_type_code(type_code)
   if not fhir_type:
     return _fhir_path_data_types.Empty

@@ -57,8 +57,7 @@ def builder(structdef_url: str,
   Returns: a builder object to creae FHIRPath expressions.
   """
   structdef = fhir_context.get_structure_definition(structdef_url)
-  struct_type = _fhir_path_data_types.StructureDataType(structdef.url.value,
-                                                        structdef.type.value)
+  struct_type = _fhir_path_data_types.StructureDataType(structdef)
   return expressions.Builder(
-      _evaluation.RootMessageNode(struct_type), fhir_context,
+      _evaluation.RootMessageNode(fhir_context, struct_type), fhir_context,
       _PRIMITIVE_HANDLER)

@@ -39,6 +39,7 @@ def get_messages(parent: message.Message,
                  json_name: str) -> List[message.Message]:
   """Gets the child messages in the field with the given JSON name."""
   target_field = None
+
   for field in parent.DESCRIPTOR.fields:
     if field.json_name == json_name:
       target_field = field
@@ -57,6 +58,21 @@ def get_messages(parent: message.Message,
     return results
 
 
+def _get_fhir_type_from_string(
+    type_code: str, fhir_context: context.FhirPathContext
+) -> _fhir_path_data_types.FhirPathDataType:
+  """Returns a FhirPathDataType from a type code string."""
+  # If this is a primitive, simply return the corresponding primitive type.
+  primitive_type = _fhir_path_data_types.primitive_type_from_type_code(
+      type_code)
+  if primitive_type is not None:
+    return primitive_type
+
+  # Load the structure definition for the non-primitive type.
+  child_structdef = fhir_context.get_structure_definition(type_code)
+  return _fhir_path_data_types.StructureDataType(child_structdef)
+
+
 def _get_child_data_type(
     parent: Optional[_fhir_path_data_types.FhirPathDataType],
     fhir_context: context.FhirPathContext,
@@ -65,6 +81,13 @@ def _get_child_data_type(
   if parent is None:
     return None
 
+  if isinstance(parent, _fhir_path_data_types.PolymorphicDataType):
+    possible_types = cast(_fhir_path_data_types.PolymorphicDataType,
+                          parent).types()
+    if json_name.casefold() not in possible_types:
+      raise ValueError(f'Identifier {json_name} not in {possible_types.keys()}')
+    return possible_types[json_name.casefold()]
+
   if isinstance(parent, _fhir_path_data_types.StructureDataType):
     structdef = fhir_context.get_structure_definition(parent.url)
     elem_path = parent.backbone_element_path + '.' + json_name if parent.backbone_element_path else json_name
@@ -72,25 +95,20 @@ def _get_child_data_type(
     if elem is None:
       return None
     if _utils.is_backbone_element(elem):
-      return _fhir_path_data_types.StructureDataType(structdef.url.value,
-                                                     structdef.type.value,
-                                                     elem_path)
-    else:
-      if not elem.type or not elem.type[0].code.value:
-        raise ValueError(f'Malformed ElementDefinition in struct {parent.url}')
-      type_code = elem.type[0].code.value
+      return _fhir_path_data_types.StructureDataType(structdef, elem_path)
 
-      # If this is a primitive, simply return the corresponding primitive type.
-      primitive_type = _fhir_path_data_types.primitive_type_from_type_code(
-          type_code)
-      if primitive_type is not None:
-        return primitive_type
+    if _utils.is_polymorphic_element(elem):
+      struct_def_dict = {}
+      for elem_type in elem.type:
+        struct_def_dict[
+            elem_type.code.value.casefold()] = _get_fhir_type_from_string(
+                elem_type.code.value, fhir_context)
+      return _fhir_path_data_types.PolymorphicDataType(struct_def_dict)
 
-      # Load the structure definition for the non-primitive type.
-      child_structdef = fhir_context.get_structure_definition(
-          elem.type[0].code.value)
-      return _fhir_path_data_types.StructureDataType(child_structdef.url.value,
-                                                     child_structdef.type.value)
+    if not elem.type or not elem.type[0].code.value:
+      raise ValueError(f'Malformed ElementDefinition in struct {parent.url}')
+    type_code = elem.type[0].code.value
+    return _get_fhir_type_from_string(type_code, fhir_context)
   else:
     return None
 
@@ -159,9 +177,11 @@ class ExpressionNode(abc.ABC):
 
   def __init__(
       self,
+      fhir_context: context.FhirPathContext,
       return_type: Optional[_fhir_path_data_types.FhirPathDataType] = None
   ) -> None:
     self._return_type = return_type
+    self._context = fhir_context
 
   @abc.abstractmethod
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
@@ -177,14 +197,23 @@ class ExpressionNode(abc.ABC):
     """The descriptor of the items returned by the expression, if known."""
     return self._return_type
 
-  def fields(self) -> Optional[Set[str]]:
+  def fields(self) -> Set[str]:
     """Returns known fields from this expression, or none if they are unknown.
 
     These are names pulled directly from the FHIR spec, and used in the FHIRPath
     and the JSON representation of the structure.
     """
-    # Base implementation has no known fields.
-    return None
+    if self._return_type:
+      if isinstance(self._return_type, _fhir_path_data_types.StructureDataType):
+        names = cast(_fhir_path_data_types.StructureDataType,
+                     self._return_type).children_names()
+        return set(names)
+      if isinstance(self._return_type,
+                    _fhir_path_data_types.PolymorphicDataType):
+        return set(
+            cast(_fhir_path_data_types.PolymorphicDataType,
+                 self._return_type).type_names())
+    return set()
 
   @abc.abstractmethod
   def operands(self) -> List['ExpressionNode']:
@@ -202,17 +231,20 @@ class ExpressionNode(abc.ABC):
 
   def _operand_to_string(self,
                          operand: 'ExpressionNode',
+                         with_typing: bool,
                          indent: int = 0) -> str:
     """Function to recursively print the operands of the input operand."""
-    operand_prints = ''.join('\n' + self._operand_to_string(op, indent + 1)
-                             for op in operand.operands())
+    operand_prints = ''.join(
+        '\n' + self._operand_to_string(op, with_typing, indent + 1)
+        for op in operand.operands())
+    type_print = f' type={operand.return_type()}' if with_typing else ''
     return (f'{"| " * indent}+ '
-            f'{operand} <{operand.__class__.__name__}> ('
+            f'{operand} <{operand.__class__.__name__}{type_print}> ('
             f'{operand_prints})')
 
-  def debug_string(self) -> str:
+  def debug_string(self, with_typing: bool = False) -> str:
     """Returns debug string of the current node."""
-    return self._operand_to_string(self)
+    return self._operand_to_string(self, with_typing)
 
 
 def _to_boolean(operand: List[WorkSpaceMessage]) -> Optional[bool]:
@@ -260,12 +292,18 @@ def _to_int(operand: List[WorkSpaceMessage]) -> Optional[int]:
 class BinaryExpressionNode(ExpressionNode):
   """Base class for binary expressions."""
 
-  def __init__(self, handler: primitive_handler.PrimitiveHandler,
-               left: ExpressionNode, right: ExpressionNode) -> None:
-    super().__init__(None)
+  def __init__(self, fhir_context: context.FhirPathContext,
+               handler: primitive_handler.PrimitiveHandler,
+               left: ExpressionNode, right: ExpressionNode,
+               return_type: _fhir_path_data_types.FhirPathDataType) -> None:
+    if not _fhir_path_data_types.is_coercible(left.return_type(),
+                                              right.return_type()):
+      raise ValueError(f'Left and right operands are not coercible to each '
+                       f'other. {left.return_type()} {right.return_type()}')
     self._handler = handler
     self._left = left
     self._right = right
+    super().__init__(fhir_context, return_type)
 
   def operands(self) -> List[ExpressionNode]:
     return [self._left, self._right]
@@ -287,10 +325,10 @@ class RootMessageNode(ExpressionNode):
   """Returns the root node of the workspace."""
 
   def __init__(
-      self,
-      return_type: Optional[_fhir_path_data_types.StructureDataType]) -> None:
-    super().__init__(return_type)
+      self, fhir_context: context.FhirPathContext,
+      return_type: Optional[_fhir_path_data_types.FhirPathDataType]) -> None:
     self._struct_type = return_type
+    super().__init__(fhir_context, return_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     return [
@@ -316,10 +354,24 @@ class RootMessageNode(ExpressionNode):
 class LiteralNode(ExpressionNode):
   """Node expressing a literal FHIRPath value."""
 
-  def __init__(self, value: message.Message, fhir_path_str: str) -> None:
-    super().__init__(None)
+  def __init__(
+      self,
+      fhir_context: context.FhirPathContext,
+      value: message.Message,
+      fhir_path_str: str,
+      return_type: Optional[_fhir_path_data_types.FhirPathDataType] = None
+  ) -> None:
+    primitive_type = annotation_utils.is_primitive_type(value)
+    valueset_type = (
+        annotation_utils.is_resource(value) and
+        annotation_utils.get_structure_definition_url(value) == VALUE_SET_URL)
+    if not (primitive_type or valueset_type):
+      raise ValueError(f'LiteralNode should be a primitive or valueset, '
+                       f'instead, is {self._value}')
+
     self._value = value
     self._fhir_path_str = fhir_path_str
+    super().__init__(fhir_context, return_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     return [
@@ -372,15 +424,23 @@ class InvokeExpressionNode(ExpressionNode):
     return fhir_message
 
   def __init__(self, fhir_context: context.FhirPathContext, identifier: str,
-               operand_node: ExpressionNode) -> None:
-    super().__init__(
-        _get_child_data_type(operand_node.return_type(), fhir_context,
-                             identifier))
+               parent_node: ExpressionNode) -> None:
+    if isinstance(parent_node.return_type(),
+                  _fhir_path_data_types.PolymorphicDataType):
+      raise AttributeError(f'Cannot directly access polymorphic fields. '
+                           f"Please use ofType['{identifier}'] instead.")
     self._identifier = identifier
-    self._operand_node = operand_node
+    self._parent_node = parent_node
+    return_type = _get_child_data_type(self._parent_node.return_type(),
+                                       fhir_context, self._identifier)
+    # TODO: Check that identifier exists in parent node's fields.
+    # Difficult to do at the moment when nodes are constructed from the AST in
+    # instances such as Patient.address.all(use == "home") because the
+    # InvokeNode(use) does not know that it is a child of address; not Patient.
+    super().__init__(fhir_context, return_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    operand_messages = self._operand_node.evaluate(work_space)
+    operand_messages = self._parent_node.evaluate(work_space)
     results = []
     for operand_message in operand_messages:
       operand_results = get_messages(operand_message.message, self._identifier)
@@ -398,31 +458,35 @@ class InvokeExpressionNode(ExpressionNode):
 
   @property
   def operand_node(self) -> ExpressionNode:
-    return self._operand_node
+    return self._parent_node
 
   def to_fhir_path(self) -> str:
     # Exclude the root message name from the FHIRPath, following conventions.
-    if isinstance(self._operand_node, RootMessageNode):
+    if isinstance(self._parent_node, RootMessageNode):
       return self._identifier
     else:
-      return self._operand_node.to_fhir_path() + '.' + self._identifier
+      return self._parent_node.to_fhir_path() + '.' + self._identifier
 
   def operands(self) -> List[ExpressionNode]:
-    return [self._operand_node]
+    return [self._parent_node]
 
   def replace_operand(self, expression_to_replace: str,
                       replacement: 'ExpressionNode') -> None:
-    if self._operand_node.to_fhir_path() == expression_to_replace:
-      self._operand_node = replacement
+    if self._parent_node.to_fhir_path() == expression_to_replace:
+      self._parent_node = replacement
 
 
 class IndexerNode(ExpressionNode):
   """Handles the indexing operation."""
 
-  def __init__(self, collection: ExpressionNode, index: LiteralNode) -> None:
-    super().__init__(None)
+  def __init__(self, fhir_context: context.FhirPathContext,
+               collection: ExpressionNode, index: LiteralNode) -> None:
+    if not isinstance(index.return_type(), _fhir_path_data_types._Integer):
+      raise ValueError(f'Expected index type to be Integer. '
+                       f'Got {index.return_type()} instead.')
     self._collection = collection
     self._index = index
+    super().__init__(fhir_context, collection.return_type())
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     collection_messages = self._collection.evaluate(work_space)
@@ -454,10 +518,15 @@ class IndexerNode(ExpressionNode):
 class NumericPolarityNode(ExpressionNode):
   """Numeric polarity support."""
 
-  def __init__(self, operand: ExpressionNode, polarity: _ast.Polarity) -> None:
-    super().__init__(None)
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, polarity: _ast.Polarity) -> None:
+    if operand.return_type() and not _fhir_path_data_types.is_numeric(
+        operand.return_type()):
+      raise ValueError(
+          f'Operand must be of numeric type. {operand.return_type()}')
     self._operand = operand
     self._polarity = polarity
+    super().__init__(fhir_context, operand.return_type())
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)
@@ -485,7 +554,7 @@ class NumericPolarityNode(ExpressionNode):
     ]
 
   def to_fhir_path(self) -> str:
-    return f'{str(self._polarity.op)}{self._operand.to_fhir_path()}'
+    return f'{str(self._polarity.op)} {self._operand.to_fhir_path()}'
 
   def operands(self) -> List[ExpressionNode]:
     return [self._operand]
@@ -505,12 +574,13 @@ class FunctionNode(ExpressionNode):
 
   def __init__(
       self,
+      fhir_context: context.FhirPathContext,
       name: str,
       operand: ExpressionNode,
       params: List[ExpressionNode],
       return_type: Optional[_fhir_path_data_types.FhirPathDataType] = None
   ) -> None:
-    super().__init__(return_type)
+    super().__init__(fhir_context, return_type)
     self._name = name
     self._operand = operand
     self._params = params
@@ -543,9 +613,10 @@ class FunctionNode(ExpressionNode):
 class ExistsFunction(FunctionNode):
   """Implementation of the exists() function."""
 
-  def __init__(self, operand: ExpressionNode,
-               params: List[ExpressionNode]) -> None:
-    super().__init__('exists', operand, params)
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, params: List[ExpressionNode]) -> None:
+    super().__init__(fhir_context, 'exists', operand, params,
+                     _fhir_path_data_types.Boolean)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)
@@ -563,9 +634,10 @@ class ExistsFunction(FunctionNode):
 class CountFunction(FunctionNode):
   """Implementation of the count() function."""
 
-  def __init__(self, operand: ExpressionNode,
-               params: List[ExpressionNode]) -> None:
-    super().__init__('count', operand, params)
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, params: List[ExpressionNode]) -> None:
+    super().__init__(fhir_context, 'count', operand, params,
+                     _fhir_path_data_types.Integer)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)
@@ -582,9 +654,10 @@ class CountFunction(FunctionNode):
 class EmptyFunction(FunctionNode):
   """Implementation of the empty() function."""
 
-  def __init__(self, operand: ExpressionNode,
-               params: List[ExpressionNode]) -> None:
-    super().__init__('empty', operand, params)
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, params: List[ExpressionNode]) -> None:
+    super().__init__(fhir_context, 'empty', operand, params,
+                     _fhir_path_data_types.Boolean)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)
@@ -601,9 +674,10 @@ class EmptyFunction(FunctionNode):
 class FirstFunction(FunctionNode):
   """Implementation of the first() function."""
 
-  def __init__(self, operand: ExpressionNode,
-               params: List[ExpressionNode]) -> None:
-    super().__init__('first', operand, params)
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, params: List[ExpressionNode]) -> None:
+    super().__init__(fhir_context, 'first', operand, params,
+                     operand.return_type())
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)
@@ -616,9 +690,10 @@ class FirstFunction(FunctionNode):
 class HasValueFunction(FunctionNode):
   """Implementation of the hasValue() function."""
 
-  def __init__(self, operand: ExpressionNode,
-               params: List[ExpressionNode]) -> None:
-    super().__init__('hasValue', operand, params)
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, params: List[ExpressionNode]) -> None:
+    super().__init__(fhir_context, 'hasValue', operand, params,
+                     _fhir_path_data_types.Boolean)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)
@@ -643,9 +718,10 @@ class IdForFunction(FunctionNode):
   dataframe tables.
   """
 
-  def __init__(self, operand: ExpressionNode,
-               params: List[ExpressionNode]) -> None:
-    super().__init__('idFor', operand, params)
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, params: List[ExpressionNode]) -> None:
+    # TODO: Resolve typing for idFor function.
+    super().__init__(fhir_context, 'idFor', operand, params)
     if not (len(params) == 1 and isinstance(params[0], LiteralNode) and
             fhir_types.is_string(cast(LiteralNode, params[0]).get_value())):
       raise ValueError(
@@ -661,8 +737,8 @@ class OfTypeFunction(FunctionNode):
 
   struct_def_url: str
 
-  def __init__(self, operand: ExpressionNode,
-               params: List[ExpressionNode]) -> None:
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, params: List[ExpressionNode]) -> None:
     if not (len(params) == 1 and isinstance(params[0], LiteralNode) and
             fhir_types.is_string(cast(LiteralNode, params[0]).get_value())):
       raise ValueError(
@@ -670,22 +746,21 @@ class OfTypeFunction(FunctionNode):
 
     # Determine the expected FHIR type to use as the node's return type.
     type_param_str = cast(Any, params[0]).get_value().value
+
     # Trim the FHIR prefix used for primitive types, if applicable.
     base_type_str = type_param_str[5:] if type_param_str.startswith(
         'FHIR.') else type_param_str
     self.struct_def_url = f'http://hl7.org/fhir/StructureDefinition/{base_type_str}'
 
-    # Check to see if it is a primitive, otherwise treat as a structure type.
-    primitive_type = _fhir_path_data_types.primitive_type_from_type_code(
-        base_type_str)
+    return_type = _fhir_path_data_types.Empty
+    if isinstance(operand.return_type(),
+                  _fhir_path_data_types.PolymorphicDataType):
+      if base_type_str.casefold() in cast(
+          _fhir_path_data_types.PolymorphicDataType,
+          operand.return_type()).type_names():
+        return_type = operand.return_type().types()[base_type_str.casefold()]
 
-    if primitive_type is not None:
-      fhir_type = primitive_type
-    else:
-      fhir_type = _fhir_path_data_types.StructureDataType(
-          self.struct_def_url, base_type_str)
-
-    super().__init__('ofType', operand, params, fhir_type)
+    super().__init__(fhir_context, 'ofType', operand, params, return_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)
@@ -693,7 +768,7 @@ class OfTypeFunction(FunctionNode):
 
     for operand_message in operand_messages:
       if annotation_utils.get_structure_definition_url(
-          operand_message.message) == self.struct_def_url:
+          operand_message.message).casefold() == self.struct_def_url.casefold():
         results.append(operand_message)
 
     return results
@@ -708,9 +783,10 @@ class MemberOfFunction(FunctionNode):
   code_values: Optional[FrozenSet[CodeValue]] = None
   code_values_lock = threading.Lock()
 
-  def __init__(self, operand: ExpressionNode,
-               params: List[ExpressionNode]) -> None:
-    super().__init__('memberOf', operand, params)
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, params: List[ExpressionNode]) -> None:
+    super().__init__(fhir_context, 'memberOf', operand, params,
+                     _fhir_path_data_types.Boolean)
     if len(params) != 1 or not isinstance(params[0], LiteralNode):
       raise ValueError(
           'MemberOf requires single valueset URL or proto parameter.')
@@ -806,9 +882,10 @@ class MemberOfFunction(FunctionNode):
 class NotFunction(FunctionNode):
   """Implementation of the not_() function."""
 
-  def __init__(self, operand: ExpressionNode,
-               params: List[ExpressionNode]) -> None:
-    super().__init__('not', operand, params)
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, params: List[ExpressionNode]) -> None:
+    super().__init__(fhir_context, 'not', operand, params,
+                     _fhir_path_data_types.Boolean)
     if params:
       raise ValueError(('not() function should not have any parameters but has '
                         f'{str(len(params))} parameters.'))
@@ -834,12 +911,13 @@ class NotFunction(FunctionNode):
 class WhereFunction(FunctionNode):
   """Implementation of the where() function."""
 
-  def __init__(self, operand: ExpressionNode,
-               params: List[ExpressionNode]) -> None:
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, params: List[ExpressionNode]) -> None:
     if len(params) != 1:
       raise ValueError('Where expressions require a single parameter.')
 
-    super().__init__('where', operand, params, operand.return_type())
+    super().__init__(fhir_context, 'where', operand, params,
+                     operand.return_type())
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     results = []
@@ -860,12 +938,13 @@ class WhereFunction(FunctionNode):
 class AllFunction(FunctionNode):
   """Implementation of the all() function."""
 
-  def __init__(self, operand: ExpressionNode,
-               params: List[ExpressionNode]) -> None:
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, params: List[ExpressionNode]) -> None:
     if len(params) != 1:
       raise ValueError('"All" expressions require a single parameter.')
 
-    super().__init__('all', operand, params)
+    super().__init__(fhir_context, 'all', operand, params,
+                     _fhir_path_data_types.Boolean)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     all_match = True
@@ -894,9 +973,10 @@ class MatchesFunction(FunctionNode):
 
   pattern = None
 
-  def __init__(self, operand: ExpressionNode,
-               params: List[ExpressionNode]) -> None:
-    super().__init__('matches', operand, params)
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, params: List[ExpressionNode]) -> None:
+    super().__init__(fhir_context, 'matches', operand, params,
+                     _fhir_path_data_types.Boolean)
     if not (len(params) == 1 and isinstance(params[0], LiteralNode) and
             fhir_types.is_string(cast(LiteralNode, params[0]).get_value())):
       raise ValueError('matches() requires a single string parameter.')
@@ -931,16 +1011,17 @@ class MatchesFunction(FunctionNode):
 class EqualityNode(BinaryExpressionNode):
   """Implementation of FHIRPath equality and equivalence operators."""
 
-  def __init__(self, handler: primitive_handler.PrimitiveHandler,
+  def __init__(self, fhir_context: context.FhirPathContext,
+               handler: primitive_handler.PrimitiveHandler,
                operator: _ast.EqualityRelation.Op, left: ExpressionNode,
                right: ExpressionNode) -> None:
-    super().__init__(handler, left, right)
     self._operator = operator
-
     # TODO: Add support for FHIRPath equivalence operators.
     if (operator != _ast.EqualityRelation.Op.EQUAL and
         operator != _ast.EqualityRelation.Op.NOT_EQUAL):
       raise NotImplementedError('Implement all equality relations.')
+    super().__init__(fhir_context, handler, left, right,
+                     _fhir_path_data_types.Boolean)
 
   def are_equal(self, left: WorkSpaceMessage, right: WorkSpaceMessage) -> bool:
     """Returns true if left and right are equal."""
@@ -999,10 +1080,12 @@ class BooleanOperatorNode(BinaryExpressionNode):
   See https://hl7.org/fhirpath/#boolean-logic for behavior definition.
   """
 
-  def __init__(self, handler: primitive_handler.PrimitiveHandler,
+  def __init__(self, fhir_context: context.FhirPathContext,
+               handler: primitive_handler.PrimitiveHandler,
                operator: _ast.BooleanLogic.Op, left: ExpressionNode,
                right: ExpressionNode) -> None:
-    super().__init__(handler, left, right)
+    super().__init__(fhir_context, handler, left, right,
+                     _fhir_path_data_types.Boolean)
     self._operator = operator
 
   def _evaluate_expression(self, left: Optional[bool],
@@ -1060,11 +1143,18 @@ class ArithmeticNode(BinaryExpressionNode):
   See https://hl7.org/fhirpath/#math-2 for behavior definition.
   """
 
-  def __init__(self, handler: primitive_handler.PrimitiveHandler,
+  def __init__(self, fhir_context: context.FhirPathContext,
+               handler: primitive_handler.PrimitiveHandler,
                operator: _ast.Arithmetic.Op, left: ExpressionNode,
                right: ExpressionNode) -> None:
-    super().__init__(handler, left, right)
+    if not _fhir_path_data_types.is_coercible(left.return_type(),
+                                              right.return_type()):
+      raise ValueError(f'Arithmetic nodes must be coercible.'
+                       f'{left.return_type()} {right.return_type()}')
+
     self._operator = operator
+    return_type = left.return_type() if left else right.return_type()
+    super().__init__(fhir_context, handler, left, right, return_type)
 
   def _stringify(self, string_messages: List[WorkSpaceMessage]) -> str:
     """Returns empty string for None messages."""
@@ -1172,10 +1262,12 @@ class ArithmeticNode(BinaryExpressionNode):
 class ComparisonNode(BinaryExpressionNode):
   """Implementation of the FHIRPath comparison functions."""
 
-  def __init__(self, handler: primitive_handler.PrimitiveHandler,
+  def __init__(self, fhir_context: context.FhirPathContext,
+               handler: primitive_handler.PrimitiveHandler,
                operator: _ast.Comparison.Op, left: ExpressionNode,
                right: ExpressionNode) -> None:
-    super().__init__(handler, left, right)
+    super().__init__(fhir_context, handler, left, right,
+                     _fhir_path_data_types.Boolean)
     self._operator = operator
 
   def _compare(self, left: Any, right: Any) -> bool:
@@ -1268,43 +1360,50 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
   def visit_literal(self, literal: _ast.Literal) -> LiteralNode:
 
     if isinstance(literal.value, bool):
-      return LiteralNode(
-          self._handler.new_boolean(literal.value), str(literal.value))
+      return LiteralNode(self._context,
+                         self._handler.new_boolean(literal.value),
+                         str(literal.value), _fhir_path_data_types.Boolean)
     elif isinstance(literal.value, int):
-      return LiteralNode(
-          self._handler.new_integer(literal.value), str(literal.value))
+      return LiteralNode(self._context,
+                         self._handler.new_integer(literal.value),
+                         str(literal.value), _fhir_path_data_types.Integer)
     elif isinstance(literal.value, str):
       if literal.is_date_type:
         primitive_cls = (
             self._handler.date_time_cls
             if 'T' in literal.value else self._handler.date_cls)
         return LiteralNode(
+            self._context,
             self._handler.primitive_wrapper_from_json_value(
-                literal.value, primitive_cls).wrapped, f'@{literal.value}')
+                literal.value, primitive_cls).wrapped, f'@{literal.value}',
+            _fhir_path_data_types.DateTime)
       else:
-        return LiteralNode(
-            self._handler.new_string(literal.value), f"'{literal.value}'")
+        return LiteralNode(self._context,
+                           self._handler.new_string(literal.value),
+                           f"'{literal.value}'", _fhir_path_data_types.String)
     elif isinstance(literal.value, decimal.Decimal):
-      return LiteralNode(
-          self._handler.new_decimal(str(literal.value)), str(literal.value))
+      return LiteralNode(self._context,
+                         self._handler.new_decimal(str(literal.value)),
+                         str(literal.value), _fhir_path_data_types.Decimal)
     else:
       raise ValueError(f'Unsupported literal value: {literal}.')
 
   def visit_identifier(self,
                        identifier: _ast.Identifier) -> InvokeExpressionNode:
     return InvokeExpressionNode(self._context, identifier.value,
-                                RootMessageNode(self._data_type))
+                                RootMessageNode(self._context, self._data_type))
 
   def visit_indexer(self, indexer: _ast.Indexer, **kwargs: Any) -> Any:
     collection_result = self.visit(indexer.collection)
     index_result = self.visit(indexer.index)
-    return IndexerNode(collection_result, index_result)
+    return IndexerNode(self._context, collection_result, index_result)
 
   def visit_arithmetic(self, arithmetic: _ast.Arithmetic, **kwargs: Any) -> Any:
     left = self.visit(arithmetic.lhs)
     right = self.visit(arithmetic.rhs)
 
-    return ArithmeticNode(self._handler, arithmetic.op, left, right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
+    return ArithmeticNode(self._context, self._handler, arithmetic.op, left,
+                          right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
 
   def visit_type_expression(self, type_expression: _ast.TypeExpression,
                             **kwargs: Any) -> Any:
@@ -1316,20 +1415,22 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     left = self.visit(equality.lhs)
     right = self.visit(equality.rhs)
 
-    return EqualityNode(self._handler, equality.op, left, right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
+    return EqualityNode(self._context, self._handler, equality.op, left, right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
 
   def visit_comparison(self, comparison: _ast.Comparison, **kwargs: Any) -> Any:
     left = self.visit(comparison.lhs)
     right = self.visit(comparison.rhs)
 
-    return ComparisonNode(self._handler, comparison.op, left, right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
+    return ComparisonNode(self._context, self._handler, comparison.op, left,
+                          right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
 
   def visit_boolean_logic(self, boolean_logic: _ast.BooleanLogic,
                           **kwargs: Any) -> Any:
     left = self.visit(boolean_logic.lhs)
     right = self.visit(boolean_logic.rhs)
 
-    return BooleanOperatorNode(self._handler, boolean_logic.op, left, right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
+    return BooleanOperatorNode(self._context, self._handler, boolean_logic.op,
+                               left, right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
 
   def visit_membership(self, membership: _ast.MembershipRelation,
                        **kwargs: Any) -> Any:
@@ -1351,10 +1452,10 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
           modified_value.value = f'-{modified_value.value}'
         else:
           modified_value.value = -1 * modified_value.value
-      return LiteralNode(modified_value,
+      return LiteralNode(self._context, modified_value,
                          f'{str(polarity.op)}{operand_node.to_fhir_path()}')
     else:
-      return NumericPolarityNode(operand_node, polarity)
+      return NumericPolarityNode(self._context, operand_node, polarity)
 
   def visit_invocation(self,
                        invocation: _ast.Invocation) -> InvokeExpressionNode:
@@ -1377,7 +1478,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     # Use the given operand if it exists, otherwise this must have been invoked
     # on the root, so that is the effective operand.
     operand_node = (
-        self.visit(operand)
-        if operand is not None else RootMessageNode(self._data_type))
+        self.visit(operand) if operand is not None else RootMessageNode(
+            self._context, self._data_type))
     params = [self.visit(param) for param in function.params]
-    return function_class(operand_node, params)
+    return function_class(self._context, operand_node, params)

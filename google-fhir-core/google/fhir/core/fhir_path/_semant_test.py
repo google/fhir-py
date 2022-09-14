@@ -537,16 +537,6 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
           expected_data_types={_fhir_path_data_types.String},
       ),
       dict(
-          testcase_name='_withOfTypeCallonMultipleCodeableConcept',
-          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept')",
-          expect_repeated=True,
-          expected_data_types={
-              _fhir_path_data_types.StructureDataType(
-                  url='http://hl7.org/fhir/StructureDefinition/CodeableConcept',
-                  base_type='')
-          },
-      ),
-      dict(
           testcase_name='_withRepeatedMemberOfCall',
           fhir_path_expression="bar.tin.struct.value.memberOf('http://value.set')",
           expect_repeated=True,

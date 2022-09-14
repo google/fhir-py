@@ -22,7 +22,8 @@ provided by the caller.
 
 import abc
 
-from typing import Any, Dict, Optional, Set, cast
+from typing import Any, Dict, Optional, Set, cast, List
+from google.protobuf import message
 
 # Tokens that are keywords in FHIRPath.
 # If used as identifier tokens in FHIRPath expressions, they must be escaped
@@ -103,6 +104,10 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
 
   def __hash__(self) -> int:
     return hash(self.url)
+
+  @abc.abstractmethod
+  def __str__(self) -> str:
+    raise NotImplementedError('Subclasses *must* implement __str__.')
 
 
 class _Boolean(FhirPathDataType):
@@ -408,13 +413,29 @@ class StructureDataType(FhirPathDataType):
     return self._backbone_element_path
 
   def __init__(self,
-               url: str,
-               base_type: str,
+               struct_def_proto: message.Message,
                backbone_element_path: Optional[str] = None) -> None:
     super().__init__(comparable=False)
-    self._url = url
-    self._base_type = base_type
+    self._struct_def = cast(Any, struct_def_proto)
+    self._url = self._struct_def.url.value
+    self._base_type = self._struct_def.type.value
     self._backbone_element_path = backbone_element_path
+
+    # Store the children elements of the structdef.
+    self._children = {}
+    struct_id = self._struct_def.id.value
+    qualified_path = (
+        struct_id + '.' + self._backbone_element_path
+        if self._backbone_element_path else struct_id)
+
+    for elem in self._struct_def.snapshot.element:
+      if elem.id.value.startswith(qualified_path):
+        relative_path = elem.id.value[len(qualified_path) + 1:]
+        if relative_path and '.' not in relative_path:
+          # Trim choice field annotation if present.
+          if relative_path.endswith('[x]'):
+            relative_path = relative_path[:-3]
+          self._children[relative_path] = elem
 
   def __eq__(self, o) -> bool:
     if isinstance(o, StructureDataType):
@@ -426,6 +447,12 @@ class StructureDataType(FhirPathDataType):
 
   def __str__(self) -> str:
     return f'<StructureFhirPathDataType(url={self.url})>'
+
+  def children_names(self) -> List[str]:
+    return list(self._children.keys())
+
+  def children(self) -> Dict[str, message.Message]:
+    return self._children
 
 
 class _Any(FhirPathDataType):
@@ -449,6 +476,51 @@ class _Any(FhirPathDataType):
     return '<AnyFhirPathDataType>'
 
 
+class PolymorphicDataType(FhirPathDataType):
+  """A heterogeneous ordered group of FhirPathDataTypes.
+
+  In FHIRPath, some fields are polymorphic and can be multiple types.
+  This type stores all the possible types a field can be.
+
+  See more at: https://hl7.org/fhirpath/#paths-and-polymorphic-items.
+  """
+
+  @property
+  def supported_coercion(self) -> Set['FhirPathDataType']:
+    return set()
+
+  @property
+  def url(self) -> str:
+    return list(self._urls)[0] if self._urls else ''
+
+  @property
+  def urls(self) -> Set[str]:
+    return self._urls
+
+  def types(self) -> Dict[str, FhirPathDataType]:
+    return self._types
+
+  def type_names(self) -> List[str]:
+    return list(self._types.keys())
+
+  def __init__(self, types: Dict[str, FhirPathDataType]) -> None:
+    super().__init__(comparable=False)
+    self._types = types
+    self._urls = set([t.url for _, t in types.items()])
+
+  def __eq__(self, o) -> bool:
+    if isinstance(o, PolymorphicDataType):
+      return cast(PolymorphicDataType, o).urls == self.urls
+    return False
+
+  def __hash__(self) -> int:
+    return hash(' '.join(self.urls))
+
+  def __str__(self) -> str:
+    type_name_strings = [f'{name}: {t.url}' for name, t in self._types.items()]
+    return f'<PolymorphicDataType(types={type_name_strings})>'
+
+
 # Module-level instances for import+type inference.
 Boolean = _Boolean()
 Date = _Date()
@@ -465,32 +537,37 @@ Any_ = _Any()
 # TODO: Consolidate with SQL data types.
 # See more at: http://hl7.org/fhir/datatypes.html.
 _PRIMITIVE_TYPES_BY_CODE: Dict[str, FhirPathDataType] = {
-    'base64Binary': String,
+    'base64binary': String,
     'boolean': Boolean,
     'canonical': String,
     'code': String,
     'date': Date,
-    'dateTime': DateTime,
+    'datetime': DateTime,
     'decimal': Decimal,
     'id': String,
     'instant': DateTime,
     'integer': Integer,
     'markdown': String,
     'oid': String,
-    'positiveInt': Integer,
+    'positiveint': Integer,
     'string': String,
     'time': DateTime,
-    'unsignedInt': Integer,
+    'unsignedint': Integer,
     'uri': String,
     'uuid': String,
     'xhtml': String,
-    'http://hl7.org/fhirpath/System.String': String
+    'http://hl7.org/fhirpath/system.string': String,
 }
 
 
 def primitive_type_from_type_code(type_code: str) -> Optional[FhirPathDataType]:
   """Returns the FhirPathDataType for the primitive identifed by the URL."""
-  return _PRIMITIVE_TYPES_BY_CODE.get(type_code)
+  return _PRIMITIVE_TYPES_BY_CODE.get(type_code.casefold())
+
+
+def is_numeric(fhir_type: FhirPathDataType) -> bool:
+  return (isinstance(fhir_type, _Integer) or
+          isinstance(fhir_type, _Decimal)) or isinstance(fhir_type, _Empty)
 
 
 def is_coercible(lhs: FhirPathDataType, rhs: FhirPathDataType) -> bool:
@@ -508,6 +585,12 @@ def is_coercible(lhs: FhirPathDataType, rhs: FhirPathDataType) -> bool:
   Returns:
     `True` if coercion can occur, otherwise `False.`
   """
+  if not rhs or not lhs:
+    return True  # All types can be coerced to None
+
+  if isinstance(rhs, _Empty) or isinstance(lhs, _Empty):
+    return True
+
   if rhs == lhs:
     return True  # Early-exit if same type
 
