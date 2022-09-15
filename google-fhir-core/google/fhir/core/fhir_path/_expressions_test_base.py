@@ -1144,14 +1144,20 @@ class FhirPathExpressionsTest(
     period = pat.address.period
     self.assert_expression_result(
         self.compile_expression(
-            'Patient', 'address.where(period.where(start.exists())).count()'),
-        pat.address.where(period.where(period.start.exists())).count(), patient,
-        0)
+            'Patient',
+            'address.where(period.where(start.exists()).exists()).count()'),
+        pat.address.where(period.where(period.start.exists()).exists()).count(),
+        patient, 0)
 
   def testWhereFunctionBuilder_preservesFields(self):
     pat = self.builder('Patient')
     self.assertContainsSubset(['use', 'line', 'city', 'state', 'postalCode'],
                               dir(pat.address.where(pat.address.use == 'home')))
+
+  def testWhereFunctionBuilder_rejectsNonBooleanPredicate(self):
+    pat = self.builder('Patient')
+    with self.assertRaises(ValueError):
+      pat.address.where(pat.address.use)
 
   def testAllExpression_succeeds(self):
     """Test FHIRPath all() expressions."""
@@ -1185,6 +1191,11 @@ class FhirPathExpressionsTest(
     self.assert_expression_result(
         self.compile_expression('Patient', 'address.all(use.exists())'),
         pat.address.all(pat.address.use.exists()), empty_patient, True)
+
+  def testAllFunctionBuilder_rejectsNonBooleanPredicate(self):
+    pat = self.builder('Patient')
+    with self.assertRaises(ValueError):
+      pat.address.all(pat.address.use)
 
   def testNodeDebugString(self):
     """Tests debug_string print functionality."""

@@ -289,6 +289,18 @@ def _to_int(operand: List[WorkSpaceMessage]) -> Optional[int]:
   return proto_utils.get_value_at_field(operand[0].message, 'value')
 
 
+def _check_is_predicate(function_name: str,
+                        params: List[ExpressionNode]) -> None:
+  """Raise an exception if expression params are a boolean predicate."""
+  if len(params) != 1:
+    raise ValueError((f'{function_name} expression require a single parameter,',
+                      f' got {len(params)}'))
+
+  if params[0].return_type() != _fhir_path_data_types.Boolean:
+    raise ValueError((f'{function_name} expression require a boolean predicate',
+                      f' got {params[0].to_fhir_path()}'))
+
+
 class BinaryExpressionNode(ExpressionNode):
   """Base class for binary expressions."""
 
@@ -913,9 +925,7 @@ class WhereFunction(FunctionNode):
 
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    if len(params) != 1:
-      raise ValueError('Where expressions require a single parameter.')
-
+    _check_is_predicate('where', params)
     super().__init__(fhir_context, 'where', operand, params,
                      operand.return_type())
 
@@ -940,9 +950,7 @@ class AllFunction(FunctionNode):
 
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    if len(params) != 1:
-      raise ValueError('"All" expressions require a single parameter.')
-
+    _check_is_predicate('all', params)
     super().__init__(fhir_context, 'all', operand, params,
                      _fhir_path_data_types.Boolean)
 
