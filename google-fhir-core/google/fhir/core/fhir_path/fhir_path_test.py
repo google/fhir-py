@@ -111,6 +111,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
 
     CodeFlavor codeFlavor;
     repeated CodeFlavor codeFlavors;
+    repeated bool boolList;
   }
   Bar {
     repeated Bats bats;
@@ -211,6 +212,10 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
         id_='Foo.codeFlavors',
         type_codes=['CodeFlavor'],
         cardinality=sdefs.Cardinality(min=0, max='*'))
+    bool_list_definition = sdefs.build_element_definition(
+        id_='Foo.boolList',
+        type_codes=['boolean'],
+        cardinality=sdefs.Cardinality(min=0, max='*'))
     foo = sdefs.build_resource_definition(
         id_='Foo',
         element_definitions=[
@@ -225,6 +230,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
             date_value_element_definition,
             code_flavor_element_definition,
             code_flavors_element_definition,
+            bool_list_definition,
         ])
 
     # Bar resource
@@ -1442,6 +1448,16 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           FROM (SELECT bar
           LIMIT 1)
           WHERE bar IS NOT NULL)""")),
+      dict(
+          testcase_name='_withAnyTrue',
+          fhir_path_expression='boolList.anyTrue()',
+          expected_sql_expression=textwrap.dedent("""\
+          ARRAY(SELECT _anyTrue
+          FROM (SELECT LOGICAL_OR(
+          boolList_element_) AS _anyTrue
+          FROM (SELECT boolList_element_
+          FROM UNNEST(boolList) AS boolList_element_ WITH OFFSET AS element_offset))
+          WHERE _anyTrue IS NOT NULL)""")),
       dict(
           testcase_name='_withDeepestNestedMemberSqlKeywordExistsNot',
           fhir_path_expression='bar.bats.struct.exists().not()',

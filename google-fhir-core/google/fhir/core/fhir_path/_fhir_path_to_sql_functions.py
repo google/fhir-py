@@ -299,6 +299,60 @@ class _FirstFunction(_FhirPathFunctionStandardSqlEncoder):
       return result
 
 
+class _AnyTrueFunction(_FhirPathFunctionStandardSqlEncoder):
+  """Returns true if any value in the operand collection is TRUE.
+  """
+
+  def validate_and_get_error(
+      self,
+      function: _ast.Function,
+      operand: _ast.Expression,
+      walker: _navigation.FhirStructureDefinitionWalker,
+      options: Optional[fhir_path_options.SqlValidationOptions] = None,
+  ) -> Optional[str]:
+    del function, walker, options
+    if not isinstance(
+        operand.data_type, _fhir_path_data_types.Collection
+    ) or next(iter(operand.data_type.types)) != _fhir_path_data_types.Boolean:
+      return ('anyTrue() must be called on a Collection of booleans. '
+              f'Got type of {operand.data_type}.')
+    if len(operand.data_type.types) > 1:
+      return ('anyTrue() can only process Collections with a single data type. '
+              f'Got Collection with {operand.data_type.types} types.')
+
+  def return_type(
+      self, function: _ast.Function, operand: _ast.Expression,
+      walker: _navigation.FhirStructureDefinitionWalker
+  ) -> _fhir_path_data_types.FhirPathDataType:
+    return _fhir_path_data_types.Boolean
+
+  def __call__(
+      self,
+      function: _ast.Function,
+      operand_result: Optional[_sql_data_types.Select],
+      params_result: List[_sql_data_types.StandardSqlExpression],
+  ) -> _sql_data_types.Select:
+    if operand_result is None:
+      # It is not meaningful to call anyTrue without an operand, so we return an
+      # error.
+      # TODO: determine if this is disallowed by the grammar, and
+      # if not, move this kind of check to validate_and_get_error.
+      raise ValueError('anyTrue() cannot be called without an operand.')
+    else:
+      sql_alias = '_anyTrue'
+      return _sql_data_types.Select(
+          select_part=_sql_data_types.FunctionCall(
+              'LOGICAL_OR',
+              (_sql_data_types.RawExpression(
+                  operand_result.sql_alias,
+                  _sql_data_type=operand_result.sql_data_type),),
+              _sql_data_type=_sql_data_types.Boolean,
+              _sql_alias=sql_alias,
+          ),
+          from_part=str(operand_result.to_subquery()),
+      )
+
+
 class _HasValueFunction(_FhirPathFunctionStandardSqlEncoder):
   """Returns `TRUE` if the operand is a primitive with a `value` field.
 
@@ -1163,6 +1217,7 @@ FUNCTION_MAP: Dict[str, _FhirPathFunctionStandardSqlEncoder] = {
     _ast.Function.Name.EMPTY: _EmptyFunction(),
     _ast.Function.Name.EXISTS: _ExistsFunction(),
     _ast.Function.Name.FIRST: _FirstFunction(),
+    _ast.Function.Name.ANY_TRUE: _AnyTrueFunction(),
     _ast.Function.Name.HAS_VALUE: _HasValueFunction(),
     _ast.Function.Name.ID_FOR: _IdForFunction(),
     _ast.Function.Name.NOT: _NotFunction(),

@@ -38,6 +38,7 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
     Inline baz;
     string name;
     integer id;
+    repeated bool boolList;
   }
 
   Bar {
@@ -93,6 +94,10 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
                 id_='Foo.id',
                 type_codes=['integer'],
                 cardinality=sdefs.Cardinality(min=0, max='1')),
+            sdefs.build_element_definition(
+                id_='Foo.boolList',
+                type_codes=['boolean'],
+                cardinality=sdefs.Cardinality(min=0, max='*')),
         ])
 
     # Bar resource
@@ -130,7 +135,7 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
             sdefs.build_element_definition(
                 id_='Tin.struct',
                 type_codes=['Struct'],
-                cardinality=sdefs.Cardinality(min=0, max='1'))
+                cardinality=sdefs.Cardinality(min=0, max='1')),
         ])
 
     # Struct resource.
@@ -618,6 +623,11 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
           fhir_path_expression='bar.fuzz.first()',
           expected_data_type=_fhir_path_data_types.String,
       ),
+      dict(
+          testcase_name='_withAnyTrue',
+          fhir_path_expression='boolList.anyTrue()',
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
   )
   def testSemanticAnalysis_withFunction(
       self, fhir_path_expression: str,
@@ -660,6 +670,27 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
   def testSemanticAnalysis_withUnsupportedOperandsMembership_raisesAnError(
       self, fhir_path_expression):
     self.assertSemanticAnalysis_failsWithError(fhir_path_expression)
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='_anyTrueWithNonCollection',
+          fhir_path_expression='bar.fuzz.anyTrue()',
+          expected_err_substring='anyTrue() must be called on a Collection of booleans',
+      ),
+      dict(
+          testcase_name='_anyTrueWithNonBooleanCollection',
+          fhir_path_expression='bar.tin.struct.value.anyTrue()',
+          expected_err_substring='anyTrue() must be called on a Collection of booleans',
+      ),
+  )
+  def testSemanticAnalysis_raisesAnError(
+      self, fhir_path_expression: str, expected_err_substring: str):
+    ast = _ast.build_fhir_path_ast(fhir_path_expression)
+    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
+                                                    self.foo, self.foo_root)
+    self.assertLen(self.error_reporter.errors, 1)
+    self.assertIn(expected_err_substring,
+                  self.error_reporter.errors[0])
 
   @parameterized.named_parameters(
       dict(
