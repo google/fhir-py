@@ -55,6 +55,13 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     self.assertEqual('name.given', expressions['name'].fhir_path)
     self.assertEqual('birthDate', expressions['birthDate'].fhir_path)
 
+  def testInvalidWherePredicate_forPatient_fails(self):
+    """Ensures that non-boolean where expressions raise an error."""
+    pat = self.get_views().view_of('Patient')
+
+    with self.assertRaises(ValueError):
+      pat.where(pat.address)
+
   def testViewUsesParentFields_forPatient_succeeds(self):
     """Tests views with selects expose those fields to child views."""
     # Views without select should have base FHIR fields.

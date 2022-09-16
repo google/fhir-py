@@ -77,6 +77,13 @@ class View:
         underlying data.  The returned view will apply the both the current and
         additional constraints defined here.
     """
+    for constraint in constraints:
+      # pylint: disable=protected-access
+      if constraint._node.return_type() != _fhir_path_data_types.Boolean:
+        raise ValueError(('view `where` expressions must be boolean predicates',
+                          f' got `{constraint._node.to_fhir_path()}`'))
+      # pylint: enable=protected-access
+
     return View(self._structdef_url, self._root_builder, self._context,
                 self._fields, self._constraints + tuple(constraints))
 
