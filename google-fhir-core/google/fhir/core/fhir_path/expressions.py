@@ -489,6 +489,26 @@ class Builder:
     return self._builder(
         _evaluation.WhereFunction(self._context, self._node, param_nodes))
 
+  def anyTrue(self) -> 'Builder':  # pylint: disable=invalid-name
+    """The FHIRPath anyTrue() function.
+
+    Returns True if any element in ther operand's collection is True.
+
+    Here is an example use:
+
+    >>> eob = <ExplanationOfBenefit fhirpath builder>
+    >>> eob.select({
+        'primary_diagnoses':
+            eob.diagnosis.where(
+                eob.diagnosis.type.memberOf(primary_valueset).anyTrue())
+    })
+
+    Returns:
+      A boolean indicating if any element in the operand collection is True.
+    """
+    return self._builder(
+        _evaluation.AnyTrueFunction(self._context, self._node, []))
+
   def _function_args_to_nodes(
       self, operand_node: _evaluation.ExpressionNode,
       args: List[Any]) -> List[_evaluation.ExpressionNode]:

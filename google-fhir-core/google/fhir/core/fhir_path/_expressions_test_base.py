@@ -217,6 +217,36 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'active.first()'),
         self.builder('Patient').active.first(), patient, True)
 
+  def testAnyTrueFunction_forResource_succeeds(self):
+    """Tests the behavior of the anyTrue() function."""
+    observation = self._new_observation()
+    category_1 = observation.category.add()
+    category_1_coding = category_1.coding.add()
+    category_1_coding.system.value = 'mysystem'
+    category_1_coding.code.value = 'category_1'
+
+    category_2 = observation.category.add()
+    category_2_coding = category_2.coding.add()
+    category_2_coding.system.value = 'mysystem'
+    category_2_coding.code.value = 'category_2'
+
+    # Create a valueset and add it to the context so it is resolved
+    # in memberOf evaluation.
+    category_1_valueset = 'url:test:valueset'
+    value_set = self.value_set_builder(category_1_valueset).with_codes(
+        'mysystem', ['category_1']).build()
+
+    self.context().add_local_value_set(value_set)
+
+    parsed_expr = self.compile_expression(
+        'Observation', f"category.memberOf('{category_1_valueset}').anyTrue()")
+    built_expr = self.builder('Observation').category.memberOf(
+        category_1_valueset).anyTrue()
+
+    self.assert_expression_result(parsed_expr, built_expr, observation, True)
+    category_1_coding.code.value = 'something_else'
+    self.assert_expression_result(parsed_expr, built_expr, observation, False)
+
   def testIndexer_forResource_succeeds(self):
     """Tests the behavior of the Indexer."""
     # Note: the reason why we are using an expression with

@@ -699,6 +699,35 @@ class FirstFunction(FunctionNode):
       return []
 
 
+class AnyTrueFunction(FunctionNode):
+  """Implementation of the anyTrue() function."""
+
+  def __init__(self, fhir_context: context.FhirPathContext,
+               operand: ExpressionNode, params: List[ExpressionNode]) -> None:
+    super().__init__(fhir_context, 'anyTrue', operand, params,
+                     _fhir_path_data_types.Boolean)
+
+  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
+    child_results = self._operand.evaluate(work_space)
+    for candidate in child_results:
+      work_space.push_message(candidate)
+      try:
+        if _to_boolean([candidate]):
+          return [
+              WorkSpaceMessage(
+                  message=work_space.primitive_handler.new_boolean(True),
+                  parent=None)
+          ]
+      finally:
+        work_space.pop_message()
+
+    return [
+        WorkSpaceMessage(
+            message=work_space.primitive_handler.new_boolean(False),
+            parent=None)
+    ]
+
+
 class HasValueFunction(FunctionNode):
   """Implementation of the hasValue() function."""
 
@@ -1347,7 +1376,8 @@ _FUNCTION_NODE_MAP: Dict[str, Any] = {
     'idFor': IdForFunction,
     'memberOf': MemberOfFunction,
     'ofType': OfTypeFunction,
-    'where': WhereFunction
+    'where': WhereFunction,
+    'anyTrue': AnyTrueFunction,
 }
 
 
