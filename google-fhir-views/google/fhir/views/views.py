@@ -181,7 +181,6 @@ class Views:
     structdef = self._context.get_structure_definition(structdef_url)
     struct_type = _fhir_path_data_types.StructureDataType(structdef)
     builder = expressions.Builder(
-        _evaluation.RootMessageNode(self._context, struct_type), self._context,
-        self._handler)
+        _evaluation.RootMessageNode(self._context, struct_type), self._handler)
     return View(structdef_url, builder, self._context,
                 immutabledict.immutabledict(), ())

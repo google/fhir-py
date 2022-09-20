@@ -1264,11 +1264,11 @@ class FhirPathExpressionsTest(
     self.assertMultiLineEqual(
         textwrap.dedent("""\
         + address.all(use = 'home') <AllFunction type=<BooleanFhirPathDataType>> (
-        | + address <InvokeExpressionNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>> (
+        | + address <InvokeExpressionNode type=[<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (
         | | + Patient <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Patient)>> ())
         | + use = 'home' <EqualityNode type=<BooleanFhirPathDataType>> (
-        | | + use <InvokeExpressionNode type=<StringFhirPathDataType>> (
-        | | | + Address <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>> ())
+        | | + use <InvokeExpressionNode type=[<StringFhirPathDataType>]> (
+        | | | + Address <RootMessageNode type=[<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> ())
         | | + 'home' <LiteralNode type=None> ()))"""),
         self.builder('Patient').address.all(
             self.builder('Patient').address.use == 'home').debug_string(

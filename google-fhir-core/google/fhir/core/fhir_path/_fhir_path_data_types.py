@@ -21,8 +21,9 @@ provided by the caller.
 """
 
 import abc
+import copy
 
-from typing import Any, Dict, Optional, Set, cast, List
+from typing import Any, Dict, Optional, Set, cast
 from google.protobuf import message
 
 # Tokens that are keywords in FHIRPath.
@@ -79,6 +80,8 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
     url: The canonical URL reference to the data type.
   """
 
+  _is_collection: bool = False
+
   @property
   @abc.abstractmethod
   def supported_coercion(self) -> Set['FhirPathDataType']:
@@ -94,7 +97,20 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
   def comparable(self) -> bool:
     return self._comparable
 
-  def __init__(self, *, comparable: bool) -> None:
+  def to_collection_type(self) -> 'FhirPathDataType':
+    obj_copy = copy.deepcopy(self)
+    # pylint: disable=protected-access
+    obj_copy._is_collection = True
+    # pylint: enable=protected-access
+    return obj_copy
+
+  def is_collection(self) -> bool:
+    return self._is_collection
+
+  def fields(self) -> Set[str]:
+    return set()
+
+  def __init__(self, *, comparable: bool = False) -> None:
     self._comparable = comparable
 
   def __eq__(self, o) -> bool:
@@ -105,9 +121,15 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
   def __hash__(self) -> int:
     return hash(self.url)
 
+  def _wrap_collection(self, name: str) -> str:
+    return f'[{name}]' if self._is_collection else name
+
   @abc.abstractmethod
+  def _class_name(self) -> str:
+    raise NotImplementedError('Subclasses *must* implement _class_name.')
+
   def __str__(self) -> str:
-    raise NotImplementedError('Subclasses *must* implement __str__.')
+    return self._wrap_collection(self._class_name())
 
 
 class _Boolean(FhirPathDataType):
@@ -132,7 +154,7 @@ class _Boolean(FhirPathDataType):
   def __init__(self) -> None:
     super().__init__(comparable=False)
 
-  def __str__(self) -> str:
+  def _class_name(self) -> str:
     return '<BooleanFhirPathDataType>'
 
 
@@ -157,7 +179,7 @@ class _Date(FhirPathDataType):
   def __init__(self) -> None:
     super().__init__(comparable=True)
 
-  def __str__(self) -> str:
+  def _class_name(self) -> str:
     return '<DateFhirPathDataType>'
 
 
@@ -183,7 +205,7 @@ class _Time(FhirPathDataType):
   def __init__(self) -> None:
     super().__init__(comparable=True)
 
-  def __str__(self) -> str:
+  def _class_name(self) -> str:
     return '<TimeFhirPathDataType>'
 
 
@@ -210,7 +232,7 @@ class _DateTime(FhirPathDataType):
   def __init__(self) -> None:
     super().__init__(comparable=True)
 
-  def __str__(self) -> str:
+  def _class_name(self) -> str:
     return '<DateTimeFhirPathDataType>'
 
 
@@ -236,7 +258,7 @@ class _Decimal(FhirPathDataType):
   def __init__(self) -> None:
     super().__init__(comparable=True)
 
-  def __str__(self) -> str:
+  def _class_name(self) -> str:
     return '<DecimalFhirPathDataType>'
 
 
@@ -262,7 +284,7 @@ class _Integer(FhirPathDataType):
   def __init__(self) -> None:
     super().__init__(comparable=True)
 
-  def __str__(self) -> str:
+  def _class_name(self) -> str:
     return '<IntegerFhirPathDataType>'
 
 
@@ -290,7 +312,7 @@ class _Quantity(FhirPathDataType):
   def __init__(self) -> None:
     super().__init__(comparable=True)
 
-  def __str__(self) -> str:
+  def _class_name(self) -> str:
     return '<QuantityFhirPathDataType>'
 
 
@@ -316,7 +338,7 @@ class _String(FhirPathDataType):
   def __init__(self) -> None:
     super().__init__(comparable=True)
 
-  def __str__(self) -> str:
+  def _class_name(self) -> str:
     return '<StringFhirPathDataType>'
 
 
@@ -342,7 +364,7 @@ class _Empty(FhirPathDataType):
   def __init__(self) -> None:
     super().__init__(comparable=False)
 
-  def __str__(self) -> str:
+  def _class_name(self) -> str:
     return '<EmptyFhirPathDataType>'
 
 
@@ -383,7 +405,13 @@ class Collection(FhirPathDataType):
   def types(self):
     return self._types
 
-  def __str__(self) -> str:
+  def fields(self) -> Set[str]:
+    result = []
+    for t in self._types:
+      result += t.fields()
+    return set(result)
+
+  def _class_name(self) -> str:
     return ('<CollectionFhirPathDataType(types='
             f'{[str(types) for types in self._types]})>')
 
@@ -445,11 +473,11 @@ class StructureDataType(FhirPathDataType):
   def __hash__(self) -> int:
     return hash(self.url)
 
-  def __str__(self) -> str:
+  def _class_name(self) -> str:
     return f'<StructureFhirPathDataType(url={self.url})>'
 
-  def children_names(self) -> List[str]:
-    return list(self._children.keys())
+  def fields(self) -> Set[str]:
+    return set(self._children.keys())
 
   def children(self) -> Dict[str, message.Message]:
     return self._children
@@ -472,7 +500,7 @@ class _Any(FhirPathDataType):
   def __init__(self) -> None:
     super().__init__(comparable=False)
 
-  def __str__(self) -> str:
+  def _class_name(self) -> str:
     return '<AnyFhirPathDataType>'
 
 
@@ -500,8 +528,8 @@ class PolymorphicDataType(FhirPathDataType):
   def types(self) -> Dict[str, FhirPathDataType]:
     return self._types
 
-  def type_names(self) -> List[str]:
-    return list(self._types.keys())
+  def fields(self) -> Set[str]:
+    return set(self._types.keys())
 
   def __init__(self, types: Dict[str, FhirPathDataType]) -> None:
     super().__init__(comparable=False)
@@ -516,7 +544,7 @@ class PolymorphicDataType(FhirPathDataType):
   def __hash__(self) -> int:
     return hash(' '.join(self.urls))
 
-  def __str__(self) -> str:
+  def _class_name(self) -> str:
     type_name_strings = [f'{name}: {t.url}' for name, t in self._types.items()]
     return f'<PolymorphicDataType(types={type_name_strings})>'
 
@@ -594,6 +622,7 @@ def is_coercible(lhs: FhirPathDataType, rhs: FhirPathDataType) -> bool:
   if rhs == lhs:
     return True  # Early-exit if same type
 
+  # Legacy collection type kept around for _semant.
   if isinstance(rhs, Collection) or isinstance(lhs, Collection):
     return False  # Early-exit if either operand is a complex type
 

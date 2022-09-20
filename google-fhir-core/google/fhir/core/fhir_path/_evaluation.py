@@ -73,6 +73,17 @@ def _get_fhir_type_from_string(
   return _fhir_path_data_types.StructureDataType(child_structdef)
 
 
+def _maybe_return_collection_type(
+    element: message.Message,
+    return_type: _fhir_path_data_types.FhirPathDataType,
+    parent: _fhir_path_data_types.FhirPathDataType
+) -> _fhir_path_data_types.FhirPathDataType:
+  """Returns a new instance of return_type updated with its collection status."""
+  if _utils.is_repeated_element(element) or parent.is_collection():
+    return return_type.to_collection_type()
+  return return_type
+
+
 def _get_child_data_type(
     parent: Optional[_fhir_path_data_types.FhirPathDataType],
     fhir_context: context.FhirPathContext,
@@ -94,21 +105,28 @@ def _get_child_data_type(
     elem = _utils.get_element(structdef, elem_path)
     if elem is None:
       return None
-    if _utils.is_backbone_element(elem):
-      return _fhir_path_data_types.StructureDataType(structdef, elem_path)
 
-    if _utils.is_polymorphic_element(elem):
+    if _utils.is_backbone_element(elem):
+      return_type = _fhir_path_data_types.StructureDataType(
+          structdef, elem_path)
+
+    elif _utils.is_polymorphic_element(elem):
       struct_def_dict = {}
       for elem_type in elem.type:
         struct_def_dict[
-            elem_type.code.value.casefold()] = _get_fhir_type_from_string(
-                elem_type.code.value, fhir_context)
-      return _fhir_path_data_types.PolymorphicDataType(struct_def_dict)
+            elem_type.code.value.casefold()] = _maybe_return_collection_type(
+                elem,
+                _get_fhir_type_from_string(elem_type.code.value, fhir_context),
+                parent)
+      return_type = _fhir_path_data_types.PolymorphicDataType(struct_def_dict)
 
-    if not elem.type or not elem.type[0].code.value:
+    elif not elem.type or not elem.type[0].code.value:
       raise ValueError(f'Malformed ElementDefinition in struct {parent.url}')
-    type_code = elem.type[0].code.value
-    return _get_fhir_type_from_string(type_code, fhir_context)
+    else:
+      type_code = elem.type[0].code.value
+      return_type = _get_fhir_type_from_string(type_code, fhir_context)
+
+    return _maybe_return_collection_type(elem, return_type, parent)
   else:
     return None
 
@@ -175,11 +193,8 @@ class WorkSpace:
 class ExpressionNode(abc.ABC):
   """Abstract base class for all FHIRPath expression evaluation."""
 
-  def __init__(
-      self,
-      fhir_context: context.FhirPathContext,
-      return_type: Optional[_fhir_path_data_types.FhirPathDataType] = None
-  ) -> None:
+  def __init__(self, fhir_context: context.FhirPathContext,
+               return_type: _fhir_path_data_types.FhirPathDataType) -> None:
     self._return_type = return_type
     self._context = fhir_context
 
@@ -193,7 +208,11 @@ class ExpressionNode(abc.ABC):
     """Returns the FHIRPath string for this and its children node."""
     raise NotImplementedError('Subclasses *must* implement `to_fhir_path`.')
 
-  def return_type(self) -> Optional[_fhir_path_data_types.FhirPathDataType]:
+  @property
+  def context(self) -> context.FhirPathContext:
+    return self._context
+
+  def return_type(self) -> _fhir_path_data_types.FhirPathDataType:
     """The descriptor of the items returned by the expression, if known."""
     return self._return_type
 
@@ -204,15 +223,7 @@ class ExpressionNode(abc.ABC):
     and the JSON representation of the structure.
     """
     if self._return_type:
-      if isinstance(self._return_type, _fhir_path_data_types.StructureDataType):
-        names = cast(_fhir_path_data_types.StructureDataType,
-                     self._return_type).children_names()
-        return set(names)
-      if isinstance(self._return_type,
-                    _fhir_path_data_types.PolymorphicDataType):
-        return set(
-            cast(_fhir_path_data_types.PolymorphicDataType,
-                 self._return_type).type_names())
+      return self._return_type.fields()
     return set()
 
   @abc.abstractmethod
@@ -798,7 +809,7 @@ class OfTypeFunction(FunctionNode):
                   _fhir_path_data_types.PolymorphicDataType):
       if base_type_str.casefold() in cast(
           _fhir_path_data_types.PolymorphicDataType,
-          operand.return_type()).type_names():
+          operand.return_type()).fields():
         return_type = operand.return_type().types()[base_type_str.casefold()]
 
     super().__init__(fhir_context, 'ofType', operand, params, return_type)
