@@ -127,3 +127,14 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     self.assertLen(constraints, 1)
     self.assertEqual("maritalStatus.memberOf('urn:test:married_valueset')",
                      constraints[0].fhir_path)
+
+  def testCreateView_withStructureExpression_succeeds(self):
+    pat = self.get_views().view_of('Patient')
+    address = self.get_views().expression_for('Address')
+
+    patient_zip_codes = pat.select(
+        {'zip': pat.address.where(address.use == 'home').postalCode})
+
+    expressions = patient_zip_codes.get_select_expressions()
+    self.assertEqual("address.where(use = 'home').postalCode",
+                     expressions['zip'].fhir_path)

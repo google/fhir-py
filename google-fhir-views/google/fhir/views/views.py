@@ -177,10 +177,61 @@ class Views:
     self._handler = handler
 
   def view_of(self, structdef_url: str) -> View:
-    """Returns a view of the FHIR resource identified by the given string."""
-    structdef = self._context.get_structure_definition(structdef_url)
-    struct_type = _fhir_path_data_types.StructureDataType(structdef)
-    builder = expressions.Builder(
-        _evaluation.RootMessageNode(self._context, struct_type), self._handler)
+    """Returns a view of the FHIR resource identified by the given string.
+
+    Args:
+      structdef_url: URL of the FHIR resource to load. Per the FHIR spec, an
+        unqualified URL will be considered to be relative to
+        'http://hl7.org/fhir/StructureDefinition/', so for core datatypes or
+        resources callers can simply pass in 'Patient' or 'HumanName', for
+        example.
+
+    Returns:
+      A FHIR View builder for the given structure, typically a FHIR resourcce.
+    """
+    builder = self.expression_for(structdef_url)
     return View(structdef_url, builder, self._context,
                 immutabledict.immutabledict(), ())
+
+  def expression_for(self, structdef_url: str) -> expressions.Builder:
+    """Returns a FHIRPath expression builder for the given structure definition.
+
+    This can be convenient when building predicates for complicate where() or
+    all() FHIRPath expressions. For instance, suppose we want to get LOINC
+    codes in for a view of Observations:
+
+    >>> obs = views.view_of('Observation')
+    >>> coding = views.expression_for('Coding')
+    >>>
+    >>> obs.select({
+    >>>   'loinc_codes': obs.code.coding.where(coding.system ==
+    >>>                                        'http://loinc.org').code
+    >>>   })
+
+    Since the `where` expression is a path to a FHIR Coding structure,
+    it's convenient to use an expression builder based on Coding to create that.
+
+    Note that for simpler expressions it is often easier to directly access
+    the builder on the resource. This expression is exactly equivalent of
+    the one above -- it just uses the Coding expression builder that already
+    exists as part of the larger resource:
+
+    >>> obs.select({
+    >>>   'loinc_codes': obs.code.coding.where(obs.code.coding.system ==
+    >>>                                        'http://loinc.org').code
+    >>>   })
+
+    Args:
+      structdef_url: URL of the FHIR resource to load. Per the FHIR spec, an
+        unqualified URL will be considered to be relative to
+        'http://hl7.org/fhir/StructureDefinition/', so for core datatypes or
+        resources callers can simply pass in 'Patient' or 'HumanName', for
+        example.
+
+    Returns:
+      A FHIRPath expression builder for the given structure.
+    """
+    structdef = self._context.get_structure_definition(structdef_url)
+    struct_type = _fhir_path_data_types.StructureDataType(structdef)
+    return expressions.Builder(
+        _evaluation.RootMessageNode(self._context, struct_type), self._handler)
