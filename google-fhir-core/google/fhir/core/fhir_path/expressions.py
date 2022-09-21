@@ -21,7 +21,7 @@ import collections
 import copy
 import datetime
 import decimal
-from typing import Any, Iterable, List, Union, cast
+from typing import Any, Dict, Iterable, List, Union, cast
 
 from google.protobuf import message
 from google.fhir.core import codes
@@ -668,7 +668,7 @@ class Builder:
   def __mod__(self, rhs: BuilderOperand) -> 'Builder':
     return self._arithmetic_node(_ast.Arithmetic.Op.MODULO, rhs)
 
-  def _choice_fields(self) -> dict[str, List[str]]:
+  def _choice_fields(self) -> Dict[str, List[str]]:
     """Returns a map from the base choice field name to the field types."""
     node_type = self._node.return_type()
     if not isinstance(node_type, _fhir_path_data_types.StructureDataType):
