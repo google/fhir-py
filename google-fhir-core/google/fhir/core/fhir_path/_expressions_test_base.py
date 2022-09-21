@@ -969,9 +969,15 @@ class FhirPathExpressionsTest(
     self.assertFalse(expr.evaluate(patient).has_value())
 
   def testRootFields_onBuilder_matchFhirFields(self):
-    builder = self.builder('Patient')
-    self.assertIn('active', dir(builder))
-    self.assertNotIn('bogusField', dir(builder))
+    patient_fields = dir(self.builder('Patient'))
+    self.assertIn('active', patient_fields)
+
+    # Check choice type field shorthand.
+    self.assertIn('multipleBirth', patient_fields)
+    self.assertIn('multipleBirthBoolean', patient_fields)
+    self.assertIn('multipleBirthInteger', patient_fields)
+
+    self.assertNotIn('bogusField', patient_fields)
 
   def testNestedFields_onBuilder_matchFhirFields(self):
     builder = self.builder('Patient')
@@ -1069,6 +1075,21 @@ class FhirPathExpressionsTest(
     observation.value.string_value.value = 'foo'
     self.assert_expression_result(compiled_expr, built_expr, observation, 'foo')
 
+  def testChoiceType_withChoiceTypeShorthand_succeeds(self) -> None:
+    """Tests shorthand for ofType use of choice types succeeds."""
+    observation = self._new_observation()
+    observation.value.string_value.value = 'foo'
+    compiled_expr = self.compile_expression('Observation',
+                                            "value.ofType('string')")
+    built_expr = self.builder('Observation').valueString
+    self.assert_expression_result(compiled_expr, built_expr, observation, 'foo')
+
+  def testChoiceType_withInvalidShorthand_fails(self) -> None:
+    """Tests incorrect shorthand throws an exception with the right fields."""
+    with self.assertRaisesRegex(AttributeError,
+                                r'.*valueCodable.*valueCodeable.*'):
+      _ = self.builder('Observation').valueCodable  # pylint: disable=pointless-statement
+
   def testChoiceType_withOftype_returnsExpectedFields(self) -> None:
     """Ensure ofType operations return expected child node type."""
     self.assertContainsSubset(
@@ -1088,6 +1109,14 @@ class FhirPathExpressionsTest(
     self.assertNoCommonElements(
         ['coding', 'text', 'value', 'unit', 'system', 'code'],
         dir(self.builder('Observation').value.ofType('string')))
+
+  def testChoiceType_withShorthand_returnsExpectedFields(self) -> None:
+    """Ensure ofType operations return expected child node type."""
+    self.assertContainsSubset(['value', 'unit', 'system', 'code'],
+                              dir(self.builder('Observation').valueQuantity))
+    self.assertContainsSubset(
+        ['coding', 'text'],
+        dir(self.builder('Observation').valueCodeableConcept))
 
   def testNotFunction_succeeds(self) -> None:
     """Tests not_()."""

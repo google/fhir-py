@@ -17,6 +17,7 @@ Most users should use the FHIR-version specific modules to create these classes,
 such as in the r4 sub-package.
 """
 
+import collections
 import copy
 import datetime
 import decimal
@@ -297,14 +298,27 @@ class Builder:
     if name.startswith('__'):
       raise AttributeError(name)
 
-    # If the node has a known return type, ensure the field exists on it.
-    if self._node.return_type() and name not in self.fhir_path_fields():
-      raise AttributeError(
-          f'No such field {name} in {self.fhir_path}. {self._node.return_type()} {self.fhir_path_fields()}'
-      )
-    return Builder(
-        _evaluation.InvokeExpressionNode(self._node.context, name, self._node),
-        self._handler)
+    if isinstance(self._node.return_type(),
+                  _fhir_path_data_types.PolymorphicDataType):
+      raise AttributeError(f'Cannot directly access polymorphic fields. '
+                           f"Please use ofType['{name}'] instead.")
+
+    # If a basic FHIR field, simply return it.
+    if name in self._node.fields():
+      return Builder(
+          _evaluation.InvokeExpressionNode(self._node._context, name,
+                                           self._node), self._handler)
+
+    # Check if the string is a builder shorthand for a choice type, such as
+    # Observation.valueQuantity would be expressed as
+    # Observation.value.ofType('Quantity') in FHIRPath.
+    for base_name, type_names in self._choice_fields().items():
+      for type_name in type_names:
+        if name == f'{base_name}{type_name[0].upper() + type_name[1:]}':
+          return getattr(self, base_name).ofType(type_name)
+
+    raise AttributeError((f'No such field {name} in {self.fhir_path}',
+                          f'Expected something in {self.fhir_path_fields()}'))
 
   def _builder(self, node: _evaluation.ExpressionNode) -> 'Builder':
     return Builder(node, self._handler)
@@ -654,9 +668,39 @@ class Builder:
   def __mod__(self, rhs: BuilderOperand) -> 'Builder':
     return self._arithmetic_node(_ast.Arithmetic.Op.MODULO, rhs)
 
+  def _choice_fields(self) -> dict[str, List[str]]:
+    """Returns a map from the base choice field name to the field types."""
+    node_type = self._node.return_type()
+    if not isinstance(node_type, _fhir_path_data_types.StructureDataType):
+      return {}
+
+    children = cast(_fhir_path_data_types.StructureDataType,
+                    node_type).children()
+    choice_fields = collections.defaultdict(list)
+    for name, elem_def in children.items():
+      # Include field and type codes for choice types (fields with > 1 type),
+      # such as Observation values Quantity, CodeableConcept, etc.
+      if len(elem_def.type) > 1:
+        for type_code in elem_def.type:
+          choice_fields[name].append(type_code.code.value)
+    return choice_fields
+
   def fhir_path_fields(self) -> List[str]:
-    """Returns the FHIR Path fields available on this builder, if any."""
-    return list(self._node.fields())
+    """Returns the FHIR Path fields available on this builder, if any.
+
+    This includes shorthand fields for FHIR choice type, such as Observation's
+    valueQuantity, valueCodeableConcept, and so on.
+    """
+    fields: List[str] = []
+
+    # Get choice type field names and add simple fields.
+    for base_name, types in self._choice_fields().items():
+      for field_type in types:
+        fields.append(f'{base_name}{field_type[0].upper() + field_type[1:]}')
+
+    fields.extend(self._node.fields())
+    fields.sort()
+    return fields
 
   def __dir__(self) -> Iterable[str]:
     # If the current node is for a structure, return the fields for that

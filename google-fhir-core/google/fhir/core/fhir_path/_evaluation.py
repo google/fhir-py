@@ -448,10 +448,6 @@ class InvokeExpressionNode(ExpressionNode):
 
   def __init__(self, fhir_context: context.FhirPathContext, identifier: str,
                parent_node: ExpressionNode) -> None:
-    if isinstance(parent_node.return_type(),
-                  _fhir_path_data_types.PolymorphicDataType):
-      raise AttributeError(f'Cannot directly access polymorphic fields. '
-                           f"Please use ofType['{identifier}'] instead.")
     self._identifier = identifier
     self._parent_node = parent_node
     return_type = _get_child_data_type(self._parent_node.return_type(),
