@@ -21,13 +21,14 @@ can be consumed by other tools.
 
 import itertools
 import re
-from typing import Collection, Iterable, Optional, Union
+from typing import Collection, Iterable, Optional, Union, cast
 
 from google.cloud import bigquery
 import pandas
 import sqlalchemy
 import sqlalchemy_bigquery
 
+from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import expressions
@@ -171,40 +172,30 @@ class BigQueryRunner:
     else:
       return raw_name
 
-  def _expression_to_sql(self, expr: expressions.Builder,
-                         encoder: fhir_path.FhirPathStandardSqlEncoder,
-                         struct_def: fhir_path.StructureDefinition,
-                         elem_def: fhir_path.ElementDefinition) -> str:
-    """Converts FHIRPath expression builder to SQL."""
-    sql_expression = encoder.encode(
-        structure_definition=struct_def,
-        element_definition=elem_def,
-        fhir_path_expression=expr.to_expression().fhir_path,
-        select_scalars_as_array=False)
-
+  def _datetime_sql(self, expr: expressions.Builder, raw_sql: str) -> str:
+    """Wraps raw sql if the result is datetime."""
     # Dates and datetime types are stored as strings to preseve completeness
     # of the underlying data, but views converts to date and datetime types
     # for ease of use.
 
-    # pylint: disable=protected-access
-    node_type = expr._node.return_type()
-    # pylint: enable=protected-access
+    node_type = expr.get_node().return_type()
 
     # Use date format constants drawn from the FHIR Store export conventions
     # for simplicity. If users encounter different formats in practice, we
     # could allow these formats to be overridden when constructing the runner
     # or check the string format explicitily on each row.
     if node_type == _fhir_path_data_types.DateTime:
-      sql_expression = f'PARSE_DATETIME("{_DATE_TIME_FORMAT}", {sql_expression})'
+      raw_sql = f'PARSE_DATETIME("{_DATE_TIME_FORMAT}", {raw_sql})'
     elif node_type == _fhir_path_data_types.Date:
-      sql_expression = f'PARSE_DATE("{_DATE_FORMAT}", {sql_expression})'
+      raw_sql = f'PARSE_DATE("{_DATE_FORMAT}", {raw_sql})'
 
-    return sql_expression
+    return raw_sql
 
   def to_sql(self,
              view: views.View,
              limit: Optional[int] = None,
-             include_patient_id_col: bool = True) -> str:
+             include_patient_id_col: bool = True,
+             internal_v2: bool = False) -> str:
     """Returns the SQL used to run the given view in BigQuery.
 
     Args:
@@ -212,6 +203,8 @@ class BigQueryRunner:
       limit: optional limit to attach to the generated SQL.
       include_patient_id_col: whether to include a __patientId__ column to
         indicate the patient the resource is associated with.
+      internal_v2: For incremental development use only and will be removed
+        prior to a 1.0 release.
 
     Returns:
       The SQL used to run the given view.
@@ -224,11 +217,21 @@ class BigQueryRunner:
     deps = fhir_context.get_dependency_definitions(view.get_structdef_url())
     deps.append(struct_def)
     encoder = fhir_path.FhirPathStandardSqlEncoder(deps)
+    if internal_v2:
+      interpreter = _bigquery_interpreter.BigQuerySqlInterpreter()
 
     select_expressions = []
     for (field, expr) in view.get_select_expressions().items():
-      select_expression = self._expression_to_sql(expr, encoder, struct_def,
-                                                  elem_def)
+      if internal_v2:
+        raw_sql = interpreter.encode(expr, select_scalars_as_array=False)
+      else:
+        raw_sql = encoder.encode(
+            structure_definition=struct_def,
+            element_definition=elem_def,
+            fhir_path_expression=expr.to_expression().fhir_path,
+            select_scalars_as_array=False)
+
+      select_expression = self._datetime_sql(expr, raw_sql)
 
       select_expressions.append(f'{select_expression} AS {field}')
 
@@ -241,11 +244,15 @@ class BigQueryRunner:
       # Auto generate the __patientId__ field for the view if it exists.
       patient_id_expr = view.get_patient_id_expression()
       if patient_id_expr:
-        expression = encoder.encode(
-            structure_definition=struct_def,
-            element_definition=elem_def,
-            fhir_path_expression=patient_id_expr.to_expression().fhir_path,
-            select_scalars_as_array=False)
+        if internal_v2:
+          expression = interpreter.encode(
+              patient_id_expr, select_scalars_as_array=False)
+        else:
+          expression = encoder.encode(
+              structure_definition=struct_def,
+              element_definition=elem_def,
+              fhir_path_expression=patient_id_expr.to_expression().fhir_path,
+              select_scalars_as_array=False)
         select_expressions.append(f'{expression} AS __patientId__')
 
     # Build the expression containing valueset content, which may be empty.
@@ -259,10 +266,13 @@ class BigQueryRunner:
 
     where_expressions = []
     for expr in view.get_constraint_expressions():
-      where_expression = encoder.encode(
-          structure_definition=struct_def,
-          element_definition=elem_def,
-          fhir_path_expression=expr.to_expression().fhir_path)
+      if internal_v2:
+        where_expression = interpreter.encode(expr)
+      else:
+        where_expression = encoder.encode(
+            structure_definition=struct_def,
+            element_definition=elem_def,
+            fhir_path_expression=expr.to_expression().fhir_path)
       # TODO: Remove LOGICAL_AND(UNNEST) when the SQL generator can
       # return single values and it's safe to do so for non-repeated fields.
       where_expressions.append('(SELECT LOGICAL_AND(logic_)\n'
@@ -351,9 +361,10 @@ class BigQueryRunner:
       A Pandas dataframe containing 'system', 'code', 'display', and 'count'
       columns. It is ordered by count is in descending order.
     """
-    # pylint: disable=protected-access
-    node_type = code_expr._node.return_type()
-    # pylint: enable=protected-access
+    node_type = code_expr.get_node().return_type()
+    if node_type and isinstance(node_type, _fhir_path_data_types.Collection):
+      node_type = list(cast(_fhir_path_data_types.Collection,
+                            node_type).types)[0]
 
     # TODO: Add support for coding and code columns as well.
     if (node_type is None or node_type.url != _CODEABLE_CONCEPT):

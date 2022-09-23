@@ -195,7 +195,7 @@ class ExpressionNode(abc.ABC):
 
   def __init__(self, fhir_context: context.FhirPathContext,
                return_type: _fhir_path_data_types.FhirPathDataType) -> None:
-    self._return_type = return_type
+    self._return_type = copy.deepcopy(return_type)
     self._context = fhir_context
 
   @abc.abstractmethod
@@ -215,6 +215,10 @@ class ExpressionNode(abc.ABC):
   def return_type(self) -> _fhir_path_data_types.FhirPathDataType:
     """The descriptor of the items returned by the expression, if known."""
     return self._return_type
+
+  @abc.abstractmethod
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    raise NotImplementedError('Subclasses *must* implement `accept`.')
 
   def fields(self) -> Set[str]:
     """Returns known fields from this expression, or none if they are unknown.
@@ -343,6 +347,9 @@ class BinaryExpressionNode(ExpressionNode):
     else:
       self._right.replace_operand(expression_to_replace, replacement)
 
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    raise ValueError('Unable to visit BinaryExpression node')
+
 
 class RootMessageNode(ExpressionNode):
   """Returns the root node of the workspace."""
@@ -373,6 +380,9 @@ class RootMessageNode(ExpressionNode):
     # No operands to replace
     pass
 
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return visitor.visit_root(self)
+
 
 class LiteralNode(ExpressionNode):
   """Node expressing a literal FHIRPath value."""
@@ -401,6 +411,9 @@ class LiteralNode(ExpressionNode):
         WorkSpaceMessage(
             message=self.get_value(), parent=work_space.current_message())
     ]
+
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return visitor.visit_literal(self)
 
   def get_value(self) -> message.Message:
     """Returns a defensive copy of the literal value."""
@@ -452,6 +465,7 @@ class InvokeExpressionNode(ExpressionNode):
     self._parent_node = parent_node
     return_type = _get_child_data_type(self._parent_node.return_type(),
                                        fhir_context, self._identifier)
+
     # TODO: Check that identifier exists in parent node's fields.
     # Difficult to do at the moment when nodes are constructed from the AST in
     # instances such as Patient.address.all(use == "home") because the
@@ -470,6 +484,9 @@ class InvokeExpressionNode(ExpressionNode):
               WorkSpaceMessage(message=resolved_result, parent=operand_message))
 
     return results
+
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return visitor.visit_invoke_expression(self)
 
   @property
   def identifier(self) -> str:
@@ -533,6 +550,9 @@ class IndexerNode(ExpressionNode):
     if self._operand_node.to_fhir_path() == expression_to_replace:
       self._operand_node = replacement
 
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return visitor.indexer(self)
+
 
 class NumericPolarityNode(ExpressionNode):
   """Numeric polarity support."""
@@ -571,6 +591,9 @@ class NumericPolarityNode(ExpressionNode):
             message=work_space.primitive_handler.new_decimal(str(result)),
             parent=None)
     ]
+
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return visitor.polarity(self)
 
   def to_fhir_path(self) -> str:
     return f'{str(self._polarity.op)} {self._operand.to_fhir_path()}'
@@ -627,6 +650,9 @@ class FunctionNode(ExpressionNode):
         self._params[index] = replacement
       else:
         self._params[index].replace_operand(expression_to_replace, replacement)
+
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return visitor.visit_function(self)
 
 
 class ExistsFunction(FunctionNode):
@@ -1114,6 +1140,9 @@ class EqualityNode(BinaryExpressionNode):
             parent=None)
     ]
 
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return visitor.visit_equality(self)
+
   def to_fhir_path(self) -> str:
     return f'{self._left.to_fhir_path()} {self._operator.value} {self._right.to_fhir_path()}'
 
@@ -1175,6 +1204,9 @@ class BooleanOperatorNode(BinaryExpressionNode):
               message=work_space.primitive_handler.new_boolean(result),
               parent=None)
       ]
+
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return visitor.visit_boolean_op(self)
 
   def to_fhir_path(self) -> str:
     return (f'{self._left.to_fhir_path()} {self._operator.value} '
@@ -1298,6 +1330,9 @@ class ArithmeticNode(BinaryExpressionNode):
               parent=None)
       ]
 
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return visitor.visit_arithmetic(self)
+
   def to_fhir_path(self) -> str:
     return (f'{self._left.to_fhir_path()} {self._operator.value} '
             f'{self._right.to_fhir_path()}')
@@ -1365,6 +1400,9 @@ class ComparisonNode(BinaryExpressionNode):
             parent=None)
     ]
 
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return visitor.visit_comparison(self)
+
   def to_fhir_path(self) -> str:
     return (f'{self._left.to_fhir_path()} {self._operator.value} '
             f'{self._right.to_fhir_path()}')
@@ -1386,6 +1424,64 @@ _FUNCTION_NODE_MAP: Dict[str, Any] = {
     'where': WhereFunction,
     'anyTrue': AnyTrueFunction,
 }
+
+
+class ExpressionNodeBaseVisitor(abc.ABC):
+  """Abstract base class that visits the Expression Nodes."""
+
+  def visit(self, node: ExpressionNode) -> Any:
+    return node.accept(self)
+
+  def visit_children(self, node: ExpressionNode) -> Any:
+    result: List[Any] = []
+    for c in node.children():
+      result.append(c.accept(self))
+    return result
+
+  @abc.abstractmethod
+  def visit_literal(self, literal: LiteralNode) -> Any:
+    raise NotImplementedError('Subclasses *must* implement `visit_literal`.')
+
+  @abc.abstractmethod
+  def visit_root(self, literal: RootMessageNode) -> Any:
+    raise NotImplementedError('Subclasses *must* implement `visit_literal`.')
+
+  @abc.abstractmethod
+  def visit_invoke_expression(self, identifier: InvokeExpressionNode) -> Any:
+    raise NotImplementedError('Subclasses *must* implement `visit_identifier`.')
+
+  @abc.abstractmethod
+  def visit_indexer(self, indexer: IndexerNode) -> Any:
+    raise NotImplementedError('Subclasses *must* implement `visit_indexer`.')
+
+  @abc.abstractmethod
+  def visit_arithmetic(self, arithmetic: ArithmeticNode) -> Any:
+    raise NotImplementedError('Subclasses *must* implement `visit_arithmetic`.')
+
+  @abc.abstractmethod
+  def visit_equality(self, equality: EqualityNode) -> Any:
+    raise NotImplementedError('Subclasses *must* implement `visit_equality`.')
+
+  @abc.abstractmethod
+  def visit_comparison(self, comparison: ComparisonNode) -> Any:
+    raise NotImplementedError('Subclasses *must* implement `visit_comparison`.')
+
+  @abc.abstractmethod
+  def visit_boolean_op(self, boolean_logic: BooleanOperatorNode) -> Any:
+    raise NotImplementedError(
+        'Subclasses *must* implement `visit_boolean_logic`.')
+
+  @abc.abstractmethod
+  def visit_member_of(self, membership: MemberOfFunction) -> Any:
+    raise NotImplementedError('Subclasses *must* implement `visit_membership`.')
+
+  @abc.abstractmethod
+  def visit_polarity(self, polarity: NumericPolarityNode) -> Any:
+    raise NotImplementedError('Subclasses *must* implement `visit_polarity`.')
+
+  @abc.abstractmethod
+  def visit_function(self, function: FunctionNode) -> Any:
+    raise NotImplementedError('Subclasses *must* implement `visit_function`.')
 
 
 # TODO: Complete implementation.

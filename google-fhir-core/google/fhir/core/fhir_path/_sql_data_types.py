@@ -988,13 +988,13 @@ class Select(StandardSqlExpression):
     query_parts.append(str(self.select_part))
     # Add an AS statement to match sql_alias if necessary.
     if not self.select_part.matches_alias(self.sql_alias):
-      query_parts.extend((' AS ', self.sql_alias))
+      query_parts.extend((' AS ', str(self.sql_alias)))
 
     if self.from_part:
-      query_parts.extend(('\n', 'FROM ', self.from_part))
+      query_parts.extend(f'\nFROM {self.from_part}')
 
     if self.where_part:
-      query_parts.extend(('\n', 'WHERE ', self.where_part))
+      query_parts.extend(('\n', 'WHERE ', str(self.where_part)))
 
     if self.limit_part:
       query_parts.extend(('\n', 'LIMIT ', str(self.limit_part)))

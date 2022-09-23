@@ -28,6 +28,7 @@ from google.fhir.r4.terminology import terminology_service_client
 from google.fhir.r4.terminology import value_sets
 from google.fhir.views import bigquery_runner
 from google.fhir.views import r4
+from google.fhir.views import views
 
 
 class BigqueryRunnerTest(parameterized.TestCase):
@@ -50,6 +51,19 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self._context = context.LocalFhirPathContext.from_resources(
         self._fhir_package.structure_definitions)
     self._views = r4.from_definitions(self._context)
+
+  def AstAndExpressionTreeTestRunner(
+      self,
+      expected_output: str,
+      view: views.View,
+      bq_runner: bigquery_runner.BigQueryRunner = None,
+      limit: int = None):
+    if not bq_runner:
+      bq_runner = self.runner
+    self.assertMultiLineEqual(expected_output,
+                              bq_runner.to_sql(view, limit=limit))
+    self.assertMultiLineEqual(
+        expected_output, bq_runner.to_sql(view, internal_v2=True, limit=limit))
 
   @parameterized.named_parameters(
       dict(
@@ -97,10 +111,10 @@ class BigqueryRunnerTest(parameterized.TestCase):
   def testNoSelectToSql_forPatient_succeeds(self):
     """Tests that a view with no select fields succeeds."""
     pat = self._views.view_of('Patient')
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
           SELECT *,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
-                       ), self.runner.to_sql(pat))
+                       ), pat)
 
   def testSimpleSelectToSql_forPatient_succeeds(self):
     pat = self._views.view_of('Patient')
@@ -110,7 +124,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             'birthDate': pat.birthDate
         }))
 
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
         SELECT ARRAY(SELECT given_element_
         FROM (SELECT given_element_
@@ -118,7 +132,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
         WHERE given_element_ IS NOT NULL) AS name,PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
-                       ), self.runner.to_sql(simple_view))
+                       ), simple_view)
 
   def testSnakeCaseTableName_forPatient_succeeds(self):
 
@@ -130,10 +144,12 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
     pat = self._views.view_of('Patient')
     simple_view = pat.select({'birthDate': pat.birthDate})
-    self.assertMultiLineEqual(
-        textwrap.dedent("""\
+    self.AstAndExpressionTreeTestRunner(
+        expected_output=textwrap.dedent("""\
           SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.patient"""
-                       ), snake_case_runner.to_sql(simple_view))
+                                       ),
+        view=simple_view,
+        bq_runner=snake_case_runner)
 
     med_rec = self._views.view_of('MedicationRequest')
     self.assertMultiLineEqual(
@@ -162,10 +178,9 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM UNNEST(ARRAY(SELECT active
         FROM (SELECT active)
         WHERE active IS NOT NULL)) AS logic_)""")
-    self.assertMultiLineEqual(expected_sql,
-                              self.runner.to_sql(active_patients_view))
-    self.assertMultiLineEqual(expected_sql + ' LIMIT 5',
-                              self.runner.to_sql(active_patients_view, limit=5))
+    self.AstAndExpressionTreeTestRunner(expected_sql, active_patients_view)
+    self.AstAndExpressionTreeTestRunner(
+        expected_sql + ' LIMIT 5', active_patients_view, limit=5)
 
   def testInvalidLimit_forPatient_fails(self):
     pat = self._views.view_of('Patient')
@@ -610,7 +625,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     mock_insert_statements = [mock.MagicMock(), mock.MagicMock()]
     mock_valueset_codes_insert_statement_for.return_value = mock_insert_statements
     mock_expander = mock.MagicMock()
-    self.mock_bigquery_client.create_table.return_value = _bq_valueset_codes_table(
+    self.mock_bigquery_client.create_table.return_value = _BqValuesetCodesTable(
         'vs_project.vs_dataset.vs_table')
 
     self.runner.materialize_value_set_expansion(['url-1', 'url-2'],
@@ -654,7 +669,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
       self, mock_valueset_codes_insert_statement_for):
     mock_expander = mock.MagicMock(
         spec=terminology_service_client.TerminologyServiceClient)
-    self.mock_bigquery_client.create_table.return_value = _bq_valueset_codes_table(
+    self.mock_bigquery_client.create_table.return_value = _BqValuesetCodesTable(
         'vs_project.vs_dataset.vs_table')
 
     self.runner.materialize_value_set_expansion(
@@ -693,12 +708,12 @@ class BigqueryRunnerTest(parameterized.TestCase):
   def testCreateValusetCodesTableIfNotExists_callsClientCorrectly(self):
     self.runner._create_valueset_codes_table_if_not_exists()
 
-    expected_table = _bq_valueset_codes_table('vs_project.vs_dataset.vs_table')
+    expected_table = _BqValuesetCodesTable('vs_project.vs_dataset.vs_table')
     self.mock_bigquery_client.create_table.assert_called_once_with(
         expected_table, exists_ok=True)
 
 
-def _bq_valueset_codes_table(name: str) -> bigquery.table.Table:
+def _BqValuesetCodesTable(name: str) -> bigquery.table.Table:
   """Builds a BigQuery client table representation of a value set codes table."""
   schema = [
       bigquery.SchemaField('valueseturi', 'STRING', mode='REQUIRED'),
