@@ -152,10 +152,12 @@ class BigqueryRunnerTest(parameterized.TestCase):
         bq_runner=snake_case_runner)
 
     med_rec = self._views.view_of('MedicationRequest')
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
           SELECT *,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.medication_request"""
-                       ), snake_case_runner.to_sql(med_rec))
+                       ),
+        view=med_rec,
+        bq_runner=snake_case_runner)
 
   def testSimpleSelectAndWhereToSql_forPatient_succeeds(self):
     pat = self._views.view_of('Patient')
@@ -244,7 +246,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             'birthDate': pat.birthDate
         }).where(pat.maritalStatus.memberOf(unmarried_value_set.url.value)))
 
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
@@ -261,8 +263,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
-        self.runner.to_sql(active_patients_view))
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""), active_patients_view)
 
   def testWhereMemberOfToSql_withVersionedValuesFromContext_succeeds(self):
     pat = self._views.view_of('Patient')
@@ -279,7 +280,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         }).where(
             pat.maritalStatus.memberOf(f'{unmarried_value_set.url.value}')))
 
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
@@ -296,8 +297,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
-        self.runner.to_sql(active_patients_view))
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""), active_patients_view)
 
   def testWhereMemberOfToSql_withValuesSetInConstraintOperand_succeeds(self):
     pat = self._views.view_of('Patient')
@@ -350,7 +350,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             'time': obs.issued,
         }).where(obs.code.memberOf(hba1c_value_set)))
 
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://loinc.org" as system, "10346-5" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://loinc.org" as system, "10486-9" as code)
@@ -367,8 +367,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
-        self.runner.to_sql(hba1c_obs_view))
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""), hba1c_obs_view)
 
   def testWhereMemberOfToSql_withVersionedLiteralValues_succeeds(self):
     obs = self._views.view_of('Observation')
@@ -384,7 +383,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             'time': obs.issued,
         }).where(obs.code.memberOf(hba1c_value_set)))
 
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://loinc.org" as system, "10346-5" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://loinc.org" as system, "10486-9" as code)
@@ -401,8 +400,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
-        self.runner.to_sql(hba1c_obs_view))
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""), hba1c_obs_view)
 
   def testWhereMemberOf_fromNestedField_succeeds(self):
     next_of_kin_value_set = r4.value_set('urn:test:valueset').with_codes(
@@ -413,7 +411,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             'name': pat.name.given,
         }).where(pat.contact.relationship.memberOf(next_of_kin_value_set)))
 
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://terminology.hl7.org/CodeSystem/v2-0131" as system, "N" as code)
         SELECT ARRAY(SELECT given_element_
@@ -444,8 +442,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         ) AS matches
         ON all_.element_offset=matches.element_offset
         ORDER BY all_.element_offset)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
-        self.runner.to_sql(simple_view))
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""), simple_view)
 
   def testWhereMemberOfToSql_withValuesFromTable_succeeds(self):
     pat = self._views.view_of('Patient')
@@ -455,7 +452,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             'birthDate': pat.birthDate
         }).where(pat.maritalStatus.memberOf('http://a-value.set/id')))
 
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM vs_project.vs_dataset.vs_table)
         SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
@@ -471,8 +468,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
-        self.runner.to_sql(active_patients_view))
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""), active_patients_view)
 
   def testWhereMemberOfToSql_withVersionedValueSetUrlAgainstCodesTable_succeeds(
       self):
@@ -483,7 +479,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             'birthDate': pat.birthDate
         }).where(pat.maritalStatus.memberOf('http://a-value.set/id|1.0')))
 
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM vs_project.vs_dataset.vs_table)
         SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
@@ -500,8 +496,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
-        self.runner.to_sql(active_patients_view))
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""), active_patients_view)
 
   def testQueryToJob_forPatient_succeeds(self):
     pat = self._views.view_of('Patient')
@@ -558,10 +553,10 @@ class BigqueryRunnerTest(parameterized.TestCase):
             'status': obs.status,
         }))
 
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
         SELECT (SELECT id) AS id,(SELECT subject.PatientId AS idFor_) AS patientId,(SELECT status) AS status,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation"""
-                       ), self.runner.to_sql(obs_with_raw_patient_id_view))
+                       ), obs_with_raw_patient_id_view)
 
   def testValueOf_forObservationString_succeeds(self):
     obs = self._views.view_of('Observation')
@@ -571,12 +566,11 @@ class BigqueryRunnerTest(parameterized.TestCase):
         'value': obs.value.ofType('string')
     })
 
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         'SELECT (SELECT id) AS id,'
         '(SELECT value.string AS ofType_) AS value,'
         '(SELECT subject.patientId AS idFor_) AS __patientId__'
-        ' FROM `test_project.test_dataset`.Observation',
-        self.runner.to_sql(obs_with_value))
+        ' FROM `test_project.test_dataset`.Observation', obs_with_value)
 
   def testNestValueOf_forObservationQuantity_succeeds(self):
     obs = self._views.view_of('Observation')
@@ -587,12 +581,11 @@ class BigqueryRunnerTest(parameterized.TestCase):
         'unit': obs.value.ofType('Quantity').unit
     })
 
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         'SELECT (SELECT id) AS id,(SELECT value.Quantity.value) AS value,'
         '(SELECT value.Quantity.unit) AS unit,'
         '(SELECT subject.patientId AS idFor_) AS __patientId__ '
-        'FROM `test_project.test_dataset`.Observation',
-        self.runner.to_sql(obs_with_value))
+        'FROM `test_project.test_dataset`.Observation', obs_with_value)
 
   def testSummarizeCodes_forObservation_succeeds(self):
     obs = self._views.view_of('Observation')

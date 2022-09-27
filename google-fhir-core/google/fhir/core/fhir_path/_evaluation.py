@@ -20,6 +20,7 @@ import decimal
 import re
 import threading
 from typing import Any, Dict, FrozenSet, List, Optional, Set, cast
+import urllib
 
 from google.protobuf import descriptor
 from google.protobuf import message
@@ -613,27 +614,33 @@ class FunctionNode(ExpressionNode):
   Subclasses of this should validate parameters in their constructors and raise
   a ValueError if the parameters do not meet function needs.
   """
+  NAME: str
 
   def __init__(
       self,
       fhir_context: context.FhirPathContext,
-      name: str,
       operand: ExpressionNode,
       params: List[ExpressionNode],
       return_type: Optional[_fhir_path_data_types.FhirPathDataType] = None
   ) -> None:
     super().__init__(fhir_context, return_type)
-    self._name = name
     self._operand = operand
+    self._parent_node = operand
     self._params = params
 
   def to_fhir_path(self) -> str:
     param_str = ', '.join([param.to_fhir_path() for param in self._params])
     # Exclude the root message name from the FHIRPath, following conventions.
     if isinstance(self._operand, RootMessageNode):
-      return f'{self._name}({param_str})'
+      return f'{self.NAME}({param_str})'
     else:
-      return f'{self._operand.to_fhir_path()}.{self._name}({param_str})'
+      return f'{self._operand.to_fhir_path()}.{self.NAME}({param_str})'
+
+  def parent_node(self) -> ExpressionNode:
+    return self._operand
+
+  def params(self) -> List[ExpressionNode]:
+    return self._params
 
   def operands(self) -> List[ExpressionNode]:
     return [self._operand] + self._params
@@ -658,9 +665,11 @@ class FunctionNode(ExpressionNode):
 class ExistsFunction(FunctionNode):
   """Implementation of the exists() function."""
 
+  NAME = 'exists'
+
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    super().__init__(fhir_context, 'exists', operand, params,
+    super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Boolean)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
@@ -679,9 +688,11 @@ class ExistsFunction(FunctionNode):
 class CountFunction(FunctionNode):
   """Implementation of the count() function."""
 
+  NAME = 'count'
+
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    super().__init__(fhir_context, 'count', operand, params,
+    super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Integer)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
@@ -699,9 +710,11 @@ class CountFunction(FunctionNode):
 class EmptyFunction(FunctionNode):
   """Implementation of the empty() function."""
 
+  NAME = 'empty'
+
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    super().__init__(fhir_context, 'empty', operand, params,
+    super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Boolean)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
@@ -719,10 +732,12 @@ class EmptyFunction(FunctionNode):
 class FirstFunction(FunctionNode):
   """Implementation of the first() function."""
 
+  NAME = 'first'
+
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    super().__init__(fhir_context, 'first', operand, params,
-                     operand.return_type())
+    super().__init__(fhir_context, operand, params,
+                     operand.return_type().from_collection_type())
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)
@@ -735,9 +750,16 @@ class FirstFunction(FunctionNode):
 class AnyTrueFunction(FunctionNode):
   """Implementation of the anyTrue() function."""
 
+  NAME = 'anyTrue'
+
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    super().__init__(fhir_context, 'anyTrue', operand, params,
+    if (not operand.return_type().is_collection or
+        not isinstance(operand.return_type(), _fhir_path_data_types._Boolean)):
+      raise ValueError('anyTrue() must be called on a Collection of booleans. '
+                       f'Got type of {operand.return_type()}.')
+
+    super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Boolean)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
@@ -764,9 +786,11 @@ class AnyTrueFunction(FunctionNode):
 class HasValueFunction(FunctionNode):
   """Implementation of the hasValue() function."""
 
+  NAME = 'hasValue'
+
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    super().__init__(fhir_context, 'hasValue', operand, params,
+    super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Boolean)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
@@ -792,14 +816,27 @@ class IdForFunction(FunctionNode):
   dataframe tables.
   """
 
+  NAME = 'idFor'
+  base_type_str: str
+  struct_def_url: str
+
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
     # TODO: Resolve typing for idFor function.
-    super().__init__(fhir_context, 'idFor', operand, params)
     if not (len(params) == 1 and isinstance(params[0], LiteralNode) and
             fhir_types.is_string(cast(LiteralNode, params[0]).get_value())):
       raise ValueError(
           'IdFor function requires a single parameter of the resource type.')
+    # Determine the expected FHIR type to use as the node's return type.
+    type_param_str = cast(Any, params[0]).get_value().value
+
+    # Trim the FHIR prefix used for primitive types, if applicable.
+    self.base_type_str = type_param_str[5:] if type_param_str.startswith(
+        'FHIR.') else type_param_str
+    self.struct_def_url = ('http://hl7.org/fhir/StructureDefinition/'
+                           f'{self.base_type_str.capitalize()}')
+    return_type = _get_fhir_type_from_string(self.struct_def_url, fhir_context)
+    super().__init__(fhir_context, operand, params, return_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     # TODO: Support this for future non-SQL view users.
@@ -809,7 +846,9 @@ class IdForFunction(FunctionNode):
 class OfTypeFunction(FunctionNode):
   """ofType() implementation that returns only members of the given type."""
 
+  NAME = 'ofType'
   struct_def_url: str
+  base_type_str: str
 
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
@@ -822,19 +861,21 @@ class OfTypeFunction(FunctionNode):
     type_param_str = cast(Any, params[0]).get_value().value
 
     # Trim the FHIR prefix used for primitive types, if applicable.
-    base_type_str = type_param_str[5:] if type_param_str.startswith(
+    self.base_type_str = type_param_str[5:] if type_param_str.startswith(
         'FHIR.') else type_param_str
-    self.struct_def_url = f'http://hl7.org/fhir/StructureDefinition/{base_type_str}'
+    self.struct_def_url = (
+        f'http://hl7.org/fhir/StructureDefinition/{self.base_type_str}')
 
     return_type = _fhir_path_data_types.Empty
     if isinstance(operand.return_type(),
                   _fhir_path_data_types.PolymorphicDataType):
-      if base_type_str.casefold() in cast(
+      if self.base_type_str.casefold() in cast(
           _fhir_path_data_types.PolymorphicDataType,
           operand.return_type()).fields():
-        return_type = operand.return_type().types()[base_type_str.casefold()]
+        return_type = operand.return_type().types()[
+            self.base_type_str.casefold()]
 
-    super().__init__(fhir_context, 'ofType', operand, params, return_type)
+    super().__init__(fhir_context, operand, params, return_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)
@@ -852,6 +893,7 @@ class MemberOfFunction(FunctionNode):
   """Implementation of the memberOf() function."""
 
   # Literal valueset URL and values to check for memberOf operations.
+  NAME = 'memberOf'
   value_set_url: str
   value_set_version: Optional[str] = None
   code_values: Optional[FrozenSet[CodeValue]] = None
@@ -859,8 +901,13 @@ class MemberOfFunction(FunctionNode):
 
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    super().__init__(fhir_context, 'memberOf', operand, params,
-                     _fhir_path_data_types.Boolean)
+    if not (isinstance(operand.return_type(), _fhir_path_data_types._String) or
+            _fhir_path_data_types.is_coding(operand.return_type()) or
+            _fhir_path_data_types.is_codeable_concept(operand.return_type())):
+      raise ValueError(
+          'MemberOf must be called on a string, code, coding, or codeable '
+          'concept, not %s' % operand.return_type())
+
     if len(params) != 1 or not isinstance(params[0], LiteralNode):
       raise ValueError(
           'MemberOf requires single valueset URL or proto parameter.')
@@ -878,9 +925,19 @@ class MemberOfFunction(FunctionNode):
       # The parameter is a URL to a valueset, so preserve it for evaluation
       # engines to resolve.
       self.value_set_url = value.value
+      parsed = urllib.parse.urlparse(self.value_set_url)
+      if not parsed.scheme and parsed.path:
+        raise ValueError(
+            f'memberOf must be called with a valid URI, not {self.value_set_url}'
+        )
+
     else:
       raise ValueError(
           'MemberOf requires single valueset URL or proto parameter.')
+    return_type = _fhir_path_data_types.Boolean
+    if operand.return_type().is_collection:
+      return_type = return_type.to_collection_type()
+    super().__init__(fhir_context, operand, params, return_type)
 
   def to_value_set_codes(
       self, fhir_context: context.FhirPathContext) -> Optional[ValueSetCodes]:
@@ -956,9 +1013,11 @@ class MemberOfFunction(FunctionNode):
 class NotFunction(FunctionNode):
   """Implementation of the not_() function."""
 
+  NAME = 'not'
+
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    super().__init__(fhir_context, 'not', operand, params,
+    super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Boolean)
     if params:
       raise ValueError(('not() function should not have any parameters but has '
@@ -985,11 +1044,12 @@ class NotFunction(FunctionNode):
 class WhereFunction(FunctionNode):
   """Implementation of the where() function."""
 
+  NAME = 'where'
+
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    _check_is_predicate('where', params)
-    super().__init__(fhir_context, 'where', operand, params,
-                     operand.return_type())
+    _check_is_predicate(self.NAME, params)
+    super().__init__(fhir_context, operand, params, operand.return_type())
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     results = []
@@ -1010,10 +1070,12 @@ class WhereFunction(FunctionNode):
 class AllFunction(FunctionNode):
   """Implementation of the all() function."""
 
+  NAME = 'all'
+
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    _check_is_predicate('all', params)
-    super().__init__(fhir_context, 'all', operand, params,
+    _check_is_predicate(self.NAME, params)
+    super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Boolean)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
@@ -1042,17 +1104,18 @@ class MatchesFunction(FunctionNode):
   """Implementation of the matches() function."""
 
   pattern = None
+  NAME = 'matches'
 
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    super().__init__(fhir_context, 'matches', operand, params,
-                     _fhir_path_data_types.Boolean)
     if not (len(params) == 1 and isinstance(params[0], LiteralNode) and
             fhir_types.is_string(cast(LiteralNode, params[0]).get_value())):
       raise ValueError('matches() requires a single string parameter.')
 
     regex = cast(Any, params[0]).get_value().value
     self.pattern = re.compile(regex) if regex else None
+    super().__init__(fhir_context, operand, params,
+                     _fhir_path_data_types.Boolean)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)

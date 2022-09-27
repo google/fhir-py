@@ -104,6 +104,14 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
     # pylint: enable=protected-access
     return obj_copy
 
+  def from_collection_type(self) -> 'FhirPathDataType':
+    """Returns the type but without the collection flag set."""
+    obj_copy = copy.deepcopy(self)
+    # pylint: disable=protected-access
+    obj_copy._is_collection = False
+    # pylint: enable=protected-access
+    return obj_copy
+
   def is_collection(self) -> bool:
     return self._is_collection
 
@@ -656,3 +664,13 @@ def coerce(lhs: FhirPathDataType, rhs: FhirPathDataType) -> FhirPathDataType:
     return rhs
   else:  # lhs in rhs.supported_coercion
     return lhs
+
+
+def is_coding(fhir_type: FhirPathDataType) -> bool:
+  """Indicates if the type is a Coding."""
+  return fhir_type.url == 'http://hl7.org/fhir/StructureDefinition/Coding'
+
+
+def is_codeable_concept(fhir_type: FhirPathDataType) -> bool:
+  """Indicates if the type is a Codeable Concept."""
+  return fhir_type.url == 'http://hl7.org/fhir/StructureDefinition/CodeableConcept'

@@ -14,8 +14,10 @@
 # limitations under the License.
 """Functionality to output BigQuery SQL expressions from FHIRPath expressions."""
 
+import dataclasses
 from typing import Any
 
+from google.fhir.core.fhir_path import _bigquery_sql_functions
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _sql_data_types
@@ -132,7 +134,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     # Map to Standard SQL type. Note that we never map to a type of `ARRAY`,
     # as the member encoding flattens any `ARRAY` members.
     sql_data_type = self._get_standard_sql_data_type(identifier.return_type())
-
+    sql_alias = f'{raw_identifier_str}'
     identifier_str = _escape_identifier(raw_identifier_str)
     if (identifier.return_type() and
         identifier.return_type().is_collection()):  # Array
@@ -140,13 +142,13 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       # unnested upstream so we only need to reference it with its alias:
       # `{}_element_`.
       if identifier.identifier == '$this':
-        sql_alias = f'{raw_identifier_str}_element_'
+        sql_alias = f'{sql_alias}_element_'
         return _sql_data_types.IdentifierSelect(
             select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
             from_part=parent_result,
         )
       else:
-        sql_alias = f'{raw_identifier_str}_element_'
+        sql_alias = f'{sql_alias}_element_'
         if parent_result:
           parent_identifier_str = parent_result.sql_alias
           identifier_str = f'{parent_identifier_str}.{identifier_str}'
@@ -165,10 +167,22 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
             from_part=from_part)
     else:  # Scalar
-      return _sql_data_types.IdentifierSelect(
-          select_part=_sql_data_types.Identifier(identifier_str, sql_data_type),
-          from_part=parent_result,
-      )
+      # Append the current identifier to the path chain being selected if there
+      # is a parent.Includes the from & where clauses of the parent.
+      if parent_result:
+        return dataclasses.replace(
+            parent_result,
+            select_part=parent_result.select_part.dot(
+                identifier_str,
+                sql_data_type,
+                sql_alias=sql_alias,
+            ))
+      else:
+        return _sql_data_types.IdentifierSelect(
+            select_part=_sql_data_types.Identifier(identifier_str,
+                                                   sql_data_type),
+            from_part=parent_result,
+        )
 
   def visit_indexer(self, indexer: _evaluation.IndexerNode) -> Any:
     raise NotImplementedError('TODO: Implement `Indexer` visitor')
@@ -193,4 +207,9 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     raise NotImplementedError('TODO: Implement `Polarity` visitor.')
 
   def visit_function(self, function: _evaluation.FunctionNode) -> Any:
-    raise NotImplementedError('TODO: Implement `Function` visitor.')
+    """Translates a FHIRPath function to Standard SQL."""
+    parent_result = self.visit(function.parent_node())
+
+    params_result = [self.visit(p) for p in function.params()]
+    func = _bigquery_sql_functions.FUNCTION_MAP.get(function.NAME)
+    return func(function, parent_result, params_result)
