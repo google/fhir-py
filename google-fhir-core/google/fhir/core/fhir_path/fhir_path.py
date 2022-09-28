@@ -958,6 +958,10 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     func = _fhir_path_to_sql_functions.FUNCTION_MAP.get(
         function.identifier.value)
 
+    # If the function is ofType, propagate its chosen type to the walker.
+    if function.identifier.value == _ast.Function.Name.OF_TYPE:
+      walker.selected_choice_type = str(function.params[0])
+
     if function.identifier.value == _ast.Function.Name.MEMBER_OF:
       kwargs = {}
       if self._options.value_set_codes_table is not None:

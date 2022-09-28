@@ -372,8 +372,14 @@ class _Empty(FhirPathDataType):
   def __init__(self) -> None:
     super().__init__(comparable=False)
 
+  def __eq__(self, o: Any) -> bool:
+    return isinstance(o, _Empty)
+
   def _class_name(self) -> str:
     return '<EmptyFhirPathDataType>'
+
+  def __hash__(self) -> int:
+    return hash(self._class_name())
 
 
 class Collection(FhirPathDataType):
@@ -505,11 +511,18 @@ class _Any(FhirPathDataType):
   def url(self):
     return None
 
+  # We don't restrict what the Any type can be compared to.
   def __init__(self) -> None:
-    super().__init__(comparable=False)
+    super().__init__(comparable=True)
+
+  def __eq__(self, o: Any) -> bool:
+    return isinstance(o, _Any)
 
   def _class_name(self) -> str:
     return '<AnyFhirPathDataType>'
+
+  def __hash__(self) -> int:
+    return hash(self._class_name())
 
 
 class PolymorphicDataType(FhirPathDataType):
@@ -621,6 +634,10 @@ def is_coercible(lhs: FhirPathDataType, rhs: FhirPathDataType) -> bool:
   Returns:
     `True` if coercion can occur, otherwise `False.`
   """
+
+  if isinstance(rhs, _Any) or isinstance(lhs, _Any):
+    return True  # All types can be coerced to _Any
+
   if not rhs or not lhs:
     return True  # All types can be coerced to None
 
@@ -659,6 +676,9 @@ def coerce(lhs: FhirPathDataType, rhs: FhirPathDataType) -> FhirPathDataType:
   if not is_coercible(lhs, rhs):
     raise TypeError(
         f'Unsupported Standard SQL coercion between {lhs} and {rhs}.')
+
+  if isinstance(rhs, _Any) or isinstance(lhs, _Any):
+    return _Any
 
   if rhs in lhs.supported_coercion:
     return rhs

@@ -39,6 +39,8 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
     string name;
     integer id;
     repeated bool boolList;
+    ChoiceType choiceExample[ 'string', 'integer', 'CodeableConcept' ];
+    repeated ChoiceType multipleChoiceExample[ 'string', 'CodeableConcept' ];
   }
 
   Bar {
@@ -54,6 +56,10 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
   Struct {
     repeated string value;
     repeated int num;
+  }
+
+  CodeableConcept {
+    Coding coding
   }
 
   """
@@ -84,11 +90,11 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
                 cardinality=sdefs.Cardinality(min=0, max='1')),
             sdefs.build_element_definition(
                 id_='Foo.choiceExample[x]',
-                type_codes=['string', 'integer'],
+                type_codes=['string', 'integer', 'CodeableConcept'],
                 cardinality=sdefs.Cardinality(min=0, max='1')),
             sdefs.build_element_definition(
                 id_='Foo.multipleChoiceExample[x]',
-                type_codes=['string', 'codeableconcept'],
+                type_codes=['string', 'CodeableConcept'],
                 cardinality=sdefs.Cardinality(min=0, max='*')),
             sdefs.build_element_definition(
                 id_='Foo.id',
@@ -157,7 +163,25 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
                 cardinality=sdefs.Cardinality(min=0, max='*')),
         ])
 
-    structure_definitions = [self.foo, self.bar, self.tin, self.struct]
+    # CodeableConcept resource
+    codeable_concept_root_element_definition = sdefs.build_element_definition(
+        id_='CodeableConcept',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(min=1, max='1'))
+    codeable_concept_coding_system_element_definition = sdefs.build_element_definition(
+        id_='CodeableConcept.coding',
+        type_codes=['Coding'],
+        cardinality=sdefs.Cardinality(min=0, max='*'))
+    codeable_concept = sdefs.build_resource_definition(
+        id_='CodeableConcept',
+        element_definitions=[
+            codeable_concept_root_element_definition,
+            codeable_concept_coding_system_element_definition,
+        ])
+
+    structure_definitions = [
+        self.foo, self.bar, self.tin, self.struct, codeable_concept
+    ]
 
     self.semantic_analyzer = _semant.FhirPathSemanticAnalyzer(
         _navigation._Environment(structure_definitions))
@@ -559,6 +583,24 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
           expect_repeated=True,
           expected_data_types={_fhir_path_data_types.String},
       ),
+      dict(
+          testcase_name='_withOfTypeCallonMessage',
+          fhir_path_expression="choiceExample.ofType('CodeableConcept').coding",
+          expect_repeated=False,
+          expected_data_types=[_fhir_path_data_types.Any_],
+      ),
+      dict(
+          testcase_name='_withOfTypeCallonMultipleMessage',
+          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding",
+          expect_repeated=False,
+          expected_data_types=[_fhir_path_data_types.Any_],
+      ),
+      dict(
+          testcase_name='_withOfTypeCallonMultipleMessage_andWhere',
+          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding.where(system = 'test')",
+          expect_repeated=False,
+          expected_data_types=[_fhir_path_data_types.Any_],
+      ),
   )
   def testSemanticAnalysis_withInvocation_andPrimitiveTypes(
       self, fhir_path_expression: str, expect_repeated: bool,
@@ -683,14 +725,13 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
           expected_err_substring='anyTrue() must be called on a Collection of booleans',
       ),
   )
-  def testSemanticAnalysis_raisesAnError(
-      self, fhir_path_expression: str, expected_err_substring: str):
+  def testSemanticAnalysis_raisesAnError(self, fhir_path_expression: str,
+                                         expected_err_substring: str):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
     self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
                                                     self.foo, self.foo_root)
     self.assertLen(self.error_reporter.errors, 1)
-    self.assertIn(expected_err_substring,
-                  self.error_reporter.errors[0])
+    self.assertIn(expected_err_substring, self.error_reporter.errors[0])
 
   @parameterized.named_parameters(
       dict(

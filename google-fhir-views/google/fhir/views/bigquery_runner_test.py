@@ -587,6 +587,23 @@ class BigqueryRunnerTest(parameterized.TestCase):
         '(SELECT subject.patientId AS idFor_) AS __patientId__ '
         'FROM `test_project.test_dataset`.Observation', obs_with_value)
 
+  def testNestValueOf_forExplanationOfBenefit_andCodeableConcept_succeeds(self):
+    eob = self._views.view_of('ExplanationOfBenefit')
+
+    eob_with_codeableconcept_system = eob.select({
+        'id':
+            eob.id,
+        'system':
+            eob.procedure.procedure.ofType('CodeableConcept').coding.system,
+    })
+
+    self.assertMultiLineEqual(
+        """SELECT (SELECT id) AS id,(SELECT coding_element_.system
+FROM (SELECT procedure_element_.procedure.CodeableConcept AS ofType_
+FROM UNNEST(procedure) AS procedure_element_ WITH OFFSET AS element_offset),
+UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset) AS system,(SELECT patient.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.ExplanationOfBenefit""",
+        self.runner.to_sql(eob_with_codeableconcept_system))
+
   def testSummarizeCodes_forObservation_succeeds(self):
     obs = self._views.view_of('Observation')
 

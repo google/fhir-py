@@ -157,6 +157,10 @@ class FhirStructureDefinitionWalker:
   Given an environment to operate in, along with and some initial type/element
   state, the `FhirStructureDefinitionWalker` moves to a new state given a
   single `identifier` argument to `step`.
+
+  Attributes:
+    selected_choice_type: The current choice type selected in an ofType call.
+      Used to keep track of the selected type in a choice type field.
   """
 
   @property
@@ -175,10 +179,12 @@ class FhirStructureDefinitionWalker:
 
   @property
   def containing_type(self) -> StructureDefinition:
+    """Returns the current containing type."""
     return self._containing_type
 
   @property
   def element(self) -> ElementDefinition:
+    """Returns the current element."""
     return self._element
 
   def __init__(self,
@@ -193,6 +199,7 @@ class FhirStructureDefinitionWalker:
       initial_element: The initial `ElementDefinition`. If `None`, the root
         element of `initial_type` is chosen. Defaults to `None`.
     """
+    self.selected_choice_type = ''
     self._env = env
     self._containing_type = initial_type
     self._element = (
@@ -240,14 +247,21 @@ class FhirStructureDefinitionWalker:
     # while updating `self.containing_type` if any is found.
     # E.g. `self.element` is `Period`, identifier is `start`.
     if not _utils.is_root_element(self.element):
-      # TODO: add type information for choice types, although
+      uri_value = ''
       # TODO: Potentially remove this after semantic refactoring.
       if len(_utils.element_type_codes(self.element)) > 1:
-        return
+        uri_value = self.selected_choice_type
+        if not uri_value:
+          raise ValueError(
+              'Selected choice type not set for element: '
+              f'{cast(Any, self.element).id.value!r} and identifier: {identifier!r}'
+          )
+        else:
+          self.selected_choice_type = ''
+      else:
+        uri_value = _utils.element_type_code(self.element)
 
-      uri_value = _utils.element_type_code(self.element)
       url = _utils.get_absolute_uri_for_structure(uri_value)
-
       path = _utils.get_absolute_identifier(uri_value, identifier)
 
       # If the current element is a slice on an extension, use the url of that

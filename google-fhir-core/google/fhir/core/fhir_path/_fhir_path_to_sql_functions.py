@@ -300,8 +300,7 @@ class _FirstFunction(_FhirPathFunctionStandardSqlEncoder):
 
 
 class _AnyTrueFunction(_FhirPathFunctionStandardSqlEncoder):
-  """Returns true if any value in the operand collection is TRUE.
-  """
+  """Returns true if any value in the operand collection is TRUE."""
 
   def validate_and_get_error(
       self,
@@ -312,8 +311,8 @@ class _AnyTrueFunction(_FhirPathFunctionStandardSqlEncoder):
   ) -> Optional[str]:
     del function, walker, options
     if not isinstance(
-        operand.data_type, _fhir_path_data_types.Collection
-    ) or next(iter(operand.data_type.types)) != _fhir_path_data_types.Boolean:
+        operand.data_type, _fhir_path_data_types.Collection) or next(
+            iter(operand.data_type.types)) != _fhir_path_data_types.Boolean:
       return ('anyTrue() must be called on a Collection of booleans. '
               f'Got type of {operand.data_type}.')
     if len(operand.data_type.types) > 1:
@@ -920,7 +919,12 @@ class _OfTypeFunction(_FhirPathFunctionStandardSqlEncoder):
   ) -> _fhir_path_data_types.FhirPathDataType:
     is_collection = isinstance(operand.data_type,
                                _fhir_path_data_types.Collection)
-    input_fhir_type = _string_to_fhir_type(str(function.params[0]))
+    chosen_type = str(function.params[0])
+
+    # Propagate ofType's chosen type to the walker.
+    walker.selected_choice_type = chosen_type
+
+    input_fhir_type = _string_to_fhir_type(chosen_type)
     if is_collection:
       return _fhir_path_data_types.Collection({input_fhir_type})
     return input_fhir_type

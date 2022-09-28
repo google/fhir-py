@@ -112,6 +112,10 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
     CodeFlavor codeFlavor;
     repeated CodeFlavor codeFlavors;
     repeated bool boolList;
+
+    ChoiceType choiceExample['string', 'integer', 'CodeableConcept']
+    repeated ChoiceType multipleChoiceExample['string', 'integer',
+      'CodeableConcept']
   }
   Bar {
     repeated Bats bats;
@@ -194,11 +198,11 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
         cardinality=sdefs.Cardinality(min=0, max='*'))
     choice_value_element_definition = sdefs.build_element_definition(
         id_='Foo.choiceExample[x]',
-        type_codes=['string', 'integer'],
+        type_codes=['string', 'integer', 'CodeableConcept'],
         cardinality=sdefs.Cardinality(min=0, max='1'))
     multiple_choice_value_element_definition = sdefs.build_element_definition(
         id_='Foo.multipleChoiceExample[x]',
-        type_codes=['string', 'integer'],
+        type_codes=['string', 'integer', 'CodeableConcept'],
         cardinality=sdefs.Cardinality(min=0, max='*'))
     date_value_element_definition = sdefs.build_element_definition(
         id_='Foo.dateField',
@@ -381,7 +385,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
         type_codes=None,
         cardinality=sdefs.Cardinality(min=1, max='1'))
     codeable_concept_coding_system_element_definition = sdefs.build_element_definition(
-        id_='CodeableConcept.cdoing',
+        id_='CodeableConcept.coding',
         type_codes=['Coding'],
         cardinality=sdefs.Cardinality(min=0, max='*'))
     codeable_concept = sdefs.build_resource_definition(
@@ -1263,7 +1267,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           select_scalars_as_array=True),
       dict(
           testcase_name='_withChoiceStringType',
-          fhir_path_expression='choiceExample.ofType(string)',
+          fhir_path_expression="choiceExample.ofType('string')",
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT ofType_
           FROM (SELECT choiceExample.string AS ofType_)
@@ -1271,7 +1275,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           select_scalars_as_array=True),
       dict(
           testcase_name='_withChoiceIntegerType',
-          fhir_path_expression='choiceExample.ofType(integer)',
+          fhir_path_expression="choiceExample.ofType('integer')",
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT ofType_
           FROM (SELECT choiceExample.integer AS ofType_)
@@ -1279,19 +1283,93 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           select_scalars_as_array=True),
       dict(
           testcase_name='_scalarWithChoiceIntegerType',
-          fhir_path_expression='choiceExample.ofType(integer)',
+          fhir_path_expression="choiceExample.ofType('integer')",
           expected_sql_expression=textwrap.dedent("""\
           (SELECT choiceExample.integer AS ofType_)"""),
           select_scalars_as_array=False),
       dict(
           testcase_name='_ArrayWithChoice',
-          fhir_path_expression='multipleChoiceExample.ofType(integer)',
+          fhir_path_expression="multipleChoiceExample.ofType('integer')",
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT ofType_
           FROM (SELECT multipleChoiceExample_element_.integer AS ofType_
           FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset)
           WHERE ofType_ IS NOT NULL)"""),
-          select_scalars_as_array=False))
+          select_scalars_as_array=False),
+      dict(
+          testcase_name='_ScalarWithFunction',
+          fhir_path_expression="choiceExample.ofType('CodeableConcept').exists()",
+          select_scalars_as_array=False,
+          expected_sql_expression=textwrap.dedent("""\
+          (SELECT choiceExample.CodeableConcept IS NOT NULL AS exists_)""")),
+      dict(
+          testcase_name='_ScalarWithRepeatedMessageChoice',
+          fhir_path_expression="choiceExample.ofType('CodeableConcept').coding",
+          select_scalars_as_array=False,
+          expected_sql_expression=textwrap.dedent("""\
+          (SELECT coding_element_
+          FROM (SELECT choiceExample.CodeableConcept AS ofType_),
+          UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset)"""
+                                                 )),
+      dict(
+          testcase_name='_ArrayWithMessageChoice',
+          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding",
+          select_scalars_as_array=False,
+          expected_sql_expression=textwrap.dedent("""\
+          (SELECT coding_element_
+          FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
+          FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset),
+          UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset)"""
+                                                 )),
+      dict(
+          testcase_name='_ArrayWithFunction',
+          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').exists()",
+          select_scalars_as_array=False,
+          expected_sql_expression=textwrap.dedent("""\
+          (SELECT EXISTS(
+          SELECT ofType_
+          FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
+          FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset)
+          WHERE ofType_ IS NOT NULL) AS exists_)""")),
+      dict(
+          testcase_name='_ArrayWithMessageChoice_andIdentifier',
+          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding.system",
+          select_scalars_as_array=False,
+          expected_sql_expression=textwrap.dedent("""\
+          (SELECT coding_element_.system
+          FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
+          FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset),
+          UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset)"""
+                                                 )),
+      dict(
+          testcase_name='_ArrayWithMessageChoice_andEquality',
+          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding.system = 'test'",
+          select_scalars_as_array=False,
+          expected_sql_expression=textwrap.dedent("""\
+          (SELECT ((SELECT coding_element_.system
+          FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
+          FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset),
+          UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset) = 'test') AS eq_)"""
+                                                 )),
+      dict(
+          testcase_name='_ArrayWithMessageChoice_andWhere',
+          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding.where(system = 'test')",
+          select_scalars_as_array=False,
+          expected_sql_expression=textwrap.dedent("""\
+          (SELECT coding_element_
+          FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
+          FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset),
+          UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset
+          WHERE (system = 'test'))""")),
+      dict(
+          testcase_name='_ScalarWithRepeatedMessageChoice_andWhere',
+          fhir_path_expression="choiceExample.ofType('CodeableConcept').coding.where(system = 'test')",
+          select_scalars_as_array=False,
+          expected_sql_expression=textwrap.dedent("""\
+          (SELECT coding_element_
+          FROM (SELECT choiceExample.CodeableConcept AS ofType_),
+          UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset
+          WHERE (system = 'test'))""")))
   def testEncode_ChoiceType_generatesSql(
       self, fhir_path_expression: str, expected_sql_expression: str,
       select_scalars_as_array: Optional[bool]):

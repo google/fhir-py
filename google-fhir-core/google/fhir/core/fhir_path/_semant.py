@@ -672,12 +672,20 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
     """
     lhs_result = self.visit(invocation.lhs, walker=walker)
 
+    # Ignore semantic type checking if lhs is `Any`.
+    condition = (
+        lhs_result == _fhir_path_data_types.Any_ or
+        (isinstance(lhs_result, _fhir_path_data_types.Collection) and
+         list(lhs_result.types) == [_fhir_path_data_types.Any_]))
+
+    if condition:
+      return _set_and_return_type(invocation, _fhir_path_data_types.Any_)
+
     if (isinstance(invocation.lhs, _ast.Expression) and
         isinstance(invocation.rhs, _ast.Function)):
       return _set_and_return_type(
           invocation,
-          self.visit_function(
-              invocation.rhs, copy.copy(walker), operand=invocation.lhs))
+          self.visit_function(invocation.rhs, walker, operand=invocation.lhs))
 
     # We check if the rhs matches both Identifier and Invocation here
     # (instead of just Invocation) because according to the FHIRPath Grammar
@@ -763,5 +771,5 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
       return _set_and_return_type(function, _fhir_path_data_types.Empty)
 
     function_data_type = _fhir_path_to_sql_functions.FUNCTION_MAP[
-        function_name].return_type(function, operand, copy.copy(walker))
+        function_name].return_type(function, operand, walker)
     return _set_and_return_type(function, function_data_type)

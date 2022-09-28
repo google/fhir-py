@@ -205,8 +205,7 @@ class _FirstFunction(_FhirPathFunctionStandardSqlEncoder):
 
 
 class _AnyTrueFunction(_FhirPathFunctionStandardSqlEncoder):
-  """Returns true if any value in the operand collection is TRUE.
-  """
+  """Returns true if any value in the operand collection is TRUE."""
 
   def __call__(
       self,
