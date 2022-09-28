@@ -38,7 +38,7 @@ _FHIR_PATH_URL_TO_STANDARD_SQL_TYPE = {
     _fhir_path_data_types.Decimal.url: _sql_data_types.Numeric,
     _fhir_path_data_types.String.url: _sql_data_types.String,
     _fhir_path_data_types.Quantity.url: _sql_data_types.String,
-    _fhir_path_data_types.DateTime.url: _sql_data_types.Datetime,
+    _fhir_path_data_types.DateTime.url: _sql_data_types.Timestamp,
     _fhir_path_data_types.Date.url: _sql_data_types.Date,
     _fhir_path_data_types.Time.url: _sql_data_types.Time,
 }

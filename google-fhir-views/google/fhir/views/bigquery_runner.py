@@ -40,9 +40,8 @@ from google.fhir.views import views
 
 _CODEABLE_CONCEPT = 'http://hl7.org/fhir/StructureDefinition/CodeableConcept'
 
-# DateTime format to convert ISO strings into BigQuery DateTime types.
-# This uses the structure from FHIR store exports.
-_DATE_TIME_FORMAT = '%Y-%m-%dT%H:%M:%E*S+00:00'
+# Timestamp format to convert ISO strings into BigQuery Timestamp types.
+_TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%E*S%Ez'
 
 # ISO format of dates used by FHIR.
 _DATE_FORMAT = '%Y-%m-%d'
@@ -185,7 +184,7 @@ class BigQueryRunner:
     # could allow these formats to be overridden when constructing the runner
     # or check the string format explicitily on each row.
     if node_type == _fhir_path_data_types.DateTime:
-      raw_sql = f'PARSE_DATETIME("{_DATE_TIME_FORMAT}", {raw_sql})'
+      raw_sql = f'PARSE_TIMESTAMP("{_TIMESTAMP_FORMAT}", {raw_sql})'
     elif node_type == _fhir_path_data_types.Date:
       raw_sql = f'PARSE_DATE("{_DATE_FORMAT}", {raw_sql})'
 

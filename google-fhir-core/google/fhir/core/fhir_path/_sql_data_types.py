@@ -278,29 +278,10 @@ class _Date(StandardSqlDataType):
 
   @property
   def supported_coercion(self) -> Set[StandardSqlDataType]:
-    return set([Datetime])
+    return set([Timestamp])
 
   def __str__(self):
     return '<DateSqlDataType>'
-
-
-class _Datetime(StandardSqlDataType):
-  """A date and time, as they might be displayed on a calendar or clock."""
-
-  def __init__(self) -> None:
-    super(_Datetime, self).__init__(
-        nullable=True,
-        orderable=True,
-        groupable=True,
-        comparable=True,
-    )
-
-  @property
-  def supported_coercion(self) -> Set[StandardSqlDataType]:
-    return set()  # No supported coercion
-
-  def __str__(self):
-    return '<DateTimeSqlDataType>'
 
 
 class _Geography(StandardSqlDataType):
@@ -545,7 +526,7 @@ class _Undefined(StandardSqlDataType):
 Boolean = _Boolean()
 Bytes = _Bytes()
 Date = _Date()
-Datetime = _Datetime()
+Timestamp = _Timestamp()
 Geography = _Geography()
 Int64 = _Int64()
 Numeric = _Numeric()
