@@ -36,6 +36,9 @@ from google.fhir.core.proto import fhirpath_replacement_list_pb2
 # TODO: Make FHIR-version agnostic (e.g. parameterize on module?)
 # TODO: Move unit tests to snapshot testing framework.
 
+# TODO: Add corresponding tests internally for all examples in the
+# public FHIR views.
+
 
 def _build_constraint(
     *,
@@ -1753,6 +1756,44 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withVectorCodeableConceptMemberOf',
           fhir_path_expression="codeFlavors.codeableConcept.memberOf('http://value.set/id')",
+          expected_sql_expression=textwrap.dedent("""\
+          ARRAY(SELECT memberof_
+          FROM (SELECT matches.element_offset IS NOT NULL AS memberof_
+          FROM (SELECT element_offset
+          FROM UNNEST(codeFlavors) AS codeFlavors_element_ WITH OFFSET AS element_offset) AS all_
+          LEFT JOIN (SELECT element_offset
+          FROM UNNEST(ARRAY(SELECT element_offset FROM (
+          SELECT DISTINCT element_offset
+          FROM UNNEST(codeFlavors) AS codeFlavors_element_ WITH OFFSET AS element_offset,
+          UNNEST(codeFlavors_element_.codeableConcept.coding) AS codings
+          INNER JOIN `VALUESET_VIEW` vs ON
+          vs.valueseturi='http://value.set/id'
+          AND vs.system=codings.system
+          AND vs.code=codings.code
+          ))) AS element_offset
+          ) AS matches
+          ON all_.element_offset=matches.element_offset
+          ORDER BY all_.element_offset)
+          WHERE memberof_ IS NOT NULL)""")),
+      dict(
+          testcase_name='_withScalarOfTypeCodeableConceptMemberOf',
+          fhir_path_expression="codeFlavor.ofType('codeableConcept').memberOf('http://value.set/id')",
+          expected_sql_expression=textwrap.dedent("""\
+          ARRAY(SELECT memberof_
+          FROM (SELECT memberof_
+          FROM UNNEST((SELECT IF(codeFlavor.codeableConcept IS NULL, [], [
+          EXISTS(
+          SELECT 1
+          FROM UNNEST(codeFlavor.codeableConcept.coding) AS codings
+          INNER JOIN `VALUESET_VIEW` vs ON
+          vs.valueseturi='http://value.set/id'
+          AND vs.system=codings.system
+          AND vs.code=codings.code
+          )]))) AS memberof_)
+          WHERE memberof_ IS NOT NULL)""")),
+      dict(
+          testcase_name='_withVectorOfTypeCodeableConceptMemberOf',
+          fhir_path_expression="codeFlavors.ofType('codeableConcept').memberOf('http://value.set/id')",
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT memberof_
           FROM (SELECT matches.element_offset IS NOT NULL AS memberof_

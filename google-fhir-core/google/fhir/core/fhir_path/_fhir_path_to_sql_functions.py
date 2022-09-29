@@ -1170,7 +1170,14 @@ def _is_coding(fhir_type: _fhir_path_data_types.FhirPathDataType) -> bool:
 def _is_codeable_concept(
     fhir_type: _fhir_path_data_types.FhirPathDataType) -> bool:
   """Indicates if the type is a Codeable Concept."""
-  return fhir_type.url == 'http://hl7.org/fhir/StructureDefinition/CodeableConcept'
+  # If coedable concept is accessed through the `ofType` call, then it's type
+  # comes up as `Any`. And because ofType is wired to only work with codeable
+  # concepts we can assume that the incoming type is a coedable concept.
+  # TODO: Handle this in a more deterministic way, because when
+  # `ofType` gets extended to handle other types this will no longer be true.
+  return (fhir_type.url
+          == 'http://hl7.org/fhir/StructureDefinition/CodeableConcept' or
+          fhir_type == _fhir_path_data_types.Any_)
 
 
 def _string_to_fhir_type(

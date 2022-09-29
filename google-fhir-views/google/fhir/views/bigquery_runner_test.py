@@ -498,6 +498,31 @@ class BigqueryRunnerTest(parameterized.TestCase):
         )]))) AS memberof_)
         WHERE memberof_ IS NOT NULL)) AS logic_)"""), active_patients_view)
 
+  def testWhereMemberOfToSql_withofTypeCall_succeeds(self):
+    meds = self._views.view_of('MedicationRequest')
+
+    statin_meds = (
+        meds.select({
+            'patient': meds.subject.idFor('Patient'),
+            'authoredOn': meds.authoredOn
+        }).where(
+            meds.medication.ofType('CodeableConcept').memberOf(
+                'http://a-value.set/id')))
+
+    mock_job = mock.create_autospec(bigquery.QueryJob, instance=True)
+    self.mock_bigquery_client.query.return_value = mock_job
+
+    self.runner.create_bigquery_view(statin_meds, 'statin_meds_view')
+
+    # Ensure expected SQL was passed to BigQuery and job was returned.
+    expected_sql = (
+        textwrap.dedent(
+            'CREATE OR REPLACE VIEW '
+            '`test_project.test_dataset.statin_meds_view` AS\n'
+            f'{self.runner.to_sql(statin_meds, include_patient_id_col=False)}'))
+    self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
+    mock_job.result.assert_called_once()
+
   def testQueryToJob_forPatient_succeeds(self):
     pat = self._views.view_of('Patient')
     simple_view = (
