@@ -541,7 +541,8 @@ class Builder:
         fhir_path_str = f"'{value_set.url.value}'"
         params.append(
             _evaluation.LiteralNode(self._node.context, value_set,
-                                    fhir_path_str))
+                                    fhir_path_str,
+                                    _fhir_path_data_types.String))
       elif isinstance(arg, Builder):
         # Expression builder parameters are passed as expression
         # nodes that are localized to run under the current expression.
@@ -561,9 +562,11 @@ class Builder:
         # All other types are treated as literals.
         rhs_message = self._primitive_to_message(arg)
         fhir_path_str = self._primitive_to_fhir_path(arg)
+        primitive_type = _fhir_path_data_types.primitive_type_from_type_code(
+            type(arg).__name__)
         params.append(
             _evaluation.LiteralNode(self._node.context, rhs_message,
-                                    fhir_path_str))
+                                    fhir_path_str, primitive_type))
     return params
 
   def __eq__(self, rhs: BuilderOperand) -> 'Builder':

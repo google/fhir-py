@@ -586,6 +586,12 @@ Any_ = _Any()
 # TODO: Consolidate with SQL data types.
 # See more at: http://hl7.org/fhir/datatypes.html.
 _PRIMITIVE_TYPES_BY_CODE: Dict[str, FhirPathDataType] = {
+    # python types
+    'bool': Boolean,
+    'str': String,
+    'int': Integer,
+    'float': Decimal,
+    # fhir types
     'base64binary': String,
     'boolean': Boolean,
     'canonical': String,
@@ -694,3 +700,8 @@ def is_coding(fhir_type: FhirPathDataType) -> bool:
 def is_codeable_concept(fhir_type: FhirPathDataType) -> bool:
   """Indicates if the type is a Codeable Concept."""
   return fhir_type.url == 'http://hl7.org/fhir/StructureDefinition/CodeableConcept'
+
+
+def is_scalar(fhir_type: Optional[FhirPathDataType]) -> bool:
+  # None return type is considered to be a scalar.
+  return not fhir_type or not fhir_type.is_collection()

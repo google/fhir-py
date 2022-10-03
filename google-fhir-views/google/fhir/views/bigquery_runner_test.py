@@ -200,7 +200,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             'birthDate': pat.birthDate
         }).where(pat.birthDate < datetime.date(1960, 1, 1)))
 
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
         SELECT ARRAY(SELECT given_element_
         FROM (SELECT given_element_
@@ -211,8 +211,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT comparison_
         FROM (SELECT (birthDate < '1960-01-01') AS comparison_)
-        WHERE comparison_ IS NOT NULL)) AS logic_)"""),
-        self.runner.to_sql(born_before_1960))
+        WHERE comparison_ IS NOT NULL)) AS logic_)"""), born_before_1960)
 
   def testQueryToDataFrame_forPatient_succeeds(self):
     pat = self._views.view_of('Patient')
@@ -315,8 +314,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             # pylint: disable=g-explicit-bool-comparison singleton-comparison
             pat.maritalStatus.memberOf(f'{unmarried_value_set.url.value}') ==
             True))
-
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
@@ -333,8 +331,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_) = TRUE) AS eq_)
-        WHERE eq_ IS NOT NULL)) AS logic_)"""),
-        self.runner.to_sql(active_patients_view))
+        WHERE eq_ IS NOT NULL)) AS logic_)"""), active_patients_view)
 
   def testWhereMemberOfToSql_withLiteralValues_succeeds(self):
     obs = self._views.view_of('Observation')
@@ -622,12 +619,12 @@ class BigqueryRunnerTest(parameterized.TestCase):
             eob.procedure.procedure.ofType('CodeableConcept').coding.system,
     })
 
-    self.assertMultiLineEqual(
+    self.AstAndExpressionTreeTestRunner(
         """SELECT (SELECT id) AS id,(SELECT coding_element_.system
 FROM (SELECT procedure_element_.procedure.CodeableConcept AS ofType_
 FROM UNNEST(procedure) AS procedure_element_ WITH OFFSET AS element_offset),
 UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset) AS system,(SELECT patient.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.ExplanationOfBenefit""",
-        self.runner.to_sql(eob_with_codeableconcept_system))
+        eob_with_codeableconcept_system)
 
   def testSummarizeCodes_forObservation_succeeds(self):
     obs = self._views.view_of('Observation')

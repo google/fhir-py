@@ -111,8 +111,9 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     active_patients = base_patients.where(base_patients.derivedActive)
     expressions = active_patients.get_select_expressions()
     self.assertEqual('name.given', expressions['name'].fhir_path)
-    self.assertEqual(('pat.active',),
-                     active_patients.get_constraint_expressions())
+    constraint_expressions = list(active_patients.get_constraint_expressions())
+    self.assertLen(constraint_expressions, 1)
+    self.assertEqual('active', constraint_expressions[0].fhir_path)
 
   def testCreateValueSetView_forPatient_succeeds(self):
     """Test use of valuesets in a view definition."""

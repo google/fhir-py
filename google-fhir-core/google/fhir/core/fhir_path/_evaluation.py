@@ -77,10 +77,9 @@ def _get_fhir_type_from_string(
 def _maybe_return_collection_type(
     element: message.Message,
     return_type: _fhir_path_data_types.FhirPathDataType,
-    parent: _fhir_path_data_types.FhirPathDataType
 ) -> _fhir_path_data_types.FhirPathDataType:
   """Returns a new instance of return_type updated with its collection status."""
-  if _utils.is_repeated_element(element) or parent.is_collection():
+  if _utils.is_repeated_element(element):
     return return_type.to_collection_type()
   return return_type
 
@@ -117,8 +116,7 @@ def _get_child_data_type(
         struct_def_dict[
             elem_type.code.value.casefold()] = _maybe_return_collection_type(
                 elem,
-                _get_fhir_type_from_string(elem_type.code.value, fhir_context),
-                parent)
+                _get_fhir_type_from_string(elem_type.code.value, fhir_context))
       return_type = _fhir_path_data_types.PolymorphicDataType(struct_def_dict)
 
     elif not elem.type or not elem.type[0].code.value:
@@ -127,7 +125,7 @@ def _get_child_data_type(
       type_code = elem.type[0].code.value
       return_type = _get_fhir_type_from_string(type_code, fhir_context)
 
-    return _maybe_return_collection_type(elem, return_type, parent)
+    return _maybe_return_collection_type(elem, return_type)
   else:
     return None
 
@@ -333,6 +331,14 @@ class BinaryExpressionNode(ExpressionNode):
     self._right = right
     super().__init__(fhir_context, return_type)
 
+  @property
+  def left(self) -> ExpressionNode:
+    return self._left
+
+  @property
+  def right(self) -> ExpressionNode:
+    return self._right
+
   def operands(self) -> List[ExpressionNode]:
     return [self._left, self._right]
 
@@ -388,13 +394,9 @@ class RootMessageNode(ExpressionNode):
 class LiteralNode(ExpressionNode):
   """Node expressing a literal FHIRPath value."""
 
-  def __init__(
-      self,
-      fhir_context: context.FhirPathContext,
-      value: message.Message,
-      fhir_path_str: str,
-      return_type: Optional[_fhir_path_data_types.FhirPathDataType] = None
-  ) -> None:
+  def __init__(self, fhir_context: context.FhirPathContext,
+               value: message.Message, fhir_path_str: str,
+               return_type: _fhir_path_data_types.FhirPathDataType) -> None:
     primitive_type = annotation_utils.is_primitive_type(value)
     valueset_type = (
         annotation_utils.is_resource(value) and
@@ -525,6 +527,14 @@ class IndexerNode(ExpressionNode):
     self._index = index
     super().__init__(fhir_context, collection.return_type())
 
+  @property
+  def collection(self) -> ExpressionNode:
+    return self._collection
+
+  @property
+  def index(self) -> LiteralNode:
+    return self._index
+
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     collection_messages = self._collection.evaluate(work_space)
     index_messages = self._index.evaluate(work_space)
@@ -567,6 +577,14 @@ class NumericPolarityNode(ExpressionNode):
     self._operand = operand
     self._polarity = polarity
     super().__init__(fhir_context, operand.return_type())
+
+  @property
+  def operand(self) -> ExpressionNode:
+    return self._operand
+
+  @property
+  def op(self) -> _ast.Polarity:
+    return self._polarity
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)
@@ -754,7 +772,7 @@ class AnyTrueFunction(FunctionNode):
 
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    if (not operand.return_type().is_collection or
+    if (not operand.return_type().is_collection() or
         not isinstance(operand.return_type(), _fhir_path_data_types._Boolean)):
       raise ValueError('anyTrue() must be called on a Collection of booleans. '
                        f'Got type of {operand.return_type()}.')
@@ -935,7 +953,7 @@ class MemberOfFunction(FunctionNode):
       raise ValueError(
           'MemberOf requires single valueset URL or proto parameter.')
     return_type = _fhir_path_data_types.Boolean
-    if operand.return_type().is_collection:
+    if operand.return_type().is_collection():
       return_type = return_type.to_collection_type()
     super().__init__(fhir_context, operand, params, return_type)
 
@@ -1156,6 +1174,10 @@ class EqualityNode(BinaryExpressionNode):
     super().__init__(fhir_context, handler, left, right,
                      _fhir_path_data_types.Boolean)
 
+  @property
+  def op(self) -> _ast.EqualityRelation.Op:
+    return self._operator
+
   def are_equal(self, left: WorkSpaceMessage, right: WorkSpaceMessage) -> bool:
     """Returns true if left and right are equal."""
     # If left and right are the same types, simply compare the protos.
@@ -1220,9 +1242,13 @@ class BooleanOperatorNode(BinaryExpressionNode):
                handler: primitive_handler.PrimitiveHandler,
                operator: _ast.BooleanLogic.Op, left: ExpressionNode,
                right: ExpressionNode) -> None:
+    self._operator = operator
     super().__init__(fhir_context, handler, left, right,
                      _fhir_path_data_types.Boolean)
-    self._operator = operator
+
+  @property
+  def op(self) -> _ast.BooleanLogic.Op:
+    return self._operator
 
   def _evaluate_expression(self, left: Optional[bool],
                            right: Optional[bool]) -> Optional[bool]:
@@ -1294,6 +1320,10 @@ class ArithmeticNode(BinaryExpressionNode):
     self._operator = operator
     return_type = left.return_type() if left else right.return_type()
     super().__init__(fhir_context, handler, left, right, return_type)
+
+  @property
+  def op(self) -> _ast.Arithmetic.Op:
+    return self._operator
 
   def _stringify(self, string_messages: List[WorkSpaceMessage]) -> str:
     """Returns empty string for None messages."""
@@ -1408,9 +1438,13 @@ class ComparisonNode(BinaryExpressionNode):
                handler: primitive_handler.PrimitiveHandler,
                operator: _ast.Comparison.Op, left: ExpressionNode,
                right: ExpressionNode) -> None:
+    self._operator = operator
     super().__init__(fhir_context, handler, left, right,
                      _fhir_path_data_types.Boolean)
-    self._operator = operator
+
+  @property
+  def op(self) -> _ast.Comparison.Op:
+    return self._operator
 
   def _compare(self, left: Any, right: Any) -> bool:
     if self._operator == _ast.Comparison.Op.LESS_THAN:
@@ -1657,7 +1691,8 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
         else:
           modified_value.value = -1 * modified_value.value
       return LiteralNode(self._context, modified_value,
-                         f'{str(polarity.op)}{operand_node.to_fhir_path()}')
+                         f'{str(polarity.op)}{operand_node.to_fhir_path()}',
+                         _fhir_path_data_types.Decimal)
     else:
       return NumericPolarityNode(self._context, operand_node, polarity)
 
