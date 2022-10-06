@@ -963,6 +963,17 @@ class FhirPathExpressionsTest(
         self.builder('Patient').birthDate > datetime.date(1940, 1, 1), patient,
         True)
 
+    self.assert_expression_result(
+        self.compile_expression('Patient', 'birthDate < @1950-01-01T00:00:00'),
+        self.builder('Patient').birthDate < datetime.datetime(1950, 1, 1),
+        patient, True)
+
+    self.assert_expression_result(
+        self.compile_expression('Patient',
+                                'birthDate < @1950-01-01T00:00:00+00:00'),
+        self.builder('Patient').birthDate < datetime.datetime(
+            1950, 1, 1, tzinfo=datetime.timezone.utc), patient, True)
+
   def testNoneComparison_forResource_hasNoValue(self):
     patient = self._new_patient()
     expr = (self.builder('Patient').address.state > 'CA').to_expression()

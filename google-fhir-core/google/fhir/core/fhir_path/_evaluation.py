@@ -16,6 +16,7 @@
 import abc
 import copy
 import dataclasses
+import datetime
 import decimal
 import re
 import threading
@@ -32,6 +33,16 @@ from google.fhir.core.internal import primitive_handler
 from google.fhir.core.utils import annotation_utils
 from google.fhir.core.utils import fhir_types
 from google.fhir.core.utils import proto_utils
+
+# google-fhir supports multiple <major>.<minor>.x interpreters. If unable to
+# import zoneinfo from stdlib, fallback to the backports package. See more at:
+# https://pypi.org/project/backports.zoneinfo/.
+# pylint: disable=g-import-not-at-top
+try:
+  import zoneinfo
+except ImportError:
+  from backports import zoneinfo  # pytype: disable=import-error
+# pylint: enable=g-import-not-at-top
 
 VALUE_SET_URL = 'http://hl7.org/fhir/StructureDefinition/ValueSet'
 
@@ -1607,14 +1618,24 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
                          str(literal.value), _fhir_path_data_types.Integer)
     elif isinstance(literal.value, str):
       if literal.is_date_type:
-        primitive_cls = (
-            self._handler.date_time_cls
-            if 'T' in literal.value else self._handler.date_cls)
+        primitive_cls = self._handler.date_cls
+        fhir_type = _fhir_path_data_types.Date
+        literal_str = literal.value
+        if 'T' in literal.value:
+          primitive_cls = self._handler.date_time_cls
+          fhir_type = _fhir_path_data_types.DateTime
+          # Some datetime strings might not have a timezone specified which
+          # messes up the primitive datetime constructor because it expects a
+          # timezone.
+          datetime_obj = datetime.datetime.fromisoformat(literal.value)
+          if not datetime_obj.tzinfo:
+            datetime_obj = datetime_obj.replace(tzinfo=zoneinfo.ZoneInfo('UTC'))
+            literal_str = datetime_obj.isoformat()
         return LiteralNode(
             self._context,
             self._handler.primitive_wrapper_from_json_value(
-                literal.value, primitive_cls).wrapped, f'@{literal.value}',
-            _fhir_path_data_types.DateTime)
+                literal_str, primitive_cls).wrapped, f'@{literal_str}',
+            fhir_type)
       else:
         return LiteralNode(self._context,
                            self._handler.new_string(literal.value),

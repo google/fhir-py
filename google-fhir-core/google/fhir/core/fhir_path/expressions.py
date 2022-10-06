@@ -256,6 +256,8 @@ class Builder:
     elif isinstance(primitive, float):
       return self._handler.new_decimal(str(primitive))
     elif isinstance(primitive, datetime.datetime):
+      if not primitive.tzinfo:
+        primitive = primitive.replace(tzinfo=datetime.timezone.utc)
       return self._handler.primitive_wrapper_from_json_value(
           primitive.isoformat(), self._handler.date_time_cls).wrapped
     elif isinstance(primitive, datetime.date):
