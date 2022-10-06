@@ -137,7 +137,7 @@ class LocalFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
 
     # Add standard prefix to structure if necessary.
     qualified_url = _utils.get_absolute_uri_for_structure(url)
-    result = self._struct_defs.get_resource(qualified_url)
+    result = self._struct_defs.get(qualified_url)
     if result is None:
       raise UnableToLoadResourceError(f'Unknown structure definition URL {url}')
     return result
