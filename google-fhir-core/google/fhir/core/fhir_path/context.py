@@ -108,6 +108,41 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
     raise NotImplementedError('Child classes must implement get_value_set.')
 
 
+class MockFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
+  """FHIRPath context that simply pulls from a provided list of Structure Definitions.
+  """
+
+  def __init__(self,
+               struct_defs: Iterable[_StructDefT],
+               value_sets: Optional[Iterable[_ValueSetT]] = None) -> None:
+    self._struct_defs: Dict[str, _StructDefT] = {}
+    self._value_sets: Dict[str, _ValueSetT] = {}
+    for value_set in value_sets or ():
+      self.add_local_value_set(value_set)
+
+    for struct_def in struct_defs or ():
+      self.add_struct_def(struct_def)
+
+  def add_struct_def(self, struct_def: _StructDefT) -> None:
+    self._struct_defs[struct_def.url.value] = struct_def
+
+  def add_local_value_set(self, value_set: _ValueSetT) -> None:
+    """Adds a local valueset to the context so it can be used for valueset membership checks.
+    """
+    self._value_sets[value_set.url.value] = value_set
+
+  def get_structure_definition(self, url: str) -> _StructDefT:
+    qualified_url = _utils.get_absolute_uri_for_structure(url)
+    result = self._struct_defs.get(qualified_url)
+    if not result:
+      raise ValueError(
+          f'Missing structdef {qualified_url} from {self._struct_defs.keys()}')
+    return result
+
+  def get_value_set(self, value_set_url: str) -> Optional[_ValueSetT]:
+    return self._value_sets.get(value_set_url)
+
+
 class LocalFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
   """FHIRPath context that simply pulls from a provided collection of FHIR resources."""
 

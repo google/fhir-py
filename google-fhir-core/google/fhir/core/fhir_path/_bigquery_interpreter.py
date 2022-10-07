@@ -32,13 +32,12 @@ def _escape_identifier(identifier_value: str) -> str:
     return f'`{identifier_value}`'
   return identifier_value  # No-op
 
-
 _FHIR_PATH_URL_TO_STANDARD_SQL_TYPE = {
     _fhir_path_data_types.Boolean.url: _sql_data_types.Boolean,
     _fhir_path_data_types.Integer.url: _sql_data_types.Int64,
     _fhir_path_data_types.Decimal.url: _sql_data_types.Numeric,
     _fhir_path_data_types.String.url: _sql_data_types.String,
-    _fhir_path_data_types.Quantity.url: _sql_data_types.String,
+    _fhir_path_data_types.Quantity.url: _sql_data_types.OpaqueStruct,
     _fhir_path_data_types.DateTime.url: _sql_data_types.Timestamp,
     _fhir_path_data_types.Date.url: _sql_data_types.Date,
     _fhir_path_data_types.Time.url: _sql_data_types.Time,
@@ -51,6 +50,10 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   def _get_standard_sql_data_type(
       self, fhir_type: _fhir_path_data_types.FhirPathDataType
   ) -> _sql_data_types.StandardSqlDataType:
+    if not fhir_type:
+      return _sql_data_types.Undefined
+    if isinstance(fhir_type, _fhir_path_data_types.StructureDataType):
+      return _sql_data_types.OpaqueStruct
     sql_type = _FHIR_PATH_URL_TO_STANDARD_SQL_TYPE.get(fhir_type.url)
     return sql_type if sql_type else _sql_data_types.Undefined
 
@@ -75,9 +78,8 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """
 
     result = self.visit(builder.get_node())
-    if select_scalars_as_array or (
-        builder.get_node().return_type() and
-        builder.get_node().return_type().is_collection()):
+    if select_scalars_as_array or _fhir_path_data_types.is_collection(
+        builder.get_node().return_type()):
       return (f'ARRAY(SELECT {result.sql_alias}\n'
               f'FROM {result.to_subquery()}\n'
               f'WHERE {result.sql_alias} IS NOT NULL)')
@@ -89,15 +91,15 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       self, literal: _evaluation.LiteralNode) -> _sql_data_types.RawExpression:
     """Translates a FHIRPath literal to Standard SQL."""
 
-    if literal.return_type() is None:
+    if (literal.return_type() is None or
+        isinstance(literal.return_type(), _fhir_path_data_types._Empty)):  # pylint: disable=protected-access
       sql_value = 'NULL'
       sql_data_type = _sql_data_types.Undefined
     # TODO: Make _fhir_path_data_types.FhirPathDataType classes public.
     elif isinstance(literal.return_type(), _fhir_path_data_types._Boolean):  # pylint: disable=protected-access
       sql_value = str(literal).upper()
       sql_data_type = _sql_data_types.Boolean
-    elif (isinstance(literal.return_type(), _fhir_path_data_types._Quantity) or  # pylint: disable=protected-access
-          isinstance(literal.return_type(), _fhir_path_data_types._String)):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type(), _fhir_path_data_types._Quantity):  # pylint: disable=protected-access
       sql_value = f"'{literal}'"  # Quote string literals for SQL
       sql_data_type = _sql_data_types.String
     elif isinstance(literal.return_type(), _fhir_path_data_types._Integer):  # pylint: disable=protected-access
@@ -109,14 +111,18 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     elif isinstance(literal.return_type(), _fhir_path_data_types._DateTime):  # pylint: disable=protected-access
       # Date and datetime literals start with an @ and need to be quoted.
       sql_value = f"'{str(literal)[1:]}'"
-      sql_data_type = _sql_data_types.Datetime
+      sql_data_type = _sql_data_types.Timestamp
     elif isinstance(literal.return_type(), _fhir_path_data_types._Date):  # pylint: disable=protected-access
       sql_value = f"'{str(literal)[1:]}'"
       sql_data_type = _sql_data_types.Date
+    elif isinstance(literal.return_type(), _fhir_path_data_types._String):  # pylint: disable=protected-access
+      sql_value = str(literal)
+      sql_data_type = _sql_data_types.String
     else:
       # LiteralNode constructor ensures that literal has to be one of the above
       # cases. But we error out here in case we enter an illegal state.
-      raise ValueError(f'Unsupported literal value: {literal}.')
+      raise ValueError(
+          f'Unsupported literal value: {literal} {literal.return_type()}.')
 
     return _sql_data_types.RawExpression(
         sql_value,
@@ -145,25 +151,26 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     # as the member encoding flattens any `ARRAY` members.
     sql_data_type = self._get_standard_sql_data_type(identifier.return_type())
     sql_alias = f'{raw_identifier_str}'
-    identifier_str = _escape_identifier(raw_identifier_str)
-    if (identifier.return_type() and
-        identifier.return_type().is_collection()):  # Array
+    identifier_str = f'{raw_identifier_str}'
+    if _fhir_path_data_types.is_collection(identifier.return_type()):  # Array
       # If the identifier is `$this`, we assume that the repeated field has been
       # unnested upstream so we only need to reference it with its alias:
       # `{}_element_`.
       if identifier.identifier == '$this':
         sql_alias = f'{sql_alias}_element_'
         return _sql_data_types.IdentifierSelect(
-            select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
+            select_part=_sql_data_types.Identifier(raw_identifier_str,
+                                                   sql_data_type),
             from_part=parent_result,
         )
       else:
         sql_alias = f'{sql_alias}_element_'
         if parent_result:
           parent_identifier_str = parent_result.sql_alias
-          identifier_str = f'{parent_identifier_str}.{identifier_str}'
+          identifier_str = f'{parent_identifier_str}.{raw_identifier_str}'
         else:
-          identifier_str = f'{identifier_str}'
+          # Identifiers need to be escaped if they are referenced directly.
+          identifier_str = f'{_escape_identifier(raw_identifier_str)}'
 
         from_part = (f'UNNEST({identifier_str}) AS {sql_alias} '
                      f'WITH OFFSET AS element_offset')
@@ -183,14 +190,14 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         return dataclasses.replace(
             parent_result,
             select_part=parent_result.select_part.dot(
-                identifier_str,
+                raw_identifier_str,
                 sql_data_type,
-                sql_alias=sql_alias,
+                sql_alias=_escape_identifier(sql_alias),
             ))
       else:
         return _sql_data_types.IdentifierSelect(
-            select_part=_sql_data_types.Identifier(identifier_str,
-                                                   sql_data_type),
+            select_part=_sql_data_types.Identifier(
+                _escape_identifier(identifier_str), sql_data_type),
             from_part=parent_result,
         )
 

@@ -100,7 +100,8 @@ class _EmptyFunction(_FhirPathFunctionStandardSqlEncoder):
           select_part=_sql_data_types.RawExpression(
               'FALSE', _sql_data_type=sql_data_type, _sql_alias=sql_alias),
           from_part=None)
-    elif not function.parent_node().return_type().is_collection:
+    elif not _fhir_path_data_types.is_collection(
+        function.parent_node().return_type()):
       # We can use a less expensive scalar check.
       return dataclasses.replace(
           operand_result,
@@ -152,7 +153,8 @@ class _ExistsFunction(_FhirPathFunctionStandardSqlEncoder):
     # In situations where the `where` function filters out all results,
     # it causes the query to return 'no rows' which we later interpret
     # as 'passing validation' in our `sql_expressions_to_view.py`.
-    elif ((not function.parent_node().return_type().is_collection) and
+    elif (not _fhir_path_data_types.is_collection(
+        function.parent_node().return_type()) and
           not operand_result.where_part):
       # We can use a less expensive scalar check.
       return dataclasses.replace(
@@ -402,7 +404,8 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
       params_result: List[_sql_data_types.StandardSqlExpression],
       value_set_codes_table: str = 'VALUESET_VIEW') -> _sql_data_types.Select:
     operand_type = function.parent_node().return_type()
-    is_collection = function.parent_node().return_type().is_collection()
+    is_collection = _fhir_path_data_types.is_collection(
+        function.parent_node().return_type())
     is_string_or_code = isinstance(operand_type, _fhir_path_data_types._String)
     is_coding = _fhir_path_data_types.is_coding(operand_type)
     is_codeable_concept = _fhir_path_data_types.is_codeable_concept(
@@ -677,7 +680,8 @@ class _OfTypeFunction(_FhirPathFunctionStandardSqlEncoder):
           from_part=None)
 
     return_type = _sql_data_types.Undefined
-    if function.parent_node().return_type().is_collection:
+    if _fhir_path_data_types.is_collection(
+        function.parent_node().return_type()):
       return_type = _sql_data_types.OpaqueArray
 
     return dataclasses.replace(
@@ -777,7 +781,8 @@ class _AllFunction(_FhirPathFunctionStandardSqlEncoder):
       # fail, thus we extract and use just the from_clause.
       context_sql = None
       where_part = None
-      if function.parent_node().return_type().is_collection:
+      if _fhir_path_data_types.is_collection(
+          function.parent_node().return_type()):
         context_sql = operand_result.from_part
         where_part = operand_result.where_part
       else:

@@ -705,3 +705,7 @@ def is_codeable_concept(fhir_type: FhirPathDataType) -> bool:
 def is_scalar(fhir_type: Optional[FhirPathDataType]) -> bool:
   # None return type is considered to be a scalar.
   return not fhir_type or not fhir_type.is_collection()
+
+
+def is_collection(return_type: FhirPathDataType) -> bool:
+  return return_type and return_type.is_collection()

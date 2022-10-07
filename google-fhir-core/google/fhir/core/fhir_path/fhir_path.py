@@ -881,6 +881,9 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     operand_result = self.visit(polarity.operand, walker=walker)
     sql_expr = f'{polarity.op}{operand_result.as_operand()}'
     sql_alias = 'pol_'
+    # For consistency with visit_polarity in FhirPathCompilerVisitor.
+    if isinstance(polarity.operand, _ast.Literal):
+      sql_alias = 'literal_'
     return _sql_data_types.Select(
         select_part=_sql_data_types.RawExpression(
             sql_expr,

@@ -406,15 +406,16 @@ class LiteralNode(ExpressionNode):
   """Node expressing a literal FHIRPath value."""
 
   def __init__(self, fhir_context: context.FhirPathContext,
-               value: message.Message, fhir_path_str: str,
+               value: Optional[message.Message], fhir_path_str: str,
                return_type: _fhir_path_data_types.FhirPathDataType) -> None:
-    primitive_type = annotation_utils.is_primitive_type(value)
-    valueset_type = (
-        annotation_utils.is_resource(value) and
-        annotation_utils.get_structure_definition_url(value) == VALUE_SET_URL)
-    if not (primitive_type or valueset_type):
-      raise ValueError(f'LiteralNode should be a primitive or valueset, '
-                       f'instead, is {self._value}')
+    if value:
+      primitive_type = annotation_utils.is_primitive_type(value)
+      valueset_type = (
+          annotation_utils.is_resource(value) and
+          annotation_utils.get_structure_definition_url(value) == VALUE_SET_URL)
+      if not (primitive_type or valueset_type):
+        raise ValueError(f'LiteralNode should be a primitive or valueset, '
+                         f'instead, is {self._value}')
 
     self._value = value
     self._fhir_path_str = fhir_path_str
@@ -479,7 +480,6 @@ class InvokeExpressionNode(ExpressionNode):
     self._parent_node = parent_node
     return_type = _get_child_data_type(self._parent_node.return_type(),
                                        fhir_context, self._identifier)
-
     # TODO: Check that identifier exists in parent node's fields.
     # Difficult to do at the moment when nodes are constructed from the AST in
     # instances such as Patient.address.all(use == "home") because the
@@ -565,15 +565,15 @@ class IndexerNode(ExpressionNode):
     return f'{self._collection.to_fhir_path()}[{self._index.to_fhir_path()}]'
 
   def operands(self) -> List[ExpressionNode]:
-    return [self._operand_node]
+    return [self._collection]
 
   def replace_operand(self, expression_to_replace: str,
                       replacement: 'ExpressionNode') -> None:
-    if self._operand_node.to_fhir_path() == expression_to_replace:
-      self._operand_node = replacement
+    if self._collection.to_fhir_path() == expression_to_replace:
+      self._collection = replacement
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
-    return visitor.indexer(self)
+    return visitor.visit_indexer(self)
 
 
 class NumericPolarityNode(ExpressionNode):
@@ -594,8 +594,8 @@ class NumericPolarityNode(ExpressionNode):
     return self._operand
 
   @property
-  def op(self) -> _ast.Polarity:
-    return self._polarity
+  def op(self) -> str:
+    return self._polarity.op
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)
@@ -623,7 +623,7 @@ class NumericPolarityNode(ExpressionNode):
     ]
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
-    return visitor.polarity(self)
+    return visitor.visit_polarity(self)
 
   def to_fhir_path(self) -> str:
     return f'{str(self._polarity.op)} {self._operand.to_fhir_path()}'
@@ -903,6 +903,12 @@ class OfTypeFunction(FunctionNode):
           operand.return_type()).fields():
         return_type = operand.return_type().types()[
             self.base_type_str.casefold()]
+    else:
+      return_type = _get_child_data_type(operand.return_type(), fhir_context,
+                                         self.base_type_str)
+
+    if _fhir_path_data_types.is_collection(operand.return_type()):
+      return_type = return_type.to_collection_type()
 
     super().__init__(fhir_context, operand, params, return_type)
 
@@ -1137,11 +1143,13 @@ class MatchesFunction(FunctionNode):
 
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    if not (len(params) == 1 and isinstance(params[0], LiteralNode) and
-            fhir_types.is_string(cast(LiteralNode, params[0]).get_value())):
+    if not params:
+      regex = None
+    elif not (isinstance(params[0], LiteralNode) and
+              fhir_types.is_string(cast(LiteralNode, params[0]).get_value())):
       raise ValueError('matches() requires a single string parameter.')
-
-    regex = cast(Any, params[0]).get_value().value
+    else:
+      regex = cast(Any, params[0]).get_value().value
     self.pattern = re.compile(regex) if regex else None
     super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Boolean)
@@ -1178,10 +1186,6 @@ class EqualityNode(BinaryExpressionNode):
                operator: _ast.EqualityRelation.Op, left: ExpressionNode,
                right: ExpressionNode) -> None:
     self._operator = operator
-    # TODO: Add support for FHIRPath equivalence operators.
-    if (operator != _ast.EqualityRelation.Op.EQUAL and
-        operator != _ast.EqualityRelation.Op.NOT_EQUAL):
-      raise NotImplementedError('Implement all equality relations.')
     super().__init__(fhir_context, handler, left, right,
                      _fhir_path_data_types.Boolean)
 
@@ -1191,6 +1195,10 @@ class EqualityNode(BinaryExpressionNode):
 
   def are_equal(self, left: WorkSpaceMessage, right: WorkSpaceMessage) -> bool:
     """Returns true if left and right are equal."""
+    # TODO: Add support for FHIRPath equivalence operators.
+    if (self._operator != _ast.EqualityRelation.Op.EQUAL and
+        self._operator != _ast.EqualityRelation.Op.NOT_EQUAL):
+      raise NotImplementedError('Implement all equality relations.')
     # If left and right are the same types, simply compare the protos.
     if (left.message.DESCRIPTOR is right.message.DESCRIPTOR or
         left.message.DESCRIPTOR.full_name
@@ -1608,7 +1616,9 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
 
   def visit_literal(self, literal: _ast.Literal) -> LiteralNode:
 
-    if isinstance(literal.value, bool):
+    if literal.value is None:
+      return LiteralNode(self._context, None, '', _fhir_path_data_types.Empty)
+    elif isinstance(literal.value, bool):
       return LiteralNode(self._context,
                          self._handler.new_boolean(literal.value),
                          str(literal.value), _fhir_path_data_types.Boolean)
@@ -1616,6 +1626,10 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
       return LiteralNode(self._context,
                          self._handler.new_integer(literal.value),
                          str(literal.value), _fhir_path_data_types.Integer)
+    elif isinstance(literal.value, float):
+      return LiteralNode(self._context,
+                         self._handler.new_decimal(literal.value),
+                         str(literal.value), _fhir_path_data_types.Decimal)
     elif isinstance(literal.value, str):
       if literal.is_date_type:
         primitive_cls = self._handler.date_cls
@@ -1644,8 +1658,16 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
       return LiteralNode(self._context,
                          self._handler.new_decimal(str(literal.value)),
                          str(literal.value), _fhir_path_data_types.Decimal)
+    elif isinstance(literal.value, _ast.Quantity):
+      return LiteralNode(
+          self._context,
+          # TODO: Add new class for Quantity?
+          self._handler.new_string(str(literal.value)),
+          str(literal.value),
+          _fhir_path_data_types.Quantity)
     else:
-      raise ValueError(f'Unsupported literal value: {literal}.')
+      raise ValueError(
+          f'Unsupported literal value: {literal} {type(literal.value)}.')
 
   def visit_identifier(self,
                        identifier: _ast.Identifier) -> InvokeExpressionNode:
@@ -1712,7 +1734,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
         else:
           modified_value.value = -1 * modified_value.value
       return LiteralNode(self._context, modified_value,
-                         f'{str(polarity.op)}{operand_node.to_fhir_path()}',
+                         f'{polarity.op}{operand_node.to_fhir_path()}',
                          _fhir_path_data_types.Decimal)
     else:
       return NumericPolarityNode(self._context, operand_node, polarity)
