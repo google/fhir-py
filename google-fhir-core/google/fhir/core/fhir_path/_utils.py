@@ -15,7 +15,6 @@
 """Utilities used across functions in the fhir_path module."""
 
 import itertools
-import os
 from typing import Any, List, Optional, cast
 
 from google.protobuf import message
@@ -152,7 +151,7 @@ def get_absolute_uri_for_structure(uri_value: str) -> str:
   if (uri_value.startswith('http:') or uri_value.startswith('https:') or
       uri_value.startswith('urn:')):
     return uri_value  # No-op
-  return os.path.join('http://hl7.org/fhir/StructureDefinition', uri_value)
+  return f'http://hl7.org/fhir/StructureDefinition/{uri_value}'
 
 
 def get_absolute_identifier(root: str, identifier: str) -> str:
