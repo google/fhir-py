@@ -14,6 +14,8 @@
 # limitations under the License.
 """Tests Python FHIRPath Abstract Syntax Tree functionality."""
 
+import textwrap
+
 from absl.testing import absltest
 from absl.testing import parameterized
 from google.fhir.core.fhir_path import _ast
@@ -201,6 +203,49 @@ class FhirPathAstTest(parameterized.TestCase):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
     paths = _ast.paths_referenced_by(ast)
     self.assertCountEqual(paths, expected_paths)
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='_withIdentifierAccess',
+          fhir_path_expression='patient.id',
+          expected_debug_string=textwrap.dedent("""\
+          Invocation<.>
+          | Identifier<patient>
+          | Identifier<id>""")),
+      dict(
+          testcase_name='_withFunctionInvocation',
+          fhir_path_expression='patient.exists()',
+          expected_debug_string=textwrap.dedent("""\
+          Invocation<.>
+          | Identifier<patient>
+          | Function<function>
+          | | Identifier<exists>""")),
+      dict(
+          testcase_name='_withIdentifierFollowedByFunctionInvocation',
+          fhir_path_expression='patient.id.exists()',
+          expected_debug_string=textwrap.dedent("""\
+          Invocation<.>
+          | Invocation<.>
+          | | Identifier<patient>
+          | | Identifier<id>
+          | Function<function>
+          | | Identifier<exists>""")),
+      dict(
+          testcase_name='_withFunctionWithParameterInvocation',
+          fhir_path_expression="patient.where(id = '123')",
+          expected_debug_string=textwrap.dedent("""\
+          Invocation<.>
+          | Identifier<patient>
+          | Function<function>
+          | | Identifier<where>
+          | | EqualityRelation<=>
+          | | | Identifier<id>
+          | | | Literal<'123'>""")),
+  )
+  def testDebugString_producesExpectedString(self, fhir_path_expression: str,
+                                             expected_debug_string: str):
+    ast = _ast.build_fhir_path_ast(fhir_path_expression)
+    self.assertEqual(ast.debug_string(), expected_debug_string)
 
 
 if __name__ == '__main__':

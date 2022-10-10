@@ -134,6 +134,22 @@ class AbstractSyntaxTree(abc.ABC):
     """
     raise NotImplementedError('Subclasses *must* implement `accept`.')
 
+  def debug_string(self, indent: int = 0) -> str:
+    """Returns a debug string for the tree rooted at this node.
+
+    Args:
+      indent: The level of indentation to begin printing the tree.
+
+    Returns:
+      A string representing this node and its descendant nodes.
+    """
+    self_repr = f'{"| " * indent}{self.__class__.__name__}<{repr(self)}>'
+    if self._children:
+      child_repr = '\n'.join(
+          child.debug_string(indent=indent + 1) for child in self._children)
+      self_repr = f'{self_repr}\n{child_repr}'
+    return self_repr
+
 
 class Expression(AbstractSyntaxTree):
   """An abstract FHIRPath expression base class."""
