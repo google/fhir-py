@@ -28,6 +28,7 @@ import pandas
 import sqlalchemy
 import sqlalchemy_bigquery
 
+from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
@@ -428,6 +429,46 @@ class BigQueryRunner:
     table.clustering_fields = ['valueseturi', 'code']
     return self._client.create_table(table, exists_ok=True)
 
+  # TODO: Update FHIR-agnostic types to a protocol.
+  def materialize_value_sets(self,
+                             value_set_protos: Iterable[value_set_pb2.ValueSet],
+                             batch_size: int = 500) -> None:
+    """Materialize the given value sets into the value_set_codes_table.
+
+    Then writes these expanded codes into the database
+    named after the `value_set_codes_table` provided at class initialization.
+    Builds a valueset_codes table as described by
+    https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md#valueset-support
+
+    The table will be created if it does not already exist.
+
+    The function will avoid inserting duplicate rows if some of the codes are
+    already present in the given table. It will not attempt to perform an
+    'upsert' or modify any existing rows.
+
+    Note that value sets provided to this function should already be expanded,
+    in that they contain the code values to write. Users should also see
+    `materialize_value_set_expansion` below to retrieve an expanded set from
+    a terminology server.
+
+    Args:
+      value_set_protos: An iterable of FHIR ValueSet protos.
+      batch_size: The maximum number of rows to insert in a single query.
+    """
+    bq_table = self._create_valueset_codes_table_if_not_exists()
+
+    sa_table = _bq_table_to_sqlalchemy_table(bq_table)
+    queries = value_set_tables.valueset_codes_insert_statement_for(
+        value_set_protos, sa_table, batch_size=batch_size)
+
+    # Render the query objects as strings and use the client to execute them.
+    for query in queries:
+      query_string = str(
+          query.compile(
+              dialect=(sqlalchemy_bigquery.BigQueryDialect()),
+              compile_kwargs={'literal_binds': True}))
+      self._client.query(query_string).result()
+
   def materialize_value_set_expansion(
       self,
       urls: Iterable[str],
@@ -479,8 +520,6 @@ class BigQueryRunner:
           '`terminology_service_url` can only be given if `expander` is a '
           'TerminologyServiceClient')
 
-    bq_table = self._create_valueset_codes_table_if_not_exists()
-
     if terminology_service_url is not None and isinstance(
         expander, terminology_service_client.TerminologyServiceClient):
       expanded_value_sets = (
@@ -490,17 +529,7 @@ class BigQueryRunner:
     else:
       expanded_value_sets = (expander.expand_value_set_url(url) for url in urls)
 
-    sa_table = _bq_table_to_sqlalchemy_table(bq_table)
-    queries = value_set_tables.valueset_codes_insert_statement_for(
-        expanded_value_sets, sa_table, batch_size=batch_size)
-
-    # Render the query objects as strings and use the client to execute them.
-    for query in queries:
-      query_string = str(
-          query.compile(
-              dialect=(sqlalchemy_bigquery.BigQueryDialect()),
-              compile_kwargs={'literal_binds': True}))
-      self._client.query(query_string).result()
+    self.materialize_value_sets(expanded_value_sets, batch_size=batch_size)
 
 
 def _memberof_nodes_from_view(
@@ -518,7 +547,8 @@ def _memberof_nodes_from_view(
 def _memberof_nodes_from_node(
     node: _evaluation.ExpressionNode
 ) -> Collection[_evaluation.MemberOfFunction]:
-  """Retrieves MemberOfFunction nodes among the given `node` and its operands."""
+  """Retrieves MemberOfFunction nodes among the given `node` and its operands.
+  """
   nodes = []
   if isinstance(node, _evaluation.MemberOfFunction):
     nodes.append(node)

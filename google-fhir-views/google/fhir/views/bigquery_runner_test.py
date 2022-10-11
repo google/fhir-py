@@ -652,6 +652,43 @@ UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset) AS syst
       bigquery_runner.value_set_tables,
       'valueset_codes_insert_statement_for',
       autospec=True)
+  def testMaterializeValueSet_withValueSetObject_insertsData(
+      self, mock_valueset_codes_insert_statement_for):
+    mock_value_sets = [mock.MagicMock(), mock.MagicMock()]
+    mock_insert_statements = [mock.MagicMock(), mock.MagicMock()]
+    mock_valueset_codes_insert_statement_for.return_value = mock_insert_statements
+    self.mock_bigquery_client.create_table.return_value = _BqValuesetCodesTable(
+        'vs_project.vs_dataset.vs_table')
+
+    self.runner.materialize_value_sets(mock_value_sets)
+
+    # Ensure we tried to create the table
+    self.mock_bigquery_client.create_table.assert_called_once()
+
+    # Ensure we called query with the rendered SQL for the two mock queries and
+    # called .result() on the returned job.
+    self.mock_bigquery_client.query.assert_has_calls([
+        mock.call(str(mock_insert_statements[0].compile())),
+        mock.call().result(),
+        mock.call(str(mock_insert_statements[1].compile())),
+        mock.call().result(),
+    ])
+
+    # Ensure we called valueset_codes_insert_statement_for with the
+    # given value sets.
+    args, kwargs = mock_valueset_codes_insert_statement_for.call_args_list[0]
+    expanded_value_sets, table = args
+    self.assertEqual(list(expanded_value_sets), mock_value_sets)
+
+    self.assertEqual(table.name, 'vs_project.vs_dataset.vs_table')
+    for col in ('valueseturi', 'valuesetversion', 'system', 'code'):
+      self.assertIn(col, table.columns)
+    self.assertEqual(kwargs['batch_size'], 500)
+
+  @mock.patch.object(
+      bigquery_runner.value_set_tables,
+      'valueset_codes_insert_statement_for',
+      autospec=True)
   def testMaterializeValueSetExpansion_withValueSetUrls_performsExpansionsAndInserts(
       self, mock_valueset_codes_insert_statement_for):
     mock_insert_statements = [mock.MagicMock(), mock.MagicMock()]
@@ -746,7 +783,8 @@ UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset) AS syst
 
 
 def _BqValuesetCodesTable(name: str) -> bigquery.table.Table:
-  """Builds a BigQuery client table representation of a value set codes table."""
+  """Builds a BigQuery client table representation of a value set codes table.
+  """
   schema = [
       bigquery.SchemaField('valueseturi', 'STRING', mode='REQUIRED'),
       bigquery.SchemaField('valuesetversion', 'STRING', mode='NULLABLE'),
