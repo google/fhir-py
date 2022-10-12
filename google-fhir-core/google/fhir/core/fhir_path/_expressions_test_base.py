@@ -1295,7 +1295,7 @@ class FhirPathExpressionsTest(
         | | + Patient <RootMessageNode> ())
         | + use = 'home' <EqualityNode> (
         | | + use <InvokeExpressionNode> (
-        | | | + Address <RootMessageNode> ())
+        | | | + <ReferenceNode> (&address))
         | | + 'home' <LiteralNode> ()))"""),
         self.builder('Patient').address.all(
             self.builder('Patient').address.use == 'home').debug_string())
@@ -1308,7 +1308,7 @@ class FhirPathExpressionsTest(
         | | + Patient <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Patient)>> ())
         | + use = 'home' <EqualityNode type=<BooleanFhirPathDataType>> (
         | | + use <InvokeExpressionNode type=<StringFhirPathDataType>> (
-        | | | + Address <RootMessageNode type=[<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> ())
+        | | | + <ReferenceNode type=[<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (&address))
         | | + 'home' <LiteralNode type=<StringFhirPathDataType>> ()))"""),
         self.builder('Patient').address.all(
             self.builder('Patient').address.use == 'home').debug_string(

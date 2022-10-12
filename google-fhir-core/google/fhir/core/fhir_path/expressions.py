@@ -550,15 +550,11 @@ class Builder:
         # nodes that are localized to run under the current expression.
         # For example, the "where" expression builder in
         # `patient.address.where(patient.address.use = 'home')` is built from
-        # patient, but should be evaluated in the context of address. We do so
-        # by replacing the path to the operand node with a new "root" context.
-        # pylint: disable=protected-access
-        localized = copy.deepcopy(arg._node, {})
-        # pylint: enable=protected-access
+        # patient, but should be evaluated in the context of address.
+        localized = copy.deepcopy(arg.get_node(), {})
         localized.replace_operand(
             operand_node.to_fhir_path(),
-            _evaluation.RootMessageNode(self._node.context,
-                                        operand_node.return_type()))
+            _evaluation.ReferenceNode(self._node.context, operand_node))
         params.append(localized)
       else:
         # All other types are treated as literals.

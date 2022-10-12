@@ -130,22 +130,19 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         _sql_alias='literal_',
     )
 
-  def visit_root(self, root: _evaluation.RootMessageNode) -> None:
-    # TODO: Consider returning an empty sql statement with the
-    # from_part filled in.
-    return None
-
   def visit_invoke_expression(
       self, identifier: _evaluation.InvokeExpressionNode
   ) -> _sql_data_types.IdentifierSelect:
     """Translates a FHIRPath member identifier to Standard SQL."""
-    parent_result = self.visit(identifier.operand_node)
 
+    parent_result = None
     # TODO: Handle "special" identifiers
     if identifier.identifier == '$this':
-      raise NotImplementedError('TODO: add support for $this.')
+      # When $this is used, we need the last identifier from the operand.
+      raw_identifier_str = identifier.operand_node.to_fhir_path().split('.')[-1]
     else:
       raw_identifier_str = identifier.identifier
+    parent_result = self.visit(identifier.operand_node)
 
     # Map to Standard SQL type. Note that we never map to a type of `ARRAY`,
     # as the member encoding flattens any `ARRAY` members.
@@ -159,8 +156,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       if identifier.identifier == '$this':
         sql_alias = f'{sql_alias}_element_'
         return _sql_data_types.IdentifierSelect(
-            select_part=_sql_data_types.Identifier(raw_identifier_str,
-                                                   sql_data_type),
+            select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
             from_part=parent_result,
         )
       else:
@@ -185,7 +181,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             from_part=from_part)
     else:  # Scalar
       # Append the current identifier to the path chain being selected if there
-      # is a parent.Includes the from & where clauses of the parent.
+      # is a parent. Includes the from & where clauses of the parent.
       if parent_result:
         return dataclasses.replace(
             parent_result,

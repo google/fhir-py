@@ -179,8 +179,8 @@ def to_code_values(value_set_proto: message.Message) -> FrozenSet[CodeValue]:
 @dataclasses.dataclass
 class WorkSpaceMessage:
   """Message with parent context, as needed for some FHIRPath expressions."""
-  parent: Optional['WorkSpaceMessage']
   message: message.Message
+  parent: Optional['WorkSpaceMessage']
 
 
 @dataclasses.dataclass
@@ -189,6 +189,9 @@ class WorkSpace:
   primitive_handler: primitive_handler.PrimitiveHandler
   fhir_context: context.FhirPathContext
   message_context_stack: List[WorkSpaceMessage]
+
+  def root_message(self) -> WorkSpaceMessage:
+    return self.message_context_stack[0]
 
   def current_message(self) -> WorkSpaceMessage:
     return self.message_context_stack[-1]
@@ -259,12 +262,17 @@ class ExpressionNode(abc.ABC):
                          with_typing: bool,
                          indent: int = 0) -> str:
     """Function to recursively print the operands of the input operand."""
-    operand_prints = ''.join(
-        '\n' + self._operand_to_string(op, with_typing, indent + 1)
-        for op in operand.operands())
+    operand_name = f'{operand} '
+    if operand.__class__.__name__ == 'ReferenceNode':
+      operand_name = ''
+      operand_prints = f'&{operand}'
+    else:
+      operand_prints = ''.join(
+          '\n' + self._operand_to_string(op, with_typing, indent + 1)
+          for op in operand.operands())
     type_print = f' type={operand.return_type()}' if with_typing else ''
     return (f'{"| " * indent}+ '
-            f'{operand} <{operand.__class__.__name__}{type_print}> ('
+            f'{operand_name}<{operand.__class__.__name__}{type_print}> ('
             f'{operand_prints})')
 
   def debug_string(self, with_typing: bool = False) -> str:
@@ -379,11 +387,7 @@ class RootMessageNode(ExpressionNode):
     super().__init__(fhir_context, return_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    return [
-        WorkSpaceMessage(
-            message=work_space.current_message().message,
-            parent=work_space.current_message())
-    ]
+    return [work_space.root_message()]
 
   def to_fhir_path(self) -> str:
     # The FHIRPath of a root structure is simply the base type name,
@@ -399,7 +403,7 @@ class RootMessageNode(ExpressionNode):
     pass
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
-    return visitor.visit_root(self)
+    return None
 
 
 class LiteralNode(ExpressionNode):
@@ -478,12 +482,14 @@ class InvokeExpressionNode(ExpressionNode):
                parent_node: ExpressionNode) -> None:
     self._identifier = identifier
     self._parent_node = parent_node
-    return_type = _get_child_data_type(self._parent_node.return_type(),
-                                       fhir_context, self._identifier)
-    # TODO: Check that identifier exists in parent node's fields.
-    # Difficult to do at the moment when nodes are constructed from the AST in
-    # instances such as Patient.address.all(use == "home") because the
-    # InvokeNode(use) does not know that it is a child of address; not Patient.
+    if self._identifier == '$this':
+      return_type = self._parent_node.return_type()
+    else:
+      return_type = _get_child_data_type(self._parent_node.return_type(),
+                                         fhir_context, self._identifier)
+    if not return_type:
+      raise ValueError(
+          f'Identifier {identifier} cannot be extracted from parent node.')
     super().__init__(fhir_context, return_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
@@ -512,7 +518,10 @@ class InvokeExpressionNode(ExpressionNode):
 
   def to_fhir_path(self) -> str:
     # Exclude the root message name from the FHIRPath, following conventions.
-    if isinstance(self._parent_node, RootMessageNode):
+    if self._identifier == '$this':
+      return self._parent_node.to_fhir_path()
+    elif isinstance(self._parent_node, RootMessageNode) or isinstance(
+        self._parent_node, ReferenceNode):
       return self._identifier
     else:
       return self._parent_node.to_fhir_path() + '.' + self._identifier
@@ -1524,6 +1533,31 @@ class ComparisonNode(BinaryExpressionNode):
             f'{self._right.to_fhir_path()}')
 
 
+class ReferenceNode(ExpressionNode):
+  """Implementation of $this keyword and relative paths."""
+
+  def __init__(self, fhir_context: context.FhirPathContext,
+               reference_node: ExpressionNode) -> None:
+    self._reference_node = reference_node
+    super().__init__(fhir_context, reference_node.return_type())
+
+  def operands(self) -> List[ExpressionNode]:
+    return [self._reference_node]
+
+  def replace_operand(self, expression_to_replace: str,
+                      replacement: 'ExpressionNode') -> None:
+    if self._reference_node.to_fhir_path() == expression_to_replace:
+      self._reference_node = replacement
+
+  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
+    return [work_space.current_message()]
+
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return None
+
+  def to_fhir_path(self) -> str:
+    return self._reference_node.to_fhir_path()
+
 # Implementations of FHIRPath functions.
 _FUNCTION_NODE_MAP: Dict[str, Any] = {
     'all': AllFunction,
@@ -1556,10 +1590,6 @@ class ExpressionNodeBaseVisitor(abc.ABC):
 
   @abc.abstractmethod
   def visit_literal(self, literal: LiteralNode) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_literal`.')
-
-  @abc.abstractmethod
-  def visit_root(self, literal: RootMessageNode) -> Any:
     raise NotImplementedError('Subclasses *must* implement `visit_literal`.')
 
   @abc.abstractmethod
@@ -1613,6 +1643,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     self._handler = handler
     self._context = fhir_context
     self._data_type = data_type
+    self._node_context = [RootMessageNode(self._context, self._data_type)]
 
   def visit_literal(self, literal: _ast.Literal) -> LiteralNode:
 
@@ -1669,10 +1700,9 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
       raise ValueError(
           f'Unsupported literal value: {literal} {type(literal.value)}.')
 
-  def visit_identifier(self,
-                       identifier: _ast.Identifier) -> InvokeExpressionNode:
+  def visit_identifier(self, identifier: _ast.Identifier) -> Any:
     return InvokeExpressionNode(self._context, identifier.value,
-                                RootMessageNode(self._context, self._data_type))
+                                self._node_context[-1])
 
   def visit_indexer(self, indexer: _ast.Indexer, **kwargs: Any) -> Any:
     collection_result = self.visit(indexer.collection)
@@ -1760,7 +1790,13 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     # Use the given operand if it exists, otherwise this must have been invoked
     # on the root, so that is the effective operand.
     operand_node = (
-        self.visit(operand) if operand is not None else RootMessageNode(
-            self._context, self._data_type))
-    params = [self.visit(param) for param in function.params]
+        self.visit(operand) if operand is not None else self._node_context[-1])
+    params: List[ExpressionNode] = []
+    for param in function.params:
+      # For functions, the identifiers can be relative to the operand of the
+      # function; not the root FHIR type.
+      self._node_context.append(ReferenceNode(self._context, operand_node))
+      new_param = self.visit(param)
+      self._node_context.pop()
+      params.append(new_param)
     return function_class(self._context, operand_node, params)

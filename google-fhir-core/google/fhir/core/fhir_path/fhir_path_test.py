@@ -772,7 +772,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
         select_scalars_as_array=False)
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        None,
+        self.foo,
         fhir_path_expression,
         expected_sql_expression,
         select_scalars_as_array=False)
@@ -980,7 +980,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
         fhir_path_expression=fhir_path_expression)
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     if not missing_feature_in_v2:
-      self.assertEvaluationNodeSqlCorrect(None, fhir_path_expression,
+      self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
                                           expected_sql_expression)
 
   # TODO: Verify order-dependence of equivalence vs. equality
@@ -1718,8 +1718,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withDeepestNestedMemberSqlKeywordExists',
           fhir_path_expression='bar.bats.struct.exists()',
-          # TODO: Determine if this is a bug in the old implementation
-          # or new implementation.
+          # TODO: Determine if this is a bug in the old
+          # implementation or new implementation.
           missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT exists_
@@ -1733,8 +1733,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withDeepestNestedMemberFhirPathKeywordExists',
           fhir_path_expression='bar.bats.`div`.exists()',
-          # TODO: Determine if this is a bug in the old implementation
-          # or new implementation.
+          # TODO: Determine if this is a bug in the old
+          # implementation or new implementation.
           missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT exists_
@@ -1797,8 +1797,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withDeepestNestedMemberSqlKeywordExistsNot',
           fhir_path_expression='bar.bats.struct.exists().not()',
-          # TODO: Determine if this is a bug in the old implementation
-          # or new implementation.
+          # TODO: Determine if this is a bug in the old
+          # implementation or new implementation.
           missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT not_
@@ -1820,8 +1820,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withDeepestNestedMemberSqlKeywordEmpty',
           fhir_path_expression='bar.bats.struct.empty()',
-          # TODO: Determine if this is a bug in the old implementation
-          # or new implementation.
+          # TODO: Determine if this is a bug in the old
+          # implementation or new implementation.
           missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT empty_
@@ -1878,8 +1878,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withLogicOnExists',
           fhir_path_expression='(bar.bats.struct.value.exists() and bar.bats.struct.anotherValue.exists()).not()',
-          # TODO: Determine if this is a bug in the old implementation
-          # or new implementation.
+          # TODO: Determine if this is a bug in the old
+          # implementation or new implementation.
           missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT not_
@@ -1930,8 +1930,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withVectorCodeMemberOf',
           fhir_path_expression="codeFlavors.code.memberOf('http://value.set/id')",
-          # TODO: Determine if this is a bug in the old implementation
-          # or new implementation.
+          # TODO: Determine if this is a bug in the old
+          # implementation or new implementation.
           missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT memberof_
@@ -1985,8 +1985,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           WHERE memberof_ IS NOT NULL)""")),
       dict(
           testcase_name='_withVectorCodingMemberOf',
-          # TODO: Determine if this is a bug in the old implementation
-          # or new implementation.
+          # TODO: Determine if this is a bug in the old
+          # implementation or new implementation.
           missing_feature_in_v2=True,
           fhir_path_expression="codeFlavors.coding.memberOf('http://value.set/id')",
           expected_sql_expression=textwrap.dedent("""\
@@ -2026,8 +2026,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withVectorCodeableConceptMemberOf',
           fhir_path_expression="codeFlavors.codeableConcept.memberOf('http://value.set/id')",
-          # TODO: Determine if this is a bug in the old implementation
-          # or new implementation.
+          # TODO: Determine if this is a bug in the old
+          # implementation or new implementation.
           missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT memberof_
@@ -2201,6 +2201,9 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           WHERE all_ IS NOT NULL)""")),
       dict(
           testcase_name='_withAllAndIdentifierPlusThis',
+          # TODO: Determine if this is a bug in the old
+          # implementation or new implementation.
+          missing_feature_in_v2=True,
           fhir_path_expression=(
               "bat.struct.all(anotherValue = '' and $this)"),
           expected_sql_expression=textwrap.dedent("""\
@@ -2227,6 +2230,9 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           WHERE all_ IS NOT NULL)""")),
       dict(
           testcase_name='_withAllAndRepeatedSubfieldPrimitiveOnlyComparison',
+          # TODO: Determine if this is a bug in the old
+          # implementation or new implementation.
+          missing_feature_in_v2=True,
           fhir_path_expression=("bar.bats.struct.all( value = '' )"),
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT all_
@@ -2314,12 +2320,18 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           WHERE exists_ IS NOT NULL)""")),
   )
   def testEncode_withAdvancedFhirPathMemberFunctionInvocation_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self,
+      fhir_path_expression: str,
+      expected_sql_expression: str,
+      missing_feature_in_v2: bool = True):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
         fhir_path_expression=fhir_path_expression)
     self.assertEqual(actual_sql_expression, expected_sql_expression)
+    if not missing_feature_in_v2:
+      self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
+                                          expected_sql_expression)
 
   @parameterized.named_parameters(
       dict(
