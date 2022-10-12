@@ -1301,6 +1301,83 @@ class FhirPathExpressionsTest(
     with self.assertRaises(ValueError):
       pat.address.all(pat.address.use)
 
+  def testContainsOperator_succeeds(self):
+    """Ensures contains indicates an elements presence in a collection."""
+    patient = self._new_patient()
+
+    address1 = patient.address.add()
+    address1.city.value = 'city1'
+
+    address2 = patient.address.add()
+    address2.city.value = 'city2'
+
+    pat = self.builder('Patient')
+
+    self.assert_expression_result(
+        self.compile_expression('Patient', "address.city contains 'city1'"),
+        pat.address.city.contains('city1'), patient, True)
+
+    self.assert_expression_result(
+        self.compile_expression('Patient', "address.city contains 'city2'"),
+        pat.address.city.contains('city2'), patient, True)
+
+    self.assert_expression_result(
+        self.compile_expression('Patient',
+                                "address.city contains 'mystery_city'"),
+        pat.address.city.contains('mystery_city'), patient, False)
+
+  def testContainsOperator_withEmptyCollection_returnsFalse(self):
+    """Ensures contains returns False when called against empty collections."""
+    patient = self._new_patient()
+    pat = self.builder('Patient')
+
+    self.assert_expression_result(
+        self.compile_expression('Patient', "address.city contains 'city1'"),
+        pat.address.city.contains('city1'), patient, False)
+
+  def testContainsOperator_withEmptyElement_returnsEmpty(self):
+    """Ensures contains returns empty when the rhs is empty."""
+    patient = self._new_patient()
+
+    address1 = patient.address.add()
+    address1.city.value = 'city1'
+
+    expression = self.compile_expression('Patient', 'address.city contains {}')
+    self.assertFalse(expression.evaluate(patient).has_value())
+
+  def testContainsOperator_withNonElementOperand_raisesError(self):
+    """Ensures contains raises an error when the rhs is not a single value."""
+    patient = self._new_patient()
+
+    address1 = patient.address.add()
+    address1.city.value = 'city1'
+
+    address2 = patient.address.add()
+    address2.city.value = 'city2'
+
+    pat = self.builder('Patient')
+    builder = pat.address.city.contains(pat.address.city)
+    with self.assertRaises(ValueError):
+      builder.to_expression().evaluate(patient)
+
+  def testContainsOperator_withNestingInWhere_succeeds(self):
+    """Ensures contains can be nested in a where function."""
+    patient = self._new_patient()
+
+    first_name = patient.name.add()
+    first_name.given.add().value = 'namey'
+
+    address1 = patient.address.add()
+    address1.city.value = 'city1'
+
+    pat = self.builder('Patient')
+    self.assert_expression_result(
+        self.compile_expression(
+            'Patient',
+            "where(address.city contains 'city1').name.first().given"),
+        pat.where(pat.address.city.contains('city1')).name.first().given,
+        patient, 'namey')
+
   def testNodeDebugString(self):
     """Tests debug_string print functionality."""
 

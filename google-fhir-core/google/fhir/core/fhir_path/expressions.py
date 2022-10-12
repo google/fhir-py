@@ -570,6 +570,11 @@ class Builder:
                                     fhir_path_str, primitive_type))
     return params
 
+  def contains(self, rhs: BuilderOperand) -> 'Builder':
+    return Builder(
+        _evaluation.ContainsNode(self._node.context, self._handler, self._node,
+                                 self._to_node(rhs)), self._handler)
+
   def __eq__(self, rhs: BuilderOperand) -> 'Builder':
     return Builder(
         _evaluation.EqualityNode(self._node.context, self._handler,
