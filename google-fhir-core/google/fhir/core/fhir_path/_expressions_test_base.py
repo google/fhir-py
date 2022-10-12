@@ -644,7 +644,8 @@ class FhirPathExpressionsTest(
                                   float(left * right))
 
   def testNumericAdditionArithmetic(self):
-    """Tests addition logic for numeric values defined at https://hl7.org/fhirpath/#math-2."""
+    """Tests addition logic for numeric values defined at https://hl7.org/fhirpath/#math-2.
+    """
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank + 1'),
@@ -655,7 +656,8 @@ class FhirPathExpressionsTest(
         self.builder('Patient').telecom.rank + 1, patient, 3.0)
 
   def testNumericSubtractionArithmetic(self):
-    """Tests subtraction logic for numeric values defined at https://hl7.org/fhirpath/#math-2."""
+    """Tests subtraction logic for numeric values defined at https://hl7.org/fhirpath/#math-2.
+    """
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank - 1'),
@@ -669,7 +671,8 @@ class FhirPathExpressionsTest(
         self.builder('Patient').telecom.rank - 4, patient, -2.0)
 
   def testNumericDivisionArithmetic(self):
-    """Tests division logic on numeric values defined at https://hl7.org/fhirpath/#math-2."""
+    """Tests division logic on numeric values defined at https://hl7.org/fhirpath/#math-2.
+    """
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank / 1'),
@@ -683,7 +686,8 @@ class FhirPathExpressionsTest(
         self.builder('Patient').telecom.rank / 0, patient, None)
 
   def testNumericModularArithmetic(self):
-    """Tests modulo logic on numeric values defined at https://hl7.org/fhirpath/#math-2."""
+    """Tests modulo logic on numeric values defined at https://hl7.org/fhirpath/#math-2.
+    """
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank mod 1'),
@@ -697,7 +701,8 @@ class FhirPathExpressionsTest(
         self.builder('Patient').telecom.rank % 0, patient, None)
 
   def testNumericTruncDivArithmetic(self):
-    """Tests truncated division logic defined at https://hl7.org/fhirpath/#math-2."""
+    """Tests truncated division logic defined at https://hl7.org/fhirpath/#math-2.
+    """
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank div 1'),
@@ -711,7 +716,8 @@ class FhirPathExpressionsTest(
         self.builder('Patient').telecom.rank // 0, patient, None)
 
   def testNumericMultiplicationArithmetic(self):
-    """Tests multiplication logic on numeric values defined at https://hl7.org/fhirpath/#math-2."""
+    """Tests multiplication logic on numeric values defined at https://hl7.org/fhirpath/#math-2.
+    """
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank * 1'),
@@ -746,7 +752,8 @@ class FhirPathExpressionsTest(
     self.assertEqual(expr.evaluate(patient).as_decimal(), -47)
 
   def testStringArithmetic(self):
-    """Tests string addition and concatenation logic defined at https://hl7.org/fhirpath/#math-2."""
+    """Tests string addition and concatenation logic defined at https://hl7.org/fhirpath/#math-2.
+    """
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'address.city + \'1\''),

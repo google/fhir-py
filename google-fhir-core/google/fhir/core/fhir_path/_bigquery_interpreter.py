@@ -12,7 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Functionality to output BigQuery SQL expressions from FHIRPath expressions."""
+"""Functionality to output BigQuery SQL expressions from FHIRPath expressions.
+"""
 
 import dataclasses
 from typing import Any
@@ -32,6 +33,7 @@ def _escape_identifier(identifier_value: str) -> str:
     return f'`{identifier_value}`'
   return identifier_value  # No-op
 
+
 _FHIR_PATH_URL_TO_STANDARD_SQL_TYPE = {
     _fhir_path_data_types.Boolean.url: _sql_data_types.Boolean,
     _fhir_path_data_types.Integer.url: _sql_data_types.Int64,
@@ -45,7 +47,8 @@ _FHIR_PATH_URL_TO_STANDARD_SQL_TYPE = {
 
 
 class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
-  """Traverses the ExpressionNode tree and generates BigQuery SQL recursively."""
+  """Traverses the ExpressionNode tree and generates BigQuery SQL recursively.
+  """
 
   def _get_standard_sql_data_type(
       self, fhir_type: _fhir_path_data_types.FhirPathDataType

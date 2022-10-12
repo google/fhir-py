@@ -89,7 +89,8 @@ def _maybe_return_collection_type(
     element: message.Message,
     return_type: _fhir_path_data_types.FhirPathDataType,
 ) -> _fhir_path_data_types.FhirPathDataType:
-  """Returns a new instance of return_type updated with its collection status."""
+  """Returns a new instance of return_type updated with its collection status.
+  """
   if _utils.is_repeated_element(element):
     return return_type.to_collection_type()
   return return_type
@@ -165,7 +166,8 @@ class ValueSetCodes:
 
 
 def to_code_values(value_set_proto: message.Message) -> FrozenSet[CodeValue]:
-  """Helper function to convert a ValueSet proto into a set of code value data types."""
+  """Helper function to convert a ValueSet proto into a set of code value data types.
+  """
   # TODO: Use a protocol for ValueSets to allow type checking.
   # pytype: disable=attribute-error
   expansion = value_set_proto.expansion.contains
