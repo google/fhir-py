@@ -72,7 +72,8 @@ class BigQueryRunner:
       value_set_codes_table: Optional[Union[bigquery.table.Table,
                                             bigquery.table.TableReference,
                                             str]] = None,
-      snake_case_resource_tables: bool = False) -> None:
+      snake_case_resource_tables: bool = False,
+      internal_default_to_v2_runner: bool = False) -> None:
     """Initializer.
 
     Initializes the BigQueryRunner with user provided BigQuery Client, Dataset,
@@ -100,6 +101,9 @@ class BigQueryRunner:
       snake_case_resource_tables: Whether to use snake_case names for resource
         tables in BigQuery for compatiblity with some exports. Defaults to
         False.
+      internal_default_to_v2_runner: Internal only. Whether to use the
+        refactored SQL generation logic by default. This will be removed prior
+        to the 1.0 release.
     """
     super().__init__()
     self._client = client
@@ -109,6 +113,7 @@ class BigQueryRunner:
         if view_dataset is not None else self._fhir_dataset)
     self._as_of = as_of
     self._snake_case_resource_tables = snake_case_resource_tables
+    self._internal_default_to_v2_runner = internal_default_to_v2_runner
 
     if value_set_codes_table is None:
       self._value_set_codes_table = bigquery.table.TableReference(
@@ -195,7 +200,7 @@ class BigQueryRunner:
              view: views.View,
              limit: Optional[int] = None,
              include_patient_id_col: bool = True,
-             internal_v2: bool = False) -> str:
+             internal_v2: Optional[bool] = None) -> str:
     """Returns the SQL used to run the given view in BigQuery.
 
     Args:
@@ -217,6 +222,9 @@ class BigQueryRunner:
     deps = fhir_context.get_dependency_definitions(view.get_structdef_url())
     deps.append(struct_def)
     encoder = fhir_path.FhirPathStandardSqlEncoder(deps)
+    if internal_v2 is None:
+      internal_v2 = self._internal_default_to_v2_runner
+
     if internal_v2:
       interpreter = _bigquery_interpreter.BigQuerySqlInterpreter()
 
