@@ -463,6 +463,15 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'telecom.rank = 2'),
         self.builder('Patient').telecom.rank == 2, patient, False)
 
+  def testPrimitiveEquality_withEmpty_returnsEmpty(self):
+    """Tests FHIRPath and builder '=' operator on null."""
+    patient = self._new_patient()
+    patient.active.value = True
+
+    expr = self.compile_expression('Patient', 'active = {}')
+    self.assertEqual(expr.fhir_path, 'active = {}')
+    self.assertFalse(expr.evaluate(patient).has_value())
+
   def testPrimitiveInequality_forResource_succeeds(self):
     """Tests FHIRPath and builder '!=' operator on primitives."""
     patient = self._new_patient()
@@ -497,6 +506,15 @@ class FhirPathExpressionsTest(
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank != 2'),
         self.builder('Patient').telecom.rank != 2, patient, True)
+
+  def testPrimitiveInequality_withEmpty_returnsEmpty(self):
+    """Tests FHIRPath and builder '!=' operator on null."""
+    patient = self._new_patient()
+    patient.active.value = True
+
+    expr = self.compile_expression('Patient', 'active != {}')
+    self.assertEqual(expr.fhir_path, 'active != {}')
+    self.assertFalse(expr.evaluate(patient).has_value())
 
   @parameterized.named_parameters(
       dict(testcase_name='_leftLarger', left=3, right=2),
@@ -642,6 +660,15 @@ class FhirPathExpressionsTest(
                                   float(left - right))
     self.assert_expression_result(mult_expr, mult_builder, patient,
                                   float(left * right))
+
+  def testBuilder_withNone_handlesEmptyCollection(self):
+    """Ensures builders can use None to represent FHIRPath {}."""
+    patient = self._new_patient()
+    patient.active.value = True
+
+    expr = self.builder('Patient').active == None  # pylint: disable=singleton-comparison
+    self.assertEqual(expr.fhir_path, 'active = {}')
+    self.assertFalse(expr.to_expression().evaluate(patient).has_value())
 
   def testNumericAdditionArithmetic(self):
     """Tests addition logic for numeric values defined at https://hl7.org/fhirpath/#math-2.

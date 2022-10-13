@@ -428,6 +428,10 @@ class LiteralNode(ExpressionNode):
     super().__init__(fhir_context, return_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
+    # Represent null as an empty list rather than a list with a None element.
+    if self._value is None:
+      return []
+
     return [
         WorkSpaceMessage(
             message=self.get_value(), parent=work_space.current_message())
@@ -1650,7 +1654,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
   def visit_literal(self, literal: _ast.Literal) -> LiteralNode:
 
     if literal.value is None:
-      return LiteralNode(self._context, None, '', _fhir_path_data_types.Empty)
+      return LiteralNode(self._context, None, '{}', _fhir_path_data_types.Empty)
     elif isinstance(literal.value, bool):
       return LiteralNode(self._context,
                          self._handler.new_boolean(literal.value),

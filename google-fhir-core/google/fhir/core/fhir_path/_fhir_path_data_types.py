@@ -591,6 +591,7 @@ _PRIMITIVE_TYPES_BY_CODE: Dict[str, FhirPathDataType] = {
     'str': String,
     'int': Integer,
     'float': Decimal,
+    'NoneType': Empty,
     # fhir types
     'base64binary': String,
     'boolean': Boolean,

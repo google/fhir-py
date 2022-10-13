@@ -21,7 +21,7 @@ import collections
 import copy
 import datetime
 import decimal
-from typing import Any, Dict, Iterable, List, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 from google.protobuf import message
 from google.fhir.core import codes
@@ -234,7 +234,7 @@ class Builder:
     """Returns the compiled expression that was built here."""
     return CompiledExpression(self._node, self._handler, self.fhir_path)
 
-  def _primitive_to_fhir_path(self, primitive: Comparable) -> str:
+  def _primitive_to_fhir_path(self, primitive: Optional[Comparable]) -> str:
     """Converts a primitive type into a FHIRPath literal string."""
     if isinstance(primitive, bool):
       return 'true' if primitive else 'false'
@@ -242,6 +242,8 @@ class Builder:
       return f'@{cast(datetime.date, primitive).isoformat()}'
     elif isinstance(primitive, datetime.datetime):
       return f'@{cast(datetime.datetime, primitive).isoformat()}'
+    elif primitive is None:
+      return '{}'
     else:
       return repr(primitive)
 
@@ -283,10 +285,11 @@ class Builder:
       return operand._node
     # pylint: enable=protected-access
     else:  # Should be a primitive type.
+      as_message = None if operand is None else self._primitive_to_message(
+          operand)
       primitive_type = _fhir_path_data_types.primitive_type_from_type_code(
           type(operand).__name__)
-      return _evaluation.LiteralNode(self._node.context,
-                                     self._primitive_to_message(operand),
+      return _evaluation.LiteralNode(self._node.context, as_message,
                                      self._primitive_to_fhir_path(operand),
                                      primitive_type)
 
