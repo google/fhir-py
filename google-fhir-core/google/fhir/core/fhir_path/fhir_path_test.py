@@ -966,7 +966,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT logic_
-          FROM (SELECT ((3 IS NOT NULL) AND ('true' IS NOT NULL)) AS logic_)
+          FROM (SELECT ((SELECT literal_ IS NOT NULL FROM (SELECT 3 AS literal_)) AND (SELECT literal_ IS NOT NULL FROM (SELECT 'true' AS literal_))) AS logic_)
           WHERE logic_ IS NOT NULL)""")),
   )
   def testEncode_withFhirPathLiteralLogicalRelation_succeeds(
@@ -2211,7 +2211,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
-          (SELECT ((anotherValue = '') AND (SELECT `struct` IS NOT NULL)) AS all_), FALSE)), TRUE) AS all_
+          (SELECT ((anotherValue = '') AND (SELECT `struct` IS NOT NULL FROM (SELECT `struct`))) AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bat.struct))
           WHERE all_ IS NOT NULL)""")),
       dict(
