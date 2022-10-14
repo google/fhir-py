@@ -1378,6 +1378,77 @@ class FhirPathExpressionsTest(
         pat.where(pat.address.city.contains('city1')).name.first().given,
         patient, 'namey')
 
+  def testInOperator_succeeds(self):
+    """Ensures "in" indicates an elements presence in a collection.
+
+    We don't offer a builder for 'in' operators (yet?) so we don't test builder
+    operations here.
+    """
+    patient = self._new_patient()
+
+    address1 = patient.address.add()
+    address1.city.value = 'city1'
+
+    address2 = patient.address.add()
+    address2.city.value = 'city2'
+
+    expr = self.compile_expression('Patient', "'city1' in address.city")
+    self.assertTrue(expr.evaluate(patient).as_bool())
+    self.assertEqual(expr.fhir_path, "'city1' in address.city")
+
+    self.assertTrue(
+        self.compile_expression(
+            'Patient', "'city2' in address.city").evaluate(patient).as_bool())
+    self.assertFalse(
+        self.compile_expression(
+            'Patient',
+            "'mystery_city' in address.city").evaluate(patient).as_bool())
+
+  def testInOperator_withEmptyCollection_returnsFalse(self):
+    """Ensures "in" returns False when called against empty collections.
+
+    We don't offer a builder for 'in' operators (yet?) so we don't test builder
+    operations here.
+    """
+    patient = self._new_patient()
+
+    self.assertFalse(
+        self.compile_expression(
+            'Patient', "'city1' in address.city").evaluate(patient).as_bool())
+
+  def testInOperator_withEmptyElement_returnsEmpty(self):
+    """Ensures "in" returns empty when the lhs is empty.
+
+    We don't offer a builder for 'in' operators (yet?) so we don't test builder
+    operations here.
+    """
+    patient = self._new_patient()
+
+    address1 = patient.address.add()
+    address1.city.value = 'city1'
+
+    self.assertFalse(
+        self.compile_expression(
+            'Patient', '{} in address.city').evaluate(patient).has_value())
+
+  def testInOperator_withNonElementOperand_raisesError(self):
+    """Ensures "in" raises an error when the lhs is not a single value.
+
+    We don't offer a builder for 'in' operators (yet?) so we don't test builder
+    operations here.
+    """
+    patient = self._new_patient()
+
+    address1 = patient.address.add()
+    address1.city.value = 'city1'
+
+    address2 = patient.address.add()
+    address2.city.value = 'city2'
+
+    with self.assertRaises(ValueError):
+      self.compile_expression('Patient',
+                              'address.city in address.city').evaluate(patient)
+
   def testNodeDebugString(self):
     """Tests debug_string print functionality."""
 

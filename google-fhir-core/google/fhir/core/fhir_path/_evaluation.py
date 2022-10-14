@@ -1544,9 +1544,36 @@ class ReferenceNode(ExpressionNode):
     return self._reference_node.to_fhir_path()
 
 
+class InNode(BinaryExpressionNode):
+  """Implementation of the FHIRPath in operator.
+
+  The spec for the in operator is taken from:
+  https://fhirpath.readthedocs.io/en/latest/fhirpath.html#fhirpath.fhirpath.FHIRPath.in_
+  """
+
+  def __init__(self, fhir_context: context.FhirPathContext,
+               handler: primitive_handler.PrimitiveHandler,
+               left: ExpressionNode, right: ExpressionNode) -> None:
+    super().__init__(fhir_context, handler, left, right,
+                     _fhir_path_data_types.Boolean)
+
+  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
+    left_messages = self._left.evaluate(work_space)
+    right_messages = self._right.evaluate(work_space)
+    return _is_element_in_collection(self._handler, work_space, left_messages,
+                                     right_messages)
+
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    raise NotImplementedError('TODO: implement the `visit_membership` visitor.')
+
+  def to_fhir_path(self) -> str:
+    return f'{self._left.to_fhir_path()} in {self._right.to_fhir_path()}'
+
+
 class ContainsNode(BinaryExpressionNode):
   """Implementation of the FHIRPath contains operator.
 
+  This is the converse operation of in.
   The spec for the contains operator is taken from:
   https://fhirpath.readthedocs.io/en/latest/fhirpath.html#fhirpath.fhirpath.FHIRPath.contained
   """
@@ -1560,29 +1587,8 @@ class ContainsNode(BinaryExpressionNode):
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     left_messages = self._left.evaluate(work_space)
     right_messages = self._right.evaluate(work_space)
-
-    # If the element is empty, the result is empty.
-    if not right_messages:
-      return []
-
-    # If the element has multiple items, an error is returned.
-    if len(right_messages) != 1:
-      raise ValueError(
-          'Right hand side of "contains" operator must be a single element.')
-
-    # If the element operand is a collection with a single item, the
-    # operator returns true if the item is in the collection using
-    # equality semantics.
-    # If the collection is empty, the result is false.
-    result = any(
-        _messages_equal(self._handler, right_messages[0], left_message)
-        for left_message in left_messages)
-
-    return [
-        WorkSpaceMessage(
-            message=work_space.primitive_handler.new_boolean(result),
-            parent=None)
-    ]
+    return _is_element_in_collection(self._handler, work_space, right_messages,
+                                     left_messages)
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     raise NotImplementedError('TODO: implement the `visit_membership` visitor.')
@@ -1783,9 +1789,10 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
 
     if membership.op == membership.Op.CONTAINS:
       return ContainsNode(self._context, self._handler, left, right)
+    elif membership.op == membership.Op.IN:
+      return InNode(self._context, self._handler, left, right)
     else:
-      raise NotImplementedError(
-          'TODO: implement the "in" operator for `visit_membership`.')
+      raise ValueError(f'Unknown membership operator "{membership.op}".')
 
   def visit_union(self, union: _ast.UnionOp, **kwargs: Any) -> Any:
     raise NotImplementedError('TODO: implement `visit_union`.')
@@ -1860,3 +1867,30 @@ def _messages_equal(handler: primitive_handler.PrimitiveHandler,
     return left_wrapper.json_value() == right_wrapper.json_value()
 
   return False
+
+
+def _is_element_in_collection(
+    handler: primitive_handler.PrimitiveHandler, work_space: WorkSpace,
+    element: List[WorkSpaceMessage],
+    collection: List[WorkSpaceMessage]) -> List[WorkSpaceMessage]:
+  """Indicates if `element` is a member of `collection`."""
+  # If the element is empty, the result is empty.
+  if not element:
+    return []
+
+  # If the element has multiple items, an error is returned.
+  if len(element) != 1:
+    raise ValueError(
+        'Right hand side of "contains" operator must be a single element.')
+
+  # If the element operand is a collection with a single item, the
+  # operator returns true if the item is in the collection using
+  # equality semantics.
+  # If the collection is empty, the result is false.
+  result = any(
+      _messages_equal(handler, element[0], item) for item in collection)
+
+  return [
+      WorkSpaceMessage(
+          message=work_space.primitive_handler.new_boolean(result), parent=None)
+  ]
