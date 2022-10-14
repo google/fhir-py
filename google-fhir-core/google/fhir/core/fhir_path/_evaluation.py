@@ -1544,7 +1544,14 @@ class ReferenceNode(ExpressionNode):
     return self._reference_node.to_fhir_path()
 
 
-class InNode(BinaryExpressionNode):
+class MembershipRelationNode(BinaryExpressionNode):
+  """Parent class for In and Contains Nodes."""
+
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return visitor.visit_membership(self)
+
+
+class InNode(MembershipRelationNode):
   """Implementation of the FHIRPath in operator.
 
   The spec for the in operator is taken from:
@@ -1563,14 +1570,11 @@ class InNode(BinaryExpressionNode):
     return _is_element_in_collection(self._handler, work_space, left_messages,
                                      right_messages)
 
-  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
-    raise NotImplementedError('TODO: implement the `visit_membership` visitor.')
-
   def to_fhir_path(self) -> str:
     return f'{self._left.to_fhir_path()} in {self._right.to_fhir_path()}'
 
 
-class ContainsNode(BinaryExpressionNode):
+class ContainsNode(MembershipRelationNode):
   """Implementation of the FHIRPath contains operator.
 
   This is the converse operation of in.
@@ -1589,9 +1593,6 @@ class ContainsNode(BinaryExpressionNode):
     right_messages = self._right.evaluate(work_space)
     return _is_element_in_collection(self._handler, work_space, right_messages,
                                      left_messages)
-
-  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
-    raise NotImplementedError('TODO: implement the `visit_membership` visitor.')
 
   def to_fhir_path(self) -> str:
     return f'{self._left.to_fhir_path()} contains {self._right.to_fhir_path()}'
@@ -1657,7 +1658,7 @@ class ExpressionNodeBaseVisitor(abc.ABC):
         'Subclasses *must* implement `visit_boolean_logic`.')
 
   @abc.abstractmethod
-  def visit_member_of(self, membership: MemberOfFunction) -> Any:
+  def visit_membership(self, relation: MembershipRelationNode) -> Any:
     raise NotImplementedError('Subclasses *must* implement `visit_membership`.')
 
   @abc.abstractmethod

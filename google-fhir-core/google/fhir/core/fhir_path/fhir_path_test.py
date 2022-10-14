@@ -1124,18 +1124,14 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           WHERE mem_ IS NOT NULL)""")),
   )
   def testEncode_withFhirPathLiteralMembershipRelation_succeeds(
-      self,
-      fhir_path_expression: str,
-      expected_sql_expression: str,
-      missing_feature_in_v2: bool = True):
+      self, fhir_path_expression: str, expected_sql_expression: str):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
         fhir_path_expression=fhir_path_expression)
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    if not missing_feature_in_v2:
-      self.assertEvaluationNodeSqlCorrect(None, fhir_path_expression,
-                                          expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(None, fhir_path_expression,
+                                        expected_sql_expression)
 
   @parameterized.named_parameters(
       dict(
@@ -1399,6 +1395,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
         element_definition=self.foo_root,
         fhir_path_expression=fhir_path_expression)
     self.assertEqual(actual_sql_expression, expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
+                                        expected_sql_expression)
 
   @parameterized.named_parameters(
       dict(
