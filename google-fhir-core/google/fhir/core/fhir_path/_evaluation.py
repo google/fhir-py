@@ -1208,32 +1208,12 @@ class EqualityNode(BinaryExpressionNode):
   def op(self) -> _ast.EqualityRelation.Op:
     return self._operator
 
-  def are_equal(self, left: WorkSpaceMessage, right: WorkSpaceMessage) -> bool:
-    """Returns true if left and right are equal."""
+  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     # TODO: Add support for FHIRPath equivalence operators.
     if (self._operator != _ast.EqualityRelation.Op.EQUAL and
         self._operator != _ast.EqualityRelation.Op.NOT_EQUAL):
       raise NotImplementedError('Implement all equality relations.')
-    # If left and right are the same types, simply compare the protos.
-    if (left.message.DESCRIPTOR is right.message.DESCRIPTOR or
-        left.message.DESCRIPTOR.full_name
-        == right.message.DESCRIPTOR.full_name):
-      return left.message == right.message
 
-    # Left and right are different types, but may still be logically equal if
-    # they are primitives and we are comparing a literal value to a FHIR proto
-    # with an enum field. We can compare their JSON values to check that.
-    if (annotation_utils.is_primitive_type(left.message) and
-        annotation_utils.is_primitive_type(right.message)):
-      left_wrapper = self._handler.primitive_wrapper_from_primitive(
-          left.message)
-      right_wrapper = self._handler.primitive_wrapper_from_primitive(
-          right.message)
-      return left_wrapper.json_value() == right_wrapper.json_value()
-
-    return False
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     left_messages = self._left.evaluate(work_space)
     right_messages = self._right.evaluate(work_space)
 
@@ -1245,10 +1225,9 @@ class EqualityNode(BinaryExpressionNode):
     if len(left_messages) != len(right_messages):
       are_equal = False
     else:
-      for left_message, right_message in zip(left_messages, right_messages):
-        if not self.are_equal(left_message, right_message):
-          are_equal = False
-          break
+      are_equal = all(
+          _messages_equal(self._handler, left_message, right_message)
+          for left_message, right_message in zip(left_messages, right_messages))
 
     result = (
         are_equal
@@ -1564,6 +1543,54 @@ class ReferenceNode(ExpressionNode):
   def to_fhir_path(self) -> str:
     return self._reference_node.to_fhir_path()
 
+
+class ContainsNode(BinaryExpressionNode):
+  """Implementation of the FHIRPath contains operator.
+
+  The spec for the contains operator is taken from:
+  https://fhirpath.readthedocs.io/en/latest/fhirpath.html#fhirpath.fhirpath.FHIRPath.contained
+  """
+
+  def __init__(self, fhir_context: context.FhirPathContext,
+               handler: primitive_handler.PrimitiveHandler,
+               left: ExpressionNode, right: ExpressionNode) -> None:
+    super().__init__(fhir_context, handler, left, right,
+                     _fhir_path_data_types.Boolean)
+
+  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
+    left_messages = self._left.evaluate(work_space)
+    right_messages = self._right.evaluate(work_space)
+
+    # If the element is empty, the result is empty.
+    if not right_messages:
+      return []
+
+    # If the element has multiple items, an error is returned.
+    if len(right_messages) != 1:
+      raise ValueError(
+          'Right hand side of "contains" operator must be a single element.')
+
+    # If the element operand is a collection with a single item, the
+    # operator returns true if the item is in the collection using
+    # equality semantics.
+    # If the collection is empty, the result is false.
+    result = any(
+        _messages_equal(self._handler, right_messages[0], left_message)
+        for left_message in left_messages)
+
+    return [
+        WorkSpaceMessage(
+            message=work_space.primitive_handler.new_boolean(result),
+            parent=None)
+    ]
+
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    raise NotImplementedError('TODO: implement the `visit_membership` visitor.')
+
+  def to_fhir_path(self) -> str:
+    return f'{self._left.to_fhir_path()} contains {self._right.to_fhir_path()}'
+
+
 # Implementations of FHIRPath functions.
 _FUNCTION_NODE_MAP: Dict[str, Any] = {
     'all': AllFunction,
@@ -1751,7 +1778,14 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
 
   def visit_membership(self, membership: _ast.MembershipRelation,
                        **kwargs: Any) -> Any:
-    raise NotImplementedError('TODO: implement `visit_membership`.')
+    left = self.visit(membership.lhs)
+    right = self.visit(membership.rhs)
+
+    if membership.op == membership.Op.CONTAINS:
+      return ContainsNode(self._context, self._handler, left, right)
+    else:
+      raise NotImplementedError(
+          'TODO: implement the "in" operator for `visit_membership`.')
 
   def visit_union(self, union: _ast.UnionOp, **kwargs: Any) -> Any:
     raise NotImplementedError('TODO: implement `visit_union`.')
@@ -1806,3 +1840,23 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
       self._node_context.pop()
       params.append(new_param)
     return function_class(self._context, operand_node, params)
+
+
+def _messages_equal(handler: primitive_handler.PrimitiveHandler,
+                    left: WorkSpaceMessage, right: WorkSpaceMessage) -> bool:
+  """Returns true if left and right are equal."""
+  # If left and right are the same types, simply compare the protos.
+  if (left.message.DESCRIPTOR is right.message.DESCRIPTOR or
+      left.message.DESCRIPTOR.full_name == right.message.DESCRIPTOR.full_name):
+    return left.message == right.message
+
+  # Left and right are different types, but may still be logically equal if
+  # they are primitives and we are comparing a literal value to a FHIR proto
+  # with an enum field. We can compare their JSON values to check that.
+  if (annotation_utils.is_primitive_type(left.message) and
+      annotation_utils.is_primitive_type(right.message)):
+    left_wrapper = handler.primitive_wrapper_from_primitive(left.message)
+    right_wrapper = handler.primitive_wrapper_from_primitive(right.message)
+    return left_wrapper.json_value() == right_wrapper.json_value()
+
+  return False
