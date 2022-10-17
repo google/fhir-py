@@ -22,6 +22,7 @@ provided by the caller.
 
 import abc
 import copy
+import enum
 
 from typing import Any, Dict, Optional, Set, cast
 from google.protobuf import message
@@ -63,6 +64,26 @@ RESERVED_FHIR_PATH_KEYWORDS = frozenset([
     'second',
 ])
 
+
+@enum.unique
+class Cardinality(enum.Enum):
+  """Defines the cardinality of a FhirPathDataType.
+
+  There are three different cardinalities that need to be captured:
+    1. A FHIRPath expression always returns one value (e.g., exists() or
+       count()).
+    2. A FHIRPath expression can return one or more values (e.g., an invoke
+       expression on a repeated field or where(...) function).
+    3. A FHIRPath expression that returns the same number of values as its
+       parent. (e.g., an invoke expression on a single-valued field that is a
+       child of a multi-valued parent) -- so it could return a single value if
+       the parent is single-value, or multi-value if the parent is as well.
+  """
+
+  SCALAR = 'scalar'
+  COLLECTION = 'collection'
+  CHILD_OF_COLLECTION = 'child_of_collection'
+
 # TODO: Consolidate with `_sql_data_types.py` functionality.
 
 
@@ -74,13 +95,14 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
   https://www.hl7.org/fhir/fhirpath.html#types.
 
   Attributes:
+    cardinality: Determines how many values are returned for the type.
     comparable: Values of the same type can be compared to each other.
     supported_coercion: A set of `FhirPathDataType`s depicting allowable
       implicit conversion.
     url: The canonical URL reference to the data type.
   """
 
-  _is_collection: bool = False
+  _cardinality: Cardinality = Cardinality.SCALAR
 
   @property
   @abc.abstractmethod
@@ -97,23 +119,21 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
   def comparable(self) -> bool:
     return self._comparable
 
-  def to_collection_type(self) -> 'FhirPathDataType':
+  @property
+  def cardinality(self) -> Cardinality:
+    return self._cardinality
+
+  def get_new_cardinality_type(self,
+                               cardinality: Cardinality) -> 'FhirPathDataType':
     obj_copy = copy.deepcopy(self)
     # pylint: disable=protected-access
-    obj_copy._is_collection = True
+    obj_copy._cardinality = cardinality
     # pylint: enable=protected-access
     return obj_copy
 
-  def from_collection_type(self) -> 'FhirPathDataType':
-    """Returns the type but without the collection flag set."""
-    obj_copy = copy.deepcopy(self)
-    # pylint: disable=protected-access
-    obj_copy._is_collection = False
-    # pylint: enable=protected-access
-    return obj_copy
-
-  def is_collection(self) -> bool:
-    return self._is_collection
+  def returns_collection(self) -> bool:
+    return (self._cardinality == Cardinality.COLLECTION or
+            self._cardinality == Cardinality.CHILD_OF_COLLECTION)
 
   def fields(self) -> Set[str]:
     return set()
@@ -130,7 +150,7 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
     return hash(self.url)
 
   def _wrap_collection(self, name: str) -> str:
-    return f'[{name}]' if self._is_collection else name
+    return f'[{name}]' if self.returns_collection() else name
 
   @abc.abstractmethod
   def _class_name(self) -> str:
@@ -705,8 +725,12 @@ def is_codeable_concept(fhir_type: FhirPathDataType) -> bool:
 
 def is_scalar(fhir_type: Optional[FhirPathDataType]) -> bool:
   # None return type is considered to be a scalar.
-  return not fhir_type or not fhir_type.is_collection()
+  return not fhir_type or fhir_type.cardinality == Cardinality.SCALAR
+
+
+def returns_collection(return_type: FhirPathDataType) -> bool:
+  return return_type and return_type.returns_collection()
 
 
 def is_collection(return_type: FhirPathDataType) -> bool:
-  return return_type and return_type.is_collection()
+  return return_type and return_type.cardinality == Cardinality.COLLECTION

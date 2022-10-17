@@ -153,7 +153,7 @@ class _ExistsFunction(_FhirPathFunctionStandardSqlEncoder):
     # In situations where the `where` function filters out all results,
     # it causes the query to return 'no rows' which we later interpret
     # as 'passing validation' in our `sql_expressions_to_view.py`.
-    elif (not _fhir_path_data_types.is_collection(
+    elif (not _fhir_path_data_types.returns_collection(
         function.parent_node().return_type()) and
           not operand_result.where_part):
       # We can use a less expensive scalar check.
@@ -404,7 +404,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
       params_result: List[_sql_data_types.StandardSqlExpression],
       value_set_codes_table: str = 'VALUESET_VIEW') -> _sql_data_types.Select:
     operand_type = function.parent_node().return_type()
-    is_collection = _fhir_path_data_types.is_collection(
+    is_collection = _fhir_path_data_types.returns_collection(
         function.parent_node().return_type())
     is_string_or_code = isinstance(operand_type, _fhir_path_data_types._String)
     is_coding = _fhir_path_data_types.is_coding(operand_type)

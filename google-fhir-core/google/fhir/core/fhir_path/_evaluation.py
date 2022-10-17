@@ -88,11 +88,16 @@ def _get_fhir_type_from_string(
 def _maybe_return_collection_type(
     element: message.Message,
     return_type: _fhir_path_data_types.FhirPathDataType,
+    parent_type: Optional[_fhir_path_data_types.FhirPathDataType]
 ) -> _fhir_path_data_types.FhirPathDataType:
   """Returns a new instance of return_type updated with its collection status.
   """
   if _utils.is_repeated_element(element):
-    return return_type.to_collection_type()
+    return return_type.get_new_cardinality_type(
+        _fhir_path_data_types.Cardinality.COLLECTION)
+  if parent_type and parent_type.returns_collection():
+    return return_type.get_new_cardinality_type(
+        _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION)
   return return_type
 
 
@@ -128,7 +133,8 @@ def _get_child_data_type(
         struct_def_dict[
             elem_type.code.value.casefold()] = _maybe_return_collection_type(
                 elem,
-                _get_fhir_type_from_string(elem_type.code.value, fhir_context))
+                _get_fhir_type_from_string(elem_type.code.value, fhir_context),
+                parent)
       return_type = _fhir_path_data_types.PolymorphicDataType(struct_def_dict)
 
     elif not elem.type or not elem.type[0].code.value:
@@ -137,7 +143,7 @@ def _get_child_data_type(
       type_code = elem.type[0].code.value
       return_type = _get_fhir_type_from_string(type_code, fhir_context)
 
-    return _maybe_return_collection_type(elem, return_type)
+    return _maybe_return_collection_type(elem, return_type, parent)
   else:
     return None
 
@@ -780,8 +786,10 @@ class FirstFunction(FunctionNode):
 
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    super().__init__(fhir_context, operand, params,
-                     operand.return_type().from_collection_type())
+    super().__init__(
+        fhir_context, operand, params,
+        operand.return_type().get_new_cardinality_type(
+            _fhir_path_data_types.Cardinality.SCALAR))
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._operand.evaluate(work_space)
@@ -798,7 +806,7 @@ class AnyTrueFunction(FunctionNode):
 
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    if (not operand.return_type().is_collection() or
+    if (not operand.return_type().returns_collection() or
         not isinstance(operand.return_type(), _fhir_path_data_types._Boolean)):
       raise ValueError('anyTrue() must be called on a Collection of booleans. '
                        f'Got type of {operand.return_type()}.')
@@ -922,8 +930,9 @@ class OfTypeFunction(FunctionNode):
       return_type = _get_child_data_type(operand.return_type(), fhir_context,
                                          self.base_type_str)
 
-    if _fhir_path_data_types.is_collection(operand.return_type()):
-      return_type = return_type.to_collection_type()
+    if _fhir_path_data_types.returns_collection(operand.return_type()):
+      return_type = return_type.get_new_cardinality_type(
+          _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION)
 
     super().__init__(fhir_context, operand, params, return_type)
 
@@ -985,8 +994,10 @@ class MemberOfFunction(FunctionNode):
       raise ValueError(
           'MemberOf requires single valueset URL or proto parameter.')
     return_type = _fhir_path_data_types.Boolean
-    if operand.return_type().is_collection():
-      return_type = return_type.to_collection_type()
+
+    if operand.return_type().returns_collection():
+      return_type = return_type.get_new_cardinality_type(
+          _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION)
     super().__init__(fhir_context, operand, params, return_type)
 
   def to_value_set_codes(

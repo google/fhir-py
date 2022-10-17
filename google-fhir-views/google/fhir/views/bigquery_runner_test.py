@@ -108,6 +108,21 @@ class BigqueryRunnerTest(parameterized.TestCase):
         value_set_codes_table=value_set_codes_table)
     self.assertEqual(runner._value_set_codes_table, expected_table_name)
 
+  def testNestedSingleFieldInNestedArray_forPatient_returnsArray(self):
+    pat = self._views.view_of('Patient')
+    simple_view = (
+        pat.select({
+            'family_names': pat.name.family,
+        }))
+
+    self.AstAndExpressionTreeTestRunner(
+        textwrap.dedent("""\
+          SELECT ARRAY(SELECT family
+          FROM (SELECT name_element_.family
+          FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset)
+          WHERE family IS NOT NULL) AS family_names,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
+                       ), simple_view)
+
   def testNoSelectToSql_forPatient_succeeds(self):
     """Tests that a view with no select fields succeeds."""
     pat = self._views.view_of('Patient')
@@ -619,12 +634,16 @@ class BigqueryRunnerTest(parameterized.TestCase):
             eob.procedure.procedure.ofType('CodeableConcept').coding.system,
     })
 
-    self.AstAndExpressionTreeTestRunner(
-        """SELECT (SELECT id) AS id,(SELECT coding_element_.system
-FROM (SELECT procedure_element_.procedure.CodeableConcept AS ofType_
-FROM UNNEST(procedure) AS procedure_element_ WITH OFFSET AS element_offset),
-UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset) AS system,(SELECT patient.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.ExplanationOfBenefit""",
-        eob_with_codeableconcept_system)
+    self.assertMultiLineEqual(
+        textwrap.dedent("""\
+        SELECT (SELECT id) AS id,ARRAY(SELECT system
+        FROM (SELECT coding_element_.system
+        FROM (SELECT procedure_element_.procedure.CodeableConcept AS ofType_
+        FROM UNNEST(procedure) AS procedure_element_ WITH OFFSET AS element_offset),
+        UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset)
+        WHERE system IS NOT NULL) AS system,(SELECT patient.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.ExplanationOfBenefit"""
+                       ),
+        self.runner.to_sql(eob_with_codeableconcept_system, internal_v2=True))
 
   def testSummarizeCodes_forObservation_succeeds(self):
     obs = self._views.view_of('Observation')

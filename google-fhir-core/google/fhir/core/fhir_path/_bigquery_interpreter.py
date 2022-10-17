@@ -81,7 +81,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """
 
     result = self.visit(builder.get_node())
-    if select_scalars_as_array or _fhir_path_data_types.is_collection(
+    if select_scalars_as_array or _fhir_path_data_types.returns_collection(
         builder.get_node().return_type()):
       return (f'ARRAY(SELECT {result.sql_alias}\n'
               f'FROM {result.to_subquery()}\n'

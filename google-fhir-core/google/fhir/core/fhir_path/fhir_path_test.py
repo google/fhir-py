@@ -1575,49 +1575,77 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           testcase_name='_ArrayWithMessageChoice_andIdentifier',
           fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding.system",
           select_scalars_as_array=False,
+          only_works_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
-          (SELECT coding_element_.system
+          ARRAY(SELECT system
+          FROM (SELECT coding_element_.system
           FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
           FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset),
-          UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset)"""
-                                                 )),
+          UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset)
+          WHERE system IS NOT NULL)""")),
       dict(
           testcase_name='_ArrayWithMessageChoice_andEquality',
           fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding.system = 'test'",
           select_scalars_as_array=False,
+          only_works_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
-          (SELECT ((SELECT coding_element_.system
+          (SELECT NOT EXISTS(
+          SELECT lhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, system
+          FROM (SELECT coding_element_.system
           FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
           FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset),
-          UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset) = 'test') AS eq_)"""
-                                                 )),
+          UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset)) AS lhs_
+          EXCEPT DISTINCT
+          SELECT rhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
+          FROM (SELECT 'test' AS literal_)) AS rhs_) AS eq_)""")),
       dict(
           testcase_name='_ArrayWithMessageChoice_andWhere',
           fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding.where(system = 'test')",
-          missing_feature_in_v2=True,
+          only_works_in_v2=True,
           select_scalars_as_array=False,
           expected_sql_expression=textwrap.dedent("""\
-          (SELECT coding_element_
+          ARRAY(SELECT coding_element_
+          FROM (SELECT coding_element_
           FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
           FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset),
           UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset
-          WHERE (system = 'test'))""")),
+          WHERE NOT EXISTS(
+          SELECT lhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, system
+          FROM (SELECT system)) AS lhs_
+          EXCEPT DISTINCT
+          SELECT rhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
+          FROM (SELECT 'test' AS literal_)) AS rhs_))
+          WHERE coding_element_ IS NOT NULL)""")),
       dict(
           testcase_name='_ScalarWithRepeatedMessageChoice_andWhere',
           fhir_path_expression="choiceExample.ofType('CodeableConcept').coding.where(system = 'test')",
-          missing_feature_in_v2=True,
           select_scalars_as_array=False,
+          only_works_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
-          (SELECT coding_element_
+          ARRAY(SELECT coding_element_
+          FROM (SELECT coding_element_
           FROM (SELECT choiceExample.CodeableConcept AS ofType_),
           UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset
-          WHERE (system = 'test'))""")))
+          WHERE NOT EXISTS(
+          SELECT lhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, system
+          FROM (SELECT system)) AS lhs_
+          EXCEPT DISTINCT
+          SELECT rhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
+          FROM (SELECT 'test' AS literal_)) AS rhs_))
+          WHERE coding_element_ IS NOT NULL)""")))
   def testEncode_ChoiceType_generatesSql(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
       select_scalars_as_array: Optional[bool],
-      missing_feature_in_v2: bool = False):
+      missing_feature_in_v2: bool = False,
+      only_works_in_v2: bool = False):
     kwargs = {}
     if select_scalars_as_array is not None:
       kwargs['select_scalars_as_array'] = select_scalars_as_array
@@ -1627,7 +1655,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
         fhir_path_expression=fhir_path_expression,
         **kwargs)
 
-    self.assertEqual(actual_sql_expression, expected_sql_expression)
+    if not only_works_in_v2:
+      self.assertEqual(actual_sql_expression, expected_sql_expression)
     if not missing_feature_in_v2:
       self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
                                           expected_sql_expression, **kwargs)
