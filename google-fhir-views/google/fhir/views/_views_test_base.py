@@ -15,6 +15,7 @@
 """Common logic and a base class for testing FHIR views."""
 
 import abc
+import textwrap
 from absl.testing import absltest
 from google.fhir.views import views
 
@@ -54,6 +55,25 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     expressions = active_patients.get_select_expressions()
     self.assertEqual('name.given', expressions['name'].fhir_path)
     self.assertEqual('birthDate', expressions['birthDate'].fhir_path)
+
+  def testViewToString_forPatient_hasExpectedExpressions(self):
+    """Test View object __str__ has expected content."""
+    pat = self.get_views().view_of('Patient')
+
+    active_patients = (
+        pat.select({
+            'name_field': pat.name.given,
+            'birth_date_field': pat.birthDate
+        }).where(pat.active, pat.address.count() < 5))
+    self.assertMultiLineEqual(
+        textwrap.dedent("""\
+          View<Patient.select(
+            name_field: name.given,
+            birth_date_field: birthDate
+          ).where(
+            active,
+            address.count() < 5
+          )>"""), str(active_patients))
 
   def testInvalidWherePredicate_forPatient_fails(self):
     """Ensures that non-boolean where expressions raise an error."""

@@ -167,6 +167,29 @@ class View:
   def get_fhir_path_context(self) -> context.FhirPathContext:
     return self._context
 
+  def __str__(self) -> str:
+    select_strings = []
+    for name, builder in self.get_select_expressions().items():
+      select_strings.append(f'  {name}: {builder.fhir_path}')
+
+    where_strings = []
+    for builder in self.get_constraint_expressions():
+      where_strings.append(f'  {builder.fhir_path}')
+
+    if not where_strings:
+      return 'View<{resource}.select(\n{selects}\n)>'.format(
+          resource=self._structdef_url, selects=',\n'.join(select_strings))
+    else:
+      return ('View<{resource}.select(\n'
+              '{selects}\n'
+              ').where(\n{constraints}\n)>').format(
+                  resource=self._structdef_url,
+                  selects=',\n'.join(select_strings),
+                  constraints=',\n'.join(where_strings))
+
+  def __repr__(self) -> str:
+    return str(self)
+
 
 class Views:
   """Helper class for creating FHIR views based on some resource definition."""
