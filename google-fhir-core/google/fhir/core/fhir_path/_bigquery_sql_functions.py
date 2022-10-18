@@ -100,7 +100,7 @@ class _EmptyFunction(_FhirPathFunctionStandardSqlEncoder):
           select_part=_sql_data_types.RawExpression(
               'FALSE', _sql_data_type=sql_data_type, _sql_alias=sql_alias),
           from_part=None)
-    elif not _fhir_path_data_types.is_collection(
+    elif not _fhir_path_data_types.returns_collection(
         function.parent_node().return_type()):
       # We can use a less expensive scalar check.
       return dataclasses.replace(

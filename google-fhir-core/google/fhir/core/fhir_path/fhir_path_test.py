@@ -1745,9 +1745,6 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withDeepestNestedMemberSqlKeywordExists',
           fhir_path_expression='bar.bats.struct.exists()',
-          # TODO: Determine if this is a bug in the old
-          # implementation or new implementation.
-          missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
@@ -1760,9 +1757,6 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withDeepestNestedMemberFhirPathKeywordExists',
           fhir_path_expression='bar.bats.`div`.exists()',
-          # TODO: Determine if this is a bug in the old
-          # implementation or new implementation.
-          missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
@@ -1824,9 +1818,6 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withDeepestNestedMemberSqlKeywordExistsNot',
           fhir_path_expression='bar.bats.struct.exists().not()',
-          # TODO: Determine if this is a bug in the old
-          # implementation or new implementation.
-          missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT not_
           FROM (SELECT NOT(
@@ -1847,9 +1838,6 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withDeepestNestedMemberSqlKeywordEmpty',
           fhir_path_expression='bar.bats.struct.empty()',
-          # TODO: Determine if this is a bug in the old
-          # implementation or new implementation.
-          missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT empty_
           FROM (SELECT NOT EXISTS(
@@ -1905,9 +1893,6 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withLogicOnExists',
           fhir_path_expression='(bar.bats.struct.value.exists() and bar.bats.struct.anotherValue.exists()).not()',
-          # TODO: Determine if this is a bug in the old
-          # implementation or new implementation.
-          missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT not_
           FROM (SELECT NOT(
@@ -2228,9 +2213,6 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           WHERE all_ IS NOT NULL)""")),
       dict(
           testcase_name='_withAllAndIdentifierPlusThis',
-          # TODO: Determine if this is a bug in the old
-          # implementation or new implementation.
-          missing_feature_in_v2=True,
           fhir_path_expression=(
               "bat.struct.all(anotherValue = '' and $this)"),
           expected_sql_expression=textwrap.dedent("""\
