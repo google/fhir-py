@@ -95,8 +95,8 @@ class FhirPathExpressionsTest(
 
     expected_type = _fhir_path_data_types.Empty
     if isinstance(expected_result, bool):
-      self.assertEqual(expected_result, parsed_result.as_bool())
-      self.assertEqual(expected_result, built_result.as_bool())
+      self.assertIs(expected_result, parsed_result.as_bool())
+      self.assertIs(expected_result, built_result.as_bool())
       expected_type = _fhir_path_data_types.Boolean
     elif isinstance(expected_result, float) or isinstance(expected_result, int):
       self.assertTrue(math.isclose(expected_result, parsed_result.as_decimal()))

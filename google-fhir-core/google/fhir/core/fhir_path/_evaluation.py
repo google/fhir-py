@@ -774,7 +774,7 @@ class EmptyFunction(FunctionNode):
     empty = not operand_messages
     return [
         WorkSpaceMessage(
-            message=work_space.primitive_handler.new_integer(empty),
+            message=work_space.primitive_handler.new_boolean(empty),
             parent=None)
     ]
 
