@@ -80,6 +80,10 @@ class EvaluationResult:
     self._messages = messages
     self._work_space = work_space
 
+  @property
+  def messages(self) -> List[message.Message]:
+    return self._messages
+
   def has_value(self) -> bool:
     """Returns true if the evaluation returned a value; false if not."""
     return bool(self._messages)
@@ -574,6 +578,11 @@ class Builder:
     return Builder(
         _evaluation.ContainsNode(self._node.context, self._handler, self._node,
                                  self._to_node(rhs)), self._handler)
+
+  def union(self, rhs: BuilderOperand) -> 'Builder':
+    return Builder(
+        _evaluation.UnionNode(self._node.context, self._handler, self._node,
+                              self._to_node(rhs)), self._handler)
 
   def __eq__(self, rhs: BuilderOperand) -> 'Builder':
     return Builder(

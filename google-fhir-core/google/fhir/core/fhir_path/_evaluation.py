@@ -18,6 +18,7 @@ import copy
 import dataclasses
 import datetime
 import decimal
+import itertools
 import re
 import threading
 from typing import Any, Dict, FrozenSet, List, Optional, Set, cast
@@ -349,10 +350,6 @@ class BinaryExpressionNode(ExpressionNode):
                handler: primitive_handler.PrimitiveHandler,
                left: ExpressionNode, right: ExpressionNode,
                return_type: _fhir_path_data_types.FhirPathDataType) -> None:
-    if not _fhir_path_data_types.is_coercible(left.return_type(),
-                                              right.return_type()):
-      raise ValueError(f'Left and right operands are not coercible to each '
-                       f'other. {left.return_type()} {right.return_type()}')
     self._handler = handler
     self._left = left
     self._right = right
@@ -383,6 +380,24 @@ class BinaryExpressionNode(ExpressionNode):
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     raise ValueError('Unable to visit BinaryExpression node')
+
+
+class CoercibleBinaryExpressionNode(BinaryExpressionNode):
+  """Base class for binary expressions which coerce operands.
+
+  Unlike BinaryExpressionNode, requires the left and right to be coercible to
+  each other.
+  """
+
+  def __init__(self, fhir_context: context.FhirPathContext,
+               handler: primitive_handler.PrimitiveHandler,
+               left: ExpressionNode, right: ExpressionNode,
+               return_type: _fhir_path_data_types.FhirPathDataType) -> None:
+    if not _fhir_path_data_types.is_coercible(left.return_type(),
+                                              right.return_type()):
+      raise ValueError(f'Left and right operands are not coercible to each '
+                       f'other. {left.return_type()} {right.return_type()}')
+    super().__init__(fhir_context, handler, left, right, return_type)
 
 
 class RootMessageNode(ExpressionNode):
@@ -1204,7 +1219,7 @@ class MatchesFunction(FunctionNode):
     ]
 
 
-class EqualityNode(BinaryExpressionNode):
+class EqualityNode(CoercibleBinaryExpressionNode):
   """Implementation of FHIRPath equality and equivalence operators."""
 
   def __init__(self, fhir_context: context.FhirPathContext,
@@ -1256,7 +1271,7 @@ class EqualityNode(BinaryExpressionNode):
     return f'{self._left.to_fhir_path()} {self._operator.value} {self._right.to_fhir_path()}'
 
 
-class BooleanOperatorNode(BinaryExpressionNode):
+class BooleanOperatorNode(CoercibleBinaryExpressionNode):
   """Implementation of FHIRPath boolean operations.
 
   See https://hl7.org/fhirpath/#boolean-logic for behavior definition.
@@ -1326,7 +1341,7 @@ class BooleanOperatorNode(BinaryExpressionNode):
             f'{self._right.to_fhir_path()}')
 
 
-class ArithmeticNode(BinaryExpressionNode):
+class ArithmeticNode(CoercibleBinaryExpressionNode):
   """Implementation of FHIRPath arithmetic operations.
 
   See https://hl7.org/fhirpath/#math-2 for behavior definition.
@@ -1455,7 +1470,7 @@ class ArithmeticNode(BinaryExpressionNode):
             f'{self._right.to_fhir_path()}')
 
 
-class ComparisonNode(BinaryExpressionNode):
+class ComparisonNode(CoercibleBinaryExpressionNode):
   """Implementation of the FHIRPath comparison functions."""
 
   def __init__(self, fhir_context: context.FhirPathContext,
@@ -1555,7 +1570,7 @@ class ReferenceNode(ExpressionNode):
     return self._reference_node.to_fhir_path()
 
 
-class MembershipRelationNode(BinaryExpressionNode):
+class MembershipRelationNode(CoercibleBinaryExpressionNode):
   """Parent class for In and Contains Nodes."""
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
@@ -1607,6 +1622,61 @@ class ContainsNode(MembershipRelationNode):
 
   def to_fhir_path(self) -> str:
     return f'{self._left.to_fhir_path()} contains {self._right.to_fhir_path()}'
+
+
+class UnionNode(BinaryExpressionNode):
+  """Implementation of the FHIRPath union operator.
+
+  The spec for the union operator is taken from:
+  https://build.fhir.org/ig/HL7/FHIRPath/#union-collections
+  https://build.fhir.org/ig/HL7/FHIRPath/#unionother-collection
+  """
+
+  def __init__(self, fhir_context: context.FhirPathContext,
+               handler: primitive_handler.PrimitiveHandler,
+               left: ExpressionNode, right: ExpressionNode) -> None:
+    left_type = left.return_type()
+    right_type = right.return_type()
+
+    if isinstance(left_type, _fhir_path_data_types.Empty.__class__):
+      return_type = right_type
+    elif isinstance(right_type, _fhir_path_data_types.Empty.__class__):
+      return_type = left_type
+    elif right_type == left_type:
+      return_type = left_type
+    else:
+      # We're union-ing two different types of collection, so the
+      # resulting type is a union of both side's type.
+      types_union: Set[_fhir_path_data_types.FhirPathDataType] = set()
+      for node_type in (left_type, right_type):
+        if isinstance(node_type, _fhir_path_data_types.Collection):
+          types_union.extend(node_type.types)
+        else:
+          types_union.add(node_type)
+      return_type = _fhir_path_data_types.Collection(types_union)
+
+    super().__init__(fhir_context, handler, left, right, return_type)
+
+  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
+    left_messages = self._left.evaluate(work_space)
+    right_messages = self._right.evaluate(work_space)
+
+    # Build a set of unique messages by using their json_value to
+    # determine uniqueness. As in the _messages_equal function, we use
+    # the json_value to determine message equality.
+    messages_union: Dict[str, WorkSpaceMessage] = {}
+    for work_space_message in itertools.chain(left_messages, right_messages):
+      json_value = self._handler.primitive_wrapper_from_primitive(
+          work_space_message.message).json_value()
+      messages_union.setdefault(json_value, work_space_message)
+
+    return list(messages_union.values())
+
+  def to_fhir_path(self) -> str:
+    return f'{self._left.to_fhir_path()} | {self._right.to_fhir_path()}'
+
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    raise NotImplementedError('TODO: implement visitor for UnionNode')
 
 
 # Implementations of FHIRPath functions.
@@ -1807,7 +1877,8 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
       raise ValueError(f'Unknown membership operator "{membership.op}".')
 
   def visit_union(self, union: _ast.UnionOp, **kwargs: Any) -> Any:
-    raise NotImplementedError('TODO: implement `visit_union`.')
+    return UnionNode(self._context, self._handler, self.visit(union.lhs),
+                     self.visit(union.rhs))
 
   def visit_polarity(self, polarity: _ast.Polarity) -> ExpressionNode:
     operand_node = self.visit(polarity.operand)

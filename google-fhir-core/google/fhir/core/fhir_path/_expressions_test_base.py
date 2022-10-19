@@ -29,6 +29,7 @@ from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import context
 from google.fhir.core.fhir_path import expressions
+from google.fhir.core.utils import proto_utils
 
 _UNIX_EPOCH = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
 
@@ -1448,6 +1449,96 @@ class FhirPathExpressionsTest(
     with self.assertRaises(ValueError):
       self.compile_expression('Patient',
                               'address.city in address.city').evaluate(patient)
+
+  def testUnionOperator_withHomogeneousCollections_succeeds(self):
+    """Ensures "union" works with collections of the same type."""
+    patient = self._new_patient()
+
+    address1 = patient.address.add()
+    address1.city.value = 'a'
+
+    address2 = patient.address.add()
+    address2.city.value = 'b'
+
+    first_name = patient.name.add()
+    first_name.given.add().value = 'b'
+    first_name.given.add().value = 'c'
+
+    pat = self.builder('Patient')
+    builder_expr = pat.address.city.union(pat.name.given)
+    fhir_path_expr = self.compile_expression('Patient',
+                                             'address.city | name.given)')
+
+    self.assertEqual(builder_expr.fhir_path, 'address.city | name.given')
+    self.assertEqual(builder_expr.get_node().return_type(),
+                     _fhir_path_data_types.String)
+
+    for result in (builder_expr.to_expression().evaluate(patient),
+                   fhir_path_expr.evaluate(patient)):
+      self.assertCountEqual([
+          proto_utils.get_value_at_field(message, 'value')
+          for message in result.messages
+      ], ['a', 'b', 'c'])
+
+  def testUnionOperator_withHeterogeneousCollections_succeeds(self):
+    """Ensures "union" works with collections of different types."""
+    patient = self._new_patient()
+
+    first_name = patient.name.add()
+    first_name.given.add().value = 'a'
+    first_name.given.add().value = 'b'
+
+    patient.telecom.add().rank.value = 1
+    patient.telecom.add().rank.value = 2
+
+    pat = self.builder('Patient')
+    builder_expr = pat.telecom.rank.union(pat.name.given)
+    fhir_path_expr = self.compile_expression('Patient',
+                                             'telecom.rank | name.given')
+
+    self.assertEqual(builder_expr.fhir_path, 'telecom.rank | name.given')
+    self.assertEqual(
+        builder_expr.get_node().return_type(),
+        _fhir_path_data_types.Collection({
+            _fhir_path_data_types.String,
+            _fhir_path_data_types.Integer,
+        }))
+
+    for result in (builder_expr.to_expression().evaluate(patient),
+                   fhir_path_expr.evaluate(patient)):
+      self.assertCountEqual([
+          proto_utils.get_value_at_field(message, 'value')
+          for message in result.messages
+      ], ['a', 'b', 1, 2])
+
+  def testUnionOperator_withEmptyCollections_succeeds(self):
+    """Ensures "union" works with empty collections."""
+    patient = self._new_patient()
+
+    first_name = patient.name.add()
+    first_name.given.add().value = 'a'
+    first_name.given.add().value = 'b'
+
+    pat = self.builder('Patient')
+    builder_expr = pat.name.given.union(None)
+    fhir_path_expr = self.compile_expression('Patient', 'name.given | {}')
+
+    self.assertEqual(builder_expr.fhir_path, 'name.given | {}')
+    self.assertEqual(builder_expr.get_node().return_type(),
+                     _fhir_path_data_types.String)
+
+    for result in (builder_expr.to_expression().evaluate(patient),
+                   fhir_path_expr.evaluate(patient)):
+      self.assertCountEqual([
+          proto_utils.get_value_at_field(message, 'value')
+          for message in result.messages
+      ], ['a', 'b'])
+
+  def testUnionOperator_withBothEmptyCollections_succeeds(self):
+    """Ensures "union" returns empty when given two empties."""
+    patient = self._new_patient()
+    expr = self.compile_expression('Patient', '{} | {}')
+    self.assertEqual(expr.evaluate(patient).messages, [])
 
   def testNodeDebugString(self):
     """Tests debug_string print functionality."""
