@@ -800,6 +800,218 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.mock_bigquery_client.create_table.assert_called_once_with(
         expected_table, exists_ok=True)
 
+  # TODO: Fix an issue where the bq_intepreter generates literals
+  # with an extra set of quotes.
+  def testFHIRViewsExample_explanationOfBenefit_filteredByValueSet_succeeds(
+      self):
+    eob = self._views.view_of('ExplanationOfBenefit')
+
+    eob_pde_codes = (
+        eob.select({
+            'eob_id':
+                eob.id,
+            'patient':
+                eob.patient.idFor('Patient'),
+            'first_ndc':
+                eob.item.productOrService.coding.where(
+                    eob.item.productOrService.coding.system ==
+                    'http://hl7.org/fhir/sid/ndc').first().code,
+            'serviced_date':
+                eob.item.first().serviced.ofType('date'),
+        }).where(eob.type.memberOf('http://a-value.set/id')))
+
+    self.assertMultiLineEqual(
+        """WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM vs_project.vs_dataset.vs_table)
+SELECT (SELECT id) AS eob_id,(SELECT patient.PatientId AS idFor_) AS patient,(SELECT coding_element_.code
+FROM (SELECT item_element_.productOrService
+FROM UNNEST(item) AS item_element_ WITH OFFSET AS element_offset),
+UNNEST(productOrService.coding) AS coding_element_ WITH OFFSET AS element_offset
+WHERE (system = 'http://hl7.org/fhir/sid/ndc')
+LIMIT 1) AS first_ndc,PARSE_DATE("%Y-%m-%d", (SELECT item_element_.serviced.date AS ofType_
+FROM UNNEST(item) AS item_element_ WITH OFFSET AS element_offset
+LIMIT 1)) AS serviced_date,(SELECT patient.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.ExplanationOfBenefit
+WHERE (SELECT LOGICAL_AND(logic_)
+FROM UNNEST(ARRAY(SELECT memberof_
+FROM (SELECT memberof_
+FROM UNNEST((SELECT IF(type IS NULL, [], [
+EXISTS(
+SELECT 1
+FROM UNNEST(type.coding) AS codings
+INNER JOIN `VALUESET_VIEW` vs ON
+vs.valueseturi='http://a-value.set/id'
+AND vs.system=codings.system
+AND vs.code=codings.code
+)]))) AS memberof_)
+WHERE memberof_ IS NOT NULL)) AS logic_)""", self.runner.to_sql(eob_pde_codes))
+
+  def testFHIRViewsExample_commonOutPatientProcedures_succeeds(self):
+    outpatient_claims_valueset = r4.value_set(
+        'urn:example:valueset:outpatient_claims').with_codes(
+            'https://bluebutton.cms.gov/resources/codesystem/eob-type',
+            ['OUTPATIENT']).build()
+
+    coding = self._views.expression_for('Coding')
+    eob = self._views.view_of('ExplanationOfBenefit')
+
+    eob_outpatient_proc_codes = (
+        eob.select({
+            'eob_id': eob.id,
+            'patient': eob.patient.idFor('Patient'),
+            'first_procedure_code': (eob.procedure.first().procedure.ofType(
+                'CodeableConcept').coding.where(
+                    coding.system == 'http://hl7.org/fhir/sid/icd-10').code),
+            'first_procedure_date': eob.procedure.first().date,
+        }).where(
+            eob.type.memberOf(outpatient_claims_valueset),
+            eob.procedure.exists()))
+
+    eob_outpatient_proc_codes_2012 = eob_outpatient_proc_codes.where(
+        eob_outpatient_proc_codes.first_procedure_date >= datetime.date(
+            2012, 1, 1),
+        eob_outpatient_proc_codes.first_procedure_date < datetime.date(
+            2013, 1, 1))
+
+    self.assertMultiLineEqual(
+        """WITH VALUESET_VIEW AS (SELECT "urn:example:valueset:outpatient_claims" as valueseturi, NULL as valuesetversion, "https://bluebutton.cms.gov/resources/codesystem/eob-type" as system, "OUTPATIENT" as code)
+SELECT (SELECT id) AS eob_id,(SELECT patient.PatientId AS idFor_) AS patient,(SELECT coding_element_.code
+FROM (SELECT procedure_element_.procedure.CodeableConcept AS ofType_
+FROM UNNEST(procedure) AS procedure_element_ WITH OFFSET AS element_offset
+LIMIT 1),
+UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset
+WHERE (system = 'http://hl7.org/fhir/sid/icd-10')) AS first_procedure_code,PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", (SELECT procedure_element_.date
+FROM UNNEST(procedure) AS procedure_element_ WITH OFFSET AS element_offset
+LIMIT 1)) AS first_procedure_date,(SELECT patient.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.ExplanationOfBenefit
+WHERE (SELECT LOGICAL_AND(logic_)
+FROM UNNEST(ARRAY(SELECT memberof_
+FROM (SELECT memberof_
+FROM UNNEST((SELECT IF(type IS NULL, [], [
+EXISTS(
+SELECT 1
+FROM UNNEST(type.coding) AS codings
+INNER JOIN `VALUESET_VIEW` vs ON
+vs.valueseturi='urn:example:valueset:outpatient_claims'
+AND vs.system=codings.system
+AND vs.code=codings.code
+)]))) AS memberof_)
+WHERE memberof_ IS NOT NULL)) AS logic_) AND (SELECT LOGICAL_AND(logic_)
+FROM UNNEST(ARRAY(SELECT exists_
+FROM (SELECT EXISTS(
+SELECT procedure_element_
+FROM (SELECT procedure_element_
+FROM UNNEST(procedure) AS procedure_element_ WITH OFFSET AS element_offset)
+WHERE procedure_element_ IS NOT NULL) AS exists_)
+WHERE exists_ IS NOT NULL)) AS logic_) AND (SELECT LOGICAL_AND(logic_)
+FROM UNNEST(ARRAY(SELECT comparison_
+FROM (SELECT ((SELECT procedure_element_.date
+FROM UNNEST(procedure) AS procedure_element_ WITH OFFSET AS element_offset
+LIMIT 1) >= '2012-01-01') AS comparison_)
+WHERE comparison_ IS NOT NULL)) AS logic_) AND (SELECT LOGICAL_AND(logic_)
+FROM UNNEST(ARRAY(SELECT comparison_
+FROM (SELECT ((SELECT procedure_element_.date
+FROM UNNEST(procedure) AS procedure_element_ WITH OFFSET AS element_offset
+LIMIT 1) < '2013-01-01') AS comparison_)
+WHERE comparison_ IS NOT NULL)) AS logic_)""",
+        self.runner.to_sql(eob_outpatient_proc_codes_2012))
+
+  def testFHIRViewsExample_outPatientDiagnoses_succeeds(self):
+
+    outpatient_claims_valueset = r4.value_set(
+        'urn:example:valueset:outpatient_claims').with_codes(
+            'https://bluebutton.cms.gov/resources/codesystem/eob-type',
+            ['OUTPATIENT']).build()
+
+    principal_diagnosis_valueset = r4.value_set(
+        'urn:example:valueset:principal_diagnosis').with_codes(
+            'http://terminology.hl7.org/CodeSystem/ex-diagnosistype',
+            ['principal']).build()
+
+    eob = self._views.view_of('ExplanationOfBenefit')
+    is_principal_diagnosis = eob.diagnosis.type.memberOf(
+        principal_diagnosis_valueset).anyTrue()
+    coding = self._views.expression_for('Coding')
+
+    eob_outpatient_codes = (
+        eob.select({
+            'eob_id':
+                eob.id,
+            'patient':
+                eob.patient.idFor('Patient'),
+            # Gets the first principal diagnosis's ICD-10 Code
+            'principal_diagnosis_icd10':
+                eob.diagnosis.where(is_principal_diagnosis).first().diagnosis
+                .ofType('CodeableConcept').coding.where(
+                    coding.system == 'http://hl7.org/fhir/sid/icd-10').code,
+        }).where(
+            eob.type.memberOf(outpatient_claims_valueset),
+            is_principal_diagnosis))
+
+    self.assertMultiLineEqual(
+        """WITH VALUESET_VIEW AS (SELECT "urn:example:valueset:principal_diagnosis" as valueseturi, NULL as valuesetversion, "http://terminology.hl7.org/CodeSystem/ex-diagnosistype" as system, "principal" as code
+UNION ALL SELECT "urn:example:valueset:outpatient_claims" as valueseturi, NULL as valuesetversion, "https://bluebutton.cms.gov/resources/codesystem/eob-type" as system, "OUTPATIENT" as code
+UNION ALL SELECT "urn:example:valueset:principal_diagnosis" as valueseturi, NULL as valuesetversion, "http://terminology.hl7.org/CodeSystem/ex-diagnosistype" as system, "principal" as code)
+SELECT (SELECT id) AS eob_id,(SELECT patient.PatientId AS idFor_) AS patient,(SELECT coding_element_.code
+FROM (SELECT diagnosis_element_.diagnosis.CodeableConcept AS ofType_
+FROM UNNEST(diagnosis) AS diagnosis_element_ WITH OFFSET AS element_offset
+WHERE (SELECT LOGICAL_OR(
+memberof_) AS _anyTrue
+FROM (SELECT matches.element_offset IS NOT NULL AS memberof_
+FROM (SELECT element_offset
+FROM UNNEST(type) AS type_element_ WITH OFFSET AS element_offset) AS all_
+LEFT JOIN (SELECT element_offset
+FROM UNNEST(ARRAY(SELECT element_offset FROM (
+SELECT DISTINCT element_offset
+FROM UNNEST(type) AS type_element_ WITH OFFSET AS element_offset,
+UNNEST(type_element_.coding) AS codings
+INNER JOIN `VALUESET_VIEW` vs ON
+vs.valueseturi='urn:example:valueset:principal_diagnosis'
+AND vs.system=codings.system
+AND vs.code=codings.code
+))) AS element_offset
+) AS matches
+ON all_.element_offset=matches.element_offset
+ORDER BY all_.element_offset))
+LIMIT 1),
+UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset
+WHERE (system = 'http://hl7.org/fhir/sid/icd-10')) AS principal_diagnosis_icd10,(SELECT patient.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.ExplanationOfBenefit
+WHERE (SELECT LOGICAL_AND(logic_)
+FROM UNNEST(ARRAY(SELECT memberof_
+FROM (SELECT memberof_
+FROM UNNEST((SELECT IF(type IS NULL, [], [
+EXISTS(
+SELECT 1
+FROM UNNEST(type.coding) AS codings
+INNER JOIN `VALUESET_VIEW` vs ON
+vs.valueseturi='urn:example:valueset:outpatient_claims'
+AND vs.system=codings.system
+AND vs.code=codings.code
+)]))) AS memberof_)
+WHERE memberof_ IS NOT NULL)) AS logic_) AND (SELECT LOGICAL_AND(logic_)
+FROM UNNEST(ARRAY(SELECT _anyTrue
+FROM (SELECT LOGICAL_OR(
+memberof_) AS _anyTrue
+FROM (SELECT matches.element_offset IS NOT NULL AS memberof_
+FROM (SELECT element_offset
+FROM (SELECT diagnosis_element_
+FROM UNNEST(diagnosis) AS diagnosis_element_ WITH OFFSET AS element_offset),
+UNNEST(diagnosis_element_.type) AS type_element_ WITH OFFSET AS element_offset) AS all_
+LEFT JOIN (SELECT element_offset
+FROM UNNEST(ARRAY(SELECT element_offset FROM (
+SELECT DISTINCT element_offset
+FROM (SELECT diagnosis_element_
+FROM UNNEST(diagnosis) AS diagnosis_element_ WITH OFFSET AS element_offset),
+UNNEST(diagnosis_element_.type) AS type_element_ WITH OFFSET AS element_offset,
+UNNEST(type_element_.coding) AS codings
+INNER JOIN `VALUESET_VIEW` vs ON
+vs.valueseturi='urn:example:valueset:principal_diagnosis'
+AND vs.system=codings.system
+AND vs.code=codings.code
+))) AS element_offset
+) AS matches
+ON all_.element_offset=matches.element_offset
+ORDER BY all_.element_offset))
+WHERE _anyTrue IS NOT NULL)) AS logic_)""",
+        self.runner.to_sql(eob_outpatient_codes))
+
 
 def _BqValuesetCodesTable(name: str) -> bigquery.table.Table:
   """Builds a BigQuery client table representation of a value set codes table.
