@@ -40,6 +40,9 @@ from google.fhir.r4.terminology import value_sets
 from google.fhir.views import views
 
 _CODEABLE_CONCEPT = 'http://hl7.org/fhir/StructureDefinition/CodeableConcept'
+_CODING = 'http://hl7.org/fhir/StructureDefinition/Coding'
+_CODE = 'http://hl7.org/fhir/StructureDefinition/Code'
+_STRING = 'http://hl7.org/fhirpath/System.String'
 
 # Timestamp format to convert ISO strings into BigQuery Timestamp types.
 _TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%E*S%Ez'
@@ -363,20 +366,21 @@ class BigQueryRunner:
 
     Args:
       view: the view containing code values to summarize.
-      code_expr: a FHIRPath expression referencing a codeable concept to count.
+      code_expr: a FHIRPath expression referencing a codeable concept, coding,
+      or code field to count.
 
     Returns:
       A Pandas dataframe containing 'system', 'code', 'display', and 'count'
-      columns. It is ordered by count is in descending order.
+      columns for codeable concept and coding fields. 'system' and 'display'
+      columns are omitted when summarzing raw code fields, since they do not
+      have system or display values.
+
+      The datframe is ordered by count is in descending order.
     """
     node_type = code_expr.get_node().return_type()
     if node_type and isinstance(node_type, _fhir_path_data_types.Collection):
       node_type = list(cast(_fhir_path_data_types.Collection,
                             node_type).types)[0]
-
-    # TODO: Add support for coding and code columns as well.
-    if (node_type is None or node_type.url != _CODEABLE_CONCEPT):
-      raise NotImplementedError('Only CodeableConcept summarization supported.')
 
     # TODO: Add constraint filtering to code summarization.
     if view.get_constraint_expressions():
@@ -402,16 +406,40 @@ class BigQueryRunner:
     table_name = self._view_table_name(view)
     dataset = f'{self._fhir_dataset.project}.{self._fhir_dataset.dataset_id}'
 
-    # Query to get the array of codeable concepts we will aggregate by.
-    codeable_array_query = (f'SELECT {select_expression} as target '
-                            f'FROM `{dataset}`.{table_name}')
+    # Query to get the array of code-like fields we will aggregate by.
+    expr_array_query = (f'SELECT {select_expression} as target '
+                        f'FROM `{dataset}`.{table_name}')
 
-    count_query = (
-        f'WITH c AS ({codeable_array_query}) '
-        f'SELECT codings.system, codings.code, codings.display, COUNT(*) count '
-        f'FROM c, '
-        f'UNNEST(c.target) concepts, UNNEST(concepts.coding) as codings '
-        f'GROUP BY 1, 2, 3 ORDER BY count DESC')
+    # Create a counting aggregation for the appropriate code-like structure.
+    if node_type.url == _CODEABLE_CONCEPT:
+      count_query = (
+          f'WITH c AS ({expr_array_query}) '
+          f'SELECT codings.system, codings.code, '
+          f'codings.display, COUNT(*) count '
+          f'FROM c, '
+          f'UNNEST(c.target) concepts, UNNEST(concepts.coding) as codings '
+          f'GROUP BY 1, 2, 3 ORDER BY count DESC')
+    elif node_type.url == _CODING:
+      count_query = (
+          f'WITH c AS ({expr_array_query}) '
+          f'SELECT codings.system, codings.code, '
+          f'codings.display, COUNT(*) count '
+          f'FROM c, '
+          f'UNNEST(c.target) codings '
+          f'GROUP BY 1, 2, 3 ORDER BY count DESC')
+    elif node_type.url == _CODE or node_type.url == _STRING:
+      # Assume simple strings are just code values. Since code is a type of
+      # string, the current expression typing analysis may produce a string
+      # type here so we accept both string and code.
+      count_query = (
+          f'WITH c AS ({expr_array_query}) '
+          f'SELECT code, COUNT(*) count '
+          f'FROM c, UNNEST(c.target) as code '
+          f'GROUP BY 1 ORDER BY count DESC')
+    else:
+      raise ValueError(
+          f'Field must be a FHIR CodeableConcept, Coding, or Code; '
+          f'got {node_type.url}.')
 
     return self._client.query(count_query).result().to_dataframe()
 

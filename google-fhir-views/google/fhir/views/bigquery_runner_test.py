@@ -645,7 +645,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
                        ),
         self.runner.to_sql(eob_with_codeableconcept_system, internal_v2=True))
 
-  def testSummarizeCodes_forObservation_succeeds(self):
+  def testSummarizeCodes_forObservationCodeable_succeeds(self):
     obs = self._views.view_of('Observation')
 
     mock_job = mock.create_autospec(bigquery.QueryJob, instance=True)
@@ -664,6 +664,55 @@ class BigqueryRunnerTest(parameterized.TestCase):
                     'count FROM c, UNNEST(c.target) concepts, '
                     'UNNEST(concepts.coding) as codings GROUP BY 1, 2, 3 ORDER '
                     'BY count DESC')
+    self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
+    self.assertEqual(expected_mock_df, returned_df)
+
+  def testSummarizeCodes_forObservationStatusCode_succeeds(self):
+    obs = self._views.view_of('Observation')
+
+    mock_job = mock.create_autospec(bigquery.QueryJob, instance=True)
+    expected_mock_df = mock_job.result.return_value.to_dataframe.return_value
+    self.mock_bigquery_client.query.return_value = mock_job
+
+    returned_df = self.runner.summarize_codes(obs, obs.status)
+    # Ensure expected SQL was passed to BigQuery and the dataframe was returned
+    # up the stack.
+    expected_sql = ('WITH c AS (SELECT ARRAY(SELECT status\n'
+                    'FROM (SELECT status)\nWHERE status IS NOT NULL) '
+                    'as target FROM `test_project.test_dataset`.Observation) '
+                    'SELECT code, COUNT(*) count '
+                    'FROM c, UNNEST(c.target) as code '
+                    'GROUP BY 1 ORDER BY count DESC')
+    self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
+    self.assertEqual(expected_mock_df, returned_df)
+
+  def testSummarizeCodes_forObservationNonCodeField_raisesError(self):
+    obs = self._views.view_of('Observation')
+    with self.assertRaises(ValueError):
+      self.runner.summarize_codes(obs, obs.referenceRange)
+
+  def testSummarizeCodes_forObservationCoding_succeeds(self):
+    obs = self._views.view_of('Observation')
+
+    mock_job = mock.create_autospec(bigquery.QueryJob, instance=True)
+    expected_mock_df = mock_job.result.return_value.to_dataframe.return_value
+    self.mock_bigquery_client.query.return_value = mock_job
+
+    # Standalone coding types are rare but we should support them, so just
+    # test the one inside the observation code itself.
+    returned_df = self.runner.summarize_codes(obs, obs.code.coding)
+    # Ensure expected SQL was passed to BigQuery and the dataframe was returned
+    # up the stack.
+    expected_sql = ('WITH c AS (SELECT ARRAY(SELECT coding_element_\n'
+                    'FROM (SELECT coding_element_\n'
+                    'FROM (SELECT code),\n'
+                    'UNNEST(code.coding) AS coding_element_ '
+                    'WITH OFFSET AS element_offset)\n'
+                    'WHERE coding_element_ IS NOT NULL) as target FROM '
+                    '`test_project.test_dataset`.Observation) '
+                    'SELECT codings.system, codings.code, codings.display, '
+                    'COUNT(*) count FROM c, UNNEST(c.target) codings '
+                    'GROUP BY 1, 2, 3 ORDER BY count DESC')
     self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
     self.assertEqual(expected_mock_df, returned_df)
 
