@@ -1655,7 +1655,6 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       fhir_path_expression: str,
       expected_sql_expression: str,
       select_scalars_as_array: Optional[bool],
-      missing_feature_in_v2: bool = False,
       only_works_in_v2: bool = False):
     kwargs = {}
     if select_scalars_as_array is not None:
@@ -1668,9 +1667,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
 
     if not only_works_in_v2:
       self.assertEqual(actual_sql_expression, expected_sql_expression)
-    if not missing_feature_in_v2:
-      self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                          expected_sql_expression, **kwargs)
+    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
+                                        expected_sql_expression, **kwargs)
 
   @parameterized.named_parameters(
       dict(
@@ -1953,9 +1951,6 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withVectorCodeMemberOf',
           fhir_path_expression="codeFlavors.code.memberOf('http://value.set/id')",
-          # TODO: Determine if this is a bug in the old
-          # implementation or new implementation.
-          missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT memberof_
           FROM (SELECT matches.element_offset IS NOT NULL AS memberof_
@@ -2008,9 +2003,6 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           WHERE memberof_ IS NOT NULL)""")),
       dict(
           testcase_name='_withVectorCodingMemberOf',
-          # TODO: Determine if this is a bug in the old
-          # implementation or new implementation.
-          missing_feature_in_v2=True,
           fhir_path_expression="codeFlavors.coding.memberOf('http://value.set/id')",
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT memberof_
@@ -2049,9 +2041,6 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withVectorCodeableConceptMemberOf',
           fhir_path_expression="codeFlavors.codeableConcept.memberOf('http://value.set/id')",
-          # TODO: Determine if this is a bug in the old
-          # implementation or new implementation.
-          missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT memberof_
           FROM (SELECT matches.element_offset IS NOT NULL AS memberof_
@@ -2111,18 +2100,14 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           WHERE memberof_ IS NOT NULL)""")),
   )
   def testEncode_withFhirPathMemberFunctionInvocation_succeeds(
-      self,
-      fhir_path_expression: str,
-      expected_sql_expression: str,
-      missing_feature_in_v2: bool = False):
+      self, fhir_path_expression: str, expected_sql_expression: str):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
         fhir_path_expression=fhir_path_expression)
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    if not missing_feature_in_v2:
-      self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                          expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
+                                        expected_sql_expression)
 
   @parameterized.named_parameters(
       dict(
@@ -2224,6 +2209,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           WHERE all_ IS NOT NULL)""")),
       dict(
           testcase_name='_withAllAndIdentifierPlusThis',
+          missing_feature_in_v2=True,
           fhir_path_expression=(
               "bat.struct.all(anotherValue = '' and $this)"),
           expected_sql_expression=textwrap.dedent("""\
@@ -2283,6 +2269,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           WHERE all_ IS NOT NULL)""")),
       dict(
           testcase_name='_withWhereAndRepeated',
+          missing_feature_in_v2=True,
           fhir_path_expression=('bar.bats.where( struct.exists() )'),
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT bats_element_
@@ -2293,6 +2280,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           WHERE bats_element_ IS NOT NULL)""")),
       dict(
           testcase_name='_withWhereAndRepeatedAndExists',
+          missing_feature_in_v2=True,
           fhir_path_expression=(
               'bar.bats.where( struct = struct ).exists()'),
           expected_sql_expression=textwrap.dedent("""\
@@ -2343,7 +2331,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
-      missing_feature_in_v2: bool = True):
+      missing_feature_in_v2: bool = False):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
