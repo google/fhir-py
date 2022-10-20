@@ -24,6 +24,7 @@ from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _sql_data_types
 from google.fhir.core.fhir_path import expressions
+from google.fhir.core.internal import _primitive_time_utils
 
 
 def _escape_identifier(identifier_value: str) -> str:
@@ -113,10 +114,12 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       sql_data_type = _sql_data_types.Numeric
     elif isinstance(literal.return_type(), _fhir_path_data_types._DateTime):  # pylint: disable=protected-access
       # Date and datetime literals start with an @ and need to be quoted.
-      sql_value = f"'{str(literal)[1:]}'"
+      dt = _primitive_time_utils.get_date_time_value(literal.get_value())
+      sql_value = f"'{dt.isoformat()}'"
       sql_data_type = _sql_data_types.Timestamp
     elif isinstance(literal.return_type(), _fhir_path_data_types._Date):  # pylint: disable=protected-access
-      sql_value = f"'{str(literal)[1:]}'"
+      dt = _primitive_time_utils.get_date_time_value(literal.get_value()).date()
+      sql_value = f"'{str(dt)}'"
       sql_data_type = _sql_data_types.Date
     elif isinstance(literal.return_type(), _fhir_path_data_types._String):  # pylint: disable=protected-access
       sql_value = str(literal)
@@ -128,7 +131,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
           f'Unsupported literal value: {literal} {literal.return_type()}.')
 
     return _sql_data_types.RawExpression(
-        sql_value,
+        _sql_data_types.wrap_time_types(sql_value, sql_data_type),
         _sql_data_type=sql_data_type,
         _sql_alias='literal_',
     )

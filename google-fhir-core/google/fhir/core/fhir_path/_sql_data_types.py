@@ -26,6 +26,12 @@ import abc
 import dataclasses
 from typing import Any, List, Optional, Sequence, Set, Union
 
+# Timestamp format to convert ISO strings into BigQuery Timestamp types.
+_TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%E*S%Ez'
+
+# ISO format of dates used by FHIR.
+_DATE_FORMAT = '%Y-%m-%d'
+
 # TODO: Consolidate with `_fhir_path_data_types.py` functionality.
 
 # Keywords are a group of tokens that have special meaning in the BigQuery
@@ -550,6 +556,18 @@ NUMERIC_TYPES = frozenset([
 ])
 
 
+def wrap_time_types(raw_sql: str, sql_type: StandardSqlDataType) -> str:
+  if raw_sql.startswith('PARSE_'):
+    return raw_sql
+  if isinstance(sql_type, _Timestamp):
+    return f'PARSE_TIMESTAMP("{_TIMESTAMP_FORMAT}", {raw_sql})'
+
+  if isinstance(sql_type, _Date):
+    # Parse dates as timestamps so that comparisons can be made.
+    return f'PARSE_TIMESTAMP("{_DATE_FORMAT}", {raw_sql})'
+  return raw_sql
+
+
 def is_coercible(lhs: StandardSqlDataType, rhs: StandardSqlDataType) -> bool:
   """Returns `True` if coercion can occur between `lhs` and `rhs`.
 
@@ -966,9 +984,11 @@ class Select(StandardSqlExpression):
     """Builds the SQL expression from its given components."""
     query_parts = ['SELECT ']
 
-    query_parts.append(str(self.select_part))
+    select_part = wrap_time_types(str(self.select_part), self.sql_data_type)
+    query_parts.append(select_part)
     # Add an AS statement to match sql_alias if necessary.
-    if not self.select_part.matches_alias(self.sql_alias):
+    if (select_part != str(self.select_part) or
+        not self.select_part.matches_alias(self.sql_alias)):
       query_parts.extend((' AS ', str(self.sql_alias)))
 
     if self.from_part:
@@ -994,7 +1014,7 @@ class Select(StandardSqlExpression):
     if self.from_part or self.where_part:
       return str(self.to_subquery())
 
-    return self.select_part.as_operand()
+    return wrap_time_types(self.select_part.as_operand(), self.sql_data_type)
 
 
 @dataclasses.dataclass

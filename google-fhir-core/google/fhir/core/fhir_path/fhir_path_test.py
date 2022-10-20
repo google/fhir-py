@@ -655,56 +655,56 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           fhir_path_expression='@1970',
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT literal_
-          FROM (SELECT '1970' AS literal_)
+          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%d", '1970-01-01') AS literal_)
           WHERE literal_ IS NOT NULL)""")),
       dict(
           testcase_name='_withDateYearMonth',
           fhir_path_expression='@1970-01',
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT literal_
-          FROM (SELECT '1970-01' AS literal_)
+          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%d", '1970-01-01') AS literal_)
           WHERE literal_ IS NOT NULL)""")),
       dict(
           testcase_name='_withDateYearMonthDay',
           fhir_path_expression='@1970-01-01',
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT literal_
-          FROM (SELECT '1970-01-01' AS literal_)
+          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%d", '1970-01-01') AS literal_)
           WHERE literal_ IS NOT NULL)""")),
       dict(
           testcase_name='_withDateTimeYearMonthDayHours',
           fhir_path_expression='@2015-02-04T14',
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT literal_
-          FROM (SELECT '2015-02-04T14:00:00+00:00' AS literal_)
+          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:00:00+00:00') AS literal_)
           WHERE literal_ IS NOT NULL)""")),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutes',
           fhir_path_expression='@2015-02-04T14:34',
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT literal_
-          FROM (SELECT '2015-02-04T14:34:00+00:00' AS literal_)
+          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:00+00:00') AS literal_)
           WHERE literal_ IS NOT NULL)""")),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutesSeconds',
           fhir_path_expression='@2015-02-04T14:34:28',
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT literal_
-          FROM (SELECT '2015-02-04T14:34:28+00:00' AS literal_)
+          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28+00:00') AS literal_)
           WHERE literal_ IS NOT NULL)""")),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutesSecondsMilli',
           fhir_path_expression='@2015-02-04T14:34:28.123',
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT literal_
-          FROM (SELECT '2015-02-04T14:34:28.123000+00:00' AS literal_)
+          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28.123000+00:00') AS literal_)
           WHERE literal_ IS NOT NULL)""")),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutesSecondsMilliTz',
           fhir_path_expression='@2015-02-04T14:34:28.123+09:00',
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT literal_
-          FROM (SELECT '2015-02-04T14:34:28.123+09:00' AS literal_)
+          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28.123000+09:00') AS literal_)
           WHERE literal_ IS NOT NULL)""")),
       dict(
           testcase_name='_withTimeHours',
@@ -746,14 +746,14 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           fhir_path_expression='@2015-02-04T14:34:28 = @2015-02-04T14',
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT eq_
-          FROM (SELECT ('2015-02-04T14:34:28+00:00' = '2015-02-04T14:00:00+00:00') AS eq_)
+          FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28+00:00') = PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:00:00+00:00')) AS eq_)
           WHERE eq_ IS NOT NULL)""")),
       dict(
           testcase_name='_withDateTimeEquivalent',
           fhir_path_expression='@2015-02-04T14:34:28 ~ @2015-02-04T14',
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT eq_
-          FROM (SELECT ('2015-02-04T14:34:28+00:00' = '2015-02-04T14:00:00+00:00') AS eq_)
+          FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28+00:00') = PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:00:00+00:00')) AS eq_)
           WHERE eq_ IS NOT NULL)""")),
   )
   def testEncode_withFhirPathV2DateTimeLiteral_succeeds(
@@ -941,9 +941,18 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withDateLessThan',
           fhir_path_expression='dateField < @2000-01-01',
+          different_from_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT comparison_
-          FROM (SELECT (dateField < '2000-01-01') AS comparison_)
+          FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%d", dateField) < PARSE_TIMESTAMP("%Y-%m-%d", '2000-01-01')) AS comparison_)
+          WHERE comparison_ IS NOT NULL)""")),
+      dict(
+          testcase_name='_dateComparedWithTimestamp',
+          fhir_path_expression='dateField < @2000-01-01T14:34',
+          different_from_v2=True,
+          expected_sql_expression=textwrap.dedent("""\
+          ARRAY(SELECT comparison_
+          FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%d", dateField) < PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2000-01-01T14:34:00+00:00')) AS comparison_)
           WHERE comparison_ IS NOT NULL)""")),
       dict(
           testcase_name='_withBooleanOr',
@@ -973,12 +982,14 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
-      missing_feature_in_v2: bool = False):
-    actual_sql_expression = self.fhir_path_encoder.encode(
-        structure_definition=self.foo,
-        element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
-    self.assertEqual(actual_sql_expression, expected_sql_expression)
+      missing_feature_in_v2: bool = False,
+      different_from_v2: bool = False):
+    if not different_from_v2:
+      actual_sql_expression = self.fhir_path_encoder.encode(
+          structure_definition=self.foo,
+          element_definition=self.foo_root,
+          fhir_path_expression=fhir_path_expression)
+      self.assertEqual(actual_sql_expression, expected_sql_expression)
     if not missing_feature_in_v2:
       self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
                                           expected_sql_expression)

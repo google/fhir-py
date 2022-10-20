@@ -50,13 +50,13 @@ _PRIMITIVE_TO_STANDARD_SQL_MAP = {
     'dateTime': _sql_data_types.String,
     'decimal': _sql_data_types.Numeric,
     'id': _sql_data_types.String,
-    'instant': _sql_data_types.Timestamp,
+    'instant': _sql_data_types.String,
     'integer': _sql_data_types.Int64,
     'markdown': _sql_data_types.String,
     'oid': _sql_data_types.String,
     'positiveInt': _sql_data_types.Int64,
     'string': _sql_data_types.String,
-    'time': _sql_data_types.Time,
+    'time': _sql_data_types.String,
     'unsignedInt': _sql_data_types.Int64,
     'uri': _sql_data_types.String,
     'xhtml': _sql_data_types.String,
@@ -73,7 +73,7 @@ _SYSTEM_PRIMITIVE_TO_STANDARD_SQL_MAP = {
     'http://hl7.org/fhirpath/System.Integer': _sql_data_types.Int64,
     'http://hl7.org/fhirpath/System.Quantity': _sql_data_types.OpaqueStruct,
     'http://hl7.org/fhirpath/System.String': _sql_data_types.String,
-    'http://hl7.org/fhirpath/System.Time': _sql_data_types.Time,
+    'http://hl7.org/fhirpath/System.Time': _sql_data_types.String,
 }
 
 # These primitives are excluded from regex encoding because at the point when
@@ -460,6 +460,11 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     elif isinstance(literal.value, bool):
       sql_value = str(literal).upper()
       sql_data_type = _sql_data_types.Boolean
+    elif literal.is_date_type:
+      # Unfortunately, _ast.Literal does not differentiate how the Timestamp was
+      # given so it's nontrivial to parse the string correctly.
+      sql_value = f"'{literal.value}'"
+      sql_data_type = _sql_data_types.String
     elif isinstance(literal.value, (str, _ast.Quantity)):
       sql_value = f"'{literal.value}'"  # Quote string literals for SQL
       sql_data_type = _sql_data_types.String

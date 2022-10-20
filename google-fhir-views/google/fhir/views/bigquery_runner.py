@@ -234,15 +234,15 @@ class BigQueryRunner:
     select_expressions = []
     for (field, expr) in view.get_select_expressions().items():
       if internal_v2:
-        raw_sql = interpreter.encode(expr, select_scalars_as_array=False)
+        select_expression = interpreter.encode(
+            expr, select_scalars_as_array=False)
       else:
-        raw_sql = encoder.encode(
+        select_expression = encoder.encode(
             structure_definition=struct_def,
             element_definition=elem_def,
             fhir_path_expression=expr.to_expression().fhir_path,
             select_scalars_as_array=False)
-
-      select_expression = self._datetime_sql(expr, raw_sql)
+        select_expression = self._datetime_sql(expr, select_expression)
 
       select_expressions.append(f'{select_expression} AS {field}')
 
