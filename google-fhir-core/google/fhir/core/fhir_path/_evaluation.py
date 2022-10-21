@@ -1271,7 +1271,7 @@ class EqualityNode(CoercibleBinaryExpressionNode):
     return f'{self._left.to_fhir_path()} {self._operator.value} {self._right.to_fhir_path()}'
 
 
-class BooleanOperatorNode(CoercibleBinaryExpressionNode):
+class BooleanOperatorNode(BinaryExpressionNode):
   """Implementation of FHIRPath boolean operations.
 
   See https://hl7.org/fhirpath/#boolean-logic for behavior definition.

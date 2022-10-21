@@ -777,15 +777,9 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
 
     # Extract boolean values from both sides if needed.
     if lhs_result.sql_data_type != _sql_data_types.Boolean:
-      lhs_result = _sql_data_types.RawExpression(
-          sql_expr=f'(SELECT {lhs_result.sql_alias} IS NOT NULL FROM {lhs_result.to_subquery()})',
-          _sql_data_type=_sql_data_types.Boolean,
-          _sql_alias=lhs_result.sql_alias)
+      lhs_result = lhs_result.is_not_null()
     if rhs_result.sql_data_type != _sql_data_types.Boolean:
-      rhs_result = _sql_data_types.RawExpression(
-          sql_expr=f'(SELECT {rhs_result.sql_alias} IS NOT NULL FROM {rhs_result.to_subquery()})',
-          _sql_data_type=_sql_data_types.Boolean,
-          _sql_alias=rhs_result.sql_alias)
+      rhs_result = rhs_result.is_not_null()
 
     # Extract the values of LHS and RHS to be used as scalar subqueries.
     lhs_subquery = lhs_result.as_operand()

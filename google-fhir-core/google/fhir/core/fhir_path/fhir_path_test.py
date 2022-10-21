@@ -968,21 +968,18 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           ARRAY(SELECT logic_
           FROM (SELECT (TRUE <> FALSE) AS logic_)
           WHERE logic_ IS NOT NULL)""")),
-      # Should this be a legitimate evaluation?
       dict(
           testcase_name='_withBooleanRelationBetweenStringInteger',
           fhir_path_expression="3 and 'true'",
-          missing_feature_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT logic_
-          FROM (SELECT ((SELECT literal_ IS NOT NULL FROM (SELECT 3 AS literal_)) AND (SELECT literal_ IS NOT NULL FROM (SELECT 'true' AS literal_))) AS logic_)
+          FROM (SELECT ((3 IS NOT NULL) AND ('true' IS NOT NULL)) AS logic_)
           WHERE logic_ IS NOT NULL)""")),
   )
   def testEncode_withFhirPathLiteralLogicalRelation_succeeds(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
-      missing_feature_in_v2: bool = False,
       different_from_v2: bool = False):
     if not different_from_v2:
       actual_sql_expression = self.fhir_path_encoder.encode(
@@ -990,9 +987,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           element_definition=self.foo_root,
           fhir_path_expression=fhir_path_expression)
       self.assertEqual(actual_sql_expression, expected_sql_expression)
-    if not missing_feature_in_v2:
-      self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                          expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
+                                        expected_sql_expression)
 
   # TODO: Verify order-dependence of equivalence vs. equality
   @parameterized.named_parameters(
@@ -2217,7 +2213,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
-          (SELECT ((anotherValue = '') AND (SELECT `struct` IS NOT NULL FROM (SELECT `struct`))) AS all_), FALSE)), TRUE) AS all_
+          (SELECT ((anotherValue = '') AND (SELECT `struct` IS NOT NULL)) AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bat.struct))
           WHERE all_ IS NOT NULL)""")),
       dict(
