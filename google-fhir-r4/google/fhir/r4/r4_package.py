@@ -39,7 +39,11 @@ def load_base_r4() -> fhir_package.FhirPackage:
   return load(_base_core_factory)
 
 
-def load(archive_file: fhir_package.PackageSource) -> fhir_package.FhirPackage:
+def load(
+    archive_file: fhir_package.PackageSource
+) -> fhir_package.FhirPackage[
+    structure_definition_pb2.StructureDefinition, search_parameter_pb2
+    .SearchParameter, code_system_pb2.CodeSystem, value_set_pb2.ValueSet]:
   """Instantiates and returns a new `FhirPackage` for FHIR R4.
 
   Args:
