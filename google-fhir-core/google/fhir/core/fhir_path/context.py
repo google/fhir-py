@@ -14,7 +14,7 @@
 """Resource and and reference data context for FHIRPath usage."""
 
 import abc
-from typing import Dict, Generic, Iterable, List, Optional, Type, TypeVar
+from typing import Any, Dict, Generic, Iterable, List, Optional, Type, TypeVar
 
 import requests
 
@@ -144,35 +144,30 @@ class MockFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
 
 
 class LocalFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
-  """FHIRPath context that simply pulls from a provided collection of FHIR resources."""
-
-  @classmethod
-  def from_resources(
-      cls,
-      struct_defs: fhir_package.ResourceCollection[_StructDefT],
-      value_sets: Optional[Iterable[_ValueSetT]] = None
-  ) -> 'LocalFhirPathContext[_StructDefT, _ValueSetT]':
-    return LocalFhirPathContext[_StructDefT, _ValueSetT](struct_defs,
-                                                         value_sets)
+  """FHIRPath context that simply pulls from a provided collection of FHIR resources.
+  """
 
   def __init__(self,
-               struct_defs: fhir_package.ResourceCollection[_StructDefT],
+               package_manager: fhir_package.FhirPackageAccessor[_StructDefT,
+                                                                 Any, Any,
+                                                                 _ValueSetT],
                value_sets: Optional[Iterable[_ValueSetT]] = None) -> None:
     # Lazy load structure defintion since there may be many of them.
-    self._struct_defs = struct_defs
+    self._package_manager = package_manager
     self._value_sets: Dict[str, _ValueSetT] = {}
     for value_set in value_sets or ():
       self.add_local_value_set(value_set)
 
   def add_local_value_set(self, value_set: _ValueSetT) -> None:
-    """Adds a local valueset to the context so it can be used for valueset membership checks."""
+    """Adds a local valueset to the context so it can be used for valueset membership checks.
+    """
     self._value_sets[value_set.url.value] = value_set
 
   def get_structure_definition(self, url: str) -> _StructDefT:
 
     # Add standard prefix to structure if necessary.
     qualified_url = _utils.get_absolute_uri_for_structure(url)
-    result = self._struct_defs.get(qualified_url)
+    result = self._package_manager.get_structure_definition(qualified_url)
     if result is None:
       raise UnableToLoadResourceError(f'Unknown structure definition URL {url}')
     return result
@@ -182,7 +177,8 @@ class LocalFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
 
 
 class ServerFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
-  """FHIRPath context that obtains structure definitions from a specified server."""
+  """FHIRPath context that obtains structure definitions from a specified server.
+  """
 
   def __init__(self, server_base_url: str, struct_def_class: Type[_StructDefT],
                handler: primitive_handler.PrimitiveHandler):
@@ -216,7 +212,8 @@ class ServerFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
         f'Expected resource not found in response: {resource_url}')
 
   def add_local_value_set(self, value_set: _ValueSetT):
-    """Adds a local valueset to the context so it can be used for valueset membership checks."""
+    """Adds a local valueset to the context so it can be used for valueset membership checks.
+    """
     self._value_sets[value_set.url.value] = value_set
 
   def get_structure_definition(self, url: str) -> _StructDefT:

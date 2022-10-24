@@ -50,8 +50,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         'test_dataset',
         value_set_codes_table='vs_project.vs_dataset.vs_table',
         internal_default_to_v2_runner=True)
-    self._context = context.LocalFhirPathContext.from_resources(
-        self._fhir_package.structure_definitions)
+    self._context = context.LocalFhirPathContext(self._fhir_package)
     self._views = r4.from_definitions(self._context)
 
   def AstAndExpressionTreeTestRunner(
@@ -843,7 +842,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
           terminology_service_url='http://my-service.com')
 
   def testCreateValusetCodesTableIfNotExists_callsClientCorrectly(self):
-    self.runner._create_valueset_codes_table_if_not_exists()   # pylint: disable=protected-access
+    self.runner._create_valueset_codes_table_if_not_exists()  # pylint: disable=protected-access
 
     expected_table = _BqValuesetCodesTable('vs_project.vs_dataset.vs_table')
     self.mock_bigquery_client.create_table.assert_called_once_with(

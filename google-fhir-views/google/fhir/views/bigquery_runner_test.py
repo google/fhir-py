@@ -48,8 +48,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         self.mock_bigquery_client,
         'test_dataset',
         value_set_codes_table='vs_project.vs_dataset.vs_table')
-    self._context = context.LocalFhirPathContext.from_resources(
-        self._fhir_package.structure_definitions)
+    self._context = context.LocalFhirPathContext(self._fhir_package)
     self._views = r4.from_definitions(self._context)
 
   def AstAndExpressionTreeTestRunner(

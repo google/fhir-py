@@ -21,6 +21,7 @@ from absl.testing import absltest
 # TODO: Eliminate R4-specific tests from this package.
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
 from google.fhir.core.fhir_path import context
+from google.fhir.core.utils import fhir_package
 from google.fhir.r4 import primitive_handler
 from google.fhir.r4 import r4_package
 
@@ -34,10 +35,18 @@ class FhirPathContextTest(absltest.TestCase):
   def setUpClass(cls):
     super().setUpClass()
     cls._package = r4_package.load_base_r4()
+    cls._package_manager = fhir_package.FhirPackageManager([cls._package])
 
   def testStructDefLoad_FromFhirPackage_succeeds(self):
-    test_context = context.LocalFhirPathContext.from_resources(
-        self._package.structure_definitions)
+    test_context = context.LocalFhirPathContext(self._package)
+    from_unqualified = test_context.get_structure_definition('Patient')
+    self.assertEqual(from_unqualified.url.value, _PATIENT_STRUCTDEF_URL)
+    from_qualified = test_context.get_structure_definition(
+        _PATIENT_STRUCTDEF_URL)
+    self.assertEqual(from_qualified.url.value, _PATIENT_STRUCTDEF_URL)
+
+  def testStructDefLoad_FromFhirPackageManager_succeeds(self):
+    test_context = context.LocalFhirPathContext(self._package_manager)
     from_unqualified = test_context.get_structure_definition('Patient')
     self.assertEqual(from_unqualified.url.value, _PATIENT_STRUCTDEF_URL)
     from_qualified = test_context.get_structure_definition(
@@ -45,16 +54,14 @@ class FhirPathContextTest(absltest.TestCase):
     self.assertEqual(from_qualified.url.value, _PATIENT_STRUCTDEF_URL)
 
   def testStuctDefLoadMissingResource_FromFhirPackage_fails(self):
-    test_context = context.LocalFhirPathContext.from_resources(
-        self._package.structure_definitions)
+    test_context = context.LocalFhirPathContext(self._package)
 
     with self.assertRaisesRegex(context.UnableToLoadResourceError,
                                 '.*BogusResource.*'):
       test_context.get_structure_definition('BogusResource')
 
   def testStructDef_LoadDependencies_asExpected(self):
-    test_context = context.LocalFhirPathContext.from_resources(
-        self._package.structure_definitions)
+    test_context = context.LocalFhirPathContext(self._package)
     dependencies = test_context.get_dependency_definitions('Observation')
     dependency_urls = set([dep.url.value for dep in dependencies])
 

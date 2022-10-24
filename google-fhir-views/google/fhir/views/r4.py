@@ -40,8 +40,7 @@ def value_set(uri: str) -> expressions.ValueSetBuilder:
 def base_r4() -> views.Views:
   """Returns a Views instance using the base FHIR R4 structure definitions."""
   package = r4_package.load_base_r4()
-  fhir_context = context.LocalFhirPathContext.from_resources(
-      package.structure_definitions)
+  fhir_context = context.LocalFhirPathContext(package)
   return from_definitions(fhir_context)
 
 
@@ -51,15 +50,16 @@ def from_definitions(fhir_context: R4FhirPathContext) -> views.Views:
 
 
 def from_fhir_package(package_path: str) -> views.Views:
-  """Returns a Views instance that loads resources from the given on-disk package."""
+  """Returns a Views instance that loads resources from the given on-disk package.
+  """
   package = r4_package.load(package_path)
-  fhir_context: R4FhirPathContext = context.LocalFhirPathContext.from_resources(
-      package.structure_definitions)
+  fhir_context: R4FhirPathContext = context.LocalFhirPathContext(package)
   return from_definitions(fhir_context)
 
 
 def from_fhir_server(server_base_url: str) -> views.Views:
-  """Returns a Views instance that loads resources from the given FHIR server."""
+  """Returns a Views instance that loads resources from the given FHIR server.
+  """
   fhir_context: R4FhirPathContext = context.ServerFhirPathContext(
       server_base_url, structure_definition_pb2.StructureDefinition,
       _PRIMITIVE_HANDLER)
