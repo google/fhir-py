@@ -1676,7 +1676,7 @@ class UnionNode(BinaryExpressionNode):
     return f'{self._left.to_fhir_path()} | {self._right.to_fhir_path()}'
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
-    raise NotImplementedError('TODO: implement visitor for UnionNode')
+    return visitor.visit_union(self)
 
 
 # Implementations of FHIRPath functions.
@@ -1741,6 +1741,10 @@ class ExpressionNodeBaseVisitor(abc.ABC):
   @abc.abstractmethod
   def visit_membership(self, relation: MembershipRelationNode) -> Any:
     raise NotImplementedError('Subclasses *must* implement `visit_membership`.')
+
+  @abc.abstractmethod
+  def visit_union(self, union: UnionNode) -> Any:
+    raise NotImplementedError('Subclasses *must* implement `visit_union`.')
 
   @abc.abstractmethod
   def visit_polarity(self, polarity: NumericPolarityNode) -> Any:

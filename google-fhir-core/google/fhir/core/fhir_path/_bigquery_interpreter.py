@@ -437,6 +437,33 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         ),
         from_part=None)
 
+  def visit_union(
+      self, union: _evaluation.UnionNode) -> _sql_data_types.UnionExpression:
+    lhs_result = self.visit(union.left)
+    rhs_result = self.visit(union.right)
+
+    # Supported in FHIRPath, but currently generates invalid Standard SQL.
+    if (isinstance(lhs_result.sql_data_type, _sql_data_types.Struct) or
+        isinstance(rhs_result.sql_data_type, _sql_data_types.Struct)):
+      raise TypeError(
+          f'Unsupported `STRUCT` union between {lhs_result}, {rhs_result}.')
+
+    sql_alias = 'union_'
+    lhs = _sql_data_types.Select(
+        select_part=_sql_data_types.Identifier(
+            ('lhs_', lhs_result.sql_alias),
+            _sql_alias=sql_alias,
+            _sql_data_type=lhs_result.sql_data_type),
+        from_part=f'{lhs_result.to_subquery()} AS lhs_')
+    rhs = _sql_data_types.Select(
+        select_part=_sql_data_types.Identifier(
+            ('rhs_', rhs_result.sql_alias),
+            _sql_alias=sql_alias,
+            _sql_data_type=rhs_result.sql_data_type),
+        from_part=f'{rhs_result.to_subquery()} AS rhs_',
+    )
+    return lhs.union(rhs, distinct=True)
+
   def visit_polarity(
       self,
       polarity: _evaluation.NumericPolarityNode) -> _sql_data_types.Select:
