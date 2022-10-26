@@ -1051,11 +1051,11 @@ class FhirProfileStandardSqlEncoder:
     path_components = [_last_path_token(s.element) for s in self._ctx[1:]]
     return '.'.join([root_path] + [c for c in path_components if c])
 
-  def _encode_fhir_path_expression(self,
+  def _encode_fhir_path_constraint(self,
                                    structure_definition: StructureDefinition,
                                    element_definition: ElementDefinition,
                                    fhir_path_expression: str) -> Optional[str]:
-    """Returns a Standard SQL translation of `fhir_path_expression`.
+    """Returns a Standard SQL translation of the constraint `fhir_path_expression`.
 
     If an error is encountered during encoding, the associated error reporter
     will be notified, and this method will return `None`.
@@ -1069,8 +1069,9 @@ class FhirProfileStandardSqlEncoder:
         expression to encode to Standard SQL.
 
     Returns:
-      A Standard SQL encoding of `fhir_path_expression` upon successful
-      completion.
+      A Standard SQL encoding of the constraint `fhir_path_expression` upon
+      successful completion. The SQL will evaluate to a single boolean
+      indicating whether the constraint is satisfied.
     """
     try:
       sql_expression = self._fhir_path_encoder.encode(
@@ -1104,7 +1105,8 @@ class FhirProfileStandardSqlEncoder:
       return None
 
     if bottom_root_element == element_definition:
-      return sql_expression
+      return ('(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
+              f'FROM UNNEST({sql_expression}) AS result_)')
 
     path_invocation = _escape_fhir_path_invocation(self._abs_path_invocation())
     path_invocation_less_resource = '.'.join(path_invocation.split('.')[1:])
@@ -1123,7 +1125,7 @@ class FhirProfileStandardSqlEncoder:
       return None
 
     # Bind the two expressions together via a correlated `ARRAY` subquery
-    sql_expression = ('ARRAY(SELECT result_\n'
+    sql_expression = ('(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
                       f'FROM (SELECT {sql_expression} AS subquery_\n'
                       'FROM (SELECT AS VALUE ctx_element_\n'
                       f'FROM UNNEST({root_sql_expression}) AS ctx_element_)),\n'
@@ -1184,7 +1186,7 @@ class FhirProfileStandardSqlEncoder:
             fhir_path_expression = replacement.replacement_expression
 
       # Create Standard SQL expression
-      sql_expression = self._encode_fhir_path_expression(
+      sql_expression = self._encode_fhir_path_constraint(
           structure_definition,
           element_definition,
           fhir_path_expression,
@@ -1293,7 +1295,7 @@ class FhirProfileStandardSqlEncoder:
       if not _SKIP_TYPE_CODES.isdisjoint(type_codes):
         continue
 
-      required_sql_expression = self._encode_fhir_path_expression(
+      required_sql_expression = self._encode_fhir_path_constraint(
           structure_definition, element_definition, fhir_path_expression)
       if required_sql_expression is None:
         continue  # Failure to generate Standard SQL expression.
@@ -1545,7 +1547,7 @@ class FhirProfileStandardSqlEncoder:
                                 if element_is_repeated else
                                 f'{escaped_relative_path} >= 0')
 
-      required_sql_expression = self._encode_fhir_path_expression(
+      required_sql_expression = self._encode_fhir_path_constraint(
           structure_definition, element_definition, fhir_path_expression)
       if required_sql_expression is None:
         continue  # Failure to generate Standard SQL expression.
@@ -1709,7 +1711,7 @@ class FhirProfileStandardSqlEncoder:
     # Build the expression against the top-level resource.
     bottom = self._ctx[0]
     bottom_root_element = self._env.get_root_element_for(bottom.containing_type)
-    sql_expression = self._encode_fhir_path_expression(
+    sql_expression = self._encode_fhir_path_constraint(
         bottom.containing_type,
         bottom_root_element,
         top_level_fhir_path_expression,
