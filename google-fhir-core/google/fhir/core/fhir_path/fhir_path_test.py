@@ -1471,11 +1471,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           FROM (SELECT '123' AS literal_) AS rhs_)) AS rhs_) AS eq_)""")),
   )
   def testEncode_withSelectScalarsAsArray_generatesSql(
-      self,
-      fhir_path_expression: str,
-      expected_sql_expression: str,
-      select_scalars_as_array: Optional[bool],
-      missing_feature_in_v2: bool = False):
+      self, fhir_path_expression: str, expected_sql_expression: str,
+      select_scalars_as_array: Optional[bool]):
     """Ensures the select_scalars_as_array flag is respected."""
     kwargs = {}
     if select_scalars_as_array is not None:
@@ -1487,9 +1484,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
         fhir_path_expression=fhir_path_expression,
         **kwargs)
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    if not missing_feature_in_v2:
-      self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                          expected_sql_expression, **kwargs)
+    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
+                                        expected_sql_expression, **kwargs)
 
   @parameterized.named_parameters(
       dict(
