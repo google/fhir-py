@@ -176,8 +176,7 @@ def to_code_values(value_set_proto: message.Message) -> FrozenSet[CodeValue]:
   """Helper function to convert a ValueSet proto into a set of code value data types.
   """
   # TODO: Use a protocol for ValueSets to allow type checking.
-  # pytype: disable=attribute-error
-  expansion = value_set_proto.expansion.contains
+  expansion = value_set_proto.expansion.contains  # pytype: disable=attribute-error
   codes = [
       CodeValue(code_elem.system.value, code_elem.code.value)
       for code_elem in expansion
@@ -415,7 +414,7 @@ class RootMessageNode(ExpressionNode):
   def to_fhir_path(self) -> str:
     # The FHIRPath of a root structure is simply the base type name,
     # so return that if it exists.
-    return self._struct_type.base_type if self._struct_type else ''
+    return self._struct_type.base_type if self._struct_type else ''  # pytype: disable=attribute-error
 
   def operands(self) -> List[ExpressionNode]:
     return []
@@ -442,7 +441,7 @@ class LiteralNode(ExpressionNode):
           annotation_utils.get_structure_definition_url(value) == VALUE_SET_URL)
       if not (primitive_type or valueset_type):
         raise ValueError(f'LiteralNode should be a primitive or valueset, '
-                         f'instead, is {self._value}')
+                         f'instead, is {self._value}')  # pytype: disable=attribute-error
 
     self._value = value
     self._fhir_path_str = fhir_path_str
@@ -576,15 +575,15 @@ class IndexerNode(ExpressionNode):
 
   @property
   def collection(self) -> ExpressionNode:
-    return self._collection
+    return self._collection  # pytype: disable=attribute-error
 
   @property
   def index(self) -> LiteralNode:
-    return self._index
+    return self._index  # pytype: disable=attribute-error
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    collection_messages = self._collection.evaluate(work_space)
-    index_messages = self._index.evaluate(work_space)
+    collection_messages = self._collection.evaluate(work_space)  # pytype: disable=attribute-error
+    index_messages = self._index.evaluate(work_space)  # pytype: disable=attribute-error
     index = _to_int(index_messages)
     if index is None:
       raise ValueError('Expected a non-empty index')
@@ -598,14 +597,14 @@ class IndexerNode(ExpressionNode):
     return [collection_messages[index]]
 
   def to_fhir_path(self) -> str:
-    return f'{self._collection.to_fhir_path()}[{self._index.to_fhir_path()}]'
+    return f'{self._collection.to_fhir_path()}[{self._index.to_fhir_path()}]'  # pytype: disable=attribute-error
 
   def operands(self) -> List[ExpressionNode]:
-    return [self._collection]
+    return [self._collection]  # pytype: disable=attribute-error
 
   def replace_operand(self, expression_to_replace: str,
                       replacement: 'ExpressionNode') -> None:
-    if self._collection.to_fhir_path() == expression_to_replace:
+    if self._collection.to_fhir_path() == expression_to_replace:  # pytype: disable=attribute-error
       self._collection = replacement
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
@@ -830,7 +829,7 @@ class AnyTrueFunction(FunctionNode):
                      _fhir_path_data_types.Boolean)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    child_results = self._operand.evaluate(work_space)
+    child_results = self._operand.evaluate(work_space)  # pytype: disable=attribute-error
     for candidate in child_results:
       work_space.push_message(candidate)
       try:
@@ -952,12 +951,13 @@ class OfTypeFunction(FunctionNode):
     super().__init__(fhir_context, operand, params, return_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    operand_messages = self._operand.evaluate(work_space)
+    operand_messages = self._operand.evaluate(work_space)  # pytype: disable=attribute-error
     results = []
 
     for operand_message in operand_messages:
-      if annotation_utils.get_structure_definition_url(
-          operand_message.message).casefold() == self.struct_def_url.casefold():
+      url = annotation_utils.get_structure_definition_url(
+          operand_message.message)
+      if url is not None and url.casefold() == self.struct_def_url.casefold():
         results.append(operand_message)
 
     return results
@@ -1046,13 +1046,13 @@ class MemberOfFunction(FunctionNode):
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     result = False
-    operand_messages = self._operand.evaluate(work_space)
+    operand_messages = self._operand.evaluate(work_space)  # pytype: disable=attribute-error
 
     # If the code_values are not present, attempt to get them from FHIR context.
     with self.code_values_lock:
       if self.code_values is None:
         value_set_url = cast(
-            Any, self._params[0].evaluate(work_space)[0].message).value
+            Any, self._params[0].evaluate(work_space)[0].message).value  # pytype: disable=attribute-error
         value_set_proto = work_space.fhir_context.get_value_set(value_set_url)
 
         if value_set_proto is None:
@@ -1208,7 +1208,7 @@ class MatchesFunction(FunctionNode):
           'Input collection contains more than one item or is not of string '
           'type.')
 
-    operand_str = cast(str, operand_messages[0].message).value
+    operand_str = cast(str, operand_messages[0].message).value  # pytype: disable=attribute-error
     if not self.pattern.match(operand_str):
       result = False
 
@@ -1380,7 +1380,7 @@ class ArithmeticNode(CoercibleBinaryExpressionNode):
     if not fhir_types.is_string(string_message):
       raise ValueError(
           'String concatenation only accepts str or None operands.')
-    return cast(str, string_message).value
+    return cast(str, string_message).value  # pytype: disable=attribute-error
 
   def _evaluate_numeric_expression(
       self, left: Optional[decimal.Decimal],
@@ -1650,7 +1650,7 @@ class UnionNode(BinaryExpressionNode):
       types_union: Set[_fhir_path_data_types.FhirPathDataType] = set()
       for node_type in (left_type, right_type):
         if isinstance(node_type, _fhir_path_data_types.Collection):
-          types_union.extend(node_type.types)
+          types_union.update(node_type.types)
         else:
           types_union.add(node_type)
       return_type = _fhir_path_data_types.Collection(types_union)
@@ -1705,7 +1705,7 @@ class ExpressionNodeBaseVisitor(abc.ABC):
 
   def visit_children(self, node: ExpressionNode) -> Any:
     result: List[Any] = []
-    for c in node.children():
+    for c in node.children():  # pytype: disable=attribute-error
       result.append(c.accept(self))
     return result
 
