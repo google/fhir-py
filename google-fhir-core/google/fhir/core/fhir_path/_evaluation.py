@@ -72,13 +72,17 @@ def get_messages(parent: message.Message,
 
 
 def _get_fhir_type_from_string(
-    type_code: str, fhir_context: context.FhirPathContext
+    type_code: str, fhir_context: context.FhirPathContext,
+    element_definition: Optional[message.Message]
 ) -> _fhir_path_data_types.FhirPathDataType:
   """Returns a FhirPathDataType from a type code string."""
   # If this is a primitive, simply return the corresponding primitive type.
   primitive_type = _fhir_path_data_types.primitive_type_from_type_code(
       type_code)
   if primitive_type is not None:
+    if element_definition:
+      return primitive_type.get_fhir_type_with_root_element_definition(
+          element_definition)
     return primitive_type
 
   # Load the structure definition for the non-primitive type.
@@ -134,15 +138,15 @@ def _get_child_data_type(
         struct_def_dict[
             elem_type.code.value.casefold()] = _maybe_return_collection_type(
                 elem,
-                _get_fhir_type_from_string(elem_type.code.value, fhir_context),
-                parent)
+                _get_fhir_type_from_string(elem_type.code.value, fhir_context,
+                                           elem), parent)
       return_type = _fhir_path_data_types.PolymorphicDataType(struct_def_dict)
 
     elif not elem.type or not elem.type[0].code.value:
       raise ValueError(f'Malformed ElementDefinition in struct {parent.url}')
     else:
       type_code = elem.type[0].code.value
-      return_type = _get_fhir_type_from_string(type_code, fhir_context)
+      return_type = _get_fhir_type_from_string(type_code, fhir_context, elem)
 
     return _maybe_return_collection_type(elem, return_type, parent)
   else:
@@ -901,7 +905,8 @@ class IdForFunction(FunctionNode):
         'FHIR.') else type_param_str
     self.struct_def_url = ('http://hl7.org/fhir/StructureDefinition/'
                            f'{self.base_type_str.capitalize()}')
-    return_type = _get_fhir_type_from_string(self.struct_def_url, fhir_context)
+    return_type = _get_fhir_type_from_string(
+        self.struct_def_url, fhir_context, element_definition=None)
     super().__init__(fhir_context, operand, params, return_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
@@ -1755,7 +1760,6 @@ class ExpressionNodeBaseVisitor(abc.ABC):
     raise NotImplementedError('Subclasses *must* implement `visit_function`.')
 
 
-# TODO: Complete implementation.
 class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
   """AST visitor to compile a FHIRPath expression."""
 
@@ -1771,7 +1775,6 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     self._node_context = [RootMessageNode(self._context, self._data_type)]
 
   def visit_literal(self, literal: _ast.Literal) -> LiteralNode:
-
     if literal.value is None:
       return LiteralNode(self._context, None, '{}', _fhir_path_data_types.Empty)
     elif isinstance(literal.value, bool):

@@ -37,6 +37,7 @@ from google.fhir.core.utils import proto_utils
 # TODO: Expand to all FHIRPath-comparable equivalent types.
 Comparable = Union[str, bool, int, float, datetime.date, datetime.datetime]
 BuilderOperand = Union[Comparable, 'Builder']
+StructureDefinition = message.Message
 
 
 class ValueSetBuilder:
@@ -334,6 +335,10 @@ class Builder:
 
   def get_node(self) -> _evaluation.ExpressionNode:
     return self._node
+
+  @property
+  def return_type(self) -> _fhir_path_data_types.FhirPathDataType:
+    return self._node.return_type()
 
   def all(self, criteria: 'Builder') -> 'Builder':
     """The FHIRPath all() function.

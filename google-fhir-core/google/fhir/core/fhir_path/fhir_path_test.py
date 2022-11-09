@@ -421,6 +421,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
 
     cls.foo = foo
     cls.foo_root = foo_root_element_definition
+    cls.struct_element_def = struct_element_definition
     cls.fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(cls.resources)
     cls.context = context.MockFhirPathContext(cls.resources)
     cls.bq_interpreter = _bigquery_interpreter.BigQuerySqlInterpreter()
@@ -428,12 +429,8 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
     cls.div = div
     cls.div_root = div_root_element_definition
 
-  def assertEvaluationNodeSqlCorrect(
-      self,
-      structdef: message.Message,
-      fhir_path_expression: str,
-      expected_sql_expression: str,
-      select_scalars_as_array: bool = True) -> None:
+  def create_builder_from_str(self, structdef: message.Message,
+                              fhir_path_expression: str) -> expressions.Builder:
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
     structdef_type = None
     if structdef:
@@ -442,11 +439,47 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
         primitive_handler.PrimitiveHandler(), self.context, structdef_type)
 
     root = visitor.visit(ast)
-    builder = expressions.Builder(root, primitive_handler.PrimitiveHandler())
+    return expressions.Builder(root, primitive_handler.PrimitiveHandler())
+
+  def assertEvaluationNodeSqlCorrect(
+      self,
+      structdef: message.Message,
+      fhir_path_expression: str,
+      expected_sql_expression: str,
+      select_scalars_as_array: bool = True) -> None:
+    builder = self.create_builder_from_str(structdef, fhir_path_expression)
+
     actual_sql_expression = self.bq_interpreter.encode(
         builder, select_scalars_as_array=select_scalars_as_array)
 
     self.assertEqual(actual_sql_expression, expected_sql_expression)
+
+  def testElementDefs_inBuilder(self):
+    """Tests passing element defs to children identifiers."""
+    fhir_path_expression = 'bar.bats.struct.value'
+    builder = self.create_builder_from_str(self.foo, fhir_path_expression)
+
+    expected_element_def = sdefs.build_element_definition(
+        id_='Struct.value',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=0, max='1'))
+    self.assertEqual(builder.return_type.root_element_definition,
+                     expected_element_def)
+
+  def testElementDefs_notInBuilder(self):
+    """Tests that element defs will not exist if a function is called on the builder.
+    """
+    fhir_path_expression = 'bar.bats.struct'
+    builder = self.create_builder_from_str(self.foo, fhir_path_expression)
+
+    expected_element_def = sdefs.build_element_definition(
+        id_='Struct',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(min=0, max='1'))
+    self.assertEqual(builder.return_type.root_element_definition,
+                     expected_element_def)
+
+    self.assertIsNone(builder.exists().return_type.root_element_definition)
 
   @parameterized.named_parameters(
       dict(

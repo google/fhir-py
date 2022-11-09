@@ -96,6 +96,8 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
 
   Attributes:
     cardinality: Determines how many values are returned for the type.
+    root_element_definition: The root element definition that contains
+      constraints and restrictions of the particular type.
     comparable: Values of the same type can be compared to each other.
     supported_coercion: A set of `FhirPathDataType`s depicting allowable
       implicit conversion.
@@ -103,6 +105,7 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
   """
 
   _cardinality: Cardinality = Cardinality.SCALAR
+  _root_element_definition: message.Message = None
 
   @property
   @abc.abstractmethod
@@ -131,12 +134,27 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
     # pylint: enable=protected-access
     return obj_copy
 
+  def get_fhir_type_with_root_element_definition(
+      self, root_element_definition: message.Message) -> 'FhirPathDataType':
+    obj_copy = copy.deepcopy(self)
+    # pylint: disable=protected-access
+    obj_copy._root_element_definition = root_element_definition
+    # pylint: enable=protected-access
+    return obj_copy
+
   def returns_collection(self) -> bool:
     return (self._cardinality == Cardinality.COLLECTION or
             self._cardinality == Cardinality.CHILD_OF_COLLECTION)
 
   def fields(self) -> Set[str]:
     return set()
+
+  def children(self) -> Dict[str, message.Message]:
+    return {}
+
+  @property
+  def root_element_definition(self) -> Optional[message.Message]:
+    return self._root_element_definition
 
   def __init__(self, *, comparable: bool = False) -> None:
     self._comparable = comparable
@@ -491,6 +509,8 @@ class StructureDataType(FhirPathDataType):
         if self._backbone_element_path else struct_id)
 
     for elem in self._struct_def.snapshot.element:
+      if elem.id.value == qualified_path:
+        self._root_element_definition = elem
       if elem.id.value.startswith(qualified_path):
         relative_path = elem.id.value[len(qualified_path) + 1:]
         if relative_path and '.' not in relative_path:
@@ -498,6 +518,10 @@ class StructureDataType(FhirPathDataType):
           if relative_path.endswith('[x]'):
             relative_path = relative_path[:-3]
           self._children[relative_path] = elem
+
+    if not self._root_element_definition:
+      raise ValueError(f'StructureDataType {self._url} '
+                       'missing root element definition.')
 
   def __eq__(self, o) -> bool:
     if isinstance(o, StructureDataType):
