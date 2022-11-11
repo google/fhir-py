@@ -103,7 +103,7 @@ class EvaluationResult:
     if fhir_types.is_type_or_profile_of_code(self._messages[0]):
       return codes.get_code_as_string(self._messages[0])
 
-    # TODO): Check primitive type rather than assuming value.
+    # TODO: Check primitive type rather than assuming value.
     return proto_utils.get_value_at_field(self._messages[0], 'value')
 
   def as_bool(self) -> bool:
@@ -115,7 +115,7 @@ class EvaluationResult:
     if len(self._messages) != 1:
       raise ValueError('FHIRPath did not evaluate to a single boolean.')
 
-    # TODO): Check primitive type rather than assuming value.
+    # TODO: Check primitive type rather than assuming value.
     return proto_utils.get_value_at_field(self._messages[0], 'value')
 
   def as_int(self) -> int:
@@ -127,7 +127,7 @@ class EvaluationResult:
     if len(self._messages) != 1:
       raise ValueError('FHIRPath did not evaluate to a single integer.')
 
-    # TODO): Check primitive type rather than assuming value.
+    # TODO: Check primitive type rather than assuming value.
     return proto_utils.get_value_at_field(self._messages[0], 'value')
 
   def as_decimal(self) -> decimal.Decimal:
@@ -139,7 +139,7 @@ class EvaluationResult:
     if len(self._messages) != 1:
       raise ValueError('FHIRPath did not evaluate to a single decimal.')
 
-    # TODO): Check primitive type rather than assuming value.
+    # TODO: Check primitive type rather than assuming value.
     return decimal.Decimal(
         proto_utils.get_value_at_field(self._messages[0], 'value'))
 

@@ -1423,7 +1423,7 @@ class FhirProfileStandardSqlEncoder:
         current_type_code == 'unsignedInt'):
       return _RegexInfo(regex='', type_code=current_type_code)
 
-    # TODO Remove this after we figure out a better way to encode
+    # TODO: Remove this after we figure out a better way to encode
     # primitive regex constraints for id fields.
     # If the current element_definition ends with `.id` and it's type_code is
     # `http://hl7.org/fhirpath/System.String`, then assume it is an `id` type.
