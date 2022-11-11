@@ -148,10 +148,10 @@ def build_resource_definition(
       url=f'http://hl7.org/fhir/StructureDefinition/{id_}',
       name=id_,
       type_=id_,
-      # TODO: May not be necessary to specify for test fixture purposes.
-      # This could instead perhaps be an abstract type? Otherwise, we should
-      # technically read-in the `Resource` structure definition to ensure a
-      # complete graph.
+      # TODO: May not be necessary to specify for test fixture
+      # purposes. This could instead perhaps be an abstract type? Otherwise, we
+      # should technically read-in the `Resource` structure definition to ensure
+      # a complete graph.
       base_definition='http://hl7.org/fhir/StructureDefinition/Resource',
       element_definitions=element_definitions,
       derivation_code=codes_pb2.TypeDerivationRuleCode.SPECIALIZATION,

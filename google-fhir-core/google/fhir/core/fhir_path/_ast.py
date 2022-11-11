@@ -47,8 +47,8 @@ class Quantity:
 LiteralType = Union[None, bool, str, Number, Quantity]
 
 
-# TODO: Could override property setters and store as a dictionary to avoid
-# the extra pointer storage.
+# TODO: Could override property setters and store as a dictionary
+# to avoid the extra pointer storage.
 class AbstractSyntaxTree(abc.ABC):
   """An abstract syntax tree (AST) base class.
 

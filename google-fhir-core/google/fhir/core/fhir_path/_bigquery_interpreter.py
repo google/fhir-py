@@ -99,7 +99,8 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         isinstance(literal.return_type(), _fhir_path_data_types._Empty)):  # pylint: disable=protected-access
       sql_value = 'NULL'
       sql_data_type = _sql_data_types.Undefined
-    # TODO: Make _fhir_path_data_types.FhirPathDataType classes public.
+    # TODO: Make _fhir_path_data_types.FhirPathDataType classes
+    # public.
     elif isinstance(literal.return_type(), _fhir_path_data_types._Boolean):  # pylint: disable=protected-access
       sql_value = str(literal).upper()
       sql_data_type = _sql_data_types.Boolean
