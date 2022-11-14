@@ -1511,6 +1511,25 @@ class FhirPathExpressionsTest(
           for message in result.messages
       ], ['a', 'b', 1, 2])
 
+  def testGetParentBuilder_succeeds(self):
+    """Tests getting the parent builder."""
+    pat = self.builder('Patient')
+    builder_expr = pat.name.given
+
+    self.assertEqual(builder_expr.get_parent_builder().fhir_path,
+                     pat.name.fhir_path)
+
+    builder_expr = pat.name.given.exists()
+    self.assertEqual(builder_expr.get_parent_builder().fhir_path,
+                     pat.name.given.fhir_path)
+
+  def testGetRootBuilderOfFunction_succeeds(self):
+    """Tests getting a root builder for a builder."""
+    pat = self.builder('Patient')
+    builder_expr = pat.name.given
+
+    self.assertEqual(builder_expr.get_root_builder().fhir_path, 'Patient')
+
   def testUnionOperator_withEmptyCollections_succeeds(self):
     """Ensures "union" works with empty collections."""
     patient = self._new_patient()

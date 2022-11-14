@@ -336,6 +336,12 @@ class Builder:
   def get_node(self) -> _evaluation.ExpressionNode:
     return self._node
 
+  def get_parent_builder(self) -> 'Builder':
+    return self._builder(self._node.get_parent_node())
+
+  def get_root_builder(self) -> 'Builder':
+    return self._builder(self._node.get_root_node())
+
   @property
   def return_type(self) -> _fhir_path_data_types.FhirPathDataType:
     return self._node.return_type()
@@ -553,6 +559,7 @@ class Builder:
         # specifically to support common valueset-based inclusion checks.
         value_set = cast(Any, arg)
         fhir_path_str = f"'{value_set.url.value}'"
+
         params.append(
             _evaluation.LiteralNode(self._node.context, value_set,
                                     fhir_path_str,
@@ -741,3 +748,15 @@ class Builder:
 
   def debug_string(self, with_typing: bool = False) -> str:
     return self._node.debug_string(with_typing)
+
+
+def from_fhir_path_expression(
+    fhir_path_expression: str, fhir_context: context.FhirPathContext,
+    structdef_type: _fhir_path_data_types.StructureDataType,
+    handler: primitive_handler.PrimitiveHandler) -> 'Builder':
+  # Helper class method to build a Builder with a string.
+  ast = _ast.build_fhir_path_ast(fhir_path_expression)
+  visitor = _evaluation.FhirPathCompilerVisitor(handler, fhir_context,
+                                                structdef_type)
+  root = visitor.visit(ast)
+  return Builder(root, handler)

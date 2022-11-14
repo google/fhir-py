@@ -46,6 +46,7 @@ except ImportError:
 # pylint: enable=g-import-not-at-top
 
 VALUE_SET_URL = 'http://hl7.org/fhir/StructureDefinition/ValueSet'
+ElementDefinition = message.Message
 
 
 def get_messages(parent: message.Message,
@@ -73,25 +74,28 @@ def get_messages(parent: message.Message,
 
 def _get_fhir_type_from_string(
     type_code: str, fhir_context: context.FhirPathContext,
-    element_definition: Optional[message.Message]
+    element_definition: Optional[ElementDefinition]
 ) -> _fhir_path_data_types.FhirPathDataType:
   """Returns a FhirPathDataType from a type code string."""
   # If this is a primitive, simply return the corresponding primitive type.
-  primitive_type = _fhir_path_data_types.primitive_type_from_type_code(
-      type_code)
-  if primitive_type is not None:
-    if element_definition:
-      return primitive_type.get_fhir_type_with_root_element_definition(
-          element_definition)
-    return primitive_type
+  return_type = _fhir_path_data_types.primitive_type_from_type_code(type_code)
 
   # Load the structure definition for the non-primitive type.
-  child_structdef = fhir_context.get_structure_definition(type_code)
-  return _fhir_path_data_types.StructureDataType(child_structdef)
+  if return_type is None:
+    child_structdef = fhir_context.get_structure_definition(type_code)
+    return_type = _fhir_path_data_types.StructureDataType(child_structdef)
+
+  if not element_definition:
+    return return_type
+
+  # If an element definition is provided (from a parent) then override the
+  # existing element definition saved.
+  return return_type.get_fhir_type_with_root_element_definition(
+      element_definition)
 
 
 def _maybe_return_collection_type(
-    element: message.Message,
+    element: ElementDefinition,
     return_type: _fhir_path_data_types.FhirPathDataType,
     parent_type: Optional[_fhir_path_data_types.FhirPathDataType]
 ) -> _fhir_path_data_types.FhirPathDataType:
@@ -104,6 +108,38 @@ def _maybe_return_collection_type(
     return return_type.get_new_cardinality_type(
         _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION)
   return return_type
+
+
+def _fhir_data_type_generator(
+    parent: _fhir_path_data_types.StructureDataType,
+    fhir_context: context.FhirPathContext,
+    element_definition: ElementDefinition,
+    json_name: str) -> _fhir_path_data_types.FhirPathDataType:
+  """Generated a FhirPathDataType from the parent and element definition."""
+  elem = cast(Any, element_definition)
+  structdef = parent.structure_definition
+
+  if _utils.is_backbone_element(elem):
+    elem_path = parent.backbone_element_path + '.' + json_name if parent.backbone_element_path else json_name
+    return_type = _fhir_path_data_types.StructureDataType(structdef, elem_path)
+
+  elif _utils.is_polymorphic_element(elem):
+    struct_def_dict = {}
+    for elem_type in elem.type:
+      struct_def_dict[
+          elem_type.code.value.casefold()] = _maybe_return_collection_type(
+              elem,
+              _get_fhir_type_from_string(elem_type.code.value, fhir_context,
+                                         elem), parent)
+    return_type = _fhir_path_data_types.PolymorphicDataType(struct_def_dict)
+
+  elif not elem.type or not elem.type[0].code.value:
+    raise ValueError(f'Malformed ElementDefinition in struct {parent.url}')
+  else:
+    type_code = elem.type[0].code.value
+    return_type = _get_fhir_type_from_string(type_code, fhir_context, elem)
+
+  return _maybe_return_collection_type(elem, return_type, parent)
 
 
 def _get_child_data_type(
@@ -122,33 +158,10 @@ def _get_child_data_type(
     return possible_types[json_name.casefold()]
 
   if isinstance(parent, _fhir_path_data_types.StructureDataType):
-    structdef = fhir_context.get_structure_definition(parent.url)
-    elem_path = parent.backbone_element_path + '.' + json_name if parent.backbone_element_path else json_name
-    elem = _utils.get_element(structdef, elem_path)
+    elem = parent.children().get(json_name)
     if elem is None:
       return None
-
-    if _utils.is_backbone_element(elem):
-      return_type = _fhir_path_data_types.StructureDataType(
-          structdef, elem_path)
-
-    elif _utils.is_polymorphic_element(elem):
-      struct_def_dict = {}
-      for elem_type in elem.type:
-        struct_def_dict[
-            elem_type.code.value.casefold()] = _maybe_return_collection_type(
-                elem,
-                _get_fhir_type_from_string(elem_type.code.value, fhir_context,
-                                           elem), parent)
-      return_type = _fhir_path_data_types.PolymorphicDataType(struct_def_dict)
-
-    elif not elem.type or not elem.type[0].code.value:
-      raise ValueError(f'Malformed ElementDefinition in struct {parent.url}')
-    else:
-      type_code = elem.type[0].code.value
-      return_type = _get_fhir_type_from_string(type_code, fhir_context, elem)
-
-    return _maybe_return_collection_type(elem, return_type, parent)
+    return _fhir_data_type_generator(parent, fhir_context, elem, json_name)
   else:
     return None
 
@@ -240,6 +253,14 @@ class ExpressionNode(abc.ABC):
   def return_type(self) -> _fhir_path_data_types.FhirPathDataType:
     """The descriptor of the items returned by the expression, if known."""
     return self._return_type
+
+  @abc.abstractmethod
+  def get_root_node(self) -> 'ExpressionNode':
+    raise NotImplementedError('Subclasses *must* implement `get_root_node`.')
+
+  @abc.abstractmethod
+  def get_parent_node(self) -> 'ExpressionNode':
+    raise NotImplementedError('Subclasses *must* implement `get_parent_node`.')
 
   @abc.abstractmethod
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
@@ -358,6 +379,12 @@ class BinaryExpressionNode(ExpressionNode):
     self._right = right
     super().__init__(fhir_context, return_type)
 
+  def get_root_node(self) -> ExpressionNode:
+    return self._left.get_root_node()
+
+  def get_parent_node(self) -> ExpressionNode:
+    return self._left
+
   @property
   def left(self) -> ExpressionNode:
     return self._left
@@ -412,6 +439,12 @@ class RootMessageNode(ExpressionNode):
     self._struct_type = return_type
     super().__init__(fhir_context, return_type)
 
+  def get_root_node(self) -> 'ExpressionNode':
+    return self
+
+  def get_parent_node(self):
+    return None
+
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     return [work_space.root_message()]
 
@@ -450,6 +483,12 @@ class LiteralNode(ExpressionNode):
     self._value = value
     self._fhir_path_str = fhir_path_str
     super().__init__(fhir_context, return_type)
+
+  def get_root_node(self) -> ExpressionNode:
+    return self  # maybe return none instead.
+
+  def get_parent_node(self):
+    return None
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     # Represent null as an empty list rather than a list with a None element.
@@ -512,15 +551,24 @@ class InvokeExpressionNode(ExpressionNode):
                parent_node: ExpressionNode) -> None:
     self._identifier = identifier
     self._parent_node = parent_node
+    return_type = None
     if self._identifier == '$this':
       return_type = self._parent_node.return_type()
     else:
       return_type = _get_child_data_type(self._parent_node.return_type(),
                                          fhir_context, self._identifier)
+
     if not return_type:
       raise ValueError(
-          f'Identifier {identifier} cannot be extracted from parent node.')
+          f'Identifier {identifier} cannot be extracted from parent node {self._parent_node}'
+      )
     super().__init__(fhir_context, return_type)
+
+  def get_root_node(self) -> ExpressionNode:
+    return self._parent_node.get_root_node()
+
+  def get_parent_node(self) -> ExpressionNode:
+    return self._parent_node
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     operand_messages = self._parent_node.evaluate(work_space)
@@ -577,6 +625,12 @@ class IndexerNode(ExpressionNode):
     self._index = index
     super().__init__(fhir_context, collection.return_type())
 
+  def get_root_node(self) -> ExpressionNode:
+    return self.collection.get_root_node()
+
+  def get_parent_node(self) -> ExpressionNode:
+    return self.collection
+
   @property
   def collection(self) -> ExpressionNode:
     return self._collection  # pytype: disable=attribute-error
@@ -627,6 +681,12 @@ class NumericPolarityNode(ExpressionNode):
     self._operand = operand
     self._polarity = polarity
     super().__init__(fhir_context, operand.return_type())
+
+  def get_root_node(self) -> ExpressionNode:
+    return self._operand.get_root_node()
+
+  def get_parent_node(self) -> ExpressionNode:
+    return self._operand
 
   @property
   def operand(self) -> ExpressionNode:
@@ -695,6 +755,12 @@ class FunctionNode(ExpressionNode):
     self._operand = operand
     self._parent_node = operand
     self._params = params
+
+  def get_root_node(self) -> ExpressionNode:
+    return self._parent_node.get_root_node()
+
+  def get_parent_node(self) -> ExpressionNode:
+    return self._parent_node
 
   def to_fhir_path(self) -> str:
     param_str = ', '.join([param.to_fhir_path() for param in self._params])
@@ -1556,6 +1622,12 @@ class ReferenceNode(ExpressionNode):
                reference_node: ExpressionNode) -> None:
     self._reference_node = reference_node
     super().__init__(fhir_context, reference_node.return_type())
+
+  def get_root_node(self) -> ExpressionNode:
+    return self._reference_node.get_root_node()
+
+  def get_parent_node(self) -> ExpressionNode:
+    return self._reference_node
 
   def operands(self) -> List[ExpressionNode]:
     return [self._reference_node]

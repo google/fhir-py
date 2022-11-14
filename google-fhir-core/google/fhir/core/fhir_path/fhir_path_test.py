@@ -29,9 +29,7 @@ from google.fhir.r4.proto.core import codes_pb2
 from google.fhir.r4.proto.core import datatypes_pb2
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
 from google.fhir.core import fhir_errors
-from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _bigquery_interpreter
-from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _structure_definitions as sdefs
 from google.fhir.core.fhir_path import context
@@ -432,15 +430,13 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
 
   def create_builder_from_str(self, structdef: message.Message,
                               fhir_path_expression: str) -> expressions.Builder:
-    ast = _ast.build_fhir_path_ast(fhir_path_expression)
     structdef_type = None
     if structdef:
       structdef_type = _fhir_path_data_types.StructureDataType(structdef)
-    visitor = _evaluation.FhirPathCompilerVisitor(
-        primitive_handler.PrimitiveHandler(), self.context, structdef_type)
 
-    root = visitor.visit(ast)
-    return expressions.Builder(root, primitive_handler.PrimitiveHandler())
+    return expressions.from_fhir_path_expression(
+        fhir_path_expression, self.context, structdef_type,
+        primitive_handler.PrimitiveHandler())
 
   def assertEvaluationNodeSqlCorrect(
       self,
@@ -472,14 +468,13 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
     """
     fhir_path_expression = 'bar.bats.struct'
     builder = self.create_builder_from_str(self.foo, fhir_path_expression)
-
     expected_element_def = sdefs.build_element_definition(
-        id_='Struct',
-        type_codes=None,
+        id_='Bats.struct',
+        type_codes=['Struct'],
         cardinality=sdefs.Cardinality(min=0, max='1'))
+
     self.assertEqual(builder.return_type.root_element_definition,
                      expected_element_def)
-
     self.assertIsNone(builder.exists().return_type.root_element_definition)
 
   @parameterized.named_parameters(

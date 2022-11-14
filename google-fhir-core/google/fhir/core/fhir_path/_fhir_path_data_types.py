@@ -488,6 +488,10 @@ class StructureDataType(FhirPathDataType):
     return self._base_type
 
   @property
+  def structure_definition(self) -> message.Message:
+    return self._struct_def
+
+  @property
   def backbone_element_path(self) -> Optional[str]:
     """Optional path to non-root backbone element to use."""
     return self._backbone_element_path
