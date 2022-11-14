@@ -38,6 +38,7 @@ from google.fhir.core.fhir_path import context
 from google.fhir.core.fhir_path import expressions
 from google.fhir.core.fhir_path import fhir_path
 from google.fhir.core.fhir_path import fhir_path_options
+from google.fhir.core.fhir_path import fhir_path_validator
 from google.fhir.r4 import primitive_handler
 
 # TODO: Make FHIR-version agnostic (e.g. parameterize on module?)
@@ -2811,7 +2812,7 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
     # Encode as Standard SQL expression
     all_resources = [profile] + list(self.resources.values())
     error_reporter = fhir_errors.ListErrorReporter()
-    profile_std_sql_encoder = fhir_path.FhirProfileStandardSqlEncoder(
+    profile_std_sql_encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         all_resources, error_reporter)
     actual_bindings = profile_std_sql_encoder.encode(profile)
 
@@ -2825,7 +2826,7 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
         fhir_path_key=constraint.key.value,
         fhir_path_expression=constraint.expression.value,
         fields_referenced_by_expression=(
-            fhir_path._fields_referenced_by_expression(
+            fhir_path_validator._fields_referenced_by_expression(
                 constraint.expression.value)))
 
     self.assertEmpty(error_reporter.errors)
@@ -2862,7 +2863,7 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
     # Encode as Standard SQL expression.
     all_resources = list(self.resources.values())
     error_reporter = fhir_errors.ListErrorReporter()
-    profile_std_sql_encoder = fhir_path.FhirProfileStandardSqlEncoder(
+    profile_std_sql_encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         all_resources, error_reporter)
     actual_bindings = profile_std_sql_encoder.encode(resource)
 
@@ -2902,7 +2903,7 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
     # Encode as Standard SQL expression
     all_resources = [profile] + list(self.resources.values())
     error_reporter = fhir_errors.ListErrorReporter()
-    profile_std_sql_encoder = fhir_path.FhirProfileStandardSqlEncoder(
+    profile_std_sql_encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         all_resources, error_reporter)
     _ = profile_std_sql_encoder.encode(profile)
 
@@ -2974,9 +2975,9 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         id_='Bar', element_definitions=[bar_root, bar_code_element_definition])
 
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path.FhirProfileStandardSqlEncoder([foo, bar],
-                                                      error_reporter,
-                                                      options=options)
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder([foo, bar],
+                                                                error_reporter,
+                                                                options=options)
     actual_bindings = encoder.encode(foo)
     self.assertEmpty(error_reporter.warnings)
     self.assertEmpty(error_reporter.errors)
@@ -3003,7 +3004,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     error_reporter = fhir_errors.ListErrorReporter()
     options = fhir_path.SqlGenerationOptions(
         skip_keys=set(['always-fail-constraint-key']))
-    encoder = fhir_path.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         [profile],
         error_reporter,
         options=options,
@@ -3036,8 +3037,8 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
     # Standup encoder
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path.FhirProfileStandardSqlEncoder([foo, bar],
-                                                      error_reporter)
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder([foo, bar],
+                                                                error_reporter)
 
     actual_bindings = encoder.encode(foo)
     self.assertEmpty(error_reporter.warnings)
@@ -3063,7 +3064,8 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
     # Stand up encoder
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path.FhirProfileStandardSqlEncoder([foo], error_reporter)
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder([foo],
+                                                                error_reporter)
 
     actual_bindings = encoder.encode(foo)
     self.assertEmpty(error_reporter.warnings)
@@ -3088,7 +3090,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
     # Standup encoder
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         [foo],
         error_reporter,
     )
@@ -3125,9 +3127,9 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         replacement_expression='4 + 5')
 
     options = fhir_path.SqlGenerationOptions(expr_replace_list=replace_list)
-    encoder = fhir_path.FhirProfileStandardSqlEncoder([foo],
-                                                      error_reporter,
-                                                      options=options)
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder([foo],
+                                                                error_reporter,
+                                                                options=options)
 
     # Ensure that we only produce a single Standard SQL requirement, and that
     # an error is logged since we were given a duplicate constraint.
@@ -3176,9 +3178,9 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         replacement_expression='4 + 5')
 
     options = fhir_path.SqlGenerationOptions(expr_replace_list=replace_list)
-    encoder = fhir_path.FhirProfileStandardSqlEncoder([foo, bar],
-                                                      error_reporter,
-                                                      options=options)
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder([foo, bar],
+                                                                error_reporter,
+                                                                options=options)
 
     # Ensure that we only produce a single Standard SQL requirement, and that
     # an error is logged since we were given a duplicate constraint.
@@ -3217,7 +3219,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     error_reporter = fhir_errors.ListErrorReporter()
     options = fhir_path.SqlGenerationOptions(
         skip_keys=set(['always-fail-constraint-key']))
-    encoder = fhir_path.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         [profile, string],
         error_reporter,
         options=options,
