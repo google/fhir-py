@@ -37,6 +37,7 @@ from google.fhir.core.fhir_path import expressions
 from google.fhir.core.fhir_path import fhir_path
 from google.fhir.core.fhir_path import fhir_path_options
 from google.fhir.core.fhir_path import fhir_path_validator
+from google.fhir.core.fhir_path import fhir_path_validator_v2
 from google.fhir.r4 import primitive_handler
 
 # TODO: Make FHIR-version agnostic (e.g. parameterize on module?)
@@ -2849,7 +2850,7 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
       fhir_path_key: Optional[str] = None,
       fhir_path_expression: Optional[str] = None,
       fields_referenced_by_expression: Optional[List[str]] = None,
-  ) -> None:
+      supported_in_v2: bool = False) -> None:
     """Asserts `expected_sql_expression` is generated for a required field."""
 
     resource = self.resources[
@@ -2861,6 +2862,11 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
     profile_std_sql_encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         all_resources, error_reporter)
     actual_bindings = profile_std_sql_encoder.encode(resource)
+
+    if supported_in_v2:
+      profile_std_sql_encoder_v2 = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+          all_resources, primitive_handler.PrimitiveHandler(), error_reporter)
+      actual_bindings_v2 = profile_std_sql_encoder_v2.encode(resource)
 
     # Replace optional params with defaults if needed.
     fhir_path_key = fhir_path_key if fhir_path_key else (
@@ -2882,10 +2888,16 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
     self.assertEmpty(error_reporter.errors)
     self.assertEmpty(error_reporter.warnings)
     self.assertListEqual(actual_bindings, [expected_binding])
+    if supported_in_v2:
+      self.assertListEqual(actual_bindings_v2, [expected_binding])
 
   def assert_raises_fhir_path_encoding_error(
-      self, *, base_id: str, element_definition_id: str,
-      constraint: datatypes_pb2.ElementDefinition.Constraint) -> None:
+      self,
+      *,
+      base_id: str,
+      element_definition_id: str,
+      constraint: datatypes_pb2.ElementDefinition.Constraint,
+      supported_in_v2: bool = False) -> None:
     """Asserts that a single error is raised."""
 
     # Create profile-under-test
@@ -2901,9 +2913,16 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
     profile_std_sql_encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         all_resources, error_reporter)
     _ = profile_std_sql_encoder.encode(profile)
-
     self.assertLen(error_reporter.errors, 1)
     self.assertEmpty(error_reporter.warnings)
+
+    if supported_in_v2:
+      error_reporter = fhir_errors.ListErrorReporter()
+      profile_std_sql_encoder_v2 = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+          all_resources, primitive_handler.PrimitiveHandler(), error_reporter)
+      _ = profile_std_sql_encoder_v2.encode(profile)
+      self.assertLen(error_reporter.errors, 1)
+      self.assertEmpty(error_reporter.warnings)
 
 
 class FhirProfileStandardSqlEncoderConfigurationTest(
@@ -3307,7 +3326,8 @@ class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
     self.assert_raises_fhir_path_encoding_error(
         base_id='SimpleCycle',
         element_definition_id='SimpleCycle.cycle',
-        constraint=constraint)
+        constraint=constraint,
+        supported_in_v2=True)
 
   def testEncodeProfile_withCycle_reportsCycleError(self):
     # Simple cycle between the `ElementDefinition` of our profile, whose type
@@ -3317,7 +3337,8 @@ class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
     self.assert_raises_fhir_path_encoding_error(
         base_id='CycleA',
         element_definition_id='CycleA.b',
-        constraint=constraint)
+        constraint=constraint,
+        supported_in_v2=True)
 
 
 class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
@@ -4215,7 +4236,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           FROM (SELECT id IS NOT NULL AS exists_)
           WHERE exists_ IS NOT NULL)) AS result_)"""),
           fhir_path_expression='id.exists()',
-          fields_referenced_by_expression=['id']),
+          fields_referenced_by_expression=['id'],
+          supported_in_v2=True),
       dict(
           testcase_name='_withDeepRequiredField',
           base_id='Bar',
@@ -4234,7 +4256,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           WHERE deep IS NOT NULL)) AS ctx_element_)),
           UNNEST(subquery_) AS result_)"""),
           fhir_path_expression='deeper.exists()',
-          fields_referenced_by_expression=['deeper']),
+          fields_referenced_by_expression=['deeper'],
+      ),
       dict(
           testcase_name='_withChildOfBackboneElement',
           base_id='Baz',
@@ -4275,7 +4298,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           WHERE jerry_element_ IS NOT NULL)) AS logic_)
           WHERE logic_ IS NOT NULL)) AS result_)"""),
           fhir_path_expression='jerry.count() <= 5 and jerry.exists()',
-          fields_referenced_by_expression=['jerry']),
+          fields_referenced_by_expression=['jerry'],
+          supported_in_v2=True),
       dict(
           testcase_name='_withSliceOnExtensionThatIsRequired',
           base_id='NewFoo',
@@ -4302,7 +4326,7 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
       fhir_path_key: Optional[str] = None,
       fhir_path_expression: Optional[str] = None,
       fields_referenced_by_expression: Optional[List[str]] = None,
-  ):
+      supported_in_v2: bool = False):
     self.assert_encoder_generates_expression_for_required_field(
         base_id=base_id,
         required_field=required_field,
@@ -4313,7 +4337,7 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
         fhir_path_key=fhir_path_key,
         fhir_path_expression=fhir_path_expression,
         fields_referenced_by_expression=fields_referenced_by_expression,
-    )
+        supported_in_v2=supported_in_v2)
 
 
 if __name__ == '__main__':

@@ -481,7 +481,8 @@ class StructureDataType(FhirPathDataType):
 
   @property
   def url(self) -> str:
-    return self._url
+    return '.'.join([self._url, self.backbone_element_path
+                    ]) if self.backbone_element_path else self._url
 
   @property
   def base_type(self) -> str:
