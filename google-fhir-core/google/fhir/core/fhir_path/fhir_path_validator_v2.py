@@ -34,7 +34,7 @@ from google.fhir.core.fhir_path import expressions
 from google.fhir.core.internal import primitive_handler
 from google.fhir.core.utils import proto_utils
 
-# TODO: Update FHIR-agnostic types to a protocol.
+# TODO(b/201107372): Update FHIR-agnostic types to a protocol.
 StructureDefinition = message.Message
 ElementDefinition = message.Message
 Constraint = message.Message
@@ -59,7 +59,7 @@ UNSUPPORTED_BASE_PATHS = frozenset([
 # `ElementDefinition`s whose type codes overlap with this set will be silently
 # skipped during profile traversal.
 _SKIP_TYPE_CODES = frozenset([
-    # TODO: Add support for traversing `targetProfile`s of a
+    # TODO(b/193251325): Add support for traversing `targetProfile`s of a
     # `Reference` type.
     'Reference',
 
@@ -71,10 +71,10 @@ _SKIP_TYPE_CODES = frozenset([
 
 # A list of fhir path constraint keys to skip.
 _SKIP_KEYS = frozenset([
-    # TODO: This constraint produces a regex that escapes
+    # TODO(b/203253155): This constraint produces a regex that escapes
     # our string quotes.
     'eld-19',
-    # TODO: Remove this key after we start taking profiles into
+    # TODO(b/206986228): Remove this key after we start taking profiles into
     # account when encoding constraints for fields.
     'comparator-matches-code-regex',
     # Ignore this constraint because it is only directed towards primitive
@@ -285,11 +285,11 @@ class FhirProfileStandardSqlEncoder:
       )
       return None
 
-    # TODO: Add support for non-root level constraints.
+    # TODO(b/254866189): Add support for non-root level constraints.
     return ('(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
             f'FROM UNNEST({sql_expression}) AS result_)')
 
-  # TODO: Handle general cardinality requirements.
+  # TODO(b/222541838): Handle general cardinality requirements.
   def _encode_required_fields(
       self,
       builder: expressions.Builder) -> List[validation_pb2.SqlRequirement]:
@@ -304,7 +304,7 @@ class FhirProfileStandardSqlEncoder:
     """
 
     # If this is an extension, we don't want to access its children/fields.
-    # TODO: Add support for complex extensions and the fields
+    # TODO(b/200575760): Add support for complex extensions and the fields
     # inside them.
     if (isinstance(builder.return_type, _fhir_path_data_types.StructureDataType)
         and cast(_fhir_path_data_types.StructureDataType,
@@ -317,7 +317,7 @@ class FhirProfileStandardSqlEncoder:
       child = cast(Any, child_message)
       # This allows us to encode required fields on slices of extensions while
       # filtering out slices on non-extensions.
-      # TODO: Properly handle slices that are not slices on
+      # TODO(b/202564733): Properly handle slices that are not slices on
       # extensions.
       if (_utils.is_slice_element(child) and
           not _utils.is_slice_on_extension(child)):
@@ -415,7 +415,7 @@ class FhirProfileStandardSqlEncoder:
     result += self._encode_required_fields(builder)
 
     # Ignores the fields inside complex extensions.
-    # TODO: Add support for complex extensions and the fields
+    # TODO(b/200575760): Add support for complex extensions and the fields
     # inside them.
     if isinstance(builder.return_type, _fhir_path_data_types.StructureDataType):
       struct_type = cast(_fhir_path_data_types.StructureDataType,
@@ -476,6 +476,6 @@ def _fields_referenced_by_expression(
     A collection of paths for fields referenced in the given expression.
   """
   # Sort the results so they are consistently ordered for the golden tests.
-  # TODO: Change this to traversal over the builder.
+  # TODO(b/254866189): Change this to traversal over the builder.
   return sorted(
       _ast.paths_referenced_by(_ast.build_fhir_path_ast(fhir_path_expression)))

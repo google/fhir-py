@@ -31,7 +31,7 @@ from google.fhir.core.fhir_path import fhir_path
 from google.fhir.core.fhir_path import fhir_path_options
 from google.fhir.core.utils import proto_utils
 
-# TODO: Update FHIR-agnostic types to a protocol.
+# TODO(b/201107372): Update FHIR-agnostic types to a protocol.
 StructureDefinition = message.Message
 ElementDefinition = message.Message
 Constraint = message.Message
@@ -74,7 +74,7 @@ _PRIMITIVES_EXCLUDED_FROM_REGEX_ENCODING = frozenset([
 # `ElementDefinition`s whose type codes overlap with this set will be silently
 # skipped during profile traversal.
 _SKIP_TYPE_CODES = frozenset([
-    # TODO: Add support for traversing `targetProfile`s of a
+    # TODO(b/193251325): Add support for traversing `targetProfile`s of a
     # `Reference` type.
     'Reference',
 
@@ -86,10 +86,10 @@ _SKIP_TYPE_CODES = frozenset([
 
 # A list of fhir path constraint keys to skip.
 _SKIP_KEYS = frozenset([
-    # TODO: This constraint produces a regex that escapes
+    # TODO(b/203253155): This constraint produces a regex that escapes
     # our string quotes.
     'eld-19',
-    # TODO: Remove this key after we start taking profiles into
+    # TODO(b/206986228): Remove this key after we start taking profiles into
     # account when encoding constraints for fields.
     'comparator-matches-code-regex',
     # Ignore this constraint because it is only directed towards primitive
@@ -449,7 +449,7 @@ class FhirProfileStandardSqlEncoder:
             'Constraint severity must be set.')
         continue  # Malformed constraint
 
-      # TODO: Remove this implementation when a better
+      # TODO(b/221470795): Remove this implementation when a better
       # implementation at the FhirPackage level has been added.
       # Replace fhir_path_expression if needed. This functionality is mainly for
       # temporary replacements of invalid expressions defined in the spec while
@@ -471,7 +471,7 @@ class FhirProfileStandardSqlEncoder:
         continue  # Failure to generate Standard SQL expression
 
       # Constraint type and severity metadata; default to WARNING
-      # TODO: Cleanup validation severity mapping
+      # TODO(b/199419068): Cleanup validation severity mapping
       type_ = validation_pb2.ValidationType.VALIDATION_TYPE_FHIR_PATH_CONSTRAINT
       severity = cast(Any, constraint).severity
       severity_value_field = severity.DESCRIPTOR.fields_by_name.get('value')
@@ -503,7 +503,7 @@ class FhirProfileStandardSqlEncoder:
 
     return result
 
-  # TODO: Handle general cardinality requirements.
+  # TODO(b/222541838): Handle general cardinality requirements.
   def _encode_required_fields(
       self,
       structure_definition: message.Message,
@@ -521,7 +521,7 @@ class FhirProfileStandardSqlEncoder:
     """
 
     # If this is an extension, we don't want to access its children/fields.
-    # TODO: Add support for complex extensions and the fields
+    # TODO(b/200575760): Add support for complex extensions and the fields
     # inside them.
     if cast(Any, structure_definition).type.value == 'Extension':
       return []
@@ -532,7 +532,7 @@ class FhirProfileStandardSqlEncoder:
 
       # This allows us to encode required fields on slices of extensions while
       # filtering out slices on non-extensions.
-      # TODO: Properly handle slices that are not slices on
+      # TODO(b/202564733): Properly handle slices that are not slices on
       # extensions.
       if (_utils.is_slice_element(child) and
           not _utils.is_slice_on_extension(child)):
@@ -636,7 +636,7 @@ class FhirProfileStandardSqlEncoder:
           ' Which is not supported.')
 
     urls = _utils.slice_element_urls(element_definition)
-    # TODO: Handle choice types.
+    # TODO(b/190679571): Handle choice types.
     if not urls:
       raise ValueError('Unable to get url for slice on extension with id: '
                        f'{_get_analytic_path(element_definition)}')
@@ -665,12 +665,12 @@ class FhirProfileStandardSqlEncoder:
       # At this point, the current element is a slice on an extension that has
       # no valid `Extension.value[x]` element, so we assume it is a complex
       # extension.
-      # TODO: Handle complex extensions.
+      # TODO(b/200575760): Handle complex extensions.
       return []
     else:
       return _utils.element_type_codes(value_element)
 
-  # TODO: Move important ElementDefinition (and other) functions
+  # TODO(b/207690471): Move important ElementDefinition (and other) functions
   # to their respective utility modules and unit test their public facing apis .
   def _get_regex_from_element(
       self, element_definition: ElementDefinition) -> Optional[_RegexInfo]:
@@ -689,7 +689,7 @@ class FhirProfileStandardSqlEncoder:
     current_type_code = type_codes[0]
 
     element_id: str = cast(Any, element_definition).id.value
-    # TODO: Look more into how this section handles multithreading.
+    # TODO(b/208620019): Look more into how this section handles multithreading.
     # If we have memoised the regex of this element, then just return it.
     if element_id in self._element_id_to_regex_map:
       return self._element_id_to_regex_map[element_id]
@@ -699,7 +699,7 @@ class FhirProfileStandardSqlEncoder:
         current_type_code == 'unsignedInt'):
       return _RegexInfo(regex='', type_code=current_type_code)
 
-    # TODO: Remove this after we figure out a better way to encode
+    # TODO(b/207018908): Remove this after we figure out a better way to encode
     # primitive regex constraints for id fields.
     # If the current element_definition ends with `.id` and it's type_code is
     # `http://hl7.org/fhirpath/System.String`, then assume it is an `id` type.
@@ -755,13 +755,13 @@ class FhirProfileStandardSqlEncoder:
     """
 
     element_definition_path = self._abs_path_invocation()
-    # TODO: Remove this key after we start taking profiles into
+    # TODO(b/206986228): Remove this key after we start taking profiles into
     # account when encoding constraints for fields.
     if 'comparator' in element_definition_path.split('.'):
       return []
 
     # If this is an extension, we don't want to access its children/fields.
-    # TODO: Add support for complex extensions and the fields
+    # TODO(b/200575760): Add support for complex extensions and the fields
     # inside them.
     if cast(Any, structure_definition).type.value == 'Extension':
       return []
@@ -769,11 +769,11 @@ class FhirProfileStandardSqlEncoder:
     encoded_requirements: List[validation_pb2.SqlRequirement] = []
     children = self._env.get_children(structure_definition, element_definition)
     for child in children:
-      # TODO: Handle choice types, which may have more than one
+      # TODO(b/190679571): Handle choice types, which may have more than one
       # `type.code` value present.
       # If this element is a choice type, a slice (that is not on an extension)
       # or is disabled, then don't encode requirements for it.
-      # TODO: Properly handle slices on non-simple extensions.
+      # TODO(b/202564733): Properly handle slices on non-simple extensions.
       if (('[x]' in _get_analytic_path(child) or _is_disabled(child)) or
           (_utils.is_slice_element(child) and
            not _utils.is_slice_on_extension(child))):
@@ -863,7 +863,7 @@ class FhirProfileStandardSqlEncoder:
     result: List[validation_pb2.SqlRequirement] = []
 
     # This filters out choice types as they are currently not supported.
-    # TODO: Handle choice types, which may have more than one
+    # TODO(b/190679571): Handle choice types, which may have more than one
     # `type.code` value present.
     element_definition_path = (
         f'{self._abs_path_invocation()}.{_last_path_token(element_definition)}')
@@ -875,7 +875,7 @@ class FhirProfileStandardSqlEncoder:
 
     # This filters out slices that are not on extensions as they are currently
     # not supported.
-    # TODO: Properly handle slices that are not on extensions.
+    # TODO(b/202564733): Properly handle slices that are not on extensions.
     if (_utils.is_slice_element(element_definition) and
         not _utils.is_slice_on_extension(element_definition)):
       self._error_reporter.report_conversion_error(
@@ -928,7 +928,7 @@ class FhirProfileStandardSqlEncoder:
       result += self._encode_value_set_bindings(element_definition)
 
     # Ignores the fields inside complex extensions.
-    # TODO: Add support for complex extensions and the fields
+    # TODO(b/200575760): Add support for complex extensions and the fields
     # inside them.
     if cast(Any, structure_definition).type.value != 'Extension':
       children = self._env.get_children(structure_definition,

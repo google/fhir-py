@@ -40,10 +40,10 @@ from google.fhir.core.fhir_path import fhir_path_validator
 from google.fhir.core.fhir_path import fhir_path_validator_v2
 from google.fhir.r4 import primitive_handler
 
-# TODO: Make FHIR-version agnostic (e.g. parameterize on module?)
-# TODO: Move unit tests to snapshot testing framework.
+# TODO(b/244184211): Make FHIR-version agnostic (e.g. parameterize on module?)
+# TODO(b/197976399): Move unit tests to snapshot testing framework.
 
-# TODO: Add corresponding tests internally for all examples in the
+# TODO(b/249835149): Add corresponding tests internally for all examples in the
 # public FHIR views.
 
 
@@ -1020,7 +1020,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
     self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
                                         expected_sql_expression)
 
-  # TODO: Verify order-dependence of equivalence vs. equality
+  # TODO(b/191895721): Verify order-dependence of equivalence vs. equality
   @parameterized.named_parameters(
       dict(
           testcase_name='_withIntegerEqual',
@@ -2238,7 +2238,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           FROM (SELECT bat.struct))
           WHERE all_ IS NOT NULL)""")),
       dict(
-          # TODO: Remove unnecessary `(SELECT inline),` from the
+          # TODO(b/197153513): Remove unnecessary `(SELECT inline),` from the
           # below sql query.
           testcase_name='_withAllAndRepeatedPrimitiveOnlyComparison',
           fhir_path_expression=('inline.numbers.all($this > 0)'),
@@ -2253,7 +2253,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           WHERE all_ IS NOT NULL)""")),
       dict(
           testcase_name='_withAllAndRepeatedSubfieldPrimitiveOnlyComparison',
-          # TODO: Determine if this is a bug in the old
+          # TODO(b/253262668): Determine if this is a bug in the old
           # implementation or new implementation.
           missing_feature_in_v2=True,
           fhir_path_expression=("bar.bats.struct.all( value = '' )"),
@@ -2414,7 +2414,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
       dict(
           testcase_name='_withInvalidComparisonBetweenStructs',
           fhir_path_expression='bar.bats < bar.bats.struct'),
-      # TODO: Add support for arbitrary leading expressions
+      # TODO(b/193046163): Add support for arbitrary leading expressions
       dict(
           testcase_name='_withSingleMemberAccessLeadingExpression',
           fhir_path_expression='(true or false).bar'),
@@ -4061,7 +4061,7 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
         expected_sql_expression=expected_sql_expression)
 
 
-# TODO: Add support in fhir_path_test.py for checking if we can
+# TODO(b/201111782): Add support in fhir_path_test.py for checking if we can
 # encode more than one required field at a time..
 class FhirProfileStandardSqlEncoderTestWithRequiredFields(
     FhirProfileStandardSqlEncoderTestBase):

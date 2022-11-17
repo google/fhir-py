@@ -290,7 +290,7 @@ class ValueSetResolver:
       # The value set requires intensional filtering rules we do not implement.
       # We may wish to reduce the frequency with which we need to defer to
       # external terminology services.
-      # TODO: Add more support for filtering logic.
+      # TODO(b/223659948): Add more support for filtering logic.
       return None
 
     includes = [

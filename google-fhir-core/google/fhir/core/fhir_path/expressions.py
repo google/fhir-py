@@ -34,7 +34,7 @@ from google.fhir.core.utils import annotation_utils
 from google.fhir.core.utils import fhir_types
 from google.fhir.core.utils import proto_utils
 
-# TODO: Expand to all FHIRPath-comparable equivalent types.
+# TODO(b/208900793): Expand to all FHIRPath-comparable equivalent types.
 Comparable = Union[str, bool, int, float, datetime.date, datetime.datetime]
 BuilderOperand = Union[Comparable, 'Builder']
 StructureDefinition = message.Message
@@ -44,7 +44,7 @@ class ValueSetBuilder:
   """Convenience class for building a valueset proto usable in views."""
 
   def __init__(self, url: str, value_set: message.Message):
-    # TODO: Use a protocol for ValueSets to avoid need to cast.
+    # TODO(b/208900793): Use a protocol for ValueSets to avoid need to cast.
     self._value_set = cast(Any, value_set)
     self._value_set.url.value = url
 
@@ -63,11 +63,11 @@ class ValueSetBuilder:
     return self
 
   def build(self) -> message.Message:
-    # TODO: Use a protocol for ValueSets to avoid need to cast.
+    # TODO(b/208900793): Use a protocol for ValueSets to avoid need to cast.
     return cast(message.Message, self._value_set)
 
 
-# TODO: support other result types and messages, and introspection
+# TODO(b/208900793): support other result types and messages, and introspection
 # on the actual returned type.
 class EvaluationResult:
   """The result of a FHIRPath expression evaluation.
@@ -103,7 +103,7 @@ class EvaluationResult:
     if fhir_types.is_type_or_profile_of_code(self._messages[0]):
       return codes.get_code_as_string(self._messages[0])
 
-    # TODO: Check primitive type rather than assuming value.
+    # TODO(b/208900793): Check primitive type rather than assuming value.
     return proto_utils.get_value_at_field(self._messages[0], 'value')
 
   def as_bool(self) -> bool:
@@ -115,7 +115,7 @@ class EvaluationResult:
     if len(self._messages) != 1:
       raise ValueError('FHIRPath did not evaluate to a single boolean.')
 
-    # TODO: Check primitive type rather than assuming value.
+    # TODO(b/208900793): Check primitive type rather than assuming value.
     return proto_utils.get_value_at_field(self._messages[0], 'value')
 
   def as_int(self) -> int:
@@ -127,7 +127,7 @@ class EvaluationResult:
     if len(self._messages) != 1:
       raise ValueError('FHIRPath did not evaluate to a single integer.')
 
-    # TODO: Check primitive type rather than assuming value.
+    # TODO(b/208900793): Check primitive type rather than assuming value.
     return proto_utils.get_value_at_field(self._messages[0], 'value')
 
   def as_decimal(self) -> decimal.Decimal:
@@ -139,7 +139,7 @@ class EvaluationResult:
     if len(self._messages) != 1:
       raise ValueError('FHIRPath did not evaluate to a single decimal.')
 
-    # TODO: Check primitive type rather than assuming value.
+    # TODO(b/208900793): Check primitive type rather than assuming value.
     return decimal.Decimal(
         proto_utils.get_value_at_field(self._messages[0], 'value'))
 
@@ -194,7 +194,7 @@ class CompiledExpression:
         messages=[result.message for result in results], work_space=work_space)
 
 
-# TODO: Add support for basic functions and comparisons.
+# TODO(b/208900793): Add support for basic functions and comparisons.
 class Builder:
   """FHIRPath expression builder.
 
@@ -285,7 +285,7 @@ class Builder:
     # Linter doesn't realize rhs is the same class.
     # pylint: disable=protected-access
     if isinstance(operand, Builder):
-      # TODO: Add check that operand has the same
+      # TODO(b/244184211): Add check that operand has the same
       # root resource as self.
       return operand._node
     # pylint: enable=protected-access
@@ -666,7 +666,7 @@ class Builder:
                                    self._to_node(rhs)), self._handler)
 
   def __getitem__(self, key: int) -> 'Builder':
-    # TODO: consider supporting other types, such as Builders
+    # TODO(b/226135993): consider supporting other types, such as Builders
     # themselves in the index.
     if isinstance(key, int):
       idx_msg = self._primitive_to_message(key)

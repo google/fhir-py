@@ -192,7 +192,7 @@ class ValueSetCodes:
 def to_code_values(value_set_proto: message.Message) -> FrozenSet[CodeValue]:
   """Helper function to convert a ValueSet proto into a set of code value data types.
   """
-  # TODO: Use a protocol for ValueSets to allow type checking.
+  # TODO(b/208900793): Use a protocol for ValueSets to allow type checking.
   expansion = value_set_proto.expansion.contains  # pytype: disable=attribute-error
   codes = [
       CodeValue(code_elem.system.value, code_elem.code.value)
@@ -942,7 +942,7 @@ class HasValueFunction(FunctionNode):
     ]
 
 
-# TODO: Fully define this placeholder for more than analytic use.
+# TODO(b/220344555): Fully define this placeholder for more than analytic use.
 class IdForFunction(FunctionNode):
   """idFor() implementation to get raw ids specific to a reference type.
 
@@ -958,7 +958,7 @@ class IdForFunction(FunctionNode):
 
   def __init__(self, fhir_context: context.FhirPathContext,
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
-    # TODO: Resolve typing for idFor function.
+    # TODO(b/244184211): Resolve typing for idFor function.
     if not (len(params) == 1 and isinstance(params[0], LiteralNode) and
             fhir_types.is_string(cast(LiteralNode, params[0]).get_value())):
       raise ValueError(
@@ -976,7 +976,7 @@ class IdForFunction(FunctionNode):
     super().__init__(fhir_context, operand, params, return_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    # TODO: Support this for future non-SQL view users.
+    # TODO(b/220344555): Support this for future non-SQL view users.
     raise NotImplementedError('Currently only supported for SQL-based views.')
 
 
@@ -1145,7 +1145,7 @@ class MemberOfFunction(FunctionNode):
           result = True
           break
 
-      # TODO: Add raw code support
+      # TODO(b/208900793): Add raw code support
       else:
         raise ValueError(
             f'MemberOf not supported on {fhir_message.DESCRIPTOR.full_name}')
@@ -1306,7 +1306,7 @@ class EqualityNode(CoercibleBinaryExpressionNode):
     return self._operator
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    # TODO: Add support for FHIRPath equivalence operators.
+    # TODO(b/234657818): Add support for FHIRPath equivalence operators.
     if (self._operator != _ast.EqualityRelation.Op.EQUAL and
         self._operator != _ast.EqualityRelation.Op.NOT_EQUAL):
       raise NotImplementedError('Implement all equality relations.')
@@ -1502,7 +1502,7 @@ class ArithmeticNode(CoercibleBinaryExpressionNode):
       left = left_messages[0].message
       right = right_messages[0].message
 
-      # TODO: Add support for arithmetic with units.
+      # TODO(b/226131330): Add support for arithmetic with units.
       left_value = cast(Any, left).value
       right_value = cast(Any, right).value
 
@@ -1892,7 +1892,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     elif isinstance(literal.value, _ast.Quantity):
       return LiteralNode(
           self._context,
-          # TODO: Add new class for Quantity?
+          # TODO(b/244184211): Add new class for Quantity?
           self._handler.new_string(str(literal.value)),
           str(literal.value),
           _fhir_path_data_types.Quantity)
@@ -1980,7 +1980,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
 
   def visit_invocation(self,
                        invocation: _ast.Invocation) -> InvokeExpressionNode:
-    # TODO: Placeholder for limited invocation usage.
+    # TODO(b/244184211): Placeholder for limited invocation usage.
     # Function invocation
     if isinstance(invocation.rhs, _ast.Function):
       return self.visit_function(invocation.rhs, operand=invocation.lhs)

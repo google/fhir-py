@@ -179,7 +179,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             'birthDate': pat.birthDate
         }).where(pat.active))
 
-    # TODO: Remove array offsets when the SQL generator can
+    # TODO(b/208900793): Remove array offsets when the SQL generator can
     # return single values.
     expected_sql = textwrap.dedent("""\
         SELECT ARRAY(SELECT given_element_
@@ -825,7 +825,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.mock_bigquery_client.create_table.assert_called_once_with(
         expected_table, exists_ok=True)
 
-  # TODO: Fix an issue where the bq_intepreter generates literals
+  # TODO(b/250691318): Fix an issue where the bq_intepreter generates literals
   # with an extra set of quotes.
   def testFHIRViewsExample_explanationOfBenefit_filteredByValueSet_succeeds(
       self):

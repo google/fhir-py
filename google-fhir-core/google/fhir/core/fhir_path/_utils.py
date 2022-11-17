@@ -20,7 +20,7 @@ from typing import Any, List, Optional, cast
 from google.protobuf import message
 from google.fhir.core.utils import proto_utils
 
-# TODO: Update FHIR-agnostic types to a protocol.
+# TODO(b/201107372): Update FHIR-agnostic types to a protocol.
 StructureDefinition = message.Message
 ElementDefinition = message.Message
 Constraint = message.Message
@@ -34,11 +34,11 @@ def is_root_element(element_definition: ElementDefinition) -> bool:
 
 def element_type_code(element_definition: ElementDefinition) -> str:
   """Returns the first element type code value."""
-  # TODO: Handle choice types, which may have more than one
+  # TODO(b/190679571): Handle choice types, which may have more than one
   # `type.code` value present.
   type_codes: List[str] = element_type_codes(element_definition)
   if len(type_codes) != 1:
-    raise ValueError('TODO: Add support for more than one type.')
+    raise ValueError('TODO(b/190679571): Add support for more than one type.')
   return type_codes[0]
 
 

@@ -35,7 +35,7 @@ from google.fhir.core.fhir_path import fhir_path_options
 from google.fhir.core.utils import proto_utils
 
 
-# TODO: Update FHIR-agnostic types to a protocol.
+# TODO(b/201107372): Update FHIR-agnostic types to a protocol.
 StructureDefinition = message.Message
 ElementDefinition = message.Message
 Constraint = message.Message
@@ -185,7 +185,7 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     self._semantic_analyzer = _semant.FhirPathSemanticAnalyzer(
         self._env, validation_options=validation_options)
 
-  # TODO: Perform recursive type inference on `STRUCT`s.
+  # TODO(b/194290588): Perform recursive type inference on `STRUCT`s.
   def _get_standard_sql_data_type(
       self, element_definition: ElementDefinition
   ) -> _sql_data_types.StandardSqlDataType:
@@ -354,7 +354,7 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
       walker: _navigation.FhirStructureDefinitionWalker
   ) -> _sql_data_types.IdentifierSelect:
     """Translates a FHIRPath member identifier to Standard SQL."""
-    # TODO: Handle "special" identifiers
+    # TODO(b/244184211): Handle "special" identifiers
 
     # Advance the message context.
     if identifier.value == '$this':
@@ -470,7 +470,7 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     lhs_subquery = lhs_result.as_operand()
     rhs_subquery = rhs_result.as_operand()
 
-    # TODO: Handle <string> + <string> when either operand is empty
+    # TODO(b/196238279): Handle <string> + <string> when either operand is empty
     if sql_data_type == _sql_data_types.String:
       sql_value = f'CONCAT({lhs_subquery}, {rhs_subquery})'
     elif arithmetic.op == _ast.Arithmetic.Op.MODULO:
@@ -492,11 +492,11 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
   ) -> _sql_data_types.StandardSqlExpression:
     raise NotImplementedError('`visit_type_expression` is not yet implemented.')
 
-  # TODO: Equality relation against an empty collection will be
+  # TODO(b/191895864): Equality relation against an empty collection will be
   # truth-y, which is problematic for equals, but not equivalent-to.
-  # TODO: DateTimes are treated as `STRING`s in SQL; ensure
+  # TODO(b/191896705): DateTimes are treated as `STRING`s in SQL; ensure
   # timezone of 'Z' is respected/treated as +00:00.
-  # TODO: Verify equivalence order-dependence (documentation says
+  # TODO(b/191895721): Verify equivalence order-dependence (documentation says
   # it is *not* order-dependent, but HL7 JS implementation *is*).
   def visit_equality(
       self, relation: _ast.EqualityRelation, *,
@@ -592,7 +592,7 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     lhs_result = self.visit(comparison.lhs, walker=copy.copy(walker))
     rhs_result = self.visit(comparison.rhs, walker=copy.copy(walker))
 
-    # TODO: Leverage semantic analysis type information to make
+    # TODO(b/196239030): Leverage semantic analysis type information to make
     # more nuanced decision (e.g. if Quantity, certain operations can be
     # supported).
     type_ = _sql_data_types.coerce(lhs_result.sql_data_type,
@@ -772,7 +772,7 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
           invocation.rhs, operand=invocation.lhs, walker=walker)
 
     # Member invocation
-    # TODO: Most of the RHS encoding is redudant, since we need to
+    # TODO(b/244184211): Most of the RHS encoding is redudant, since we need to
     # "stitch" it together with the LHS. Rework this.
     # As is, we need to call visit on both lhs and rhs to increment the walker.
     lhs_result = self.visit(invocation.lhs, walker=walker)

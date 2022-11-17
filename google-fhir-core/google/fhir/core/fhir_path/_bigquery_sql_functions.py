@@ -121,7 +121,7 @@ class _EmptyFunction(_FhirPathFunctionStandardSqlEncoder):
       )
 
 
-# TODO: Add support for params
+# TODO(b/244184211): Add support for params
 class _ExistsFunction(_FhirPathFunctionStandardSqlEncoder):
   """Returns `TRUE` if the operand has any elements, and `FALSE` otherwise.
 
@@ -193,7 +193,7 @@ class _FirstFunction(_FhirPathFunctionStandardSqlEncoder):
     if operand_result is None:
       # It is not meaningful to call first without an operand, so we return an
       # error.
-      # TODO: determine if this is disallowed by the grammar, and
+      # TODO(b/232550083): determine if this is disallowed by the grammar, and
       # if not, move this kind of check to validate_and_get_error.
       raise ValueError('first() cannot be called without an operand.')
     else:
@@ -258,7 +258,7 @@ class _HasValueFunction(_FhirPathFunctionStandardSqlEncoder):
           ),
           from_part=None)
     else:
-      # TODO:
+      # TODO(b/234476234):
       # The spec says: "Returns true if the input collection contains a single
       # value which is a FHIR primitive, and it has a primitive value (e.g. as
       # opposed to not having a value and just having extensions)."
@@ -294,7 +294,7 @@ class _NotFunction(_FhirPathFunctionStandardSqlEncoder):
               'FALSE', _sql_alias=sql_alias, _sql_data_type=sql_data_type),
           from_part=None)
     else:
-      # TODO:
+      # TODO(b/234478081):
       # The spec says: "Returns true if the input collection evaluates to false,
       # and false if it evaluates to true. Otherwise, the result is empty ({ })"
       # https://hl7.org/fhirpath/#not-boolean
@@ -423,7 +423,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
     else:
       value_set_version_predicate = ''
 
-    # TODO: As the future allows, we'd like to simplify this SQL.
+    # TODO(b/228467141): As the future allows, we'd like to simplify this SQL.
     # We have to take pains to avoid the following error from BigQuery as we
     # join to the external value set codes table:
     # "Correlated subqueries that reference other tables are not supported
@@ -619,7 +619,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
           (operand_type, operand_type.url))
 
 
-# TODO: Separate custom functions from core FHIRPath functions,
+# TODO(b/221322122): Separate custom functions from core FHIRPath functions,
 # and add dedicated tests for the different function classes.
 class _IdForFunction(_FhirPathFunctionStandardSqlEncoder):
   """Returns the raw ID for a given resource type."""
@@ -640,7 +640,7 @@ class _IdForFunction(_FhirPathFunctionStandardSqlEncoder):
     # reference target, e.g. PatientId or OrganizationId.
     resource_type = function.base_type_str
 
-    # TODO: Determine if this should be an error condition.
+    # TODO(b/220344555): Determine if this should be an error condition.
     if operand_result is None:
       return _sql_data_types.Select(
           select_part=_sql_data_types.RawExpression(
@@ -670,7 +670,7 @@ class _OfTypeFunction(_FhirPathFunctionStandardSqlEncoder):
       raise ValueError('OfType must have a data type parameter.')
 
     attribute = function.base_type_str
-    # TODO: Determine if this is an error and handle properly.
+    # TODO(b/221322122): Determine if this is an error and handle properly.
     if operand_result is None:
       return _sql_data_types.Select(
           select_part=_sql_data_types.RawExpression(
@@ -688,7 +688,7 @@ class _OfTypeFunction(_FhirPathFunctionStandardSqlEncoder):
             attribute, return_type, sql_alias=sql_alias))
 
 
-# TODO: Add support for $this.
+# TODO(b/197153378): Add support for $this.
 class _WhereFunction(_FhirPathFunctionStandardSqlEncoder):
   """Returns a collection of all the items that match the criteria expression.
 

@@ -24,13 +24,13 @@ from typing import Any, Dict, List, Optional, cast
 from google.protobuf import message
 from google.fhir.core.fhir_path import _utils
 
-# TODO: Update FHIR-agnostic types to a protocol.
+# TODO(b/201107372): Update FHIR-agnostic types to a protocol.
 StructureDefinition = message.Message
 ElementDefinition = message.Message
 Constraint = message.Message
 
 
-# TODO: Refactor _ElementDefinitionTree to make it work more
+# TODO(b/205890502): Refactor _ElementDefinitionTree to make it work more
 # efficiently.
 class _ElementDefinitionTree:
   """Creates a tree of all the `ElementDefinition`s in the structure definition.
@@ -231,7 +231,7 @@ class FhirStructureDefinitionWalker:
     for child in cast(List[Any], inline_children):
       # Recursive elements and non-extension slices are not in the SQL
       # representation, so skip those.
-      # TODO: Define strategy for recursive element valiation.
+      # TODO(b/223622513): Define strategy for recursive element valiation.
       regular_path_element = not ((_utils.is_slice_element(child) and
                                    not _utils.is_slice_on_extension(child)) or
                                   _utils.is_recursive_element(child))
@@ -248,7 +248,7 @@ class FhirStructureDefinitionWalker:
     # E.g. `self.element` is `Period`, identifier is `start`.
     if not _utils.is_root_element(self.element):
       uri_value = ''
-      # TODO: Potentially remove this after semantic refactoring.
+      # TODO(b/221322122): Potentially remove this after semantic refactoring.
       if len(_utils.element_type_codes(self.element)) > 1:
         uri_value = self.selected_choice_type
         if not uri_value:
@@ -273,7 +273,7 @@ class FhirStructureDefinitionWalker:
                            f'{cast(Any, self.element).id.value}')
         if len(urls) > 1:
           raise ValueError(
-              'TODO: Add support for more than one type.')
+              'TODO(b/190679571): Add support for more than one type.')
 
         url = urls[0]
 

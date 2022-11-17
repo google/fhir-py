@@ -284,7 +284,7 @@ class BigQueryRunner:
             structure_definition=struct_def,
             element_definition=elem_def,
             fhir_path_expression=expr.to_expression().fhir_path)
-      # TODO: Remove LOGICAL_AND(UNNEST) when the SQL generator can
+      # TODO(b/208900793): Remove LOGICAL_AND(UNNEST) when the SQL generator can
       # return single values and it's safe to do so for non-repeated fields.
       where_expressions.append('(SELECT LOGICAL_AND(logic_)\n'
                                f'FROM UNNEST({where_expression}) AS logic_)')
@@ -382,7 +382,7 @@ class BigQueryRunner:
       node_type = list(cast(_fhir_path_data_types.Collection,
                             node_type).types)[0]
 
-    # TODO: Add constraint filtering to code summarization.
+    # TODO(b/239733067): Add constraint filtering to code summarization.
     if view.get_constraint_expressions():
       raise NotImplementedError(
           'Summarization of codes with view constraints not yet implemented.')
@@ -465,7 +465,7 @@ class BigQueryRunner:
     table.clustering_fields = ['valueseturi', 'code']
     return self._client.create_table(table, exists_ok=True)
 
-  # TODO: Update FHIR-agnostic types to a protocol.
+  # TODO(b/201107372): Update FHIR-agnostic types to a protocol.
   def materialize_value_sets(self,
                              value_set_protos: Iterable[value_set_pb2.ValueSet],
                              batch_size: int = 500) -> None:

@@ -47,7 +47,7 @@ class Quantity:
 LiteralType = Union[None, bool, str, Number, Quantity]
 
 
-# TODO: Could override property setters and store as a dictionary
+# TODO(b/244184211): Could override property setters and store as a dictionary
 # to avoid the extra pointer storage.
 class AbstractSyntaxTree(abc.ABC):
   """An abstract syntax tree (AST) base class.
@@ -184,7 +184,7 @@ class Literal(Expression):
     return visitor.visit_literal(self, **kwargs)
 
 
-# TODO: Specially handle $this, $index, $total.
+# TODO(b/244184211): Specially handle $this, $index, $total.
 class Identifier(Expression):
   """FHIRPath labels such as type names and property names."""
 
@@ -424,9 +424,9 @@ class Invocation(BinaryOperator):
     return visitor.visit_invocation(self, **kwargs)
 
 
-# TODO: Add additional functions supported by FHIR. See more at:
+# TODO(b/244184211): Add additional functions supported by FHIR. See more at:
 # https://www.hl7.org/fhir/fhirpath.html#functions.
-# TODO: Add supported "operations". See more at:
+# TODO(b/244184211): Add supported "operations". See more at:
 # http://hl7.org/fhirpath/#operations.
 class Function(Expression):
   """A FHIRPath built-in function invoked on some evaluated expression.
@@ -570,7 +570,7 @@ class Function(Expression):
     SUBSUMED_BY = 'subsumedBy'
 
     # Non-FHIRPath Functions to simplify data analysis workloads.
-    # TODO: Consider separating these to avoid tight coupling
+    # TODO(b/221322122): Consider separating these to avoid tight coupling
     # of FHIRPath and additional functions.
     ID_FOR = 'idFor'
 

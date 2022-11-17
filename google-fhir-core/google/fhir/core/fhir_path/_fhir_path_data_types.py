@@ -84,7 +84,7 @@ class Cardinality(enum.Enum):
   COLLECTION = 'collection'
   CHILD_OF_COLLECTION = 'child_of_collection'
 
-# TODO: Consolidate with `_sql_data_types.py` functionality.
+# TODO(b/202892821): Consolidate with `_sql_data_types.py` functionality.
 
 
 class FhirPathDataType(metaclass=abc.ABCMeta):
@@ -632,7 +632,7 @@ String = _String()
 Empty = _Empty()
 Any_ = _Any()
 
-# TODO: Consolidate with SQL data types.
+# TODO(b/202892821): Consolidate with SQL data types.
 # See more at: http://hl7.org/fhir/datatypes.html.
 _PRIMITIVE_TYPES_BY_CODE: Dict[str, FhirPathDataType] = {
     # python types

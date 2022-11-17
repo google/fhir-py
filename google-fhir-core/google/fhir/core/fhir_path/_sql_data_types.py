@@ -33,7 +33,7 @@ _TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%E*S%Ez'
 # ISO format of dates used by FHIR.
 _DATE_FORMAT = '%Y-%m-%d'
 
-# TODO: Consolidate with `_fhir_path_data_types.py` functionality.
+# TODO(b/202892821): Consolidate with `_fhir_path_data_types.py` functionality.
 
 # Keywords are a group of tokens that have special meaning in the BigQuery
 # language, and have the following characteristics:
@@ -139,7 +139,7 @@ STANDARD_SQL_KEYWORDS = frozenset([
 ])
 
 
-# TODO: Add a consistent string representation to all the
+# TODO(b/218912393): Add a consistent string representation to all the
 # data_types.
 class StandardSqlDataType(metaclass=abc.ABCMeta):
   """Describes Standard SQL datatypes and their attributes.
@@ -622,7 +622,7 @@ def is_coercible(lhs: StandardSqlDataType, rhs: StandardSqlDataType) -> bool:
   if rhs == lhs:
     return True  # Early-exit if same type
 
-  # TODO: Remove this special case with a common SQL flow.
+  # TODO(b/221322122): Remove this special case with a common SQL flow.
   if isinstance(lhs, type(Undefined)):
     return True  # Assume unknown types can be coerced, like pytype and Any.
 

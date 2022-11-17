@@ -65,7 +65,7 @@ class View:
 
   def select(self, fields: Dict[str, expressions.Builder]) -> 'View':
     """Returns a View instance that selects the given fields."""
-    # TODO: select statements should build on current fields.
+    # TODO(b/244184211): select statements should build on current fields.
     return View(self._structdef_url, self._root_builder, self._context,
                 immutabledict.immutabledict(fields), self._constraints)
 

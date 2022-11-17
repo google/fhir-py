@@ -186,7 +186,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             'birthDate': pat.birthDate
         }).where(pat.active))
 
-    # TODO: Remove array offsets when the SQL generator can
+    # TODO(b/208900793): Remove array offsets when the SQL generator can
     # return single values.
     expected_sql = textwrap.dedent("""\
         SELECT ARRAY(SELECT given_element_

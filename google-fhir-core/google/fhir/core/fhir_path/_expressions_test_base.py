@@ -197,7 +197,7 @@ class FhirPathExpressionsTest(
     # evalutate to something that's not a proto message (like a String) in this
     # case, because EvaluationResult does not yet support evaluating to proto
     # messages.
-    # TODO: Consider revisiting when EvaluationResult supports
+    # TODO(b/208900793): Consider revisiting when EvaluationResult supports
     # other types and messages.
     patient = self._new_patient()
     self.assert_expression_result(
@@ -255,7 +255,7 @@ class FhirPathExpressionsTest(
     # evalutate to something that's not a proto message (like a String) in this
     # case, because EvaluationResult does not yet support evaluating to proto
     # messages.
-    # TODO: Consider revisiting when EvaluationResult supports
+    # TODO(b/208900793): Consider revisiting when EvaluationResult supports
     # other types and messages.
     patient = self._new_patient()
     self.assert_expression_result(
@@ -1203,7 +1203,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', "address.use = 'work'"),
         self.builder('Patient').address.use == 'work', patient, False)
 
-  # TODO: Expand tests to nested $this when that is added.
+  # TODO(b/226131331): Expand tests to nested $this when that is added.
   def testWhereExpression_succeeds(self):
     """Test FHIRPath where() expressions."""
     patient = self._new_patient()

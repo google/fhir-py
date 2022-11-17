@@ -49,9 +49,9 @@ def _set_and_return_type(
   return expression.data_type
 
 
-# TODO: Populate `element_path` in error_reporter once underlying
+# TODO(b/203231524): Populate `element_path` in error_reporter once underlying
 # FHIR implementation graph state is populated/wired-in.
-# TODO: Adapt fhir_errors.py to work with _semant.py.
+# TODO(b/204211665): Adapt fhir_errors.py to work with _semant.py.
 class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
   """Adds FHIRPath type information to a FHIRPath AST.
 
@@ -160,7 +160,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
 
     return _set_and_return_type(literal, result)
 
-  # TODO: Handle choice types, which may have more than one
+  # TODO(b/190679571): Handle choice types, which may have more than one
   # `type.code` value present.
   def visit_identifier(
       self, identifier: _ast.Identifier,
@@ -189,7 +189,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
     if primitive_type:
       data_type = primitive_type
     elif walker.current_type:
-      # TODO: Use a protocol when structural typing is added.
+      # TODO(b/186792939): Use a protocol when structural typing is added.
       # Until then cast to Any to get the structdef url and type fields.
       struct_def = cast(Any, walker.current_type)
       data_type = _fhir_path_data_types.StructureDataType(struct_def)
@@ -203,7 +203,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
       data_type = _fhir_path_data_types.Collection(types={data_type})
     return _set_and_return_type(identifier, data_type)
 
-  # TODO: Add support in semant.py's visit_indexer for multiple
+  # TODO(b/215533268): Add support in semant.py's visit_indexer for multiple
   # types.
   def visit_indexer(
       self, indexer: _ast.Indexer,
@@ -298,7 +298,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
         f': {lhs} {arithmetic.op} {rhs}.')
     return _set_and_return_type(arithmetic, _fhir_path_data_types.Empty)
 
-  # TODO: Add support for non-primitive types such as Quantity.
+  # TODO(b/210038841): Add support for non-primitive types such as Quantity.
   def visit_type_expression(
       self, type_expression: _ast.TypeExpression,
       walker: _navigation.FhirStructureDefinitionWalker
@@ -710,7 +710,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
 
       return _set_and_return_type(invocation, rhs_result)
 
-    # TODO: Add support for arbitrary leading expressions.
+    # TODO(b/193046163): Add support for arbitrary leading expressions.
     self._error_reporter.report_fhir_path_error(
         '', 'Semantic Analysis', f'Unable to resolve {invocation.rhs!r}'
         f' in the context of leading expression: {invocation.lhs!r}.')

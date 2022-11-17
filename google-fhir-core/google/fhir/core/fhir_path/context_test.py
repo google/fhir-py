@@ -18,7 +18,7 @@ import requests_mock
 
 from absl.testing import absltest
 
-# TODO: Eliminate R4-specific tests from this package.
+# TODO(b/229908551): Eliminate R4-specific tests from this package.
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
 from google.fhir.core.fhir_path import context
 from google.fhir.core.utils import fhir_package

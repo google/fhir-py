@@ -18,7 +18,7 @@ import dataclasses
 import os
 from typing import List, Optional
 
-# TODO: Remove use of R4 in core test helpers.
+# TODO(b/229908551): Remove use of R4 in core test helpers.
 from google.fhir.r4.proto.core import codes_pb2
 from google.fhir.r4.proto.core import datatypes_pb2
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
@@ -148,7 +148,7 @@ def build_resource_definition(
       url=f'http://hl7.org/fhir/StructureDefinition/{id_}',
       name=id_,
       type_=id_,
-      # TODO: May not be necessary to specify for test fixture
+      # TODO(b/244184211): May not be necessary to specify for test fixture
       # purposes. This could instead perhaps be an abstract type? Otherwise, we
       # should technically read-in the `Resource` structure definition to ensure
       # a complete graph.

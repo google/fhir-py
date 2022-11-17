@@ -77,7 +77,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         isinstance(literal.return_type(), _fhir_path_data_types._Empty)):  # pylint: disable=protected-access
       sql_value = 'NULL'
       sql_data_type = _sql_data_types.Undefined
-    # TODO: Make _fhir_path_data_types.FhirPathDataType classes
+    # TODO(b/244184211): Make _fhir_path_data_types.FhirPathDataType classes
     # public.
     elif isinstance(literal.return_type(), _fhir_path_data_types._Boolean):  # pylint: disable=protected-access
       sql_value = str(literal).upper()
@@ -121,7 +121,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """Translates a FHIRPath member identifier to Standard SQL."""
 
     parent_result = None
-    # TODO: Handle "special" identifiers
+    # TODO(b/244184211): Handle "special" identifiers
     if identifier.identifier == '$this':
       # When $this is used, we need the last identifier from the operand.
       raw_identifier_str = identifier.operand_node.to_fhir_path().split('.')[-1]
@@ -237,7 +237,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     lhs_subquery = lhs_result.as_operand()
     rhs_subquery = rhs_result.as_operand()
 
-    # TODO: Handle <string> + <string> when either operand is
+    # TODO(b/196238279): Handle <string> + <string> when either operand is
     # empty.
     if sql_data_type == _sql_data_types.String:
       sql_value = f'CONCAT({lhs_subquery}, {rhs_subquery})'
