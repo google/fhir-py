@@ -258,7 +258,7 @@ class _HasValueFunction(_FhirPathFunctionStandardSqlEncoder):
           ),
           from_part=None)
     else:
-      # TODO
+      # TODO:
       # The spec says: "Returns true if the input collection contains a single
       # value which is a FHIR primitive, and it has a primitive value (e.g. as
       # opposed to not having a value and just having extensions)."
@@ -294,7 +294,7 @@ class _NotFunction(_FhirPathFunctionStandardSqlEncoder):
               'FALSE', _sql_alias=sql_alias, _sql_data_type=sql_data_type),
           from_part=None)
     else:
-      # TODO
+      # TODO:
       # The spec says: "Returns true if the input collection evaluates to false,
       # and false if it evaluates to true. Otherwise, the result is empty ({ })"
       # https://hl7.org/fhirpath/#not-boolean
@@ -679,10 +679,8 @@ class _OfTypeFunction(_FhirPathFunctionStandardSqlEncoder):
               _sql_data_type=_sql_data_types.Undefined),
           from_part=None)
 
-    return_type = _sql_data_types.Undefined
-    if _fhir_path_data_types.is_collection(
-        function.parent_node().return_type()):
-      return_type = _sql_data_types.OpaqueArray
+    return_type = _sql_data_types.get_standard_sql_data_type(
+        function.return_type())
 
     return dataclasses.replace(
         operand_result,

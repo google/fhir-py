@@ -35,31 +35,9 @@ def _escape_identifier(identifier_value: str) -> str:
   return identifier_value  # No-op
 
 
-_FHIR_PATH_URL_TO_STANDARD_SQL_TYPE = {
-    _fhir_path_data_types.Boolean.url: _sql_data_types.Boolean,
-    _fhir_path_data_types.Integer.url: _sql_data_types.Int64,
-    _fhir_path_data_types.Decimal.url: _sql_data_types.Numeric,
-    _fhir_path_data_types.String.url: _sql_data_types.String,
-    _fhir_path_data_types.Quantity.url: _sql_data_types.OpaqueStruct,
-    _fhir_path_data_types.DateTime.url: _sql_data_types.Timestamp,
-    _fhir_path_data_types.Date.url: _sql_data_types.Date,
-    _fhir_path_data_types.Time.url: _sql_data_types.Time,
-}
-
-
 class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   """Traverses the ExpressionNode tree and generates BigQuery SQL recursively.
   """
-
-  def _get_standard_sql_data_type(
-      self, fhir_type: _fhir_path_data_types.FhirPathDataType
-  ) -> _sql_data_types.StandardSqlDataType:
-    if not fhir_type:
-      return _sql_data_types.Undefined
-    if isinstance(fhir_type, _fhir_path_data_types.StructureDataType):
-      return _sql_data_types.OpaqueStruct
-    sql_type = _FHIR_PATH_URL_TO_STANDARD_SQL_TYPE.get(fhir_type.url)
-    return sql_type if sql_type else _sql_data_types.Undefined
 
   def encode(self,
              builder: expressions.Builder,
@@ -153,7 +131,8 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
     # Map to Standard SQL type. Note that we never map to a type of `ARRAY`,
     # as the member encoding flattens any `ARRAY` members.
-    sql_data_type = self._get_standard_sql_data_type(identifier.return_type())
+    sql_data_type = _sql_data_types.get_standard_sql_data_type(
+        identifier.return_type())
     sql_alias = f'{raw_identifier_str}'
     identifier_str = f'{raw_identifier_str}'
     if _fhir_path_data_types.is_collection(identifier.return_type()):  # Array

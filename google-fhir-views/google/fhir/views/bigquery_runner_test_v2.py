@@ -276,6 +276,30 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
     self.assertEqual(expected_mock_df, returned_df)
 
+  def testTimestampComparison_succeeds(self):
+    """Test timestamp comparison."""
+
+    start_date = datetime.date(2012, 1, 1)
+    end_date = datetime.date(2013, 1, 1)
+
+    eob = self._views.view_of('ExplanationOfBenefit')
+    eob_view = eob.where(
+        eob.addItem.serviced.ofType('Date') >= start_date,
+        eob.addItem.serviced.ofType('Date') < end_date)
+
+    self.AstAndExpressionTreeTestRunner(
+        textwrap.dedent("""\
+        SELECT *,(SELECT patient.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.ExplanationOfBenefit
+        WHERE (SELECT LOGICAL_AND(logic_)
+        FROM UNNEST(ARRAY(SELECT comparison_
+        FROM (SELECT ((SELECT PARSE_TIMESTAMP("%Y-%m-%d", addItem_element_.serviced.Date) AS ofType_
+        FROM UNNEST(addItem) AS addItem_element_ WITH OFFSET AS element_offset) >= PARSE_TIMESTAMP("%Y-%m-%d", '2012-01-01')) AS comparison_)
+        WHERE comparison_ IS NOT NULL)) AS logic_) AND (SELECT LOGICAL_AND(logic_)
+        FROM UNNEST(ARRAY(SELECT comparison_
+        FROM (SELECT ((SELECT PARSE_TIMESTAMP("%Y-%m-%d", addItem_element_.serviced.Date) AS ofType_
+        FROM UNNEST(addItem) AS addItem_element_ WITH OFFSET AS element_offset) < PARSE_TIMESTAMP("%Y-%m-%d", '2013-01-01')) AS comparison_)
+        WHERE comparison_ IS NOT NULL)) AS logic_)"""), eob_view)
+
   def testWhereMemberOfToSql_withValuesFromContext_succeeds(self):
     """Test memberOf with value set."""
     pat = self._views.view_of('Patient')

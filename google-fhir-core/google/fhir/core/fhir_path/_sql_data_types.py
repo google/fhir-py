@@ -24,7 +24,8 @@ from __future__ import annotations
 
 import abc
 import dataclasses
-from typing import Any, List, Optional, Sequence, Set, Union
+from typing import Any, List, Optional, Sequence, Set, Union, cast
+from google.fhir.core.fhir_path import _fhir_path_data_types
 
 # Timestamp format to convert ISO strings into BigQuery Timestamp types.
 _TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%E*S%Ez'
@@ -556,9 +557,43 @@ NUMERIC_TYPES = frozenset([
 ])
 
 
+_FHIR_PATH_URL_TO_STANDARD_SQL_TYPE = {
+    _fhir_path_data_types.Boolean.url: Boolean,
+    _fhir_path_data_types.Integer.url: Int64,
+    _fhir_path_data_types.Decimal.url: Numeric,
+    _fhir_path_data_types.String.url: String,
+    _fhir_path_data_types.Quantity.url: OpaqueStruct,
+    _fhir_path_data_types.DateTime.url: Timestamp,
+    _fhir_path_data_types.Date.url: Date,
+    _fhir_path_data_types.Time.url: Time,
+}
+
+
+def get_standard_sql_data_type(
+    fhir_type: _fhir_path_data_types.FhirPathDataType) -> StandardSqlDataType:
+  """Gets the equivalent StandardSQL type for a fhir type."""
+  if not fhir_type:
+    return Undefined
+  return_type = Undefined
+  if isinstance(fhir_type, _fhir_path_data_types.StructureDataType):
+    return_type = OpaqueStruct
+  else:
+    return_type = _FHIR_PATH_URL_TO_STANDARD_SQL_TYPE.get(fhir_type.url)
+    return_type = return_type if return_type else Undefined
+
+  if _fhir_path_data_types.is_collection(fhir_type):
+    return_type = Array(contained_type=return_type)
+  return return_type
+
+
 def wrap_time_types(raw_sql: str, sql_type: StandardSqlDataType) -> str:
+  """If the type is a date/timestamp type, wrap the SQL statement with a PARSE_TIMESTAMP.
+  """
   if raw_sql.startswith('PARSE_'):
     return raw_sql
+  if isinstance(sql_type, Array):
+    sql_type = cast(Array, sql_type).contained_type
+
   if isinstance(sql_type, _Timestamp):
     return f'PARSE_TIMESTAMP("{_TIMESTAMP_FORMAT}", {raw_sql})'
 
