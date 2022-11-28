@@ -2,7 +2,7 @@
 Google's tools for working with FHIR data in Python. This includes:
 
 * Support for converting FHIR data to and from an efficient Protocol Buffer-based format.
-* Support for creating  and analyzing views over large FHIR datasets. See the [Google FHIR Views](google-fhir-views/README.md) documentation for details.
+* Support for creating and analyzing views over large FHIR datasets. See the [Google FHIR Views](google-fhir-views/README.md) documentation and [notebook examples](examples) for details.
 
 This is not an officially supported Google product.
 
