@@ -2795,7 +2795,7 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
       expected_sql_expression: str,
       expected_severity: codes_pb2.ConstraintSeverityCode.Value = codes_pb2
       .ConstraintSeverityCode.ERROR,
-  ) -> None:
+      supported_in_v2: bool = False) -> None:
     """Asserts that `expected_sql_expression` is generated."""
 
     # Create profile-under-test
@@ -2811,6 +2811,13 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
     profile_std_sql_encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         all_resources, error_reporter)
     actual_bindings = profile_std_sql_encoder.encode(profile)
+
+    if supported_in_v2:
+      error_reporter_v2 = fhir_errors.ListErrorReporter()
+      profile_std_sql_encoder_v2 = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+          all_resources, primitive_handler.PrimitiveHandler(),
+          error_reporter_v2)
+      actual_bindings_v2 = profile_std_sql_encoder_v2.encode(profile)
 
     expected_column_base = element_definition_id.lower().replace('.', '_')
     expected_binding = validation_pb2.SqlRequirement(
@@ -2835,6 +2842,16 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
     self.assertEmpty(profile_std_sql_encoder._requirement_column_names)
     self.assertEmpty(profile_std_sql_encoder._element_id_to_regex_map)
     self.assertEmpty(profile_std_sql_encoder._regex_columns_generated)
+
+    if supported_in_v2:
+      self.assertEmpty(error_reporter_v2.errors)
+      self.assertEmpty(error_reporter_v2.warnings)
+      self.assertListEqual(actual_bindings_v2, [expected_binding])
+
+      # Check that Ephemeral state is cleared.
+      self.assertEmpty(profile_std_sql_encoder_v2._ctx)
+      self.assertEmpty(profile_std_sql_encoder_v2._in_progress)
+      self.assertEmpty(profile_std_sql_encoder_v2._requirement_column_names)
 
   def assert_encoder_generates_expression_for_required_field(
       self,
@@ -3028,6 +3045,32 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(error_reporter.errors)
     self.assertEmpty(actual_bindings)
 
+  def testSkipKeys_withValidResource_producesNoConstraints_v2(self):
+    # Setup resource with a defined constraint
+    constraint = _build_constraint(
+        fhir_path_expression='false', key='always-fail-constraint-key')
+    foo_root = sdefs.build_element_definition(
+        id_='Foo',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(0, '1'),
+        constraints=[constraint])
+    profile = _build_profile(id_='Foo', element_definitions=[foo_root])
+
+    # Standup encoder; skip 'always-fail-constraint-key'
+    error_reporter = fhir_errors.ListErrorReporter()
+    options = fhir_path.SqlGenerationOptions(
+        skip_keys=set(['always-fail-constraint-key']))
+    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        [profile],
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
+        options=options,
+    )
+    actual_bindings = encoder.encode(profile)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertEmpty(error_reporter.errors)
+    self.assertEmpty(actual_bindings)
+
   def testSkipSlice_withValidResource_producesNoConstraints(self):
     constraint = _build_constraint(fhir_path_expression='false')
     bar_root = sdefs.build_element_definition(
@@ -3106,6 +3149,21 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     error_reporter = fhir_errors.ListErrorReporter()
     encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         [foo],
+        error_reporter,
+    )
+
+    # Ensure that we only produce a single Standard SQL requirement, and that
+    # an error is logged since we were given a duplicate constraint.
+    actual_bindings = encoder.encode(foo)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertLen(error_reporter.errors, 1)
+    self.assertLen(actual_bindings, 1)
+
+    # Standup encoder v2
+    error_reporter = fhir_errors.ListErrorReporter()
+    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        [foo],
+        primitive_handler.PrimitiveHandler(),
         error_reporter,
     )
 
@@ -3915,7 +3973,8 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
         base_id='Hospital',
         element_definition_id='Hospital',
         constraint=constraint,
-        expected_sql_expression=expected_sql_expression)
+        expected_sql_expression=expected_sql_expression,
+        supported_in_v2=True)
 
   @parameterized.named_parameters(
       dict(
@@ -4058,7 +4117,8 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
         base_id='Patient',
         element_definition_id='Patient.contact.name',
         constraint=constraint,
-        expected_sql_expression=expected_sql_expression)
+        expected_sql_expression=expected_sql_expression,
+    )
 
 
 # TODO(b/201111782): Add support in fhir_path_test.py for checking if we can

@@ -23,6 +23,7 @@ from google.cloud import bigquery
 from google.protobuf import message
 from google.fhir.core.proto import fhirpath_replacement_list_pb2
 from google.fhir.core.proto import validation_pb2
+from google.fhir.core import codes
 from google.fhir.core import fhir_errors
 from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _bigquery_interpreter
@@ -209,7 +210,8 @@ class FhirProfileStandardSqlEncoder:
     """
 
     self._options = options or SqlGenerationOptions()
-    # Might need to pull from actual context?
+    # TODO(b/254866189): Determine whether the mock context is enough for
+    # validation.
     self._context = context.MockFhirPathContext(structure_definitions)
     self._primitive_handler = handler
     self._bq_interpreter = _bigquery_interpreter.BigQuerySqlInterpreter()
@@ -219,6 +221,8 @@ class FhirProfileStandardSqlEncoder:
 
     self._ctx: List[expressions.Builder] = []
     self._in_progress: Set[str] = set()
+    # Used to track duplicate requirements.
+    self._requirement_column_names: Set[str] = set()
 
   def _abs_path_invocation(self) -> str:
     """Returns the absolute path invocation given the traversal context."""
@@ -288,6 +292,98 @@ class FhirProfileStandardSqlEncoder:
     # TODO(b/254866189): Add support for non-root level constraints.
     return ('(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
             f'FROM UNNEST({sql_expression}) AS result_)')
+
+  def _encode_constraints(
+      self,
+      builder: expressions.Builder) -> List[validation_pb2.SqlRequirement]:
+    """Returns a list of `SqlRequirement`s for FHIRPath constraints.
+
+    Args:
+      builder: The builder containing the element to encode constraints for.
+
+    Returns:
+      A list of `SqlRequirement`s expressing FHIRPath constraints defined on the
+      `element_definition`.
+    """
+    result: List[validation_pb2.SqlRequirement] = []
+    element_definition = builder.return_type.root_element_definition
+    constraints: List[Constraint] = (cast(Any, element_definition).constraint)
+    for constraint in constraints:
+      constraint_key: str = cast(Any, constraint).key.value
+      if constraint_key in self._options.skip_keys:
+        continue
+
+      # Metadata for the requirement
+      fhir_path_expression: str = cast(Any, constraint).expression.value
+      element_definition_path = self._abs_path_invocation()
+      constraint_key_column_name: str = _key_to_sql_column_name(constraint_key)
+      column_name_base: str = _path_to_sql_column_name(element_definition_path)
+      column_name = f'{column_name_base}_{constraint_key_column_name}'
+
+      if column_name in self._requirement_column_names:
+        self._error_reporter.report_fhir_path_error(
+            element_definition_path, fhir_path_expression,
+            f'Duplicate FHIRPath requirement: {column_name}.')
+        continue
+
+      if cast(Any, constraint).severity.value == 0:
+        self._error_reporter.report_fhir_path_error(
+            element_definition_path, fhir_path_expression,
+            'Constraint severity must be set.')
+        continue  # Malformed constraint
+
+      # TODO(b/221470795): Remove this implementation when a better
+      # implementation at the FhirPackage level has been added.
+      # Replace fhir_path_expression if needed. This functionality is mainly for
+      # temporary replacements of invalid expressions defined in the spec while
+      # we wait for the spec to be updated.
+      if self._options.expr_replace_list:
+        for replacement in self._options.expr_replace_list.replacement:
+          if ((not replacement.element_path or
+               replacement.element_path == element_definition_path) and
+              replacement.expression_to_replace == fhir_path_expression):
+            fhir_path_expression = replacement.replacement_expression
+
+      # Create Standard SQL expression
+      struct_def = cast(_fhir_path_data_types.StructureDataType,
+                        builder.get_root_builder().return_type)
+      sql_expression = self._encode_fhir_path_constraint(
+          struct_def, fhir_path_expression)
+      if sql_expression is None:
+        continue  # Failure to generate Standard SQL expression
+
+      # Constraint type and severity metadata; default to WARNING
+      # TODO(b/199419068): Cleanup validation severity mapping
+      type_ = validation_pb2.ValidationType.VALIDATION_TYPE_FHIR_PATH_CONSTRAINT
+      severity = cast(Any, constraint).severity
+      severity_value_field = severity.DESCRIPTOR.fields_by_name.get('value')
+      severity_str = codes.enum_value_descriptor_to_code_string(
+          severity_value_field.enum_type.values_by_number[severity.value])
+      try:
+        validation_severity = validation_pb2.ValidationSeverity.Value(
+            f'SEVERITY_{severity_str.upper()}')
+      except ValueError:
+        self._error_reporter.report_fhir_path_warning(
+            element_definition_path, fhir_path_expression,
+            f'Unknown validation severity conversion: {severity_str}.')
+        validation_severity = validation_pb2.ValidationSeverity.SEVERITY_WARNING
+
+      requirement = validation_pb2.SqlRequirement(
+          column_name=column_name,
+          sql_expression=sql_expression,
+          severity=validation_severity,
+          type=type_,
+          element_path=element_definition_path,
+          description=cast(Any, constraint).human.value,
+          fhir_path_key=constraint_key,
+          fhir_path_expression=fhir_path_expression,
+          fields_referenced_by_expression=_fields_referenced_by_expression(
+              fhir_path_expression))
+
+      self._requirement_column_names.add(column_name)
+      result.append(requirement)
+
+    return result
 
   # TODO(b/222541838): Handle general cardinality requirements.
   def _encode_required_fields(
@@ -412,6 +508,7 @@ class FhirProfileStandardSqlEncoder:
     self._ctx.append(copy.deepcopy(builder))  # save the root.
     # Encode all relevant FHIRPath expression constraints, prior to recursing on
     # children.
+    result += self._encode_constraints(builder)
     result += self._encode_required_fields(builder)
 
     # Ignores the fields inside complex extensions.
@@ -458,6 +555,7 @@ class FhirProfileStandardSqlEncoder:
     finally:
       self._ctx.clear()
       self._in_progress.clear()
+      self._requirement_column_names.clear()
 
     return result
 
