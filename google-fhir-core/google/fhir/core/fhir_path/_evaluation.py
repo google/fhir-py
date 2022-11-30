@@ -239,12 +239,10 @@ class ExpressionNode(abc.ABC):
   @abc.abstractmethod
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     """Evaluates the node and returns the resulting messages."""
-    raise NotImplementedError('Subclasses *must* implement `evaluate`.')
 
   @abc.abstractmethod
   def to_fhir_path(self) -> str:
     """Returns the FHIRPath string for this and its children node."""
-    raise NotImplementedError('Subclasses *must* implement `to_fhir_path`.')
 
   @property
   def context(self) -> context.FhirPathContext:
@@ -256,15 +254,15 @@ class ExpressionNode(abc.ABC):
 
   @abc.abstractmethod
   def get_root_node(self) -> 'ExpressionNode':
-    raise NotImplementedError('Subclasses *must* implement `get_root_node`.')
+    pass
 
   @abc.abstractmethod
   def get_parent_node(self) -> 'ExpressionNode':
-    raise NotImplementedError('Subclasses *must* implement `get_parent_node`.')
+    pass
 
   @abc.abstractmethod
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
-    raise NotImplementedError('Subclasses *must* implement `accept`.')
+    pass
 
   def fields(self) -> Set[str]:
     """Returns known fields from this expression, or none if they are unknown.
@@ -279,13 +277,11 @@ class ExpressionNode(abc.ABC):
   @abc.abstractmethod
   def operands(self) -> List['ExpressionNode']:
     """Returns the operands contributing to this node."""
-    raise NotImplementedError('Subclasses *must* implement `operands`.')
 
   @abc.abstractmethod
   def replace_operand(self, expression_to_replace: str,
                       replacement: 'ExpressionNode') -> None:
     """Replace any operand that matches the given expresion string."""
-    raise NotImplementedError('Subclasses *must* implement `replace_operand`.')
 
   def __str__(self) -> str:
     return self.to_fhir_path()
@@ -1788,48 +1784,47 @@ class ExpressionNodeBaseVisitor(abc.ABC):
 
   @abc.abstractmethod
   def visit_literal(self, literal: LiteralNode) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_literal`.')
+    pass
 
   @abc.abstractmethod
   def visit_invoke_expression(self, identifier: InvokeExpressionNode) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_identifier`.')
+    pass
 
   @abc.abstractmethod
   def visit_indexer(self, indexer: IndexerNode) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_indexer`.')
+    pass
 
   @abc.abstractmethod
   def visit_arithmetic(self, arithmetic: ArithmeticNode) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_arithmetic`.')
+    pass
 
   @abc.abstractmethod
   def visit_equality(self, equality: EqualityNode) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_equality`.')
+    pass
 
   @abc.abstractmethod
   def visit_comparison(self, comparison: ComparisonNode) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_comparison`.')
+    pass
 
   @abc.abstractmethod
   def visit_boolean_op(self, boolean_logic: BooleanOperatorNode) -> Any:
-    raise NotImplementedError(
-        'Subclasses *must* implement `visit_boolean_logic`.')
+    pass
 
   @abc.abstractmethod
   def visit_membership(self, relation: MembershipRelationNode) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_membership`.')
+    pass
 
   @abc.abstractmethod
   def visit_union(self, union: UnionNode) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_union`.')
+    pass
 
   @abc.abstractmethod
   def visit_polarity(self, polarity: NumericPolarityNode) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_polarity`.')
+    pass
 
   @abc.abstractmethod
   def visit_function(self, function: FunctionNode) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_function`.')
+    pass
 
 
 class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):

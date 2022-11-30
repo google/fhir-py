@@ -47,24 +47,23 @@ class FhirPathExpressionsTest(
   def compile_expression(
       self, structdef_url: str,
       fhir_path_expression: str) -> expressions.CompiledExpression:
-    raise NotImplementedError('Subclasses *must* implement compile_expression.')
+    pass
 
   @abc.abstractmethod
   def builder(self, structdef_url: str) -> expressions.Builder:
-    raise NotImplementedError('Subclasses *must* implement builder.')
+    pass
 
   @abc.abstractmethod
   def context(self) -> context.LocalFhirPathContext:
-    raise NotImplementedError('Subclasses *must* implement context.')
+    pass
 
   @abc.abstractmethod
   def patient_descriptor(self) -> descriptor.Descriptor:
-    raise NotImplementedError('Subclasses *must* implement patient_descriptor.')
+    pass
 
   @abc.abstractmethod
   def observation_descriptor(self) -> descriptor.Descriptor:
-    raise NotImplementedError(
-        'Subclasses *must* implement observation_descriptor.')
+    pass
 
   def _new_patient(self):
     return symbol_database.Default().GetPrototype(self.patient_descriptor())()
@@ -75,7 +74,7 @@ class FhirPathExpressionsTest(
 
   @abc.abstractmethod
   def value_set_builder(self, url: str):
-    raise NotImplementedError('Subclasses *must* implement value_set_builder.')
+    pass
 
   def assert_expression_result(
       self, parsed_expression: expressions.CompiledExpression,

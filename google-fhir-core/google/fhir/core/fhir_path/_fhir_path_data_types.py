@@ -84,6 +84,7 @@ class Cardinality(enum.Enum):
   COLLECTION = 'collection'
   CHILD_OF_COLLECTION = 'child_of_collection'
 
+
 # TODO(b/202892821): Consolidate with `_sql_data_types.py` functionality.
 
 
@@ -110,13 +111,12 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
   @property
   @abc.abstractmethod
   def supported_coercion(self) -> Set['FhirPathDataType']:
-    raise NotImplementedError(
-        'Subclasses *must* implement `supported_coercion`.')
+    pass
 
   @property
   @abc.abstractmethod
   def url(self) -> str:
-    raise NotImplementedError('Subclasses *must* implement `url`.')
+    pass
 
   @property
   def comparable(self) -> bool:
@@ -172,7 +172,7 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
 
   @abc.abstractmethod
   def _class_name(self) -> str:
-    raise NotImplementedError('Subclasses *must* implement _class_name.')
+    pass
 
   def __str__(self) -> str:
     return self._wrap_collection(self._class_name())

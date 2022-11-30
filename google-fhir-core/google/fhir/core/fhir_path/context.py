@@ -62,9 +62,6 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       UnableToLoadResourceError if the resource cannot be loaded.
     """
 
-    raise NotImplementedError(
-        'Child classes must implement *get_structure_definition*.')
-
   def get_dependency_definitions(self, url: str) -> List[_StructDefT]:
     """Returns all dependencies for the structure identified by the given URL.
 
@@ -105,7 +102,6 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
     Returns:
       The corresponding value set, or None if no such value set exists.
     """
-    raise NotImplementedError('Child classes must implement get_value_set.')
 
 
 class MockFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):

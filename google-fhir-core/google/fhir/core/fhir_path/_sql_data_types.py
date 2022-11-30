@@ -556,7 +556,6 @@ NUMERIC_TYPES = frozenset([
     Float64,
 ])
 
-
 _FHIR_PATH_URL_TO_STANDARD_SQL_TYPE = {
     _fhir_path_data_types.Boolean.url: Boolean,
     _fhir_path_data_types.Integer.url: Int64,

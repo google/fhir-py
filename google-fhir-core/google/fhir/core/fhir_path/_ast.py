@@ -132,7 +132,6 @@ class AbstractSyntaxTree(abc.ABC):
     Returns:
       `Any` value that is a byproduct of the visit.
     """
-    raise NotImplementedError('Subclasses *must* implement `accept`.')
 
   def debug_string(self, indent: int = 0) -> str:
     """Returns a debug string for the tree rooted at this node.
@@ -896,60 +895,58 @@ class FhirPathAstBaseVisitor(abc.ABC):
 
   @abc.abstractmethod
   def visit_literal(self, literal: Literal, **kwargs: Any) -> Any:
-    raise NotImplementedError('Subclasses *must* imlement `visit_literal`.')
+    pass
 
   @abc.abstractmethod
   def visit_identifier(self, identifier: Identifier, **kwargs: Any) -> Any:
-    raise NotImplementedError('Subclasses *must* imlement `visit_identifier`.')
+    pass
 
   @abc.abstractmethod
   def visit_indexer(self, indexer: Indexer, **kwargs: Any) -> Any:
-    raise NotImplementedError('Subclasses *must* imlement `visit_indexer`.')
+    pass
 
   @abc.abstractmethod
   def visit_arithmetic(self, arithmetic: Arithmetic, **kwargs: Any) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_arithmetic`.')
+    pass
 
   @abc.abstractmethod
   def visit_type_expression(self, type_expression: TypeExpression,
                             **kwargs: Any) -> Any:
-    raise NotImplementedError(
-        'Subclasses *must* implement `visit_type_expression`.')
+    pass
 
   @abc.abstractmethod
   def visit_equality(self, equality: EqualityRelation, **kwargs: Any) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_equality`.')
+    pass
 
   @abc.abstractmethod
   def visit_comparison(self, comparison: Comparison, **kwargs: Any) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_comparison`.')
+    pass
 
   @abc.abstractmethod
   def visit_boolean_logic(self, boolean_logic: BooleanLogic,
                           **kwargs: Any) -> Any:
-    raise NotImplementedError(
-        'Subclasses *must* implement `visit_boolean_logic`.')
+    pass
 
   @abc.abstractmethod
   def visit_membership(self, membership: MembershipRelation,
                        **kwargs: Any) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_membership`.')
+    pass
 
   @abc.abstractmethod
   def visit_union(self, union: UnionOp, **kwargs: Any) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_union`.')
+    pass
 
   @abc.abstractmethod
   def visit_polarity(self, polarity: Polarity, **kwargs: Any) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_polarity`.')
+    pass
 
   @abc.abstractmethod
   def visit_invocation(self, invocation: Invocation, **kwargs: Any) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_invocation`.')
+    pass
 
   @abc.abstractmethod
   def visit_function(self, function: Function, **kwargs: Any) -> Any:
-    raise NotImplementedError('Subclasses *must* implement `visit_function`.')
+    pass
 
 
 def build_fhir_path_ast(input_str: str) -> Expression:
