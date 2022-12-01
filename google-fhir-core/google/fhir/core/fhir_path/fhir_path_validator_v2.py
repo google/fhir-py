@@ -239,7 +239,8 @@ class FhirProfileStandardSqlEncoder:
 
   def _encode_fhir_path_constraint(
       self, struct_def: _fhir_path_data_types.StructureDataType,
-      fhir_path_expression: str) -> Optional[str]:
+      fhir_path_expression: str,
+      node_context: expressions.Builder) -> Optional[str]:
     """Returns a Standard SQL translation of the constraint `fhir_path_expression`.
 
     If an error is encountered during encoding, the associated error reporter
@@ -250,7 +251,8 @@ class FhirProfileStandardSqlEncoder:
         originates from.
       fhir_path_expression: The fluent-style dot-delimited ('.') FHIRPath
         expression that encodes to Standard SQL.
-
+      node_context: The root builder of the fhir_path_expression. May be another
+        FHIRPath expression.
     Returns:
       A Standard SQL encoding of the constraint `fhir_path_expression` upon
       successful completion. The SQL will evaluate to a single boolean
@@ -259,7 +261,9 @@ class FhirProfileStandardSqlEncoder:
     new_builder = expressions.from_fhir_path_expression(fhir_path_expression,
                                                         self._context,
                                                         struct_def,
-                                                        self._primitive_handler)
+                                                        self._primitive_handler,
+                                                        node_context)
+
     return self._encode_fhir_path_builder_constraint(new_builder)
 
   def _encode_fhir_path_builder_constraint(
@@ -289,7 +293,6 @@ class FhirProfileStandardSqlEncoder:
       )
       return None
 
-    # TODO(b/254866189): Add support for non-root level constraints.
     return ('(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
             f'FROM UNNEST({sql_expression}) AS result_)')
 
@@ -348,7 +351,7 @@ class FhirProfileStandardSqlEncoder:
       struct_def = cast(_fhir_path_data_types.StructureDataType,
                         builder.get_root_builder().return_type)
       sql_expression = self._encode_fhir_path_constraint(
-          struct_def, fhir_path_expression)
+          struct_def, fhir_path_expression, builder)
       if sql_expression is None:
         continue  # Failure to generate Standard SQL expression
 

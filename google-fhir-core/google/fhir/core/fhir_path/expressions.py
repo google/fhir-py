@@ -751,12 +751,27 @@ class Builder:
 
 
 def from_fhir_path_expression(
-    fhir_path_expression: str, fhir_context: context.FhirPathContext,
+    fhir_path_expression: str,
+    fhir_context: context.FhirPathContext,
     structdef_type: _fhir_path_data_types.StructureDataType,
-    handler: primitive_handler.PrimitiveHandler) -> 'Builder':
-  # Helper class method to build a Builder with a string.
+    handler: primitive_handler.PrimitiveHandler,
+    root_node_context: Optional[Builder] = None) -> 'Builder':
+  """Function to create an expression builder from a fhir path string.
+
+  Args:
+    fhir_path_expression: The FHIRPath expression to parse.
+    fhir_context: The context containing the FHIR resources.
+    structdef_type: The root structure definition for the expression.
+    handler: The primitive handler.
+    root_node_context: Optional root expression that fhir_path_expression may
+      reference.
+  Returns:
+    The expression Builder equivalent of the fhir_path_expression.
+  """
   ast = _ast.build_fhir_path_ast(fhir_path_expression)
+
+  new_context = root_node_context.get_node() if root_node_context else None
   visitor = _evaluation.FhirPathCompilerVisitor(handler, fhir_context,
-                                                structdef_type)
+                                                structdef_type, new_context)
   root = visitor.visit(ast)
   return Builder(root, handler)

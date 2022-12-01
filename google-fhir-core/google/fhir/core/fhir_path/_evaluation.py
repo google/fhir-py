@@ -28,7 +28,6 @@ from google.protobuf import descriptor
 from google.protobuf import message
 from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _fhir_path_data_types
-from google.fhir.core.fhir_path import _utils
 from google.fhir.core.fhir_path import context
 from google.fhir.core.internal import primitive_handler
 from google.fhir.core.utils import annotation_utils
@@ -70,100 +69,6 @@ def get_messages(parent: message.Message,
     return [results]
   else:
     return results
-
-
-def _get_fhir_type_from_string(
-    type_code: str, fhir_context: context.FhirPathContext,
-    element_definition: Optional[ElementDefinition]
-) -> _fhir_path_data_types.FhirPathDataType:
-  """Returns a FhirPathDataType from a type code string."""
-  # If this is a primitive, simply return the corresponding primitive type.
-  return_type = _fhir_path_data_types.primitive_type_from_type_code(type_code)
-
-  # Load the structure definition for the non-primitive type.
-  if return_type is None:
-    child_structdef = fhir_context.get_structure_definition(type_code)
-    return_type = _fhir_path_data_types.StructureDataType(child_structdef)
-
-  if not element_definition:
-    return return_type
-
-  # If an element definition is provided (from a parent) then override the
-  # existing element definition saved.
-  return return_type.get_fhir_type_with_root_element_definition(
-      element_definition)
-
-
-def _maybe_return_collection_type(
-    element: ElementDefinition,
-    return_type: _fhir_path_data_types.FhirPathDataType,
-    parent_type: Optional[_fhir_path_data_types.FhirPathDataType]
-) -> _fhir_path_data_types.FhirPathDataType:
-  """Returns a new instance of return_type updated with its collection status.
-  """
-  if _utils.is_repeated_element(element):
-    return return_type.get_new_cardinality_type(
-        _fhir_path_data_types.Cardinality.COLLECTION)
-  if parent_type and parent_type.returns_collection():
-    return return_type.get_new_cardinality_type(
-        _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION)
-  return return_type
-
-
-def _fhir_data_type_generator(
-    parent: _fhir_path_data_types.StructureDataType,
-    fhir_context: context.FhirPathContext,
-    element_definition: ElementDefinition,
-    json_name: str) -> _fhir_path_data_types.FhirPathDataType:
-  """Generated a FhirPathDataType from the parent and element definition."""
-  elem = cast(Any, element_definition)
-  structdef = parent.structure_definition
-
-  if _utils.is_backbone_element(elem):
-    elem_path = parent.backbone_element_path + '.' + json_name if parent.backbone_element_path else json_name
-    return_type = _fhir_path_data_types.StructureDataType(structdef, elem_path)
-
-  elif _utils.is_polymorphic_element(elem):
-    struct_def_dict = {}
-    for elem_type in elem.type:
-      struct_def_dict[
-          elem_type.code.value.casefold()] = _maybe_return_collection_type(
-              elem,
-              _get_fhir_type_from_string(elem_type.code.value, fhir_context,
-                                         elem), parent)
-    return_type = _fhir_path_data_types.PolymorphicDataType(struct_def_dict)
-
-  elif not elem.type or not elem.type[0].code.value:
-    raise ValueError(f'Malformed ElementDefinition in struct {parent.url}')
-  else:
-    type_code = elem.type[0].code.value
-    return_type = _get_fhir_type_from_string(type_code, fhir_context, elem)
-
-  return _maybe_return_collection_type(elem, return_type, parent)
-
-
-def _get_child_data_type(
-    parent: Optional[_fhir_path_data_types.FhirPathDataType],
-    fhir_context: context.FhirPathContext,
-    json_name: str) -> Optional[_fhir_path_data_types.FhirPathDataType]:
-  """Returns the data types of the given child field from the parent."""
-  if parent is None:
-    return None
-
-  if isinstance(parent, _fhir_path_data_types.PolymorphicDataType):
-    possible_types = cast(_fhir_path_data_types.PolymorphicDataType,
-                          parent).types()
-    if json_name.casefold() not in possible_types:
-      raise ValueError(f'Identifier {json_name} not in {possible_types.keys()}')
-    return possible_types[json_name.casefold()]
-
-  if isinstance(parent, _fhir_path_data_types.StructureDataType):
-    elem = parent.children().get(json_name)
-    if elem is None:
-      return None
-    return _fhir_data_type_generator(parent, fhir_context, elem, json_name)
-  else:
-    return None
 
 
 def _is_numeric(
@@ -551,8 +456,8 @@ class InvokeExpressionNode(ExpressionNode):
     if self._identifier == '$this':
       return_type = self._parent_node.return_type()
     else:
-      return_type = _get_child_data_type(self._parent_node.return_type(),
-                                         fhir_context, self._identifier)
+      return_type = fhir_context.get_child_data_type(
+          self._parent_node.return_type(), self._identifier)
 
     if not return_type:
       raise ValueError(
@@ -967,8 +872,8 @@ class IdForFunction(FunctionNode):
         'FHIR.') else type_param_str
     self.struct_def_url = ('http://hl7.org/fhir/StructureDefinition/'
                            f'{self.base_type_str.capitalize()}')
-    return_type = _get_fhir_type_from_string(
-        self.struct_def_url, fhir_context, element_definition=None)
+    return_type = fhir_context.get_fhir_type_from_string(
+        self.struct_def_url, element_definition=None)
     super().__init__(fhir_context, operand, params, return_type)
 
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
@@ -1008,8 +913,8 @@ class OfTypeFunction(FunctionNode):
         return_type = operand.return_type().types()[
             self.base_type_str.casefold()]
     else:
-      return_type = _get_child_data_type(operand.return_type(), fhir_context,
-                                         self.base_type_str)
+      return_type = fhir_context.get_child_data_type(operand.return_type(),
+                                                     self.base_type_str)
 
     if _fhir_path_data_types.returns_collection(operand.return_type()):
       return_type = return_type.get_new_cardinality_type(
@@ -1830,16 +1735,19 @@ class ExpressionNodeBaseVisitor(abc.ABC):
 class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
   """AST visitor to compile a FHIRPath expression."""
 
-  def __init__(
-      self,
-      handler: primitive_handler.PrimitiveHandler,
-      fhir_context: context.FhirPathContext,
-      data_type: Optional[_fhir_path_data_types.FhirPathDataType] = None
-  ) -> None:
+  def __init__(self,
+               handler: primitive_handler.PrimitiveHandler,
+               fhir_context: context.FhirPathContext,
+               data_type: Optional[
+                   _fhir_path_data_types.FhirPathDataType] = None,
+               root_node_context: Optional[ExpressionNode] = None) -> None:
     self._handler = handler
     self._context = fhir_context
     self._data_type = data_type
-    self._node_context = [RootMessageNode(self._context, self._data_type)]
+    if root_node_context:
+      self._node_context = [root_node_context]
+    else:
+      self._node_context = [RootMessageNode(self._context, self._data_type)]
 
   def visit_literal(self, literal: _ast.Literal) -> LiteralNode:
     if literal.value is None:
