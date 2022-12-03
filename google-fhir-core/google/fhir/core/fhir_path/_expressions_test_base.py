@@ -667,8 +667,8 @@ class FhirPathExpressionsTest(
     patient.active.value = True
 
     expr = self.builder('Patient').active == None  # pylint: disable=singleton-comparison
-    self.assertEqual(expr.fhir_path, 'active = {}')
-    self.assertFalse(expr.to_expression().evaluate(patient).has_value())
+    self.assertEqual(expr.fhir_path, 'active = {}')  # pytype: disable=attribute-error
+    self.assertFalse(expr.to_expression().evaluate(patient).has_value())  # pytype: disable=attribute-error
 
   def testNumericAdditionArithmetic(self):
     """Tests addition logic for numeric values defined at https://hl7.org/fhirpath/#math-2.
@@ -1538,7 +1538,7 @@ class FhirPathExpressionsTest(
     first_name.given.add().value = 'b'
 
     pat = self.builder('Patient')
-    builder_expr = pat.name.given.union(None)
+    builder_expr = pat.name.given.union(None)  # pytype: disable=wrong-arg-types
     fhir_path_expr = self.compile_expression('Patient', 'name.given | {}')
 
     self.assertEqual(builder_expr.fhir_path, 'name.given | {}')
