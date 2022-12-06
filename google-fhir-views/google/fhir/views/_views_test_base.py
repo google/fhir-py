@@ -67,7 +67,7 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
         }).where(pat.active, pat.address.count() < 5))
     self.assertMultiLineEqual(
         textwrap.dedent("""\
-          View<Patient.select(
+          View<http://hl7.org/fhir/StructureDefinition/Patient.select(
             name_field: name.given,
             birth_date_field: birthDate
           ).where(
@@ -159,3 +159,47 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     expressions = patient_zip_codes.get_select_expressions()
     self.assertEqual("address.where(use = 'home').postalCode",
                      expressions['zip'].fhir_path)
+
+  def testCrossReference_forPatientAndEncounter_succeeds(self):
+    """Test generation of views with two resources."""
+    enc = self.get_views().view_of('Encounter')
+    pat = self.get_views().view_of('Patient')
+
+    enc_and_pat_class = (
+        enc.select({
+            'class':
+                enc.class_,
+            'where':
+                enc.type.coding.where(enc.type.coding.system == 'url/here'),
+            'pat':
+                pat.name.given
+        }).where(pat.address.exists(), enc.status.exists()))
+    self.assertIsNotNone(enc_and_pat_class)
+
+    structdef_urls = enc_and_pat_class.get_structdef_urls()
+    self.assertSameElements([
+        'http://hl7.org/fhir/StructureDefinition/Encounter',
+        'http://hl7.org/fhir/StructureDefinition/Patient'
+    ], structdef_urls)
+
+    select_expressions = enc_and_pat_class.get_select_expressions()
+    self.assertLen(select_expressions, 3)
+
+    enc_fields = enc_and_pat_class.get_url_to_field_names(
+    )['http://hl7.org/fhir/StructureDefinition/Encounter']
+    self.assertSameElements(['class', 'where'], enc_fields)
+
+    pat_fields = enc_and_pat_class.get_url_to_field_names(
+    )['http://hl7.org/fhir/StructureDefinition/Patient']
+    self.assertLen(pat_fields, 1)
+    self.assertSameElements(['pat'], pat_fields)
+
+    constraint_expressions = enc_and_pat_class.get_constraint_expressions()
+    self.assertLen(constraint_expressions, 2)
+
+    enc_constraints = enc_and_pat_class.get_url_to_constraint_indexes(
+    )['http://hl7.org/fhir/StructureDefinition/Encounter']
+    self.assertSameElements([1], enc_constraints)
+    pat_constraints = enc_and_pat_class.get_url_to_constraint_indexes(
+    )['http://hl7.org/fhir/StructureDefinition/Patient']
+    self.assertSameElements([0], pat_constraints)

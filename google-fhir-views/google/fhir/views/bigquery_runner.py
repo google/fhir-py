@@ -21,13 +21,14 @@ can be consumed by other tools.
 
 import itertools
 import re
-from typing import Collection, Iterable, Optional, Union, cast
+from typing import Collection, Iterable, Optional, Union, cast, Dict, List
 
 from google.cloud import bigquery
 import pandas
 import sqlalchemy
 import sqlalchemy_bigquery
 
+from google.protobuf import message
 from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _evaluation
@@ -117,6 +118,7 @@ class BigQueryRunner:
     self._as_of = as_of
     self._snake_case_resource_tables = snake_case_resource_tables
     self._internal_default_to_v2_runner = internal_default_to_v2_runner
+    self._interpreter = _bigquery_interpreter.BigQuerySqlInterpreter()
 
     if value_set_codes_table is None:
       self._value_set_codes_table = bigquery.table.TableReference(
@@ -167,18 +169,19 @@ class BigQueryRunner:
 
     return ''
 
-  def _view_table_name(self, view: views.View) -> str:
-    """Returns the name of the table to query for the given view."""
-    # Build the select expression from the FHIR resource table.
-    last_slash_index = view.get_structdef_url().rfind('/')
-    raw_name = (
-        view.get_structdef_url() if last_slash_index == -1 else
-        view.get_structdef_url()[last_slash_index + 1:])
-    if self._snake_case_resource_tables:
-      return re.sub(
-          pattern=r'([A-Z]+)', repl=r'_\1', string=raw_name).lower().lstrip('_')
-    else:
-      return raw_name
+  def _view_table_names(self, view: views.View) -> Dict[str, str]:
+    """Generates the table names for each resource in the view."""
+    names = {}
+    for structdef_url in view.get_structdef_urls():
+      last_slash_index = structdef_url.rfind('/')
+      name = (
+          structdef_url
+          if last_slash_index == -1 else structdef_url[last_slash_index + 1:])
+      if self._snake_case_resource_tables:
+        name = re.sub(
+            pattern=r'([A-Z]+)', repl=r'_\1', string=name).lower().lstrip('_')
+      names[structdef_url] = name
+    return names
 
   def _datetime_sql(self, expr: expressions.Builder, raw_sql: str) -> str:
     """Wraps raw sql if the result is datetime."""
@@ -199,6 +202,33 @@ class BigQueryRunner:
 
     return raw_sql
 
+  def _join_sql_statements(self, sql_statements: List[str]) -> str:
+    if len(sql_statements) > 2:
+      raise NotImplementedError(
+          'Cross resource join for more than two resources '
+          'is not currently supported.')
+
+    if len(sql_statements) == 1:
+      return sql_statements[0]
+
+    return (f'SELECT * FROM\n(({sql_statements[0]})'
+            f'\nINNER JOIN\n({self._join_sql_statements(sql_statements[1:])})'
+            f'\nUSING(__patientId__))')
+
+  def _encode(self, expr: expressions.Builder, select_scalars_as_array: bool,
+              structure_definition: message.Message,
+              element_definition: message.Message, internal_v2: bool,
+              encoder: fhir_path.FhirPathStandardSqlEncoder) -> str:
+    if internal_v2:
+      return self._interpreter.encode(
+          expr, select_scalars_as_array=select_scalars_as_array)
+    else:
+      return encoder.encode(
+          structure_definition=structure_definition,
+          element_definition=element_definition,
+          fhir_path_expression=expr.to_expression().fhir_path,
+          select_scalars_as_array=select_scalars_as_array)
+
   def to_sql(self,
              view: views.View,
              limit: Optional[int] = None,
@@ -217,87 +247,113 @@ class BigQueryRunner:
     Returns:
       The SQL used to run the given view.
     """
-    fhir_context = view.get_fhir_path_context()
-    struct_def = fhir_context.get_structure_definition(view.get_structdef_url())
-    elem_def = next(elem for elem in struct_def.snapshot.element
-                    if elem.path.value == struct_def.name.value)
-
-    deps = fhir_context.get_dependency_definitions(view.get_structdef_url())
-    deps.append(struct_def)
-    encoder = fhir_path.FhirPathStandardSqlEncoder(deps)
     if internal_v2 is None:
       internal_v2 = self._internal_default_to_v2_runner
 
-    if internal_v2:
-      interpreter = _bigquery_interpreter.BigQuerySqlInterpreter()
+    if len(view.get_structdef_urls()) > 1 and not internal_v2:
+      raise ValueError('Cross Resource views are only allowed in v2.')
 
-    select_expressions = []
-    for (field, expr) in view.get_select_expressions().items():
-      if internal_v2:
-        select_expression = interpreter.encode(
-            expr, select_scalars_as_array=False)
-      else:
-        select_expression = encoder.encode(
-            structure_definition=struct_def,
-            element_definition=elem_def,
-            fhir_path_expression=expr.to_expression().fhir_path,
-            select_scalars_as_array=False)
-        select_expression = self._datetime_sql(expr, select_expression)
+    fhir_context = view.get_fhir_path_context()
+    url = list(view.get_structdef_urls())[0]
+    struct_def = fhir_context.get_structure_definition(url)
+    elem_def = next(elem for elem in struct_def.snapshot.element
+                    if elem.path.value == struct_def.name.value)
 
-      select_expressions.append(f'{select_expression} AS {field}')
+    deps = fhir_context.get_dependency_definitions(url)
+    deps.append(struct_def)
+    encoder = fhir_path.FhirPathStandardSqlEncoder(deps)
 
-    # If no fields have been specified, then return all fields on the resource
-    # table.
-    if not select_expressions:
-      select_expressions.append('*')
+    sql_statements = []
 
-    if include_patient_id_col:
-      # Auto generate the __patientId__ field for the view if it exists.
-      patient_id_expr = view.get_patient_id_expression()
-      if patient_id_expr:
-        if internal_v2:
-          expression = interpreter.encode(
-              patient_id_expr, select_scalars_as_array=False)
-        else:
-          expression = encoder.encode(
+    # URLs to various expressions and tables:
+    dataset = f'{self._fhir_dataset.project}.{self._fhir_dataset.dataset_id}'
+    table_names = self._view_table_names(view)
+    url_to_field_names = view.get_url_to_field_names()
+    url_to_constraint_indexes = view.get_url_to_constraint_indexes()
+    all_select_expressions = view.get_select_expressions()
+    all_constraints = view.get_constraint_expressions()
+
+    # Sort to always generate the urls in the same order for testing purposes.
+    sorted_urls = sorted(view.get_structdef_urls())
+
+    # Build a separate SQL query for each url first and then INNER JOIN on
+    # patient id at the very end. This way, any where clause filters occur first
+    # on the respective query.
+    for url in sorted_urls:
+      select_expressions = []
+      if url in url_to_field_names:
+        for field_name in url_to_field_names[url]:
+          # If no fields have been specified, then return all fields on the
+          # resource table.
+          if field_name == views.BASE_BUILDER_KEY:
+            # There shouldn't be any more field names.
+            select_expressions = ['*']
+            break
+
+          expr = all_select_expressions[field_name]
+          select_expression = self._encode(
+              expr,
+              select_scalars_as_array=False,
               structure_definition=struct_def,
               element_definition=elem_def,
-              fhir_path_expression=patient_id_expr.to_expression().fhir_path,
-              select_scalars_as_array=False)
-        select_expressions.append(f'{expression} AS __patientId__')
+              encoder=encoder,
+              internal_v2=internal_v2)
+          if not internal_v2:
+            select_expression = self._datetime_sql(expr, select_expression)
+          select_expressions.append(f'{select_expression} AS {field_name}')
+
+      if include_patient_id_col or len(view.get_structdef_urls()) > 1:
+        # Auto generate the __patientId__ field for the view if it exists for
+        # every unique resource.
+        expr = view.get_patient_id_expression(url)
+        if expr:
+          expression = self._encode(
+              expr,
+              select_scalars_as_array=False,
+              structure_definition=struct_def,
+              element_definition=elem_def,
+              encoder=encoder,
+              internal_v2=internal_v2)
+
+          select_expressions.append(f'{expression} AS __patientId__')
+
+      where_expressions = []
+      if url in url_to_constraint_indexes:
+        for index in url_to_constraint_indexes[url]:
+          expr = all_constraints[index]
+          where_expression = self._encode(
+              expr,
+              select_scalars_as_array=True,
+              structure_definition=struct_def,
+              element_definition=elem_def,
+              encoder=encoder,
+              internal_v2=internal_v2)
+
+          # TODO(b/208900793): Remove LOGICAL_AND(UNNEST) when the SQL generator
+          # can return single values and it's safe to do so for non-repeated
+          # fields.
+          where_expressions.append(
+              '(SELECT LOGICAL_AND(logic_)\n'
+              f'FROM UNNEST({where_expression}) AS logic_)')
+
+      # Build statement for the resource.
+      select_clause = (f'SELECT {",".join(select_expressions)} '
+                       f'FROM `{dataset}`.{table_names[url]}')
+      where_clause = ''
+      if where_expressions:
+        where_clause = f'\nWHERE {" AND ".join(where_expressions)}'
+      sql_statements.append(f'{select_clause}{where_clause}')
 
     # Build the expression containing valueset content, which may be empty.
     valuesets_clause = self._create_valueset_expression(view)
 
-    # Build the select expression from the FHIR resource table.
-    table_name = self._view_table_name(view)
-    dataset = f'{self._fhir_dataset.project}.{self._fhir_dataset.dataset_id}'
-    select_clause = (f'{valuesets_clause}SELECT {",".join(select_expressions)} '
-                     f'FROM `{dataset}`.{table_name}')
-
-    where_expressions = []
-    for expr in view.get_constraint_expressions():
-      if internal_v2:
-        where_expression = interpreter.encode(expr)
-      else:
-        where_expression = encoder.encode(
-            structure_definition=struct_def,
-            element_definition=elem_def,
-            fhir_path_expression=expr.to_expression().fhir_path)
-      # TODO(b/208900793): Remove LOGICAL_AND(UNNEST) when the SQL generator can
-      # return single values and it's safe to do so for non-repeated fields.
-      where_expressions.append('(SELECT LOGICAL_AND(logic_)\n'
-                               f'FROM UNNEST({where_expression}) AS logic_)')
-
     if limit is not None and limit < 1:
       raise ValueError('Query limits must be positive integers.')
-
     limit_clause = '' if limit is None else f' LIMIT {limit}'
-    if where_expressions:
-      where_clause = f'WHERE {" AND ".join(where_expressions)}'
-      return f'{select_clause}\n{where_clause}{limit_clause}'
-    else:
-      return f'{select_clause}{limit_clause}'
+
+    sql_statement = self._join_sql_statements(sql_statements)
+
+    return f'{valuesets_clause}{sql_statement}{limit_clause}'
 
   def to_dataframe(self,
                    view: views.View,
@@ -388,11 +444,18 @@ class BigQueryRunner:
           'Summarization of codes with view constraints not yet implemented.')
 
     fhir_context = view.get_fhir_path_context()
-    struct_def = fhir_context.get_structure_definition(view.get_structdef_url())
+    # Workaround for v1 until it gets deprecated.
+    if len(view.get_structdef_urls()) > 1:
+      raise NotImplementedError(
+          'Summarization of codes with multiple resource views not yet implemented.'
+      )
+
+    url = list(view.get_structdef_urls())[0]
+    struct_def = fhir_context.get_structure_definition(url)
     elem_def = next(elem for elem in struct_def.snapshot.element
                     if elem.path.value == struct_def.name.value)
 
-    deps = fhir_context.get_dependency_definitions(view.get_structdef_url())
+    deps = fhir_context.get_dependency_definitions(url)
     deps.append(struct_def)
     encoder = fhir_path.FhirPathStandardSqlEncoder(deps)
 
@@ -403,12 +466,13 @@ class BigQueryRunner:
         select_scalars_as_array=True)
 
     # Build the select expression from the FHIR resource table.
-    table_name = self._view_table_name(view)
+    table_names = self._view_table_names(view)
     dataset = f'{self._fhir_dataset.project}.{self._fhir_dataset.dataset_id}'
 
-    # Query to get the array of code-like fields we will aggregate by.
-    expr_array_query = (f'SELECT {select_expression} as target '
-                        f'FROM `{dataset}`.{table_name}')
+    if len(table_names.keys()) == 1:
+      # Query to get the array of code-like fields we will aggregate by.
+      expr_array_query = (f'SELECT {select_expression} as target '
+                          f'FROM `{dataset}`.{table_names[url]}')
 
     # Create a counting aggregation for the appropriate code-like structure.
     if node_type.url == _CODEABLE_CONCEPT:

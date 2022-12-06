@@ -736,6 +736,91 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
     self.assertEqual(expected_mock_df, returned_df)
 
+  def testCrossReference_ToSql_forPatientAndEncounterWithNoConstraint_succeeds(
+      self):
+    """Tests a view with two different resources referenced and no constraints.
+    """
+    enc = self._views.view_of('Encounter')
+    pat = self._views.view_of('Patient')
+
+    enc_and_pat_class = (
+        enc.select({
+            'class': enc.class_,
+            'pat': pat.name.given
+        }))
+
+    self.AstAndExpressionTreeTestRunner(
+        textwrap.dedent("""\
+          SELECT * FROM
+          ((SELECT (SELECT class) AS class,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Encounter)
+          INNER JOIN
+          (SELECT ARRAY(SELECT given_element_
+          FROM (SELECT given_element_
+          FROM (SELECT name_element_
+          FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
+          UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
+          WHERE given_element_ IS NOT NULL) AS pat,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient)
+          USING(__patientId__))"""), enc_and_pat_class)
+
+  def testCrossReference_ToSql_forPatientAndEncounter_succeeds(self):
+    """Tests a view with two different resources referenced."""
+    enc = self._views.view_of('Encounter')
+    pat = self._views.view_of('Patient')
+
+    enc_and_pat_class = (
+        enc.select({
+            'class': enc.class_,
+            'pat': pat.name.given
+        }).where(pat.name.family.exists(), enc.status.exists(),
+                 enc.period.start > datetime.date(2000, 1, 1)))
+
+    self.AstAndExpressionTreeTestRunner(
+        textwrap.dedent("""\
+          SELECT * FROM
+          ((SELECT (SELECT class) AS class,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Encounter
+          WHERE (SELECT LOGICAL_AND(logic_)
+          FROM UNNEST(ARRAY(SELECT exists_
+          FROM (SELECT status IS NOT NULL AS exists_)
+          WHERE exists_ IS NOT NULL)) AS logic_) AND (SELECT LOGICAL_AND(logic_)
+          FROM UNNEST(ARRAY(SELECT comparison_
+          FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", period.start) > PARSE_TIMESTAMP("%Y-%m-%d", '2000-01-01')) AS comparison_)
+          WHERE comparison_ IS NOT NULL)) AS logic_))
+          INNER JOIN
+          (SELECT ARRAY(SELECT given_element_
+          FROM (SELECT given_element_
+          FROM (SELECT name_element_
+          FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
+          UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
+          WHERE given_element_ IS NOT NULL) AS pat,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+          WHERE (SELECT LOGICAL_AND(logic_)
+          FROM UNNEST(ARRAY(SELECT exists_
+          FROM (SELECT EXISTS(
+          SELECT family
+          FROM (SELECT name_element_.family
+          FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset)
+          WHERE family IS NOT NULL) AS exists_)
+          WHERE exists_ IS NOT NULL)) AS logic_))
+          USING(__patientId__))"""), enc_and_pat_class)
+
+  def testCrossReference_ToSql_forPatientAndEncounterNoSelect_succeeds(self):
+    """Tests a view with two different resources referenced and no select."""
+    enc = self._views.view_of('Encounter')
+    pat = self._views.view_of('Patient')
+
+    enc_and_pat_class = (enc.where(pat.maritalStatus.exists()))
+
+    self.AstAndExpressionTreeTestRunner(
+        textwrap.dedent("""\
+          SELECT * FROM
+          ((SELECT *,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Encounter)
+          INNER JOIN
+          (SELECT (SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+          WHERE (SELECT LOGICAL_AND(logic_)
+          FROM UNNEST(ARRAY(SELECT exists_
+          FROM (SELECT maritalStatus IS NOT NULL AS exists_)
+          WHERE exists_ IS NOT NULL)) AS logic_))
+          USING(__patientId__))"""), enc_and_pat_class)
+
   @mock.patch.object(
       bigquery_runner.value_set_tables,
       'valueset_codes_insert_statement_for',
