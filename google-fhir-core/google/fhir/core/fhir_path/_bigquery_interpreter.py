@@ -83,7 +83,14 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       sql_value = str(literal).upper()
       sql_data_type = _sql_data_types.Boolean
     elif isinstance(literal.return_type(), _fhir_path_data_types._Quantity):  # pylint: disable=protected-access
-      sql_value = f"'{literal}'"  # Quote string literals for SQL
+      # Since quantity string literals contain quotes, they are escaped.
+      # E.g. '10 \'mg\''.
+      quantity_quotes_escaped = str(literal).translate(
+          str.maketrans({
+              "'": r"\'",
+              '"': r'\"'
+          }))
+      sql_value = f"'{quantity_quotes_escaped}'"
       sql_data_type = _sql_data_types.String
     elif isinstance(literal.return_type(), _fhir_path_data_types._Integer):  # pylint: disable=protected-access
       sql_value = str(literal)

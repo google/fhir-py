@@ -34,7 +34,6 @@ from google.fhir.core.fhir_path import _utils
 from google.fhir.core.fhir_path import fhir_path_options
 from google.fhir.core.utils import proto_utils
 
-
 # TODO(b/201107372): Update FHIR-agnostic types to a protocol.
 StructureDefinition = message.Message
 ElementDefinition = message.Message
@@ -329,8 +328,18 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
       # given so it's nontrivial to parse the string correctly.
       sql_value = f"'{literal.value}'"
       sql_data_type = _sql_data_types.String
-    elif isinstance(literal.value, (str, _ast.Quantity)):
+    elif isinstance(literal.value, str):
       sql_value = f"'{literal.value}'"  # Quote string literals for SQL
+      sql_data_type = _sql_data_types.String
+    elif isinstance(literal.value, _ast.Quantity):
+      # Since quantity string literals contain quotes, they are escaped.
+      # E.g. '10 \'mg\''.
+      quantity_quotes_escaped = str(literal.value).translate(
+          str.maketrans({
+              "'": r"\'",
+              '"': r'\"'
+          }))
+      sql_value = f"'{quantity_quotes_escaped}'"
       sql_data_type = _sql_data_types.String
     elif isinstance(literal.value, int):
       sql_value = str(literal)

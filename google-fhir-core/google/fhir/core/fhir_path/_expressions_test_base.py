@@ -20,7 +20,6 @@ import keyword
 import math
 import textwrap
 from typing import List, Union, cast
-
 from google.protobuf import descriptor
 from google.protobuf import message
 from google.protobuf import symbol_database
@@ -29,6 +28,7 @@ from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import context
 from google.fhir.core.fhir_path import expressions
+from google.fhir.core.fhir_path import quantity
 from google.fhir.core.utils import proto_utils
 
 _UNIX_EPOCH = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
@@ -1008,6 +1008,74 @@ class FhirPathExpressionsTest(
         self.builder('Patient').birthDate < datetime.datetime(
             1950, 1, 1, tzinfo=datetime.timezone.utc), patient, True)
 
+  def testQuantityComparison_forResource_succeeds(self):
+    """Tests quantity comparisons against a resource."""
+    observation = self._new_observation()
+    observation.value.quantity.value.value = '1.0'
+    observation.value.quantity.unit.value = 'g'
+
+    observation_quantity = self.builder('Observation').value.ofType('Quantity')
+
+    self.assert_expression_result(
+        self.compile_expression('Observation',
+                                "value.ofType('Quantity') < 0 'g'"),
+        observation_quantity < quantity.Quantity(
+            value=decimal.Decimal(0), unit='g'), observation, False)
+
+    self.assert_expression_result(
+        self.compile_expression('Observation',
+                                "value.ofType('Quantity') < 2 'g'"),
+        observation_quantity < quantity.Quantity(
+            value=decimal.Decimal(2), unit='g'), observation, True)
+
+    self.assert_expression_result(
+        self.compile_expression('Observation',
+                                "value.ofType('Quantity') <= 2 'g'"),
+        observation_quantity <= quantity.Quantity(
+            value=decimal.Decimal(2), unit='g'), observation, True)
+
+    self.assert_expression_result(
+        self.compile_expression('Observation',
+                                "value.ofType('Quantity') <= 0 'g'"),
+        observation_quantity <= quantity.Quantity(
+            value=decimal.Decimal(0), unit='g'), observation, False)
+
+    self.assert_expression_result(
+        self.compile_expression('Observation',
+                                "value.ofType('Quantity') > 0 'g'"),
+        observation_quantity > quantity.Quantity(
+            value=decimal.Decimal(0), unit='g'), observation, True)
+
+    self.assert_expression_result(
+        self.compile_expression('Observation',
+                                "value.ofType('Quantity') > 2 'g'"),
+        observation_quantity > quantity.Quantity(
+            value=decimal.Decimal(2), unit='g'), observation, False)
+
+    self.assert_expression_result(
+        self.compile_expression('Observation',
+                                "value.ofType('Quantity') >= 2 'g'"),
+        observation_quantity >= quantity.Quantity(
+            value=decimal.Decimal(2), unit='g'), observation, False)
+
+    self.assert_expression_result(
+        self.compile_expression('Observation',
+                                "value.ofType('Quantity') >= 0 'g'"),
+        observation_quantity >= quantity.Quantity(
+            value=decimal.Decimal(0), unit='g'), observation, True)
+
+    self.assert_expression_result(
+        self.compile_expression('Observation',
+                                "value.ofType('Quantity') = 2 'g'"),
+        observation_quantity == quantity.Quantity(
+            value=decimal.Decimal(2), unit='g'), observation, False)
+
+    self.assert_expression_result(
+        self.compile_expression('Observation',
+                                "value.ofType('Quantity') = 1 'g'"),
+        observation_quantity == quantity.Quantity(
+            value=decimal.Decimal(1.0), unit='g'), observation, True)
+
   def testNoneComparison_forResource_hasNoValue(self):
     patient = self._new_patient()
     expr = (self.builder('Patient').address.state > 'CA').to_expression()
@@ -1608,7 +1676,7 @@ class FhirPathExpressionsTest(
     # Polymorphic choice type printing.
     self.assertMultiLineEqual(
         textwrap.dedent("""\
-      + value <InvokeExpressionNode type=<PolymorphicDataType(types=['quantity: http://hl7.org/fhir/StructureDefinition/Quantity', 'codeableconcept: http://hl7.org/fhir/StructureDefinition/CodeableConcept', 'string: http://hl7.org/fhirpath/System.String', 'boolean: http://hl7.org/fhirpath/System.Boolean', 'integer: http://hl7.org/fhirpath/System.Integer', 'range: http://hl7.org/fhir/StructureDefinition/Range', 'ratio: http://hl7.org/fhir/StructureDefinition/Ratio', 'sampleddata: http://hl7.org/fhir/StructureDefinition/SampledData', 'time: http://hl7.org/fhirpath/System.DateTime', 'datetime: http://hl7.org/fhirpath/System.DateTime', 'period: http://hl7.org/fhir/StructureDefinition/Period'])>> (
+      + value <InvokeExpressionNode type=<PolymorphicDataType(types=['quantity: http://hl7.org/fhirpath/System.Quantity', 'codeableconcept: http://hl7.org/fhir/StructureDefinition/CodeableConcept', 'string: http://hl7.org/fhirpath/System.String', 'boolean: http://hl7.org/fhirpath/System.Boolean', 'integer: http://hl7.org/fhirpath/System.Integer', 'range: http://hl7.org/fhir/StructureDefinition/Range', 'ratio: http://hl7.org/fhir/StructureDefinition/Ratio', 'sampleddata: http://hl7.org/fhir/StructureDefinition/SampledData', 'time: http://hl7.org/fhirpath/System.DateTime', 'datetime: http://hl7.org/fhirpath/System.DateTime', 'period: http://hl7.org/fhir/StructureDefinition/Period'])>> (
       | + Observation <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Observation)>> ())"""
                        ),
         self.builder('Observation').value.debug_string(with_typing=True))

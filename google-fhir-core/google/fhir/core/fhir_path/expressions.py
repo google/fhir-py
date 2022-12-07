@@ -29,13 +29,15 @@ from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import context
+from google.fhir.core.fhir_path import quantity
 from google.fhir.core.internal import primitive_handler
 from google.fhir.core.utils import annotation_utils
 from google.fhir.core.utils import fhir_types
 from google.fhir.core.utils import proto_utils
 
 # TODO(b/208900793): Expand to all FHIRPath-comparable equivalent types.
-Comparable = Union[str, bool, int, float, datetime.date, datetime.datetime]
+Comparable = Union[str, bool, int, float, datetime.date, datetime.datetime,
+                   quantity.Quantity]
 BuilderOperand = Union[Comparable, 'Builder']
 StructureDefinition = message.Message
 
@@ -247,6 +249,8 @@ class Builder:
       return f'@{cast(datetime.date, primitive).isoformat()}'
     elif isinstance(primitive, datetime.datetime):
       return f'@{cast(datetime.datetime, primitive).isoformat()}'
+    elif isinstance(primitive, quantity.Quantity):
+      return str(primitive)
     elif primitive is None:
       return '{}'
     else:
@@ -270,6 +274,8 @@ class Builder:
     elif isinstance(primitive, datetime.date):
       return self._handler.primitive_wrapper_from_json_value(
           primitive.isoformat(), self._handler.date_cls).wrapped
+    elif isinstance(primitive, quantity.Quantity):
+      return self._handler.new_quantity(primitive.value, primitive.unit)
     else:
       raise ValueError(f'Unsupported primitive type: {type(primitive)}')
 

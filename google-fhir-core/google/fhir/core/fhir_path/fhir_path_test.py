@@ -618,7 +618,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           fhir_path_expression="10 'mg'",
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT literal_
-          FROM (SELECT '10 mg' AS literal_)
+          FROM (SELECT '10 \\'mg\\'' AS literal_)
           WHERE literal_ IS NOT NULL)""")),
   )
   def testEncode_withFhirPathLiteral_succeeds(self, fhir_path_expression: str,
@@ -769,7 +769,7 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
           fhir_path_expression="10 'mg'",
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT literal_
-          FROM (SELECT '10 mg' AS literal_)
+          FROM (SELECT '10 \\'mg\\'' AS literal_)
           WHERE literal_ IS NOT NULL)""")),
       dict(
           testcase_name='_withDateTimeEqual',

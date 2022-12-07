@@ -355,8 +355,8 @@ class _Quantity(FhirPathDataType):
   def url(self) -> str:
     return self._URL
 
-  def __init__(self) -> None:
-    super().__init__(comparable=True)
+  def __init__(self, comparable: bool = True, **kwargs) -> None:
+    super().__init__(comparable=comparable, **kwargs)
 
   def _class_name(self) -> str:
     return '<QuantityFhirPathDataType>'
@@ -499,8 +499,9 @@ class StructureDataType(FhirPathDataType):
 
   def __init__(self,
                struct_def_proto: message.Message,
-               backbone_element_path: Optional[str] = None) -> None:
-    super().__init__(comparable=False)
+               backbone_element_path: Optional[str] = None,
+               comparable: bool = False) -> None:
+    super().__init__(comparable=comparable)
     self._struct_def = cast(Any, struct_def_proto)
     self._url = self._struct_def.url.value
     self._base_type = self._struct_def.type.value
@@ -544,6 +545,31 @@ class StructureDataType(FhirPathDataType):
 
   def children(self) -> Dict[str, message.Message]:
     return self._children
+
+
+class QuantityStructureDataType(StructureDataType, _Quantity):
+  """Represents quantity FHIR specification data types."""
+
+  _URL = 'http://hl7.org/fhirpath/System.Quantity'
+
+  @property
+  def supported_coercion(self) -> Set[FhirPathDataType]:
+    return set([Quantity])
+
+  @property
+  def url(self) -> str:
+    return self._URL
+
+  def __init__(self,
+               struct_def_proto: message.Message,
+               backbone_element_path: Optional[str] = None) -> None:
+    super().__init__(
+        struct_def_proto=struct_def_proto,
+        backbone_element_path=backbone_element_path,
+        comparable=True)
+
+  def _class_name(self) -> str:
+    return f'<QuantityStructureFhirPathDataType(url={self.url})>'
 
 
 class _Any(FhirPathDataType):

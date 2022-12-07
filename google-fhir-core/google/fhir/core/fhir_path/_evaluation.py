@@ -29,6 +29,7 @@ from google.protobuf import message
 from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import context
+from google.fhir.core.fhir_path import quantity
 from google.fhir.core.internal import primitive_handler
 from google.fhir.core.utils import annotation_utils
 from google.fhir.core.utils import fhir_types
@@ -45,6 +46,7 @@ except ImportError:
 # pylint: enable=g-import-not-at-top
 
 VALUE_SET_URL = 'http://hl7.org/fhir/StructureDefinition/ValueSet'
+QUANTITY_URL = 'http://hl7.org/fhir/StructureDefinition/Quantity'
 ElementDefinition = message.Message
 
 
@@ -377,9 +379,12 @@ class LiteralNode(ExpressionNode):
       valueset_type = (
           annotation_utils.is_resource(value) and
           annotation_utils.get_structure_definition_url(value) == VALUE_SET_URL)
-      if not (primitive_type or valueset_type):
-        raise ValueError(f'LiteralNode should be a primitive or valueset, '
-                         f'instead, is {self._value}')  # pytype: disable=attribute-error
+      quantity_type = annotation_utils.get_structure_definition_url(
+          value) == QUANTITY_URL
+      if not (primitive_type or valueset_type or quantity_type):
+        raise ValueError(
+            f'LiteralNode should be a primitive, a quantity or a valueset, '
+            f'instead, is: {value}')  # pytype: disable=attribute-error
 
     self._value = value
     self._fhir_path_str = fhir_path_str
@@ -1483,7 +1488,12 @@ class ComparisonNode(CoercibleBinaryExpressionNode):
     left = left_messages[0].message
     right = right_messages[0].message
 
-    if hasattr(left, 'value') and hasattr(right, 'value'):
+    if (annotation_utils.get_structure_definition_url(left) == QUANTITY_URL and
+        annotation_utils.get_structure_definition_url(right) == QUANTITY_URL):
+      result = self._compare(
+          quantity.quantity_from_proto(left),
+          quantity.quantity_from_proto(right))
+    elif hasattr(left, 'value') and hasattr(right, 'value'):
       left_value = cast(Any, left).value
       right_value = cast(Any, right).value
       # Wrap decimal types to ensure numeric rather than alpha comparison
@@ -1795,10 +1805,8 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     elif isinstance(literal.value, _ast.Quantity):
       return LiteralNode(
           self._context,
-          # TODO(b/244184211): Add new class for Quantity?
-          self._handler.new_string(str(literal.value)),
-          str(literal.value),
-          _fhir_path_data_types.Quantity)
+          self._handler.new_quantity(literal.value.value, literal.value.unit),
+          str(literal.value), _fhir_path_data_types.Quantity)
     else:
       raise ValueError(
           f'Unsupported literal value: {literal} {type(literal.value)}.')
@@ -1920,6 +1928,11 @@ def _messages_equal(handler: primitive_handler.PrimitiveHandler,
   # If left and right are the same types, simply compare the protos.
   if (left.message.DESCRIPTOR is right.message.DESCRIPTOR or
       left.message.DESCRIPTOR.full_name == right.message.DESCRIPTOR.full_name):
+    if (annotation_utils.get_structure_definition_url(left.message)
+        == QUANTITY_URL and annotation_utils.get_structure_definition_url(
+            right.message) == QUANTITY_URL):
+      return quantity.quantity_from_proto(
+          left.message) == quantity.quantity_from_proto(right.message)
     return left.message == right.message
 
   # Left and right are different types, but may still be logically equal if

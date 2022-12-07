@@ -40,7 +40,7 @@ class Quantity:
   unit: Optional[str] = None
 
   def __str__(self) -> str:
-    return f'{self.value}' if self.unit is None else f'{self.value} {self.unit}'
+    return f'{self.value}' if self.unit is None else f"{self.value} '{self.unit}'"
 
 
 # Python native datatypes for FHIRPath literal values.
