@@ -701,6 +701,11 @@ def is_numeric(fhir_type: FhirPathDataType) -> bool:
           isinstance(fhir_type, _Decimal)) or isinstance(fhir_type, _Empty)
 
 
+def is_primitive(fhir_type: FhirPathDataType) -> bool:
+  return (not isinstance(fhir_type, StructureDataType) and
+          not isinstance(fhir_type, PolymorphicDataType))
+
+
 def is_coercible(lhs: FhirPathDataType, rhs: FhirPathDataType) -> bool:
   """Returns `True` if implicit conversion can occur between `lhs` and `rhs`.
 

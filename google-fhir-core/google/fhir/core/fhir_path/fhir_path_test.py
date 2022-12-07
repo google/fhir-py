@@ -2859,7 +2859,7 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
             fhir_path_key=constraint.key.value,
             fhir_path_expression=constraint.expression.value,
             fields_referenced_by_expression=(
-                fhir_path_validator._fields_referenced_by_expression(
+                fhir_path_validator_v2._fields_referenced_by_expression(
                     constraint.expression.value)))
 
       self.assertListEqual(actual_bindings_v2, [expected_binding])
@@ -3061,6 +3061,17 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(error_reporter.errors)
     self.assertEmpty(actual_bindings)
 
+    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        [profile],
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
+        options=options,
+    )
+    actual_bindings = encoder.encode(profile)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertEmpty(error_reporter.errors)
+    self.assertEmpty(actual_bindings)
+
   def testSkipKeys_withValidResource_producesNoConstraints_v2(self):
     # Setup resource with a defined constraint
     constraint = _build_constraint(
@@ -3225,6 +3236,19 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(error_reporter.warnings)
     self.assertEmpty(error_reporter.errors)
     self.assertLen(actual_bindings, 2)
+    self.assertEqual(actual_bindings[0].fhir_path_expression, '4 + 5')
+
+    # Test with v2
+    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        [foo],
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
+        options=options)
+
+    actual_bindings = encoder.encode(foo)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertEmpty(error_reporter.errors)
+    self.assertLen(actual_bindings, 2)
 
     self.assertEqual(actual_bindings[0].fhir_path_expression, '4 + 5')
 
@@ -3280,6 +3304,24 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEqual(actual_bindings[0].fhir_path_expression, '4 + 5')
     self.assertEqual(actual_bindings[1].fhir_path_expression, '4 + 5')
 
+    # Test v2
+    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        [foo, bar],
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
+        options=options)
+
+    actual_bindings = encoder.encode(foo)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertEmpty(error_reporter.errors)
+    # Unlike v1, a subquery is not generated for nonRoot elements, so the sql
+    # generated is the same for both since the expression is just arithmetic and
+    # does not reference any element in the field. Since the sql is the same,
+    # one of the requirement sqls will be deleted upon return.
+    self.assertLen(actual_bindings, 1)
+
+    self.assertEqual(actual_bindings[0].fhir_path_expression, '4 + 5')
+
   def testEncode_withPrimitiveStructureDefinition_producesNoConstraints(self):
     # Setup primitive structure definition with 'always-fail-constraint-key'.
     constraint = _build_constraint(
@@ -3309,6 +3351,19 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         skip_keys=set(['always-fail-constraint-key']))
     encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         [profile, string],
+        error_reporter,
+        options=options,
+    )
+    # We are expecting to not see 'always-fail-constraint-key' here because we
+    # skipped encoding fields on the primitive `string`.
+    actual_bindings = encoder.encode(profile)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertEmpty(error_reporter.errors)
+    self.assertEmpty(actual_bindings)
+
+    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        [profile, string],
+        primitive_handler.PrimitiveHandler(),
         error_reporter,
         options=options,
     )
