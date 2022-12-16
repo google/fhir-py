@@ -1626,9 +1626,27 @@ class FhirPathExpressionsTest(
     expr = self.compile_expression('Patient', '{} | {}')
     self.assertEqual(expr.evaluate(patient).messages, [])
 
+  def testMultipleResourceBuilder(self):
+    """Test multiple resources in one builder."""
+    multi_resource = self.builder(
+        'Patient').name.first().family == self.builder('Encounter').status
+    self.assertMultiLineEqual(
+        textwrap.dedent("""\
+          + name.first().family = status <EqualityNode> (
+          | + name.first().family <InvokeExpressionNode> (
+          | | + name.first() <FirstFunction> (
+          | | | + name <InvokeExpressionNode> (
+          | | | | + Patient <RootMessageNode> ())))
+          | + status <InvokeExpressionNode> (
+          | | + Encounter <RootMessageNode> ()))"""),
+        multi_resource.debug_string())
+
+    self.assertSameElements(
+        ['Patient', 'Encounter'],
+        [p.fhir_path for p in multi_resource.get_resource_builders()])
+
   def testNodeDebugString(self):
     """Tests debug_string print functionality."""
-
     # Basic FHIRView
     self.assertMultiLineEqual(
         textwrap.dedent("""\

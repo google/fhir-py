@@ -118,7 +118,6 @@ class BigQueryRunner:
     self._as_of = as_of
     self._snake_case_resource_tables = snake_case_resource_tables
     self._internal_default_to_v2_runner = internal_default_to_v2_runner
-    self._interpreter = _bigquery_interpreter.BigQuerySqlInterpreter()
 
     if value_set_codes_table is None:
       self._value_set_codes_table = bigquery.table.TableReference(
@@ -211,16 +210,23 @@ class BigQueryRunner:
     if len(sql_statements) == 1:
       return sql_statements[0]
 
-    return (f'SELECT * FROM\n(({sql_statements[0]})'
+    return (f'SELECT * , __patientId__ FROM\n(({sql_statements[0]})'
             f'\nINNER JOIN\n({self._join_sql_statements(sql_statements[1:])})'
             f'\nUSING(__patientId__))')
 
-  def _encode(self, expr: expressions.Builder, select_scalars_as_array: bool,
+  def _encode(self,
+              expr: expressions.Builder,
+              select_scalars_as_array: bool,
               structure_definition: message.Message,
-              element_definition: message.Message, internal_v2: bool,
-              encoder: fhir_path.FhirPathStandardSqlEncoder) -> str:
+              element_definition: message.Message,
+              internal_v2: bool,
+              encoder: fhir_path.FhirPathStandardSqlEncoder,
+              use_resource_alias: bool = False) -> str:
+    """Encodes the expression in googleSQL."""
     if internal_v2:
-      return self._interpreter.encode(
+      interpreter = _bigquery_interpreter.BigQuerySqlInterpreter(
+          use_resource_alias=use_resource_alias)
+      return interpreter.encode(
           expr, select_scalars_as_array=select_scalars_as_array)
     else:
       return encoder.encode(
@@ -251,7 +257,8 @@ class BigQueryRunner:
       internal_v2 = self._internal_default_to_v2_runner
 
     if len(view.get_structdef_urls()) > 1 and not internal_v2:
-      raise ValueError('Cross Resource views are only allowed in v2.')
+      raise ValueError(f'Cross Resource views are only allowed in '
+                       f'v2. {view.get_structdef_urls()}')
 
     fhir_context = view.get_fhir_path_context()
     url = list(view.get_structdef_urls())[0]
@@ -263,7 +270,7 @@ class BigQueryRunner:
     deps.append(struct_def)
     encoder = fhir_path.FhirPathStandardSqlEncoder(deps)
 
-    sql_statements = []
+    inner_sql_statements = []
 
     # URLs to various expressions and tables:
     dataset = f'{self._fhir_dataset.project}.{self._fhir_dataset.dataset_id}'
@@ -280,14 +287,14 @@ class BigQueryRunner:
     # patient id at the very end. This way, any where clause filters occur first
     # on the respective query.
     for url in sorted_urls:
-      select_expressions = []
+      inner_select_expressions = []
       if url in url_to_field_names:
         for field_name in url_to_field_names[url]:
           # If no fields have been specified, then return all fields on the
           # resource table.
           if field_name == views.BASE_BUILDER_KEY:
             # There shouldn't be any more field names.
-            select_expressions = ['*']
+            inner_select_expressions = ['*']
             break
 
           expr = all_select_expressions[field_name]
@@ -300,7 +307,8 @@ class BigQueryRunner:
               internal_v2=internal_v2)
           if not internal_v2:
             select_expression = self._datetime_sql(expr, select_expression)
-          select_expressions.append(f'{select_expression} AS {field_name}')
+          inner_select_expressions.append(
+              f'{select_expression} AS {field_name}')
 
       if include_patient_id_col or len(view.get_structdef_urls()) > 1:
         # Auto generate the __patientId__ field for the view if it exists for
@@ -315,9 +323,9 @@ class BigQueryRunner:
               encoder=encoder,
               internal_v2=internal_v2)
 
-          select_expressions.append(f'{expression} AS __patientId__')
+          inner_select_expressions.append(f'{expression} AS __patientId__')
 
-      where_expressions = []
+      inner_where_expressions = []
       if url in url_to_constraint_indexes:
         for index in url_to_constraint_indexes[url]:
           expr = all_constraints[index]
@@ -332,17 +340,80 @@ class BigQueryRunner:
           # TODO(b/208900793): Remove LOGICAL_AND(UNNEST) when the SQL generator
           # can return single values and it's safe to do so for non-repeated
           # fields.
-          where_expressions.append(
+          inner_where_expressions.append(
               '(SELECT LOGICAL_AND(logic_)\n'
               f'FROM UNNEST({where_expression}) AS logic_)')
 
       # Build statement for the resource.
-      select_clause = (f'SELECT {",".join(select_expressions)} '
-                       f'FROM `{dataset}`.{table_names[url]}')
-      where_clause = ''
-      if where_expressions:
-        where_clause = f'\nWHERE {" AND ".join(where_expressions)}'
-      sql_statements.append(f'{select_clause}{where_clause}')
+      table_alias = ''
+
+      # Check if the view has builders that reference multiple resources.
+      has_mixed_resource_builders = (
+          len(view.get_multiresource_field_names()) +
+          len(view.get_multiresource_constraint_indexes())) != 0
+
+      if has_mixed_resource_builders:
+        # For views with mixed resource builders, * and table_names[url] will
+        # double the number of rows produced.
+        if '*' in inner_select_expressions:
+          inner_select_expressions = inner_select_expressions[1:]
+        inner_select_expressions.append(table_names[url])
+        table_alias = f' {table_names[url]}'
+
+      inner_select_clause = (
+          f'SELECT {",".join(inner_select_expressions)} '
+          f'FROM `{dataset}`.{table_names[url]}{table_alias}')
+      inner_where_clause = ''
+      if inner_where_expressions:
+        inner_where_clause = f'\nWHERE {" AND ".join(inner_where_expressions)}'
+      inner_sql_statements.append(f'{inner_select_clause}{inner_where_clause}')
+
+    # First perform all the joins.
+    sql_statement = self._join_sql_statements(inner_sql_statements)
+
+    # Then build the query for the builders that reference multiple resources
+    # now that the resources are all in one table.
+    multiresource_select_expressions = []
+    for field_name in view.get_multiresource_field_names():
+      expr = all_select_expressions[field_name]
+      select_expression = self._encode(
+          expr,
+          select_scalars_as_array=False,
+          structure_definition=struct_def,
+          element_definition=elem_def,
+          encoder=encoder,
+          internal_v2=internal_v2,
+          use_resource_alias=True)
+      multiresource_select_expressions.append(
+          f'{select_expression} AS {field_name}')
+
+    multiresource_where_expressions = []
+    for index in view.get_multiresource_constraint_indexes():
+      expr = all_constraints[index]
+      where_expression = self._encode(
+          expr,
+          select_scalars_as_array=True,
+          structure_definition=struct_def,
+          element_definition=elem_def,
+          encoder=encoder,
+          internal_v2=internal_v2,
+          use_resource_alias=True)
+
+      # TODO(b/208900793): Remove LOGICAL_AND(UNNEST) when the SQL generator
+      # can return single values and it's safe to do so for non-repeated
+      # fields.
+      multiresource_where_expressions.append(
+          '(SELECT LOGICAL_AND(logic_)\n'
+          f'FROM UNNEST({where_expression}) AS logic_)')
+
+    if multiresource_select_expressions:
+      sql_statement = ('SELECT *, '
+                       f'{",".join(multiresource_select_expressions)} '
+                       f'FROM ({sql_statement})')
+    if multiresource_where_expressions:
+      sql_statement = (f'{sql_statement}'
+                       '\nWHERE '
+                       f'{" AND ".join(multiresource_where_expressions)}')
 
     # Build the expression containing valueset content, which may be empty.
     valuesets_clause = self._create_valueset_expression(view)
@@ -350,8 +421,6 @@ class BigQueryRunner:
     if limit is not None and limit < 1:
       raise ValueError('Query limits must be positive integers.')
     limit_clause = '' if limit is None else f' LIMIT {limit}'
-
-    sql_statement = self._join_sql_statements(sql_statements)
 
     return f'{valuesets_clause}{sql_statement}{limit_clause}'
 

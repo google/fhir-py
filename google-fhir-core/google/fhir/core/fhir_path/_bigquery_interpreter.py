@@ -16,7 +16,7 @@
 """
 
 import dataclasses
-from typing import Any
+from typing import Any, Optional
 
 from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _bigquery_sql_functions
@@ -38,6 +38,9 @@ def _escape_identifier(identifier_value: str) -> str:
 class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   """Traverses the ExpressionNode tree and generates BigQuery SQL recursively.
   """
+
+  def __init__(self, use_resource_alias: bool = False) -> None:
+    self._use_resource_alias = use_resource_alias
 
   def encode(self,
              builder: expressions.Builder,
@@ -68,6 +71,17 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     else:
       # Parenthesize raw SELECT so it can plug in anywhere an expression can.
       return f'({result})'
+
+  def visit_root(
+      self, root: _evaluation.RootMessageNode
+  ) -> Optional[_sql_data_types.IdentifierSelect]:
+    if self._use_resource_alias:
+      return _sql_data_types.IdentifierSelect(
+          _sql_data_types.Identifier(
+              _escape_identifier(root.to_fhir_path()),
+              _sql_data_types.OpaqueStruct),
+          from_part=None)
+    return None
 
   def visit_literal(
       self, literal: _evaluation.LiteralNode) -> _sql_data_types.RawExpression:

@@ -736,6 +736,42 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
     self.assertEqual(expected_mock_df, returned_df)
 
+  def testCrossReference_ToSql_forMixedResourceBuilder_succeeds(self):
+    """Tests a view with two different resources referenced and no constraints.
+    """
+    enc = self._views.view_of('Encounter')
+    pat = self._views.view_of('Patient')
+
+    enc_and_pat_class = (
+        enc.select({
+            'pat':
+                pat.contact.first().relationship.first().text ==
+                enc.class_.first().display
+        }).where(
+            enc.statusHistory.period.start > pat.contact.first().period.start))
+    self.AstAndExpressionTreeTestRunner(
+        textwrap.dedent("""\
+          SELECT *, (SELECT ((SELECT relationship_element_.text
+          FROM (SELECT contact_element_
+          FROM (SELECT Patient),
+          UNNEST(Patient.contact) AS contact_element_ WITH OFFSET AS element_offset
+          LIMIT 1),
+          UNNEST(contact_element_.relationship) AS relationship_element_ WITH OFFSET AS element_offset
+          LIMIT 1) = Encounter.class.display) AS eq_) AS pat FROM (SELECT * , __patientId__ FROM
+          ((SELECT (SELECT subject.patientId AS idFor_) AS __patientId__,Encounter FROM `test_project.test_dataset`.Encounter Encounter)
+          INNER JOIN
+          (SELECT (SELECT id) AS __patientId__,Patient FROM `test_project.test_dataset`.Patient Patient)
+          USING(__patientId__)))
+          WHERE (SELECT LOGICAL_AND(logic_)
+          FROM UNNEST(ARRAY(SELECT comparison_
+          FROM (SELECT ((SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", statusHistory_element_.period.start) AS start
+          FROM (SELECT Encounter),
+          UNNEST(Encounter.statusHistory) AS statusHistory_element_ WITH OFFSET AS element_offset) > (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", contact_element_.period.start) AS start
+          FROM (SELECT Patient),
+          UNNEST(Patient.contact) AS contact_element_ WITH OFFSET AS element_offset
+          LIMIT 1)) AS comparison_)
+          WHERE comparison_ IS NOT NULL)) AS logic_)"""), enc_and_pat_class)
+
   def testCrossReference_ToSql_forPatientAndEncounterWithNoConstraint_succeeds(
       self):
     """Tests a view with two different resources referenced and no constraints.
@@ -751,7 +787,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
     self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
-          SELECT * FROM
+          SELECT * , __patientId__ FROM
           ((SELECT (SELECT class) AS class,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Encounter)
           INNER JOIN
           (SELECT ARRAY(SELECT given_element_
@@ -776,7 +812,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
     self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
-          SELECT * FROM
+          SELECT * , __patientId__ FROM
           ((SELECT (SELECT class) AS class,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Encounter
           WHERE (SELECT LOGICAL_AND(logic_)
           FROM UNNEST(ARRAY(SELECT exists_
@@ -811,7 +847,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
     self.AstAndExpressionTreeTestRunner(
         textwrap.dedent("""\
-          SELECT * FROM
+          SELECT * , __patientId__ FROM
           ((SELECT *,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Encounter)
           INNER JOIN
           (SELECT (SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient

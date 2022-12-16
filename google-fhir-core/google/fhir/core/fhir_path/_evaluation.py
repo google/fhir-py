@@ -164,12 +164,19 @@ class ExpressionNode(abc.ABC):
     pass
 
   @abc.abstractmethod
+  def get_resource_nodes(self) -> List['ExpressionNode']:
+    return []
+
+  @abc.abstractmethod
   def get_parent_node(self) -> 'ExpressionNode':
     pass
 
   @abc.abstractmethod
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     pass
+
+  def __hash__(self) -> int:
+    return hash(self.to_fhir_path())
 
   def fields(self) -> Set[str]:
     """Returns known fields from this expression, or none if they are unknown.
@@ -282,6 +289,9 @@ class BinaryExpressionNode(ExpressionNode):
     self._right = right
     super().__init__(fhir_context, return_type)
 
+  def get_resource_nodes(self) -> List[ExpressionNode]:
+    return self._left.get_resource_nodes() + self._right.get_resource_nodes()
+
   def get_root_node(self) -> ExpressionNode:
     return self._left.get_root_node()
 
@@ -333,14 +343,17 @@ class CoercibleBinaryExpressionNode(BinaryExpressionNode):
     super().__init__(fhir_context, handler, left, right, return_type)
 
 
-class RootMessageNode(ExpressionNode):
-  """Returns the root node of the workspace."""
+class StructureBaseNode(ExpressionNode):
+  """Returns nodes built from a StructureDefinition."""
 
   def __init__(
       self, fhir_context: context.FhirPathContext,
       return_type: Optional[_fhir_path_data_types.FhirPathDataType]) -> None:
     self._struct_type = return_type
     super().__init__(fhir_context, return_type)
+
+  def get_resource_nodes(self) -> List[ExpressionNode]:
+    return []
 
   def get_root_node(self) -> 'ExpressionNode':
     return self
@@ -368,6 +381,17 @@ class RootMessageNode(ExpressionNode):
     return None
 
 
+class RootMessageNode(StructureBaseNode):
+  """Returns the root node of the workspace."""
+
+  def get_resource_nodes(self) -> List[ExpressionNode]:
+    # Only RootMessageNodes are considered to be resource nodes.
+    return [self]
+
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return visitor.visit_root(self)
+
+
 class LiteralNode(ExpressionNode):
   """Node expressing a literal FHIRPath value."""
 
@@ -389,6 +413,9 @@ class LiteralNode(ExpressionNode):
     self._value = value
     self._fhir_path_str = fhir_path_str
     super().__init__(fhir_context, return_type)
+
+  def get_resource_nodes(self) -> List[ExpressionNode]:
+    return []
 
   def get_root_node(self) -> ExpressionNode:
     return self  # maybe return none instead.
@@ -470,6 +497,9 @@ class InvokeExpressionNode(ExpressionNode):
       )
     super().__init__(fhir_context, return_type)
 
+  def get_resource_nodes(self) -> List[ExpressionNode]:
+    return self._parent_node.get_resource_nodes()
+
   def get_root_node(self) -> ExpressionNode:
     return self._parent_node.get_root_node()
 
@@ -504,7 +534,7 @@ class InvokeExpressionNode(ExpressionNode):
     # Exclude the root message name from the FHIRPath, following conventions.
     if self._identifier == '$this':
       return self._parent_node.to_fhir_path()
-    elif isinstance(self._parent_node, RootMessageNode) or isinstance(
+    elif isinstance(self._parent_node, StructureBaseNode) or isinstance(
         self._parent_node, ReferenceNode):
       return self._identifier
     else:
@@ -530,6 +560,10 @@ class IndexerNode(ExpressionNode):
     self._collection = collection
     self._index = index
     super().__init__(fhir_context, collection.return_type())
+
+  def get_resource_nodes(self) -> List[ExpressionNode]:
+    return self.collection.get_resource_nodes() + self.index.get_resource_nodes(
+    )
 
   def get_root_node(self) -> ExpressionNode:
     return self.collection.get_root_node()
@@ -587,6 +621,9 @@ class NumericPolarityNode(ExpressionNode):
     self._operand = operand
     self._polarity = polarity
     super().__init__(fhir_context, operand.return_type())
+
+  def get_resource_nodes(self) -> List[ExpressionNode]:
+    return self._operand.get_resource_nodes()
 
   def get_root_node(self) -> ExpressionNode:
     return self._operand.get_root_node()
@@ -662,6 +699,12 @@ class FunctionNode(ExpressionNode):
     self._parent_node = operand
     self._params = params
 
+  def get_resource_nodes(self) -> List[ExpressionNode]:
+    result = self._parent_node.get_resource_nodes()
+    for p in self._params:
+      result += p.get_resource_nodes()
+    return result
+
   def get_root_node(self) -> ExpressionNode:
     return self._parent_node.get_root_node()
 
@@ -671,7 +714,7 @@ class FunctionNode(ExpressionNode):
   def to_fhir_path(self) -> str:
     param_str = ', '.join([param.to_fhir_path() for param in self._params])
     # Exclude the root message name from the FHIRPath, following conventions.
-    if isinstance(self._operand, RootMessageNode):
+    if isinstance(self._operand, StructureBaseNode):
       return f'{self.NAME}({param_str})'
     else:
       return f'{self._operand.to_fhir_path()}.{self.NAME}({param_str})'
@@ -1534,6 +1577,9 @@ class ReferenceNode(ExpressionNode):
     self._reference_node = reference_node
     super().__init__(fhir_context, reference_node.return_type())
 
+  def get_resource_nodes(self) -> List[ExpressionNode]:
+    return self._reference_node.get_resource_nodes()
+
   def get_root_node(self) -> ExpressionNode:
     return self._reference_node.get_root_node()
 
@@ -1696,6 +1742,10 @@ class ExpressionNodeBaseVisitor(abc.ABC):
     for c in node.children():  # pytype: disable=attribute-error
       result.append(c.accept(self))
     return result
+
+  @abc.abstractmethod
+  def visit_root(self, root: RootMessageNode) -> Any:
+    pass
 
   @abc.abstractmethod
   def visit_literal(self, literal: LiteralNode) -> Any:

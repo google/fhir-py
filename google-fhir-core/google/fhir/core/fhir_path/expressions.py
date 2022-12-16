@@ -348,6 +348,11 @@ class Builder:
   def get_root_builder(self) -> 'Builder':
     return self._builder(self._node.get_root_node())
 
+  def get_resource_builders(self) -> List['Builder']:
+    return [
+        self._builder(node) for node in set(self._node.get_resource_nodes())
+    ]
+
   @property
   def return_type(self) -> _fhir_path_data_types.FhirPathDataType:
     return self._node.return_type()

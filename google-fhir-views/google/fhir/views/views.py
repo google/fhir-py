@@ -20,7 +20,7 @@ implementations (like the BigQuery runner) for realizing the views themselves.
 """
 
 import keyword
-from typing import Dict, Tuple, List, Set, Optional
+from typing import Dict, Tuple, List, Set, Optional, Iterable, Any
 
 import immutabledict
 
@@ -70,23 +70,39 @@ class View:
     self._constraints = constraints
     self._handler = handler
     self._structdef_urls = set()
-    # Maps urls to field_names.
-    self._url_to_field_names = {}
-    for name, field in self._fields.items():
-      url = field.get_root_builder().return_type.url
-      self._structdef_urls.add(url)
-      if url not in self._url_to_field_names:
-        self._url_to_field_names[url] = []
-      self._url_to_field_names[url].append(name)
 
-    # Maps urls to an index in the constraints.
+    # Collects all the builders that reference multiple resources.
+    self._multiresource_field_names = []
+    # Collects urls to field names of single resource builders.
+    self._url_to_field_names = {}
+    self.sort_builders(self._fields.items(), self._url_to_field_names,
+                       self._multiresource_field_names)
+
+    # Collects all the builders that reference multiple resources.
+    self._multiresource_constraint_indexes = []
+    # Collects urls to field names of single resource builders.
     self._url_to_constraint_indexes = {}
-    for i, constraint in enumerate(self._constraints):
-      url = constraint.get_root_builder().return_type.url
-      self._structdef_urls.add(url)
-      if url not in self._url_to_constraint_indexes:
-        self._url_to_constraint_indexes[url] = []
-      self._url_to_constraint_indexes[url].append(i)
+    self.sort_builders(
+        enumerate(self._constraints), self._url_to_constraint_indexes,
+        self._multiresource_constraint_indexes)
+
+  def sort_builders(self, builders: Iterable[Any], url_to_resource: Dict[str,
+                                                                         Any],
+                    multiresource_list: List[Any]) -> None:
+    """Sorts the builders between single url and multiple url builders."""
+    for name, field in builders:
+      resources = field.get_resource_builders()
+      for resource in resources:
+        self._structdef_urls.add(resource.return_type.url)
+
+      if len(resources) > 1:
+        multiresource_list.append(name)
+        continue
+
+      url = resources[0].return_type.url
+      if url not in url_to_resource:
+        url_to_resource[url] = []
+      url_to_resource[url].append(name)
 
   def select(self, fields: Dict[str, expressions.Builder]) -> 'View':
     """Returns a View instance that selects the given fields."""
@@ -162,6 +178,14 @@ class View:
   def get_url_to_constraint_indexes(self) -> Dict[str, List[int]]:
     """Returns the dictionary of URLs to constraint indices."""
     return self._url_to_constraint_indexes
+
+  def get_multiresource_field_names(self) -> List[str]:
+    """Returns the dictionary of URLS to field names."""
+    return self._multiresource_field_names
+
+  def get_multiresource_constraint_indexes(self) -> List[int]:
+    """Returns the dictionary of URLs to constraint indices."""
+    return self._multiresource_constraint_indexes
 
   def get_patient_id_expression(self,
                                 url: str) -> Optional[expressions.Builder]:
@@ -264,7 +288,10 @@ class Views:
     Returns:
       A FHIR View builder for the given structure, typically a FHIR resourcce.
     """
-    builder = self.expression_for(structdef_url)
+    structdef = self._context.get_structure_definition(structdef_url)
+    struct_type = _fhir_path_data_types.StructureDataType(structdef)
+    builder = expressions.Builder(
+        _evaluation.RootMessageNode(self._context, struct_type), self._handler)
     return View(self._context,
                 immutabledict.immutabledict({BASE_BUILDER_KEY: builder}), (),
                 self._handler)
@@ -310,4 +337,5 @@ class Views:
     structdef = self._context.get_structure_definition(structdef_url)
     struct_type = _fhir_path_data_types.StructureDataType(structdef)
     return expressions.Builder(
-        _evaluation.RootMessageNode(self._context, struct_type), self._handler)
+        _evaluation.StructureBaseNode(self._context, struct_type),
+        self._handler)
