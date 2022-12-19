@@ -510,6 +510,10 @@ class StructureDataType(FhirPathDataType):
     # Store the children elements of the structdef.
     self._children = {}
     struct_id = self._struct_def.id.value
+    # Some legacy structdefs are called LabObservation but its children start
+    # with Observation.
+    if struct_id == 'LabObservation':
+      struct_id = 'Observation'
     qualified_path = (
         struct_id + '.' + self._backbone_element_path
         if self._backbone_element_path else struct_id)

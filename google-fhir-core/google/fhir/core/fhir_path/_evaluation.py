@@ -151,6 +151,10 @@ class ExpressionNode(abc.ABC):
   def to_fhir_path(self) -> str:
     """Returns the FHIRPath string for this and its children node."""
 
+  def to_path_token(self) -> str:
+    """Returns the path of the node itself."""
+    return ''
+
   @property
   def context(self) -> context.FhirPathContext:
     return self._context
@@ -364,10 +368,13 @@ class StructureBaseNode(ExpressionNode):
   def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
     return [work_space.root_message()]
 
-  def to_fhir_path(self) -> str:
+  def to_path_token(self) -> str:
     # The FHIRPath of a root structure is simply the base type name,
     # so return that if it exists.
     return self._struct_type.base_type if self._struct_type else ''  # pytype: disable=attribute-error
+
+  def to_fhir_path(self) -> str:
+    return self.to_path_token()
 
   def operands(self) -> List[ExpressionNode]:
     return []
@@ -440,8 +447,11 @@ class LiteralNode(ExpressionNode):
     """Returns a defensive copy of the literal value."""
     return copy.deepcopy(self._value)
 
-  def to_fhir_path(self) -> str:
+  def to_path_token(self) -> str:
     return self._fhir_path_str
+
+  def to_fhir_path(self) -> str:
+    return self.to_path_token()
 
   def operands(self) -> List[ExpressionNode]:
     return []
@@ -529,6 +539,11 @@ class InvokeExpressionNode(ExpressionNode):
   @property
   def operand_node(self) -> ExpressionNode:
     return self._parent_node
+
+  def to_path_token(self) -> str:
+    if self.identifier == '$this':
+      return self._parent_node.to_path_token()
+    return self.identifier
 
   def to_fhir_path(self) -> str:
     # Exclude the root message name from the FHIRPath, following conventions.
@@ -1939,14 +1954,19 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     else:
       return NumericPolarityNode(self._context, operand_node, polarity)
 
-  def visit_invocation(self,
-                       invocation: _ast.Invocation) -> InvokeExpressionNode:
+  def visit_invocation(self, invocation: _ast.Invocation) -> ExpressionNode:
     # TODO(b/244184211): Placeholder for limited invocation usage.
     # Function invocation
+
     if isinstance(invocation.rhs, _ast.Function):
       return self.visit_function(invocation.rhs, operand=invocation.lhs)
 
-    lhs_result = self.visit(invocation.lhs)
+    # If the invokee is the original Resource, return the root node rather than
+    # calling invoke.
+    if str(invocation.lhs) == self._node_context[-1].to_fhir_path():
+      lhs_result = self._node_context[-1]
+    else:
+      lhs_result = self.visit(invocation.lhs)
     return InvokeExpressionNode(self._context, str(invocation.rhs), lhs_result)
 
   def visit_function(self,
