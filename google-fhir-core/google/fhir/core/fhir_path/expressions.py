@@ -743,7 +743,7 @@ class Builder:
     fields.sort()
     return fields
 
-  def __dir__(self) -> Iterable[str]:
+  def __dir__(self) -> Iterable[str]:  # pytype: disable=signature-mismatch  # overriding-return-type-checks
     # If the current node is for a structure, return the fields for that
     # structure to support code auto completion, as well as the normal
     # class methods.
