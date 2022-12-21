@@ -95,7 +95,6 @@ _SKIP_KEYS = frozenset([
     'ext-1',
 ])
 
-
 # These primitives are excluded from regex encoding because at the point when
 # our validation is called, they are already saved as their correct types.
 _PRIMITIVES_EXCLUDED_FROM_REGEX_ENCODING = frozenset([
@@ -329,6 +328,7 @@ class FhirProfileStandardSqlEncoder:
         expression that encodes to Standard SQL.
       node_context: The root builder of the fhir_path_expression. May be another
         FHIRPath expression.
+
     Returns:
       A Standard SQL encoding of the constraint `fhir_path_expression` upon
       successful completion. The SQL will evaluate to a single boolean
@@ -789,7 +789,12 @@ class FhirProfileStandardSqlEncoder:
       if struct_type.base_type == 'Extension':
         return result
 
-      for child in struct_type.children().keys():
+      for child, elem in struct_type.children().items():
+        # TODO(b/200575760): Add support for more complicated fields
+        if (child == 'extension' or child == 'link' or
+            '#' in cast(Any, elem).content_reference.value):
+          continue
+
         new_builder = builder.__getattr__(child)
 
         # TODO(b/200575760): Add support polymorphic choice types
