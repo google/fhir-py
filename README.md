@@ -27,6 +27,28 @@ This can be installed locally, directly from source by running the following
 commands in this directory. As always, doing so within a Python virtual
 environment is recommended.
 
+### protoc installation prerequisite
+This library generates Protocol Buffers for FHIR resources, so the protoc
+executable must be available. This can be done on Linux by running:
+
+```
+apt install protobuf-compiler
+protoc --version # Ensure version 3+
+```
+
+Or on MacOS with Homebrew:
+
+```
+brew install protobuf
+protoc --version # Ensure version 3+
+```
+
+Windows users can download protoc releases [here](https://github.com/protocolbuffers/protobuf/releases).
+
+### pip installation
+Once protoc is available, the fhir-py libraries can be installed from source by
+running the following in the fhir-py directory:
+
 ```
 pip install ./google-fhir-core[bigquery]
 pip install ./google-fhir-r4
@@ -39,7 +61,7 @@ details on use.
 # Contributors
 
 Due to the nature of the initial commit squashing internal contributor history,
-we would like to recognize some of those who contributed to the intial
+we would like to recognize some of those who contributed to the initial
 commit work:
 Ryan Brush ([@rbrush](https://github.com/rbrush)),
 Cameron Tew ([@cam2337](https://github.com/cam2337)),

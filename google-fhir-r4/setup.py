@@ -18,6 +18,7 @@ from distutils import spawn
 import glob
 import os
 import pathlib
+import site
 import subprocess
 from urllib import request
 
@@ -50,10 +51,13 @@ def _generate_proto(protoc, source):
     # No need to regenerate if output is newer than source.
     return
 
-  print('Generating {}...'.format(output))
-  protoc_args = [
-      protoc, '-I.', '-I../google-fhir-core', '--python_out=.', source
+  # Include site packages so proto files in dependencies are visible.
+  proto_includes = [
+      f'-I{package_dir}' for package_dir in site.getsitepackages()
   ]
+
+  print('Generating {}...'.format(output))
+  protoc_args = [protoc, '-I.'] + proto_includes + ['--python_out=.', source]
   subprocess.run(args=protoc_args, check=True)
 
 

@@ -60,7 +60,8 @@ def main():
   long_description = pathlib.Path(package_dir).joinpath('README.md').read_text()
 
   protoc_command = _get_protoc_command()
-  for proto_file in glob.glob('google/fhir/core/proto/*.proto'):
+  proto_files = glob.glob('google/fhir/core/proto/*.proto')
+  for proto_file in proto_files:
     _generate_proto(protoc_command, proto_file)
 
   setuptools.setup(
@@ -85,6 +86,9 @@ def main():
           'protobuf~=3.13',
           'python-dateutil~=2.8',
       ],
+      # Include proto files so consuming libraries can build protos that
+      # use them.
+      data_files=[('', proto_files)],
       extras_require={
           'bigquery': [
               'google-cloud-bigquery~=2.34',
