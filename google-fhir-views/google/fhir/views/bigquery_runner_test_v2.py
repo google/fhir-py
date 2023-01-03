@@ -19,6 +19,8 @@ import textwrap
 from unittest import mock
 
 from google.cloud import bigquery
+import numpy
+import pandas
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -275,6 +277,92 @@ class BigqueryRunnerTest(parameterized.TestCase):
     expected_sql = self.runner.to_sql(simple_view, include_patient_id_col=False)
     self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
     self.assertEqual(expected_mock_df, returned_df)
+
+  def testQueryToDataFrame_TrimsStructWithSelect_succeeds(self):
+    """Test structure trimming of explicitly defined columns."""
+    pat = self._views.view_of('Patient')
+    simple_view = (
+        pat.select({
+            'name': pat.name.given,
+            'address': pat.address,
+            'maritalStatus': pat.maritalStatus
+        }))
+
+    mock_job = mock.create_autospec(bigquery.QueryJob, instance=True)
+    fake_df = pandas.DataFrame.from_dict({
+        'name': ['Bob'],
+        'address': [numpy.empty(shape=0)],
+        'maritalStatus': [{
+            'coding':
+                numpy.array([{
+                    'system': 'urn:examplesystem',
+                    'code': 'S',
+                    'display': None
+                }]),
+            'text':
+                None
+        }]
+    })
+    mock_job.result.return_value.to_dataframe.return_value = fake_df
+    self.mock_bigquery_client.query.return_value = mock_job
+
+    returned_df = self.runner.to_dataframe(simple_view)
+    self.mock_bigquery_client.query.assert_called_once()
+
+    # Assert simple fields are unchanged.
+    self.assertEqual(['Bob'], returned_df['name'].values)
+
+    # Empty arrays should be converted to no values (so users can easily use
+    # dropna() and other pandas features).
+    self.assertEqual([None], returned_df['address'].values)
+
+    # 'None' values should be trimmed from nested structures.
+    self.assertEqual([{
+        'coding': [{
+            'system': 'urn:examplesystem',
+            'code': 'S'
+        }]
+    }], returned_df['maritalStatus'].values)
+
+  def testQueryToDataFrame_TrimsStructNoSelect_succeeds(self):
+    """Test the base query directly to ensure struct trimming logic works."""
+    pat = self._views.view_of('Patient')
+
+    mock_job = mock.create_autospec(bigquery.QueryJob, instance=True)
+    fake_df = pandas.DataFrame.from_dict({
+        'name': ['Bob'],
+        'address': [numpy.empty(shape=0)],
+        'maritalStatus': [{
+            'coding':
+                numpy.array([{
+                    'system': 'urn:examplesystem',
+                    'code': 'S',
+                    'display': None
+                }]),
+            'text':
+                None
+        }]
+    })
+    mock_job.result.return_value.to_dataframe.return_value = fake_df
+    self.mock_bigquery_client.query.return_value = mock_job
+
+    returned_df = self.runner.to_dataframe(pat)
+    self.mock_bigquery_client.query.assert_called_once()
+
+    # Assert simple fields are unchanged.
+    self.assertEqual(['Bob'], returned_df['name'].values)
+
+    # Empty arrays should be converted to no values (so users can easily use
+    # dropna() and other pandas features).
+    self.assertEqual([None], returned_df['address'].values)
+
+    # 'None' values should be trimmed from nested structures.
+    self.assertEqual([{
+        'coding': [{
+            'system': 'urn:examplesystem',
+            'code': 'S'
+        }]
+    }], returned_df['maritalStatus'].values)
 
   def testTimestampComparison_succeeds(self):
     """Test timestamp comparison."""
@@ -737,8 +825,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.assertEqual(expected_mock_df, returned_df)
 
   def testCrossReference_ToSql_forMixedResourceBuilder_succeeds(self):
-    """Tests a view with two different resources referenced and no constraints.
-    """
+    """Tests a view with two different resources referenced and no constraints."""
     enc = self._views.view_of('Encounter')
     pat = self._views.view_of('Patient')
 
@@ -774,8 +861,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
   def testCrossReference_ToSql_forPatientAndEncounterWithNoConstraint_succeeds(
       self):
-    """Tests a view with two different resources referenced and no constraints.
-    """
+    """Tests a view with two different resources referenced and no constraints."""
     enc = self._views.view_of('Encounter')
     pat = self._views.view_of('Patient')
 
@@ -995,8 +1081,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
 
 def _BqValuesetCodesTable(name: str) -> bigquery.table.Table:
-  """Builds a BigQuery client table representation of a value set codes table.
-  """
+  """Builds a BigQuery client table representation of a value set codes table."""
   schema = [
       bigquery.SchemaField('valueseturi', 'STRING', mode='REQUIRED'),
       bigquery.SchemaField('valuesetversion', 'STRING', mode='NULLABLE'),

@@ -24,6 +24,7 @@ import re
 from typing import Collection, Iterable, Optional, Union, cast, Dict, List
 
 from google.cloud import bigquery
+import numpy
 import pandas
 import sqlalchemy
 import sqlalchemy_bigquery
@@ -439,7 +440,46 @@ class BigQueryRunner:
     Raises:
       ValueError propagated from the BigQuery client if pandas is not installed.
     """
-    return self.run_query(view, limit).result().to_dataframe()
+    df = self.run_query(view, limit).result().to_dataframe()
+
+    # If the view has expressions, we can narrow the non-scalar column list by
+    # checking only for list or struct columns.
+    select_columns = set(view.get_select_expressions().keys())
+    # Ignore the __base__ expression that exists by default.
+    select_columns.discard(views.BASE_BUILDER_KEY)
+
+    if select_columns:
+      non_scalar_cols = [
+          col for (col, expr) in view.get_select_expressions().items()
+          if expr.return_type.returns_collection() or expr.return_type.fields()
+      ]
+    else:
+      # No fields were specified, so we must check any 'object' field
+      # in the dataframe.
+      non_scalar_cols = df.select_dtypes(include=['object']).columns.tolist()
+
+    # Helper function to recursively trim `None` values and empty arrays.
+    def trim_structs(item):
+      if isinstance(item, numpy.ndarray):
+        if not item.any():
+          return None
+        else:
+          return [trim_structs(child) for child in item]
+
+      if isinstance(item, dict):
+        result = {}
+        for (key, value) in item.items():
+          trimmed_value = trim_structs(value)
+          if trimmed_value is not None:
+            result[key] = trimmed_value
+        return result
+
+      return item
+
+    for col in non_scalar_cols:
+      df[col] = df[col].map(trim_structs)
+
+    return df
 
   def create_bigquery_view(self, view: views.View, view_name: str) -> None:
     """Creates a BigQuery view with the given name in the runner's view_dataset.
@@ -492,7 +532,7 @@ class BigQueryRunner:
     Args:
       view: the view containing code values to summarize.
       code_expr: a FHIRPath expression referencing a codeable concept, coding,
-      or code field to count.
+        or code field to count.
 
     Returns:
       A Pandas dataframe containing 'system', 'code', 'display', and 'count'
@@ -553,22 +593,20 @@ class BigQueryRunner:
           f'UNNEST(c.target) concepts, UNNEST(concepts.coding) as codings '
           f'GROUP BY 1, 2, 3 ORDER BY count DESC')
     elif node_type.url == _CODING:
-      count_query = (
-          f'WITH c AS ({expr_array_query}) '
-          f'SELECT codings.system, codings.code, '
-          f'codings.display, COUNT(*) count '
-          f'FROM c, '
-          f'UNNEST(c.target) codings '
-          f'GROUP BY 1, 2, 3 ORDER BY count DESC')
+      count_query = (f'WITH c AS ({expr_array_query}) '
+                     f'SELECT codings.system, codings.code, '
+                     f'codings.display, COUNT(*) count '
+                     f'FROM c, '
+                     f'UNNEST(c.target) codings '
+                     f'GROUP BY 1, 2, 3 ORDER BY count DESC')
     elif node_type.url == _CODE or node_type.url == _STRING:
       # Assume simple strings are just code values. Since code is a type of
       # string, the current expression typing analysis may produce a string
       # type here so we accept both string and code.
-      count_query = (
-          f'WITH c AS ({expr_array_query}) '
-          f'SELECT code, COUNT(*) count '
-          f'FROM c, UNNEST(c.target) as code '
-          f'GROUP BY 1 ORDER BY count DESC')
+      count_query = (f'WITH c AS ({expr_array_query}) '
+                     f'SELECT code, COUNT(*) count '
+                     f'FROM c, UNNEST(c.target) as code '
+                     f'GROUP BY 1 ORDER BY count DESC')
     else:
       raise ValueError(
           f'Field must be a FHIR CodeableConcept, Coding, or Code; '
@@ -716,8 +754,7 @@ def _memberof_nodes_from_view(
 def _memberof_nodes_from_node(
     node: _evaluation.ExpressionNode
 ) -> Collection[_evaluation.MemberOfFunction]:
-  """Retrieves MemberOfFunction nodes among the given `node` and its operands.
-  """
+  """Retrieves MemberOfFunction nodes among the given `node` and its operands."""
   nodes = []
   if isinstance(node, _evaluation.MemberOfFunction):
     nodes.append(node)
