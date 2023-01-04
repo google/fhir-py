@@ -109,7 +109,7 @@ def main():
           'protobuf~=3.13',
           'python-dateutil~=2.8',
       ],
-      data_files=[('', [_FHIR_PACKAGE_PATH])],
+      package_data={'google.fhir.r4.data': ['*.tgz']},
       zip_safe=False,
       keywords='google,fhir,python,healthcare',
       classifiers=[
