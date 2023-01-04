@@ -59,6 +59,10 @@ def main():
   namespace_packages = setuptools.find_namespace_packages(where=package_dir)
   long_description = pathlib.Path(package_dir).joinpath('README.md').read_text()
 
+  version = os.environ.get('FHIR_PY_VERSION')
+  if version is None:
+    raise RuntimeError('FHIR_PY_VERSION must be set to build this package.')
+
   protoc_command = _get_protoc_command()
   proto_files = glob.glob('google/fhir/core/proto/*.proto')
   for proto_file in proto_files:
@@ -66,7 +70,7 @@ def main():
 
   setuptools.setup(
       name='google-fhir-core',
-      version='0.8.0',
+      version=version,
       description='Core components for working with FHIR.',
       long_description=long_description,
       long_description_content_type='text/markdown',

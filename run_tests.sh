@@ -20,10 +20,19 @@
 python3 -m venv ./test_env
 . ./test_env/bin/activate
 
-pip install ./google-fhir-core[bigquery]
-pip install ./google-fhir-r4
-pip install ./google-fhir-views[r4,bigquery]
+export FHIR_PY_VERSION=`cat VERSION`
 
+pip install wheel
 pip install pytest
+
+# Create wheels and install and test them to ensure they are built correctly.
+pip wheel ./google-fhir-core --wheel-dir wheels
+pip install ./wheels/google_fhir_core-${FHIR_PY_VERSION}-py3-none-any.whl[bigquery]
+
+pip wheel ./google-fhir-r4 --wheel-dir wheels --no-deps
+pip install ./wheels/google_fhir_r4-${FHIR_PY_VERSION}-py3-none-any.whl
+
+pip wheel ./google-fhir-views --wheel-dir wheels --no-deps
+pip install ./wheels/google_fhir_views-${FHIR_PY_VERSION}-py3-none-any.whl[r4,bigquery]
 
 pytest

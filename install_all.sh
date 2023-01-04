@@ -14,8 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Convenience script to install all distribution packages locally.
+# Convenience script to install packages locally in editable mode.
 
-pip install ./google-fhir-core[bigquery]
-pip install ./google-fhir-r4
-pip install ./google-fhir-views[r4,bigquery]
+export FHIR_PY_VERSION=`cat VERSION`
+
+pip install -e ./google-fhir-core[bigquery]
+pip install -e ./google-fhir-r4
+pip install -e ./google-fhir-views[r4,bigquery]
