@@ -1,0 +1,235 @@
+#
+# Copyright 2021 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Tests Python FHIRPath functionality for Spark."""
+
+from google.protobuf import message
+from absl.testing import absltest
+from absl.testing import parameterized
+from google.fhir.core.fhir_path import fhir_path_test_base
+
+
+# TODO(b/262544393): add _withDateTimeEqual and _withDateTimeEquivalent
+# tests when visit_equality is implemented
+_WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [{
+    'testcase_name':
+        '_withNull',
+    'fhir_path_expression':
+        '{ }',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(literal_) '
+                                'FROM (SELECT NULL AS literal_) '
+                                'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withBooleanTrue',
+    'fhir_path_expression':
+        'true',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(literal_) '
+                                'FROM (SELECT TRUE AS literal_) '
+                                'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withBooleanFalse',
+    'fhir_path_expression':
+        'false',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(literal_) '
+                                'FROM (SELECT FALSE AS literal_) '
+                                'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withString',
+    'fhir_path_expression':
+        "'Foo'",
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(literal_) '
+                                "FROM (SELECT 'Foo' AS literal_) "
+                                'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withNumberDecimal',
+    'fhir_path_expression':
+        '3.14',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(literal_) '
+                                'FROM (SELECT 3.14 AS literal_) '
+                                'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withNumberLargeDecimal',
+    # 32 decimal places
+    'fhir_path_expression':
+        '3.14141414141414141414141414141414',
+    'expected_sql_expression':
+        ('(SELECT COLLECT_LIST(literal_) '
+         'FROM (SELECT 3.14141414141414141414141414141414 AS literal_) '
+         'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withNumberInteger',
+    'fhir_path_expression':
+        '314',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(literal_) '
+                                'FROM (SELECT 314 AS literal_) '
+                                'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withDateYear',
+    'fhir_path_expression':
+        '@1970',
+    'expected_sql_expression':
+        ('(SELECT COLLECT_LIST(literal_) '
+         "FROM (SELECT TO_TIMESTAMP('1970-01-01', \"yyyy-MM-dd\") AS literal_) "
+         'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withDateYearMonth',
+    'fhir_path_expression':
+        '@1970-01',
+    'expected_sql_expression':
+        ('(SELECT COLLECT_LIST(literal_) '
+         "FROM (SELECT TO_TIMESTAMP('1970-01-01', \"yyyy-MM-dd\") AS literal_) "
+         'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withDateYearMonthDay',
+    'fhir_path_expression':
+        '@1970-01-01',
+    'expected_sql_expression':
+        ('(SELECT COLLECT_LIST(literal_) '
+         "FROM (SELECT TO_TIMESTAMP('1970-01-01', \"yyyy-MM-dd\") AS literal_) "
+         'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withDateTimeYearMonthDayHours',
+    'fhir_path_expression':
+        '@2015-02-04T14',
+    'expected_sql_expression':
+        ('(SELECT COLLECT_LIST(literal_) FROM (SELECT '
+         "TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:00:00+00:00', "
+         "\"yyyy-MM-dd'T'HH:mm:ss.SSSZ\")) AS literal_) WHERE literal_ IS NOT "
+         'NULL)')
+}, {
+    'testcase_name':
+        '_withDateTimeYearMonthDayHoursMinutes',
+    'fhir_path_expression':
+        '@2015-02-04T14:34',
+    'expected_sql_expression':
+        ('(SELECT COLLECT_LIST(literal_) FROM (SELECT '
+         "TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:34:00+00:00', "
+         "\"yyyy-MM-dd'T'HH:mm:ss.SSSZ\")) AS literal_) WHERE literal_ IS NOT "
+         'NULL)')
+}, {
+    'testcase_name':
+        '_withDateTimeYearMonthDayHoursMinutesSeconds',
+    'fhir_path_expression':
+        '@2015-02-04T14:34:28',
+    'expected_sql_expression':
+        ('(SELECT COLLECT_LIST(literal_) FROM (SELECT '
+         "TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:34:28+00:00', "
+         "\"yyyy-MM-dd'T'HH:mm:ss.SSSZ\")) AS literal_) WHERE literal_ IS NOT "
+         'NULL)')
+}, {
+    'testcase_name':
+        '_withDateTimeYearMonthDayHoursMinutesSecondsMilli',
+    'fhir_path_expression':
+        '@2015-02-04T14:34:28.123',
+    'expected_sql_expression':
+        ('(SELECT COLLECT_LIST(literal_) FROM (SELECT '
+         "TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:34:28.123000+00:00', "
+         "\"yyyy-MM-dd'T'HH:mm:ss.SSSZ\")) AS literal_) WHERE literal_ IS NOT "
+         'NULL)')
+}, {
+    'testcase_name':
+        '_withDateTimeYearMonthDayHoursMinutesSecondsMilliTz',
+    'fhir_path_expression':
+        '@2015-02-04T14:34:28.123+09:00',
+    'expected_sql_expression':
+        ('(SELECT COLLECT_LIST(literal_) FROM (SELECT '
+         "TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:34:28.123000+09:00', "
+         "\"yyyy-MM-dd'T'HH:mm:ss.SSSZ\")) AS literal_) WHERE literal_ IS NOT "
+         'NULL)')
+}, {
+    'testcase_name':
+        '_withTimeHours',
+    'fhir_path_expression':
+        '@T14',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(literal_) '
+                                "FROM (SELECT '14' AS literal_) "
+                                'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withTimeHoursMinutes',
+    'fhir_path_expression':
+        '@T14:34',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(literal_) '
+                                "FROM (SELECT '14:34' AS literal_) "
+                                'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withTimeHoursMinutesSeconds',
+    'fhir_path_expression':
+        '@T14:34:28',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(literal_) '
+                                "FROM (SELECT '14:34:28' AS literal_) "
+                                'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withTimeHoursMinutesSecondsMilli',
+    'fhir_path_expression':
+        '@T14:34:28.123',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(literal_) '
+                                "FROM (SELECT '14:34:28.123' AS literal_) "
+                                'WHERE literal_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withQuantity',
+    'fhir_path_expression':
+        "10 'mg'",
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(literal_) '
+                                "FROM (SELECT '10 'mg'' AS literal_) "
+                                'WHERE literal_ IS NOT NULL)')
+}]
+
+
+class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
+                                  parameterized.TestCase):
+  """Unit tests for `fhir_path.FhirPathSparkSqlEncoder`."""
+
+  def assertEvaluationNodeSqlCorrect(
+      self,
+      structdef: message.Message,
+      fhir_path_expression: str,
+      expected_sql_expression: str,
+      select_scalars_as_array: bool = True) -> None:
+    builder = self.create_builder_from_str(structdef, fhir_path_expression)
+
+    actual_sql_expression = self.spark_interpreter.encode(
+        builder, select_scalars_as_array=select_scalars_as_array)
+    self.assertEqual(
+        actual_sql_expression.replace('\n', ' '), expected_sql_expression)
+
+  @parameterized.named_parameters(
+      _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES)
+  def testEncode_withFhirPathV2DateTimeLiteral_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str):
+    self.assertEvaluationNodeSqlCorrect(None, fhir_path_expression,
+                                        expected_sql_expression)
+
+  def testEncode_withFhirPathV2SelectScalarsAsArrayFalseForLiteral_succeeds(
+      self):
+    fhir_path_expression = 'true'
+    expected_sql_expression = '(SELECT TRUE AS literal_)'
+    self.assertEvaluationNodeSqlCorrect(None, fhir_path_expression,
+                                        expected_sql_expression, False)
+
+if __name__ == '__main__':
+  absltest.main()

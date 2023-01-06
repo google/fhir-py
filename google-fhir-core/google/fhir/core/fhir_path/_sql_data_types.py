@@ -27,6 +27,12 @@ import dataclasses
 from typing import Any, List, Optional, Sequence, Set, Union, cast
 from google.fhir.core.fhir_path import _fhir_path_data_types
 
+# Timestamp format to convert ISO strings into Spark Timestamp types.
+_TIMESTAMP_FORMAT_SPARK = 'yyyy-MM-dd\'T\'HH:mm:ss.SSSZ'
+
+# ISO format of dates used by FHIR.
+_DATE_FORMAT_SPARK = 'yyyy-MM-dd'
+
 # Timestamp format to convert ISO strings into BigQuery Timestamp types.
 _TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%E*S%Ez'
 
@@ -585,9 +591,28 @@ def get_standard_sql_data_type(
   return return_type
 
 
+def wrap_time_types_spark(raw_sql: str, sql_type: StandardSqlDataType) -> str:
+  """If the type is date/timestamp, wrap the SQL statement with TO_TIMESTAMP."""
+  if raw_sql.startswith('TO_TIMESTAMP'):
+    return raw_sql
+  if isinstance(sql_type, Array):
+    sql_type = cast(Array, sql_type).contained_type
+
+  if isinstance(sql_type, _Timestamp):
+    return f'TO_TIMESTAMP(DATE_FORMAT({raw_sql}, "{_TIMESTAMP_FORMAT_SPARK}"))'
+
+  if isinstance(sql_type, _Date):
+    # Parse dates as timestamps so that comparisons can be made.
+    return f'TO_TIMESTAMP({raw_sql}, "{_DATE_FORMAT_SPARK}")'
+  return raw_sql
+
+
 def wrap_time_types(raw_sql: str, sql_type: StandardSqlDataType) -> str:
   """If the type is a date/timestamp type, wrap the SQL statement with a PARSE_TIMESTAMP.
   """
+  if raw_sql.startswith('TO_TIMESTAMP'):
+    return raw_sql
+
   if raw_sql.startswith('PARSE_'):
     return raw_sql
   if isinstance(sql_type, Array):

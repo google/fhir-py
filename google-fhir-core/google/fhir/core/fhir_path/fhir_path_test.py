@@ -29,17 +29,13 @@ from google.fhir.r4.proto.core import codes_pb2
 from google.fhir.r4.proto.core import datatypes_pb2
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
 from google.fhir.core import fhir_errors
-from google.fhir.core.fhir_path import _bigquery_interpreter
-from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _structure_definitions as sdefs
-from google.fhir.core.fhir_path import context
-from google.fhir.core.fhir_path import expressions
 from google.fhir.core.fhir_path import fhir_path
 from google.fhir.core.fhir_path import fhir_path_options
+from google.fhir.core.fhir_path import fhir_path_test_base
 from google.fhir.core.fhir_path import fhir_path_validator
 from google.fhir.core.fhir_path import fhir_path_validator_v2
 from google.fhir.r4 import primitive_handler
-
 # TODO(b/244184211): Make FHIR-version agnostic (e.g. parameterize on module?)
 # TODO(b/197976399): Move unit tests to snapshot testing framework.
 
@@ -47,397 +43,9 @@ from google.fhir.r4 import primitive_handler
 # public FHIR views.
 
 
-def _build_constraint(
-    *,
-    fhir_path_expression: str,
-    key: str = 'key-1',
-    severity: codes_pb2.ConstraintSeverityCode.Value = codes_pb2
-    .ConstraintSeverityCode.ERROR
-) -> datatypes_pb2.ElementDefinition.Constraint:
-  """Returns an `ElementDefinition.Constraint` for a FHIRPath constraint.
-
-  Args:
-    fhir_path_expression: The raw FHIRPath expression.
-    key: The FHIRPath constraint unique identifier. Defaults to 'key-1'.
-    severity: The constraint severity.  Defaults to ERROR.
-
-  Returns:
-    An instance of `ElementDefinition.Constraint` capturing the raw underlying
-    `fhir_path_expression`.
-  """
-  return datatypes_pb2.ElementDefinition.Constraint(
-      key=datatypes_pb2.Id(value=key),
-      expression=datatypes_pb2.String(value=fhir_path_expression),
-      severity=datatypes_pb2.ElementDefinition.Constraint.SeverityCode(
-          value=severity))
-
-
-def _build_profile(
-    *,
-    id_: str,
-    element_definitions: List[datatypes_pb2.ElementDefinition],
-) -> structure_definition_pb2.StructureDefinition:
-  """Returns a FHIR profile when given a list of `ElementDefinition`s.
-
-  The URL, name, type, and base definition are all derived from the provided
-  `id_`. The URL is relative to 'http://g.co/fhir/StructureDefinition/', and the
-  base definition is relative to 'http://hl7.org/fhir/StructureDefinition/'.
-
-  Args:
-    id_: The logical ID of the resource, as used in the URL for the resource.
-    element_definitions: The list of `ElementDefinition`s comprising the
-      profile's `snapshot`.
-
-  Returns:
-    A `StructureDefinition` capturing the profile specified.
-  """
-  return sdefs.build_structure_definition(
-      url=f'http://g.co/fhir/StructureDefinition/{id_}',
-      name=id_,
-      type_=id_,
-      base_definition=f'http://hl7.org/fhir/StructureDefinition/{id_}',
-      element_definitions=element_definitions,
-      derivation_code=codes_pb2.TypeDerivationRuleCode.CONSTRAINT,
-  )
-
-
-class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
-  """Unit tests for `fhir_path.FhirPathStandardSqlEncoder`.
-
-  The suite stands up a list of synthetic resources for FHIRPath traversal. The
-  resources have the following structure:
-  ```
-  string {}
-
-  Foo {
-    Bar bar;
-    Bats bat;
-
-    InlineElement {
-      string value;
-      repeated int numbers;
-    }
-    InlineElement inline;
-
-    CodeFlavor codeFlavor;
-    repeated CodeFlavor codeFlavors;
-    repeated bool boolList;
-
-    ChoiceType choiceExample['string', 'integer', 'CodeableConcept']
-    repeated ChoiceType multipleChoiceExample['string', 'integer',
-      'CodeableConcept']
-  }
-  Bar {
-    repeated Bats bats;
-  }
-  Bats {
-    Struct struct;
-  }
-  Struct {
-    string value;
-    string anotherValue;
-    AnotherStruct anotherStruct;
-  }
-  AnotherStruct {
-    string anotherValue
-  }
-  Div {
-    string text;
-  }
-  CodeFlavor {
-    string code;
-    Coding coding;
-    CodeableConcept codeableConcept;
-  }
-  Coding {
-    string system;
-    string code;
-  }
-  CodeableConcept {
-    repeated Coding coding
-  }
-  ```
-
-  Note that the type, `InlineElement`, is derived from the core resource:
-  `http://hl7.fhir/org/StructureDefinition/BackboneElement`.
-
-  Class Attributes:
-    foo: A reference to the "Foo" `StructureDefinition`.
-    foo_root: A reference to the "Foo" `ElementDefinition`.
-    fhir_path_encoder: A reference to a `fhir_path.FhirPathEncoder` that has
-      been initialized with the resource graph noted above.
-  """
-
-  @classmethod
-  def setUpClass(cls) -> None:
-    super().setUpClass()
-    # string datatype
-    string_datatype = sdefs.build_resource_definition(
-        id_='string',
-        element_definitions=[
-            sdefs.build_element_definition(
-                id_='string',
-                type_codes=None,
-                cardinality=sdefs.Cardinality(min=0, max='1'))
-        ])
-
-    # Foo resource
-    foo_root_element_definition = sdefs.build_element_definition(
-        id_='Foo',
-        type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    bar_element_definition = sdefs.build_element_definition(
-        id_='Foo.bar',
-        type_codes=['Bar'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    bat_element_definition = sdefs.build_element_definition(
-        id_='Foo.bat',
-        type_codes=['Bats'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    inline_element_definition = sdefs.build_element_definition(
-        id_='Foo.inline',
-        type_codes=['BackboneElement'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    inline_value_element_definition = sdefs.build_element_definition(
-        id_='Foo.inline.value',
-        type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    inline_numbers_element_definition = sdefs.build_element_definition(
-        id_='Foo.inline.numbers',
-        type_codes=['integer'],
-        cardinality=sdefs.Cardinality(min=0, max='*'))
-    choice_value_element_definition = sdefs.build_element_definition(
-        id_='Foo.choiceExample[x]',
-        type_codes=['string', 'integer', 'CodeableConcept'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    multiple_choice_value_element_definition = sdefs.build_element_definition(
-        id_='Foo.multipleChoiceExample[x]',
-        type_codes=['string', 'integer', 'CodeableConcept'],
-        cardinality=sdefs.Cardinality(min=0, max='*'))
-    date_value_element_definition = sdefs.build_element_definition(
-        id_='Foo.dateField',
-        type_codes=['date'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    code_flavor_element_definition = sdefs.build_element_definition(
-        id_='Foo.codeFlavor',
-        type_codes=['CodeFlavor'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    code_flavors_element_definition = sdefs.build_element_definition(
-        id_='Foo.codeFlavors',
-        type_codes=['CodeFlavor'],
-        cardinality=sdefs.Cardinality(min=0, max='*'))
-    bool_list_definition = sdefs.build_element_definition(
-        id_='Foo.boolList',
-        type_codes=['boolean'],
-        cardinality=sdefs.Cardinality(min=0, max='*'))
-    foo = sdefs.build_resource_definition(
-        id_='Foo',
-        element_definitions=[
-            foo_root_element_definition,
-            bar_element_definition,
-            bat_element_definition,
-            inline_element_definition,
-            inline_value_element_definition,
-            inline_numbers_element_definition,
-            choice_value_element_definition,
-            multiple_choice_value_element_definition,
-            date_value_element_definition,
-            code_flavor_element_definition,
-            code_flavors_element_definition,
-            bool_list_definition,
-        ])
-
-    # Bar resource
-    bar_root_element_definition = sdefs.build_element_definition(
-        id_='Bar',
-        type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    bats_element_definition = sdefs.build_element_definition(
-        id_='Bar.bats',
-        type_codes=['Bats'],
-        cardinality=sdefs.Cardinality(min=0, max='*'))
-    bar = sdefs.build_resource_definition(
-        id_='Bar',
-        element_definitions=[
-            bar_root_element_definition,
-            bats_element_definition,
-        ])
-
-    # Bats resource
-    bats_root_element_definition = sdefs.build_element_definition(
-        id_='Bats',
-        type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    struct_element_definition = sdefs.build_element_definition(
-        id_='Bats.struct',
-        type_codes=['Struct'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    div_element_definition = sdefs.build_element_definition(
-        id_='Bats.div',
-        type_codes=['Div'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    bats = sdefs.build_resource_definition(
-        id_='Bats',
-        element_definitions=[
-            bats_root_element_definition,
-            struct_element_definition,
-            div_element_definition,
-        ])
-
-    # Struct resource; Standard SQL keyword
-    struct_root_element_definition = sdefs.build_element_definition(
-        id_='Struct',
-        type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    value_element_definition = sdefs.build_element_definition(
-        id_='Struct.value',
-        type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    another_value_element_definition = sdefs.build_element_definition(
-        id_='Struct.anotherValue',
-        type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    another_struct_element_definition = sdefs.build_element_definition(
-        id_='Struct.anotherStruct',
-        type_codes=['AnotherStruct'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    struct = sdefs.build_resource_definition(
-        id_='Struct',
-        element_definitions=[
-            struct_root_element_definition,
-            value_element_definition,
-            another_value_element_definition,
-            another_struct_element_definition,
-        ])
-
-    # AnotherStruct resource
-    another_struct_root_element_definition = sdefs.build_element_definition(
-        id_='AnotherStruct',
-        type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    another_value_element_definition = sdefs.build_element_definition(
-        id_='AnotherStruct.anotherValue',
-        type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    another_struct = sdefs.build_resource_definition(
-        id_='AnotherStruct',
-        element_definitions=[
-            another_struct_root_element_definition,
-            another_value_element_definition,
-        ])
-
-    # Div resource; FHIRPath keyword
-    div_root_element_definition = sdefs.build_element_definition(
-        id_='Div',
-        type_codes=None,
-        cardinality=sdefs.Cardinality(min=1, max='1'))
-    text_element_definition = sdefs.build_element_definition(
-        id_='Div.text',
-        type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    div = sdefs.build_resource_definition(
-        id_='Div',
-        element_definitions=[
-            div_root_element_definition,
-            text_element_definition,
-        ])
-
-    # CodeFlavor resource
-    code_flavor_root_element_definition = sdefs.build_element_definition(
-        id_='CodeFlavor',
-        type_codes=None,
-        cardinality=sdefs.Cardinality(min=1, max='1'))
-    code_element_definition = sdefs.build_element_definition(
-        id_='CodeFlavor.code',
-        type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    coding_element_definition = sdefs.build_element_definition(
-        id_='CodeFlavor.coding',
-        type_codes=['Coding'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    codeable_concept_element_definition = sdefs.build_element_definition(
-        id_='CodeFlavor.codeableConcept',
-        type_codes=['CodeableConcept'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    code_flavor = sdefs.build_resource_definition(
-        id_='CodeFlavor',
-        element_definitions=[
-            code_flavor_root_element_definition,
-            code_element_definition,
-            coding_element_definition,
-            codeable_concept_element_definition,
-        ])
-
-    # Coding resource
-    coding_root_element_definition = sdefs.build_element_definition(
-        id_='Coding',
-        type_codes=None,
-        cardinality=sdefs.Cardinality(min=1, max='1'))
-    coding_system_element_definition = sdefs.build_element_definition(
-        id_='Coding.system',
-        type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    coding_code_element_definition = sdefs.build_element_definition(
-        id_='Coding.code',
-        type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    coding = sdefs.build_resource_definition(
-        id_='Coding',
-        element_definitions=[
-            coding_root_element_definition,
-            coding_system_element_definition,
-            coding_code_element_definition,
-        ])
-
-    # CodeableConcept resource
-    codeable_concept_root_element_definition = sdefs.build_element_definition(
-        id_='CodeableConcept',
-        type_codes=None,
-        cardinality=sdefs.Cardinality(min=1, max='1'))
-    codeable_concept_coding_system_element_definition = sdefs.build_element_definition(
-        id_='CodeableConcept.coding',
-        type_codes=['Coding'],
-        cardinality=sdefs.Cardinality(min=0, max='*'))
-    codeable_concept = sdefs.build_resource_definition(
-        id_='CodeableConcept',
-        element_definitions=[
-            codeable_concept_root_element_definition,
-            codeable_concept_coding_system_element_definition,
-        ])
-
-    # Set resources for test
-    cls.resources = [
-        string_datatype,
-        foo,
-        bar,
-        bats,
-        struct,
-        another_struct,
-        div,
-        code_flavor,
-        coding,
-        codeable_concept,
-    ]
-
-    cls.foo = foo
-    cls.foo_root = foo_root_element_definition
-    cls.struct_element_def = struct_element_definition
-    cls.fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(cls.resources)
-    cls.context = context.MockFhirPathContext(cls.resources)
-    cls.bq_interpreter = _bigquery_interpreter.BigQuerySqlInterpreter()
-
-    cls.div = div
-    cls.div_root = div_root_element_definition
-
-  def create_builder_from_str(self, structdef: message.Message,
-                              fhir_path_expression: str) -> expressions.Builder:
-    structdef_type = None
-    if structdef:
-      structdef_type = _fhir_path_data_types.StructureDataType(structdef)
-
-    return expressions.from_fhir_path_expression(
-        fhir_path_expression, self.context, structdef_type,
-        primitive_handler.PrimitiveHandler())
+class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
+                                     parameterized.TestCase):
+  """Unit tests for `fhir_path.FhirPathStandardSqlEncoder`."""
 
   def assertEvaluationNodeSqlCorrect(
       self,
@@ -2730,7 +2338,9 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
     self.assertEqual(actual_sql_expression, expected_sql_expression)
 
 
-class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
+class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase,
+                                            fhir_path_test_base.FhirPathTestBase
+                                           ):
   """A base test class providing functionality for testing profile encoding.
 
   Tests should leverage one of the base `assert_...` methods which will create a
@@ -2803,7 +2413,8 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase):
     if not element_definition_found:
       raise ValueError(f'No ElementDefinition {element_definition_id!r} '
                        f'in type {base_id!r}.')
-    return _build_profile(id_=base_id, element_definitions=element_definitions)
+    return self.build_profile(
+        id_=base_id, element_definitions=element_definitions)
 
   def assert_constraint_is_equal_to_expression(
       self,
@@ -3057,14 +2668,14 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
   def testSkipKeys_withValidResource_producesNoConstraints(self):
     # Setup resource with a defined constraint
-    constraint = _build_constraint(
+    constraint = self.build_constraint(
         fhir_path_expression='false', key='always-fail-constraint-key')
     foo_root = sdefs.build_element_definition(
         id_='Foo',
         type_codes=None,
         cardinality=sdefs.Cardinality(0, '1'),
         constraints=[constraint])
-    profile = _build_profile(id_='Foo', element_definitions=[foo_root])
+    profile = self.build_profile(id_='Foo', element_definitions=[foo_root])
 
     # Standup encoder; skip 'always-fail-constraint-key'
     error_reporter = fhir_errors.ListErrorReporter()
@@ -3093,14 +2704,14 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
   def testSkipKeys_withValidResource_producesNoConstraints_v2(self):
     # Setup resource with a defined constraint
-    constraint = _build_constraint(
+    constraint = self.build_constraint(
         fhir_path_expression='false', key='always-fail-constraint-key')
     foo_root = sdefs.build_element_definition(
         id_='Foo',
         type_codes=None,
         cardinality=sdefs.Cardinality(0, '1'),
         constraints=[constraint])
-    profile = _build_profile(id_='Foo', element_definitions=[foo_root])
+    profile = self.build_profile(id_='Foo', element_definitions=[foo_root])
 
     # Standup encoder; skip 'always-fail-constraint-key'
     error_reporter = fhir_errors.ListErrorReporter()
@@ -3118,7 +2729,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(actual_bindings)
 
   def testSkipSlice_withValidResource_producesNoConstraints(self):
-    constraint = _build_constraint(fhir_path_expression='false')
+    constraint = self.build_constraint(fhir_path_expression='false')
     bar_root = sdefs.build_element_definition(
         id_='Bar',
         type_codes=None,
@@ -3153,7 +2764,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
   def testSkipSlice_withSliceOnExtension_andValidResource_isNotSkipped(self):
     # Set up resource with a defined constraint
-    constraint = _build_constraint(fhir_path_expression='false')
+    constraint = self.build_constraint(fhir_path_expression='false')
     foo_root = sdefs.build_element_definition(
         id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
     extension_slice = sdefs.build_element_definition(
@@ -3177,9 +2788,9 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
   def testEncode_withDuplicateSqlRequirement_createsConstraintAndLogsError(
       self):
-    first_constraint = _build_constraint(
+    first_constraint = self.build_constraint(
         fhir_path_expression='false', key='some-key')
-    second_constraint = _build_constraint(
+    second_constraint = self.build_constraint(
         fhir_path_expression='false', key='some-key')
 
     # Setup resource with a defined constraint
@@ -3221,9 +2832,9 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertLen(actual_bindings, 1)
 
   def testEncode_withReplacement_replacesConstraint(self):
-    first_constraint = _build_constraint(
+    first_constraint = self.build_constraint(
         fhir_path_expression='1 + 1', key='some-key')
-    second_constraint = _build_constraint(
+    second_constraint = self.build_constraint(
         fhir_path_expression='2 + 3', key='other-key')
 
     # Setup resource with a defined constraint
@@ -3272,9 +2883,9 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEqual(actual_bindings[0].fhir_path_expression, '4 + 5')
 
   def testEncode_withReplacement_andNoElementPath_replacesConstraint(self):
-    first_constraint = _build_constraint(
+    first_constraint = self.build_constraint(
         fhir_path_expression='1 + 1', key='some-key')
-    second_constraint = _build_constraint(
+    second_constraint = self.build_constraint(
         fhir_path_expression='1 + 1', key='other-key')
 
     # Setup resources with a defined constraint
@@ -3343,17 +2954,17 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
   def testEncode_withPrimitiveStructureDefinition_producesNoConstraints(self):
     # Setup primitive structure definition with 'always-fail-constraint-key'.
-    constraint = _build_constraint(
+    constraint = self.build_constraint(
         fhir_path_expression='false', key='always-fail-constraint-key')
     string_root = sdefs.build_element_definition(
         id_='string',
         type_codes=None,
         cardinality=sdefs.Cardinality(0, '1'),
         constraints=[constraint])
-    string = _build_profile(id_='string', element_definitions=[string_root])
+    string = self.build_profile(id_='string', element_definitions=[string_root])
 
     # Setup resource with a defined constraint
-    constraint = _build_constraint(
+    constraint = self.build_constraint(
         fhir_path_expression='false', key='always-fail-constraint-key')
     foo_root = sdefs.build_element_definition(
         id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
@@ -3361,7 +2972,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         id_='Foo.name',
         type_codes=['string'],
         cardinality=sdefs.Cardinality(0, '1'))
-    profile = _build_profile(
+    profile = self.build_profile(
         id_='Foo', element_definitions=[foo_root, foo_name])
 
     # Standup encoder; adding profile and string structure definitions.
@@ -3470,7 +3081,7 @@ class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
 
   def testEncodeProfile_withSimpleCycle_reportsCycleError(self):
     # Self-loop from the base type `ElementDefinition` to itself.
-    constraint = _build_constraint(fhir_path_expression='1 + 2 < 4')
+    constraint = self.build_constraint(fhir_path_expression='1 + 2 < 4')
     self.assert_raises_fhir_path_encoding_error(
         base_id='SimpleCycle',
         element_definition_id='SimpleCycle.cycle',
@@ -3481,7 +3092,7 @@ class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
     # Simple cycle between the `ElementDefinition` of our profile, whose type
     # is a base type that contains a cycle to a "core" `CycleA` type, which in-
     # turn has an element whose type is `CycleB`.
-    constraint = _build_constraint(fhir_path_expression='1 + 2 < 4')
+    constraint = self.build_constraint(fhir_path_expression='1 + 2 < 4')
     self.assert_raises_fhir_path_encoding_error(
         base_id='CycleA',
         element_definition_id='CycleA.b',
@@ -3746,7 +3357,7 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
     cls.resources = {resource.url.value: resource for resource in all_resources}
 
   def testEncode_withInvalidUninitializedSeverity_logsError(self):
-    constraint = _build_constraint(
+    constraint = self.build_constraint(
         fhir_path_expression='true',
         severity=codes_pb2.ConstraintSeverityCode.INVALID_UNINITIALIZED)
     self.assert_raises_fhir_path_encoding_error(
@@ -4058,7 +3669,8 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
   )
   def testEncode_withRootFhirPathConstraint_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str):
-    constraint = _build_constraint(fhir_path_expression=fhir_path_expression)
+    constraint = self.build_constraint(
+        fhir_path_expression=fhir_path_expression)
     self.assert_constraint_is_equal_to_expression(
         base_id='Hospital',
         element_definition_id='Hospital',
@@ -4226,7 +3838,8 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
       expected_sql_expression_v1: The expected generated Standard SQL.
       expected_sql_expression_v2: The expected generated Standard SQL.
     """
-    constraint = _build_constraint(fhir_path_expression=fhir_path_expression)
+    constraint = self.build_constraint(
+        fhir_path_expression=fhir_path_expression)
     self.assert_constraint_is_equal_to_expression(
         base_id='Hospital',
         element_definition_id='Hospital.patients',
@@ -4272,7 +3885,8 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
       expected_sql_expression_v1: The expected generated Standard SQL from v1.
       expected_sql_expression_v2: The expected generated Standard SQL from v2.
     """
-    constraint = _build_constraint(fhir_path_expression=fhir_path_expression)
+    constraint = self.build_constraint(
+        fhir_path_expression=fhir_path_expression)
     self.assert_constraint_is_equal_to_expression(
         base_id='Patient',
         element_definition_id='Patient.contact.name',
