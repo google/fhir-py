@@ -275,7 +275,7 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
               f'WHERE {result.sql_alias} IS NOT NULL)')
     else:
       # Parenthesize raw SELECT so it can plug in anywhere an expression can.
-      return f'({result})'
+      return f'{result.to_subquery()}'
 
   def validate(self, structure_definition: StructureDefinition,
                element_definition: ElementDefinition,

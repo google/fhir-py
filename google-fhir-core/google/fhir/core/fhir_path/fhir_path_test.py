@@ -791,6 +791,25 @@ class FhirPathStandardSqlEncoderTest(parameterized.TestCase):
     self.assertEvaluationNodeSqlCorrect(None, fhir_path_expression,
                                         expected_sql_expression)
 
+  def testEncode_withFhirPathV2SelectScalarsAsArrayFalseForLiteral_succeeds(
+      self):
+    fhir_path_expression = 'true'
+    expected_sql_expression = '(SELECT TRUE AS literal_)'
+    self.assertEvaluationNodeSqlCorrect(
+        structdef=None,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=False)
+
+  def testEncode_SelectScalarsAsArrayFalseForLiteral_succeeds(self):
+    actual_sql_expression = self.fhir_path_encoder.encode(
+        structure_definition=self.foo,
+        element_definition=None,
+        fhir_path_expression='true',
+        select_scalars_as_array=False)
+    expected_sql_expression = '(SELECT TRUE AS literal_)'
+    self.assertEqual(actual_sql_expression, expected_sql_expression)
+
   def testEncode_withNoElementDefinitionGiven_succeeds(self):
     fhir_path_expression = "inline.value = 'abc'"
     expected_sql_expression = textwrap.dedent("""\

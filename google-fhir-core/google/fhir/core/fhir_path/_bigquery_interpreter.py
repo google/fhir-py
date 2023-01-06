@@ -70,7 +70,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
               f'WHERE {result.sql_alias} IS NOT NULL)')
     else:
       # Parenthesize raw SELECT so it can plug in anywhere an expression can.
-      return f'({result})'
+      return f'{result.to_subquery()}'
 
   def visit_root(
       self, root: _evaluation.RootMessageNode
