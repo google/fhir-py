@@ -199,6 +199,146 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [{
                                 'WHERE literal_ IS NOT NULL)')
 }]
 
+_WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [{
+    'testcase_name':
+        '_withIntegerAddition',
+    'fhir_path_expression':
+        '1 + 2',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT (1 + 2) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withDecimalAddition',
+    'fhir_path_expression':
+        '3.14 + 1.681',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT (3.14 + 1.681) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withIntegerDivision',
+    'fhir_path_expression':
+        '3 / 2',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT (3 / 2) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withDecimalDivision',
+    'fhir_path_expression':
+        '3.14 / 1.681',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT (3.14 / 1.681) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withIntegerModularArithmetic',
+    'fhir_path_expression':
+        '2 mod 5',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT MOD(2, 5) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withIntegerMultiplication',
+    'fhir_path_expression':
+        '2 * 5',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT (2 * 5) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withDecimalMultiplication',
+    'fhir_path_expression':
+        '2.124 * 5.72',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT (2.124 * 5.72) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withIntegerSubtraction',
+    'fhir_path_expression':
+        '2 - 5',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT (2 - 5) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withDecimalSubtraction',
+    'fhir_path_expression':
+        '2.124 - 5.72',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT (2.124 - 5.72) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withIntegerTrunctatedDivision',
+    'fhir_path_expression':
+        '2 div 5',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT DIV(2, 5) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withDecimalTruncatedDivision',
+    'fhir_path_expression':
+        '2.124 div 5.72',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT DIV(2.124, 5.72) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withIntegerAdditionAndMultiplication',
+    'fhir_path_expression':
+        '(1 + 2) * 3',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT ((1 + 2) * 3) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withIntegerSubtractionAndDivision',
+    'fhir_path_expression':
+        '(21 - 6) / 3',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT ((21 - 6) / 3) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withIntegerAdditionAndModularArithmetic',
+    'fhir_path_expression':
+        '21 + 6 mod 5',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT (21 + MOD(6, 5)) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withIntegerAdditionAndTruncatedDivision',
+    'fhir_path_expression':
+        '21 + 6 div 5',
+    'expected_sql_expression': ('(SELECT COLLECT_LIST(arith_) '
+                                'FROM (SELECT (21 + DIV(6, 5)) AS arith_) '
+                                'WHERE arith_ IS NOT NULL)')
+}, {
+    'testcase_name':
+        '_withStringConcatenationAmpersand',
+    'fhir_path_expression':
+        "'foo' & 'bar'",
+    'expected_sql_expression':
+        ('(SELECT COLLECT_LIST(arith_) '
+         'FROM (SELECT CONCAT(\'foo\', \'bar\') AS arith_) '
+         'WHERE arith_ IS NOT NULL)'),
+}, {
+    'testcase_name':
+        '_withStringConcatenationPlus',
+    'fhir_path_expression':
+        "'foo' + 'bar'",
+    'expected_sql_expression':
+        ('(SELECT COLLECT_LIST(arith_) '
+         'FROM (SELECT CONCAT(\'foo\', \'bar\') AS arith_) '
+         'WHERE arith_ IS NOT NULL)')
+}]
+
 
 class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
                                   parameterized.TestCase):
@@ -223,6 +363,15 @@ class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
       self, fhir_path_expression: str, expected_sql_expression: str):
     self.assertEvaluationNodeSqlCorrect(None, fhir_path_expression,
                                         expected_sql_expression)
+
+  @parameterized.named_parameters(_WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES)
+  def testEncode_withFhirPathV2Arithmetic_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str):
+    self.assertEvaluationNodeSqlCorrect(
+        structdef=None,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=True)
 
   def testEncode_withFhirPathV2SelectScalarsAsArrayFalseForLiteral_succeeds(
       self):

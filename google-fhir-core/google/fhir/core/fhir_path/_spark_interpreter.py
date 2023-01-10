@@ -16,6 +16,7 @@
 
 from typing import Any, Optional
 
+from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _sql_data_types
@@ -125,7 +126,9 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       A compiled Standard SQL expression.
     """
 
-  def visit_arithmetic(self, arithmetic: _evaluation.ArithmeticNode):
+  def visit_arithmetic(
+      self,
+      arithmetic: _evaluation.ArithmeticNode) -> _sql_data_types.Select:
     """Translates a FHIRPath arithmetic expression to Standard SQL.
 
     Each operand is expected to be a collection of a single element. Both
@@ -138,6 +141,29 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     Returns:
       A compiled Standard SQL expression.
     """
+    lhs_result = self.visit(arithmetic.left)
+    rhs_result = self.visit(arithmetic.right)
+    sql_data_type = _sql_data_types.coerce(lhs_result.sql_data_type,
+                                           rhs_result.sql_data_type)
+
+    # Extract the values of LHS and RHS to be used as scalar subqueries.
+    lhs_subquery = lhs_result.as_operand()
+    rhs_subquery = rhs_result.as_operand()
+
+    if sql_data_type == _sql_data_types.String:
+      sql_value = f'CONCAT({lhs_subquery}, {rhs_subquery})'
+    elif arithmetic.op == _ast.Arithmetic.Op.MODULO:
+      sql_value = f'MOD({lhs_subquery}, {rhs_subquery})'
+    elif arithmetic.op == _ast.Arithmetic.Op.TRUNCATED_DIVISION:
+      sql_value = f'DIV({lhs_subquery}, {rhs_subquery})'
+    else:  # +, -, *, /
+      sql_value = f'({lhs_subquery} {arithmetic.op} {rhs_subquery})'
+
+    sql_alias = 'arith_'
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            sql_value, _sql_data_type=sql_data_type, _sql_alias=sql_alias),
+        from_part=None)
 
   def visit_equality(self, equality: _evaluation.EqualityNode):
     """Returns `TRUE` if the left collection is equal/equivalent to the right.
