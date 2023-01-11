@@ -634,6 +634,7 @@ class FhirProfileStandardSqlEncoder:
           element_definition_path,
           'Attempted to get type code from slice of non-extension.'
           ' Which is not supported.')
+      return []
 
     urls = _utils.slice_element_urls(element_definition)
     # TODO(b/190679571): Handle choice types.
@@ -651,12 +652,14 @@ class FhirProfileStandardSqlEncoder:
       self._error_reporter.report_conversion_error(
           element_definition_path,
           f'Unable to find `StructureDefinition` for: {url}.')
+      return []
 
     root_element = self._env.get_root_element_for(containing_type)
     if root_element is None:
       self._error_reporter.report_conversion_error(
           element_definition_path,
           f'Unable to find root `ElementDefinition` for: {url}.')
+      return []
 
     value_element = self.get_extension_value_element(containing_type,
                                                      root_element)
@@ -684,8 +687,12 @@ class FhirProfileStandardSqlEncoder:
     if not type_codes:
       return None
     if len(type_codes) > 1:
-      raise ValueError('Expected element with only one type code but got: '
-                       f'{type_codes}, is this a choice type?')
+      self._error_reporter.report_validation_error(
+          self._abs_path_invocation(),
+          'Expected element with only one type code but got: '
+          f'{type_codes}, is this a choice type?')
+      return None
+
     current_type_code = type_codes[0]
 
     element_id: str = cast(Any, element_definition).id.value
@@ -774,6 +781,13 @@ class FhirProfileStandardSqlEncoder:
       # If this element is a choice type, a slice (that is not on an extension)
       # or is disabled, then don't encode requirements for it.
       # TODO(b/202564733): Properly handle slices on non-simple extensions.
+      #
+      # TODO(b/265161986): We also need to properly guard against
+      # choice types on slice extensions. Failing to catch them here
+      # results in us reporting an error about unexpected choice types
+      # ('Expected element with only one type code but got:
+      # {type_codes}, is this a choice type?') in the _get_regex_from_element
+      # method.
       if (('[x]' in _get_analytic_path(child) or _is_disabled(child)) or
           (_utils.is_slice_element(child) and
            not _utils.is_slice_on_extension(child))):
