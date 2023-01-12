@@ -83,6 +83,24 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
           from_part=None)
     return None
 
+  def visit_reference(
+      self, reference: _evaluation.ExpressionNode
+  ) -> _sql_data_types.IdentifierSelect:
+    # When $this is used, we need the last identifier from the operand.
+    sql_alias = reference.to_fhir_path().split('.')[-1]
+    # If the identifier is `$this`, we assume that the repeated field has been
+    # unnested upstream so we only need to reference it with its alias:
+    # `{}_element_`.
+    if _fhir_path_data_types.is_collection(reference.return_type()):
+      sql_alias = f'{sql_alias}_element_'
+
+    sql_data_type = _sql_data_types.get_standard_sql_data_type(
+        reference.return_type())
+    return _sql_data_types.IdentifierSelect(
+        select_part=_sql_data_types.Identifier(
+            _escape_identifier(sql_alias), sql_data_type),
+        from_part=None)
+
   def visit_literal(
       self, literal: _evaluation.LiteralNode) -> _sql_data_types.RawExpression:
     """Translates a FHIRPath literal to Standard SQL."""
@@ -141,13 +159,10 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   ) -> _sql_data_types.IdentifierSelect:
     """Translates a FHIRPath member identifier to Standard SQL."""
 
-    parent_result = None
-    # TODO(b/244184211): Handle "special" identifiers
     if identifier.identifier == '$this':
-      # When $this is used, we need the last identifier from the operand.
-      raw_identifier_str = identifier.operand_node.to_fhir_path().split('.')[-1]
-    else:
-      raw_identifier_str = identifier.identifier
+      return self.visit_reference(identifier.operand_node)
+
+    raw_identifier_str = identifier.identifier
     parent_result = self.visit(identifier.operand_node)
 
     # Map to Standard SQL type. Note that we never map to a type of `ARRAY`,
@@ -483,7 +498,6 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   def visit_function(self, function: _evaluation.FunctionNode) -> Any:
     """Translates a FHIRPath function to Standard SQL."""
     parent_result = self.visit(function.parent_node())
-
     params_result = [self.visit(p) for p in function.params()]
     func = _bigquery_sql_functions.FUNCTION_MAP.get(function.NAME)
     return func(function, parent_result, params_result)

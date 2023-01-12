@@ -66,7 +66,7 @@ def get_messages(parent: message.Message,
 
   results = proto_utils.get_value_at_field(parent, target_field.name)
 
-  # Wrap non-repeated items in an array per FHIRPath specificaiton.
+  # Wrap non-repeated items in an array per FHIRPath specification.
   if target_field.label != descriptor.FieldDescriptor.LABEL_REPEATED:
     return [results]
   else:
@@ -169,6 +169,7 @@ class ExpressionNode(abc.ABC):
 
   @abc.abstractmethod
   def get_resource_nodes(self) -> List['ExpressionNode']:
+    """Returns base FHIR resources that are referenced in the builder."""
     return []
 
   @abc.abstractmethod
@@ -199,7 +200,7 @@ class ExpressionNode(abc.ABC):
   @abc.abstractmethod
   def replace_operand(self, expression_to_replace: str,
                       replacement: 'ExpressionNode') -> None:
-    """Replace any operand that matches the given expresion string."""
+    """Replace any operand that matches the given expression string."""
 
   def __str__(self) -> str:
     return self.to_fhir_path()
@@ -577,8 +578,8 @@ class IndexerNode(ExpressionNode):
     super().__init__(fhir_context, collection.return_type())
 
   def get_resource_nodes(self) -> List[ExpressionNode]:
-    return self.collection.get_resource_nodes() + self.index.get_resource_nodes(
-    )
+    return (self.collection.get_resource_nodes() +
+            self.index.get_resource_nodes())
 
   def get_root_node(self) -> ExpressionNode:
     return self.collection.get_root_node()
@@ -601,8 +602,8 @@ class IndexerNode(ExpressionNode):
     if index is None:
       raise ValueError('Expected a non-empty index')
 
-    # According to the spec, if the array is emtpy or the index is out of bounds
-    # an emtpy array is returned.
+    # According to the spec, if the array is empty or the index is out of bounds
+    # an empty array is returned.
     # https://hl7.org/fhirpath/#index-integer-collection
     if not collection_messages or index >= len(collection_messages):
       return []
@@ -1590,6 +1591,10 @@ class ReferenceNode(ExpressionNode):
   def __init__(self, fhir_context: context.FhirPathContext,
                reference_node: ExpressionNode) -> None:
     self._reference_node = reference_node
+    # If the reference node/caller is a function, then the actual node being
+    # referenced is the first non-function caller.
+    while isinstance(self._reference_node, FunctionNode):
+      self._reference_node = self._reference_node.get_parent_node()
     super().__init__(fhir_context, reference_node.return_type())
 
   def get_resource_nodes(self) -> List[ExpressionNode]:
@@ -1613,7 +1618,7 @@ class ReferenceNode(ExpressionNode):
     return [work_space.current_message()]
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
-    return None
+    return visitor.visit_reference(self)
 
   def to_fhir_path(self) -> str:
     return self._reference_node.to_fhir_path()
@@ -1760,6 +1765,10 @@ class ExpressionNodeBaseVisitor(abc.ABC):
 
   @abc.abstractmethod
   def visit_root(self, root: RootMessageNode) -> Any:
+    pass
+
+  @abc.abstractmethod
+  def visit_reference(self, reference: ExpressionNode) -> Any:
     pass
 
   @abc.abstractmethod
@@ -1982,13 +1991,13 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     operand_node = (
         self.visit(operand) if operand is not None else self._node_context[-1])
     params: List[ExpressionNode] = []
+    # For functions, the identifiers can be relative to the operand of the
+    # function; not the root FHIR type.
+    self._node_context.append(ReferenceNode(self._context, operand_node))
     for param in function.params:
-      # For functions, the identifiers can be relative to the operand of the
-      # function; not the root FHIR type.
-      self._node_context.append(ReferenceNode(self._context, operand_node))
       new_param = self.visit(param)
-      self._node_context.pop()
       params.append(new_param)
+    self._node_context.pop()
     return function_class(self._context, operand_node, params)
 
 

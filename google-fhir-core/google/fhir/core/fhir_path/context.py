@@ -199,10 +199,11 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
     if isinstance(parent, _fhir_path_data_types.StructureDataType):
       elem = parent.children().get(json_name)
       if elem is None:
-        return None
+        raise ValueError(
+            f'Identifier {json_name} not in {parent.children().keys()}')
       return self.fhir_data_type_generator(elem, json_name, parent)
     else:
-      return None
+      raise ValueError(f'Parent {parent} does not contain children.')
 
 
 class MockFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):

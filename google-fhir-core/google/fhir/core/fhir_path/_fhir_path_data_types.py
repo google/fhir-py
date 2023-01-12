@@ -521,7 +521,10 @@ class StructureDataType(FhirPathDataType):
     for elem in self._struct_def.snapshot.element:
       if elem.id.value == qualified_path:
         self._root_element_definition = elem
-      if elem.id.value.startswith(qualified_path):
+        continue
+      # Paths that look like a.elemValue when qualified_path=a.elem get
+      # misidentified as being a child of a.elem
+      if elem.id.value.startswith(qualified_path + '.'):
         relative_path = elem.id.value[len(qualified_path) + 1:]
         if relative_path and '.' not in relative_path:
           # Trim choice field annotation if present.

@@ -892,6 +892,9 @@ class IsNotNullOperator(StandardSqlExpression):
   _sql_alias: str = 'has_value_'
 
   def __str__(self) -> str:
+    operand_str = str(self.operand)
+    if 'FROM' in operand_str or 'WHERE' in operand_str:
+      return f'SELECT ({self.operand}) IS NOT NULL'
     return f'{self.operand} IS NOT NULL'
 
   @property
