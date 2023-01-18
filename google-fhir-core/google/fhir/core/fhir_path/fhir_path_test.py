@@ -2894,6 +2894,23 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
                      ['code'])
     self.assertEqual(actual_bindings[0].sql_expression, expected_sql)
 
+    error_reporter_v2 = fhir_errors.ListErrorReporter()
+    encoder_v2 = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        [foo, bar],
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
+        options=options)
+    actual_bindings_v2 = encoder_v2.encode(foo)
+    self.assertEmpty(error_reporter_v2.warnings)
+    self.assertEmpty(error_reporter_v2.errors)
+    self.assertLen(actual_bindings_v2, 1)
+    self.assertEqual(actual_bindings_v2[0].element_path, 'Foo.bar.code')
+    self.assertEqual(actual_bindings_v2[0].fhir_path_expression,
+                     "code.memberOf('http://value.set/id')")
+    self.assertEqual(actual_bindings_v2[0].fields_referenced_by_expression,
+                     ['code'])
+    self.assertEqual(actual_bindings_v2[0].sql_expression, expected_sql)
+
   def testSkipKeys_withValidResource_producesNoConstraints(self):
     # Setup resource with a defined constraint
     constraint = self.build_constraint(

@@ -18,6 +18,8 @@
 import dataclasses
 from typing import Any, Optional
 
+from google.cloud import bigquery
+
 from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _bigquery_sql_functions
 from google.fhir.core.fhir_path import _evaluation
@@ -39,8 +41,20 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   """Traverses the ExpressionNode tree and generates BigQuery SQL recursively.
   """
 
-  def __init__(self, use_resource_alias: bool = False) -> None:
+  def __init__(
+      self,
+      use_resource_alias: bool = False,
+      value_set_codes_table: Optional[bigquery.TableReference] = None) -> None:
+    """Creates a BigQuerySqlInterpreter.
+
+    Args:
+      use_resource_alias: Determines whether it is necessary to call the
+        resource table directly through an alias.
+      value_set_codes_table: An optional argument to specify whether or not to
+        use a BigQuery table to look up value sets.
+    """
     self._use_resource_alias = use_resource_alias
+    self._value_set_codes_table = value_set_codes_table
 
   def encode(self,
              builder: expressions.Builder,
@@ -499,5 +513,12 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """Translates a FHIRPath function to Standard SQL."""
     parent_result = self.visit(function.parent_node())
     params_result = [self.visit(p) for p in function.params()]
+    if (isinstance(function, _evaluation.MemberOfFunction) and
+        self._value_set_codes_table):
+      return _bigquery_sql_functions.FUNCTION_MAP[function.NAME](
+          function,
+          parent_result,
+          params_result,
+          value_set_codes_table=str(self._value_set_codes_table))
     func = _bigquery_sql_functions.FUNCTION_MAP.get(function.NAME)
     return func(function, parent_result, params_result)
