@@ -139,6 +139,11 @@ class _ExistsFunction(_FhirPathFunctionStandardSqlEncoder):
       operand_result: Optional[_sql_data_types.Select],
       params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
+    if params_result:
+      raise ValueError(
+          'Unsupported FHIRPath expression: `criteria` parameter for exists() '
+          'is not currently supported.')
+
     sql_alias = 'exists_'
     sql_data_type = _sql_data_types.Boolean
     if operand_result is None:

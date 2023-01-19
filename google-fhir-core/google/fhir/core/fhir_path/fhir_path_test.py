@@ -1327,6 +1327,12 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           element_definition=self.foo_root,
           fhir_path_expression=fhir_path_expression)
 
+  def testEncode_withUnsupportedExistsParameter(self):
+    builder = self.create_builder_from_str(self.foo,
+                                           'bar.bats.struct.exists(true)')
+    with self.assertRaisesRegex(ValueError, 'Unsupported FHIRPath expression'):
+      self.bq_interpreter.encode(builder, select_scalars_as_array=True)
+
   @parameterized.named_parameters(
       dict(
           testcase_name='_withSingleMemberAccess',
