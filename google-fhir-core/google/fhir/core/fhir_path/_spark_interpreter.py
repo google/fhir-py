@@ -119,7 +119,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       self, identifier: _evaluation.InvokeExpressionNode) -> Any:
     """Translates a FHIRPath member identifier to Standard SQL."""
 
-  def visit_indexer(self, indexer: _evaluation.IndexerNode):
+  def visit_indexer(self,
+                    indexer: _evaluation.IndexerNode) -> _sql_data_types.Select:
     """Translates a FHIRPath indexer expression to Standard SQL.
 
     Args:
@@ -128,6 +129,21 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     Returns:
       A compiled Standard SQL expression.
     """
+    collection_result = self.visit(indexer.collection)
+    index_result = self.visit(indexer.index)
+
+    # Construct SQL expression; index must be a single integer per the FHIRPath
+    # grammar, so we can leverage a scalar subquery.
+    sql_alias = f'indexed_{collection_result.sql_alias}'
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            f'element_at(COLLECT_LIST({collection_result.sql_alias}),'
+            f'{index_result.as_operand()} + 1)',
+            collection_result.sql_data_type,
+            _sql_alias=sql_alias,
+        ),
+        from_part=f'{collection_result.to_subquery()}',
+    )
 
   def visit_arithmetic(
       self,

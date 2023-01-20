@@ -339,6 +339,40 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [{
          'WHERE arith_ IS NOT NULL)')
 }]
 
+_WITH_FHIRPATH_V2_INDEXER_SUCCEEDS_CASES = [
+    {
+        'testcase_name':
+            '_withIntegerIndexer',
+        'fhir_path_expression':
+            '7[0]',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(indexed_literal_) FROM (SELECT '
+            'element_at(COLLECT_LIST(literal_),0 + 1) AS indexed_literal_ FROM '
+            '(SELECT 7 AS literal_)) WHERE indexed_literal_ IS NOT NULL)')
+    },
+    {
+        'testcase_name':
+            '_withIntegerIndexerArithmeticIndex',
+        'fhir_path_expression':
+            '7[0 + 1]',  # Out-of-bounds, empty table
+        'expected_sql_expression':
+            ('(SELECT COLLECT_LIST(indexed_literal_) FROM (SELECT '
+             'element_at(COLLECT_LIST(literal_),(0 + 1) + 1) AS '
+             'indexed_literal_ FROM (SELECT 7 AS literal_)) WHERE '
+             'indexed_literal_ IS NOT NULL)')
+    },
+    {
+        'testcase_name':
+            '_withStringIndexer',
+        'fhir_path_expression':
+            "'foo'[0]",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(indexed_literal_) FROM (SELECT '
+            'element_at(COLLECT_LIST(literal_),0 + 1) AS indexed_literal_ FROM '
+            "(SELECT 'foo' AS literal_)) WHERE indexed_literal_ IS NOT NULL)")
+    }
+]
+
 
 class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
                                   parameterized.TestCase):
@@ -366,6 +400,15 @@ class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES)
   def testEncode_withFhirPathV2Arithmetic_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str):
+    self.assertEvaluationNodeSqlCorrect(
+        structdef=None,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=True)
+
+  @parameterized.named_parameters(_WITH_FHIRPATH_V2_INDEXER_SUCCEEDS_CASES)
+  def testEncode_withFhirPathV2LiteralIndexer_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str):
     self.assertEvaluationNodeSqlCorrect(
         structdef=None,
