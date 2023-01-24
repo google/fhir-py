@@ -556,6 +556,24 @@ class Builder:
     return self._builder(
         _evaluation.AnyTrueFunction(self._node.context, self._node, []))
 
+  def replace_operand(
+      self, old_path: str,
+      replacement_node: _evaluation.ExpressionNode) -> 'Builder':
+    """Returns a builder with the old path replaced with a new node.
+
+    Args:
+      old_path: String of the old path to be replaced in the current buildergx.
+        If no path matches, then the old builder will be the same as the new
+        builder.
+      replacement_node: An expression node that will replace the node that
+        matches the old_path.
+
+    Returns:
+      A builder with the new expression node tree.
+    """
+    self._node.replace_operand(old_path, replacement_node)
+    return self._builder(self._node)
+
   def _function_args_to_nodes(
       self, operand_node: _evaluation.ExpressionNode,
       args: List[Any]) -> List[_evaluation.ExpressionNode]:

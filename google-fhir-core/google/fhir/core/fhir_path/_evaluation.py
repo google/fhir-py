@@ -563,6 +563,8 @@ class InvokeExpressionNode(ExpressionNode):
                       replacement: 'ExpressionNode') -> None:
     if self._parent_node.to_fhir_path() == expression_to_replace:
       self._parent_node = replacement
+    else:
+      self._parent_node.replace_operand(expression_to_replace, replacement)
 
 
 class IndexerNode(ExpressionNode):
@@ -620,6 +622,8 @@ class IndexerNode(ExpressionNode):
                       replacement: 'ExpressionNode') -> None:
     if self._collection.to_fhir_path() == expression_to_replace:  # pytype: disable=attribute-error
       self._collection = replacement
+    else:
+      self._collection.replace_operand(expression_to_replace, replacement)  # pytype: disable=attribute-error
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_indexer(self)
@@ -693,6 +697,8 @@ class NumericPolarityNode(ExpressionNode):
                       replacement: 'ExpressionNode') -> None:
     if self._operand.to_fhir_path() == expression_to_replace:
       self._operand = replacement
+    else:
+      self._operand.replace_operand(expression_to_replace, replacement)
 
 
 class FunctionNode(ExpressionNode):

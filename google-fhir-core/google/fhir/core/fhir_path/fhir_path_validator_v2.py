@@ -352,10 +352,10 @@ class FhirProfileStandardSqlEncoder:
           str(e),
       )
       return None
-    return self._encode_fhir_path_builder_constraint(new_builder)
+    return self._encode_fhir_path_builder_constraint(new_builder, node_context)
 
-  def _encode_fhir_path_builder_constraint(
-      self, builder: expressions.Builder) -> Optional[str]:
+  def _encode_fhir_path_builder(self,
+                                builder: expressions.Builder) -> Optional[str]:
     """Returns a Standard SQL translation of the constraint `fhir_path_expression`.
 
     If an error is encountered during encoding, the associated error reporter
@@ -371,7 +371,6 @@ class FhirProfileStandardSqlEncoder:
     """
     try:
       sql_expression = self._bq_interpreter.encode(builder)
-
     # Delegate all FHIRPath encoding errors to the associated `ErrorReporter`
     except Exception as e:  # pylint: disable=broad-except
       self._error_reporter.report_fhir_path_error(
@@ -380,9 +379,59 @@ class FhirProfileStandardSqlEncoder:
           str(e),
       )
       return None
+    return sql_expression
 
+  def _encode_fhir_path_builder_constraint(
+      self, builder: expressions.Builder,
+      top_level_constraint: Optional[expressions.Builder]) -> Optional[str]:
+    """Returns a Standard SQL translation of the constraint `fhir_path_expression` relative to its top-level constraint.
+
+    Args:
+      builder: Builder containing the information to be encoded to Standard SQL.
+      top_level_constraint: Builder containing the constraint that the input
+        builder is tied to.
+
+    Returns:
+      A Standard SQL encoding of the constraint `fhir_path_expression` upon
+      successful completion. The SQL will evaluate to a single boolean
+      indicating whether the constraint is satisfied.
+    """
+    # If a top-level constraint is not provided, simply return `sql_expression`.
+    # Otherwise, we need to add a supporting context query. This is
+    # accomplished by a separate call to the bigquery interpreter,
+    # passing a synthetic FHIRPath builder that has replaced the top-level
+    # constraint with a dummy node. This is because the supporting context query
+    # checks if the top-level constraint exists. If it does not exist, then the
+    # query should still return TRUE even if there is a constraint on the
+    # absolute constraint.
+    # We determine if this is a top-level constraint by checking if
+    # the builder contains additional invocations beyond what the context
+    # contains.
+
+    if (not top_level_constraint or isinstance(top_level_constraint.get_node(),
+                                               _evaluation.RootMessageNode)):
+      sql_expression = self._encode_fhir_path_builder(builder)
+      if sql_expression:
+        return ('(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
+                f'FROM UNNEST({sql_expression}) AS result_)')
+      return None
+
+    root_sql_expression = self._encode_fhir_path_builder(top_level_constraint)
+    new_builder = builder.replace_operand(
+        old_path=top_level_constraint.fhir_path,
+        replacement_node=_evaluation.StructureBaseNode(
+            self._context, top_level_constraint.return_type))
+
+    sql_expression = self._encode_fhir_path_builder(new_builder)
+
+    if not sql_expression or not root_sql_expression:
+      return None
+    # Bind the two expressions together via a correlated `ARRAY` subquery
     return ('(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
-            f'FROM UNNEST({sql_expression}) AS result_)')
+            f'FROM (SELECT {sql_expression} AS subquery_\n'
+            'FROM (SELECT AS VALUE ctx_element_\n'
+            f'FROM UNNEST({root_sql_expression}) AS ctx_element_)),\n'
+            'UNNEST(subquery_) AS result_)')
 
   def _encode_constraints(
       self,
@@ -446,7 +495,6 @@ class FhirProfileStandardSqlEncoder:
           struct_def, fhir_path_expression, builder)
       if sql_expression is None:
         continue  # Failure to generate Standard SQL expression
-
       # Constraint type and severity metadata; default to WARNING
       # TODO(b/199419068): Cleanup validation severity mapping
       type_ = validation_pb2.ValidationType.VALIDATION_TYPE_FHIR_PATH_CONSTRAINT
@@ -543,8 +591,9 @@ class FhirProfileStandardSqlEncoder:
       if not _SKIP_TYPE_CODES.isdisjoint(type_codes):
         continue
 
+      fhir_expression = fhir_path_builder.fhir_path
       required_sql_expression = self._encode_fhir_path_builder_constraint(
-          fhir_path_builder)
+          fhir_path_builder, builder)
       if required_sql_expression is None:
         continue  # Failure to generate Standard SQL expression.
 
@@ -565,7 +614,7 @@ class FhirProfileStandardSqlEncoder:
           fhir_path_key=constraint_key,
           fhir_path_expression=fhir_path_builder.fhir_path,
           fields_referenced_by_expression=_fields_referenced_by_expression(
-              fhir_path_builder.fhir_path))
+              fhir_expression))
       encoded_requirements.append(requirement)
     return encoded_requirements
 
@@ -726,17 +775,17 @@ class FhirProfileStandardSqlEncoder:
       if element_is_repeated:
         fhir_path_builder = child_builder.all(fhir_path_builder)
 
+      element_definition_path = self._abs_path_invocation(child_builder)
+      fhir_expression = fhir_path_builder.fhir_path
       required_sql_expression = self._encode_fhir_path_builder_constraint(
-          fhir_path_builder)
+          fhir_path_builder, builder)
       if required_sql_expression is None:
         continue  # Failure to generate Standard SQL expression.
 
       # Create the `SqlRequirement`.
-      element_definition_path = self._abs_path_invocation(fhir_path_builder)
       constraint_key_column_name: str = _key_to_sql_column_name(
           _path_to_sql_column_name(constraint_key))
-      column_name_base: str = _path_to_sql_column_name(
-          self._abs_path_invocation(fhir_path_builder))
+      column_name_base: str = _path_to_sql_column_name(element_definition_path)
       column_name = f'{column_name_base}_{constraint_key_column_name}'
       if column_name in self._regex_columns_generated:
         continue
@@ -747,13 +796,13 @@ class FhirProfileStandardSqlEncoder:
           sql_expression=required_sql_expression,
           severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
           type=validation_pb2.ValidationType.VALIDATION_TYPE_PRIMITIVE_REGEX,
-          element_path=element_definition_path,
+          element_path=self._abs_path_invocation(child_builder),
           description=(f'{name} needs to match regex of '
                        f'{regex_type_code}.'),
           fhir_path_key=constraint_key,
           fhir_path_expression=fhir_path_builder.fhir_path,
           fields_referenced_by_expression=_fields_referenced_by_expression(
-              _escape_fhir_path_invocation(fhir_path_builder.fhir_path)))
+              _escape_fhir_path_invocation(fhir_expression)))
       encoded_requirements.append(requirement)
 
     return encoded_requirements
@@ -851,8 +900,10 @@ class FhirProfileStandardSqlEncoder:
     relative_fhir_path = "%s.memberOf('%s')" % (
         _escape_fhir_path_invocation(relative_path), value_set_uri)
 
+    # Since the binding is required, we don't have to check the top-level
+    # constraints.
     sql_expression = self._encode_fhir_path_builder_constraint(
-        fhir_path_builder)
+        fhir_path_builder, top_level_constraint=None)
     if sql_expression is None:
       return []
 

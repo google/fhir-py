@@ -3199,9 +3199,10 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     # generated is the same for both since the expression is just arithmetic and
     # does not reference any element in the field. Since the sql is the same,
     # one of the requirement sqls will be deleted upon return.
-    self.assertLen(actual_bindings, 1)
+    self.assertLen(actual_bindings, 2)
 
     self.assertEqual(actual_bindings[0].fhir_path_expression, '4 + 5')
+    self.assertEqual(actual_bindings[1].fhir_path_expression, '4 + 5')
 
   def testEncode_withPrimitiveStructureDefinition_producesNoConstraints(self):
     # Setup primitive structure definition with 'always-fail-constraint-key'.
@@ -3933,7 +3934,7 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
       dict(
           testcase_name='_withScalarMemberAccess',
           fhir_path_expression='name',
-          expected_sql_expression_v1=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent("""\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT name
           FROM (SELECT name)
@@ -3943,17 +3944,11 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)"""),
-          expected_sql_expression_v2=textwrap.dedent("""\
-          (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
-          FROM UNNEST(ARRAY(SELECT name
-          FROM (SELECT patients_element_.name
-          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
-          WHERE name IS NOT NULL)) AS result_)""")),
+          UNNEST(subquery_) AS result_)""")),
       dict(
           testcase_name='_withArrayScalarAccess',
           fhir_path_expression='addresses.city',
-          expected_sql_expression_v1=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent("""\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT city
           FROM (SELECT addresses_element_.city
@@ -3964,19 +3959,11 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)"""),
-          expected_sql_expression_v2=textwrap.dedent("""\
-          (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
-          FROM UNNEST(ARRAY(SELECT city
-          FROM (SELECT addresses_element_.city
-          FROM (SELECT patients_element_
-          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
-          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
-          WHERE city IS NOT NULL)) AS result_)""")),
+          UNNEST(subquery_) AS result_)""")),
       dict(
           testcase_name='_withLiteralUnionArrayScalarMember',
           fhir_path_expression="'Hyrule' | addresses.state",
-          expected_sql_expression_v1=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent("""\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT union_
           FROM (SELECT lhs_.literal_ AS union_
@@ -3991,23 +3978,11 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)"""),
-          expected_sql_expression_v2=textwrap.dedent("""\
-          (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
-          FROM UNNEST(ARRAY(SELECT union_
-          FROM (SELECT lhs_.literal_ AS union_
-          FROM (SELECT \'Hyrule\' AS literal_) AS lhs_
-          UNION DISTINCT
-          SELECT rhs_.state AS union_
-          FROM (SELECT addresses_element_.state
-          FROM (SELECT patients_element_
-          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
-          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset) AS rhs_)
-          WHERE union_ IS NOT NULL)) AS result_)""")),
+          UNNEST(subquery_) AS result_)""")),
       dict(
           testcase_name='_withArrayArrayScalarMemberExistsNot',
           fhir_path_expression='addresses.city.exists().not()',
-          expected_sql_expression_v1=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent("""\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT not_
           FROM (SELECT NOT(
@@ -4022,24 +3997,12 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)"""),
-          expected_sql_expression_v2=textwrap.dedent("""\
-          (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
-          FROM UNNEST(ARRAY(SELECT not_
-          FROM (SELECT NOT(
-          EXISTS(
-          SELECT city
-          FROM (SELECT addresses_element_.city
-          FROM (SELECT patients_element_
-          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
-          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
-          WHERE city IS NOT NULL)) AS not_)
-          WHERE not_ IS NOT NULL)) AS result_)""")),
+          UNNEST(subquery_) AS result_)""")),
       dict(
           testcase_name='_withArrayArrayScalarMemberExistsAndLogical',
           fhir_path_expression=(
               'addresses.city.exists() and addresses.state.exists()'),
-          expected_sql_expression_v1=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent("""\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT logic_
           FROM (SELECT (EXISTS(
@@ -4057,28 +4020,10 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)"""),
-          expected_sql_expression_v2=textwrap.dedent("""\
-          (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
-          FROM UNNEST(ARRAY(SELECT logic_
-          FROM (SELECT (EXISTS(
-          SELECT city
-          FROM (SELECT addresses_element_.city
-          FROM (SELECT patients_element_
-          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
-          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
-          WHERE city IS NOT NULL) AND EXISTS(
-          SELECT state
-          FROM (SELECT addresses_element_.state
-          FROM (SELECT patients_element_
-          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
-          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
-          WHERE state IS NOT NULL)) AS logic_)
-          WHERE logic_ IS NOT NULL)) AS result_)""")),
+          UNNEST(subquery_) AS result_)""")),
   )
   def testEncode_withNonRootFhirPathConstraint_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression_v1: str,
-      expected_sql_expression_v2: str):
+      self, fhir_path_expression: str, expected_sql_expression: str):
     """Tests that a "transitive constraint" is properly encoded.
 
     A "transitive constraint" is a constraint defined relative to a resource
@@ -4086,8 +4031,7 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
 
     Args:
       fhir_path_expression: The FHIRPath expression to encode.
-      expected_sql_expression_v1: The expected generated Standard SQL.
-      expected_sql_expression_v2: The expected generated Standard SQL.
+      expected_sql_expression: The expected generated Standard SQL.
     """
     constraint = self.build_constraint(
         fhir_path_expression=fhir_path_expression)
@@ -4095,9 +4039,8 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
         base_id='Hospital',
         element_definition_id='Hospital.patients',
         constraint=constraint,
-        expected_sql_expression=expected_sql_expression_v1,
-        supported_in_v2=True,
-        expected_sql_expression_v2=expected_sql_expression_v2)
+        expected_sql_expression=expected_sql_expression,
+        supported_in_v2=True)
 
   @parameterized.named_parameters(
       dict(
@@ -4116,13 +4059,18 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(subquery_) AS result_)"""),
           expected_sql_expression_v2=textwrap.dedent("""\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
-          FROM UNNEST(ARRAY(SELECT exists_
+          FROM (SELECT ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
           SELECT first
-          FROM (SELECT contact_element_.name.first
-          FROM UNNEST(contact) AS contact_element_ WITH OFFSET AS element_offset)
+          FROM (SELECT first)
           WHERE first IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)) AS result_)""")))
+          WHERE exists_ IS NOT NULL) AS subquery_
+          FROM (SELECT AS VALUE ctx_element_
+          FROM UNNEST(ARRAY(SELECT name
+          FROM (SELECT contact_element_.name
+          FROM UNNEST(contact) AS contact_element_ WITH OFFSET AS element_offset)
+          WHERE name IS NOT NULL)) AS ctx_element_)),
+          UNNEST(subquery_) AS result_)""")))
   def testEncode_withBackboneElementConstraint_succeeds(
       self, fhir_path_expression: str, expected_sql_expression_v1: str,
       expected_sql_expression_v2: str):
@@ -4144,8 +4092,7 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
         constraint=constraint,
         expected_sql_expression=expected_sql_expression_v1,
         supported_in_v2=True,
-        expected_sql_expression_v2=expected_sql_expression_v2,
-    )
+        expected_sql_expression_v2=expected_sql_expression_v2)
 
 
 # TODO(b/201111782): Add support in fhir_path_test.py for checking if we can
