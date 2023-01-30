@@ -373,6 +373,55 @@ _WITH_FHIRPATH_V2_INDEXER_SUCCEEDS_CASES = [
     }
 ]
 
+_WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES = [
+    {
+        'testcase_name':
+            '_withBooleanAnd',
+        'fhir_path_expression':
+            'true and false',
+        'expected_sql_expression':
+            ('(SELECT COLLECT_LIST(logic_) FROM (SELECT TRUE AND FALSE AS '
+             'logic_) WHERE logic_ IS NOT NULL)')
+    },
+    {
+        'testcase_name':
+            '_withBooleanOr',
+        'fhir_path_expression':
+            'true or false',
+        'expected_sql_expression':
+            ('(SELECT COLLECT_LIST(logic_) FROM (SELECT TRUE OR FALSE AS '
+             'logic_) WHERE logic_ IS NOT NULL)')
+    },
+    {
+        'testcase_name':
+            '_withBooleanXor',
+        'fhir_path_expression':
+            'true xor false',
+        'expected_sql_expression':
+            ('(SELECT COLLECT_LIST(logic_) FROM (SELECT TRUE <> FALSE AS '
+             'logic_) WHERE logic_ IS NOT NULL)')
+    },
+    {
+        'testcase_name':
+            '_withBooleanImplies',
+        'fhir_path_expression':
+            'true implies false',
+        'expected_sql_expression':
+            ('(SELECT COLLECT_LIST(logic_) FROM (SELECT NOT TRUE OR FALSE AS '
+             'logic_) WHERE logic_ IS NOT NULL)')
+    },
+    {
+        'testcase_name':
+            '_withBooleanRelationBetweenStringInteger',
+        'fhir_path_expression':
+            "3 and 'true'",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(logic_) FROM (SELECT (3 IS NOT NULL) AND '
+            '(\'true\' IS NOT NULL) AS logic_) WHERE logic_ IS NOT NULL)'
+        )
+    },
+]
+
 
 class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
                                   parameterized.TestCase):
@@ -399,7 +448,7 @@ class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
                                         expected_sql_expression)
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES)
-  def testEncode_withFhirPathV2Arithmetic_succeeds(
+  def testEncode_withFhirPathV2LiteralArithmetic_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str):
     self.assertEvaluationNodeSqlCorrect(
         structdef=None,
@@ -409,6 +458,15 @@ class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_INDEXER_SUCCEEDS_CASES)
   def testEncode_withFhirPathV2LiteralIndexer_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str):
+    self.assertEvaluationNodeSqlCorrect(
+        structdef=None,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=True)
+
+  @parameterized.named_parameters(_WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES)
+  def testEncode_withFhirPathV2LiteralBoolean_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str):
     self.assertEvaluationNodeSqlCorrect(
         structdef=None,

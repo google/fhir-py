@@ -210,7 +210,9 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       A compiled Standard SQL expression.
     """
 
-  def visit_boolean_op(self, boolean_logic: _evaluation.BooleanOperatorNode):
+  def visit_boolean_op(
+      self,
+      boolean_logic: _evaluation.BooleanOperatorNode) -> _sql_data_types.Select:
     """Translates a FHIRPath Boolean logic operation to Standard SQL.
 
     Note that evaluation for Boolean logic is only supported for Boolean
@@ -222,6 +224,33 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     Returns:
       A compiled Standard SQL expression.
     """
+    lhs_result = self.visit(boolean_logic.left)
+    rhs_result = self.visit(boolean_logic.right)
+
+    # Extract boolean values from both sides if needed.
+    if lhs_result.sql_data_type != _sql_data_types.Boolean:
+      lhs_result = lhs_result.is_not_null()
+    if rhs_result.sql_data_type != _sql_data_types.Boolean:
+      rhs_result = rhs_result.is_not_null()
+
+    # Extract the values of LHS and RHS to be used as scalar subqueries.
+    lhs_subquery = lhs_result.as_operand()
+    rhs_subquery = rhs_result.as_operand()
+
+    if boolean_logic.op == _ast.BooleanLogic.Op.IMPLIES:
+      sql_value = f'NOT {lhs_subquery} OR {rhs_subquery}'
+    elif boolean_logic.op == _ast.BooleanLogic.Op.XOR:
+      sql_value = f'{lhs_subquery} <> {rhs_subquery}'
+    else:  # AND, OR
+      sql_value = f'{lhs_subquery} {boolean_logic.op.upper()} {rhs_subquery}'
+
+    sql_alias = 'logic_'
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            sql_value,
+            _sql_data_type=_sql_data_types.Boolean,
+            _sql_alias=sql_alias),
+        from_part=None)
 
   def visit_membership(self,
                        relation: _evaluation.MembershipRelationNode) -> Any:
