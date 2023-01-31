@@ -233,8 +233,9 @@ class BigQueryRunner:
       return encoder.encode(
           structure_definition=structure_definition,
           element_definition=element_definition,
-          fhir_path_expression=expr.to_expression().fhir_path,
-          select_scalars_as_array=select_scalars_as_array)
+          fhir_path_expression=expr.fhir_path,
+          select_scalars_as_array=select_scalars_as_array,
+      )
 
   def to_sql(self,
              view: views.View,
@@ -571,8 +572,9 @@ class BigQueryRunner:
     select_expression = encoder.encode(
         structure_definition=struct_def,
         element_definition=elem_def,
-        fhir_path_expression=code_expr.to_expression().fhir_path,
-        select_scalars_as_array=True)
+        fhir_path_expression=code_expr.fhir_path,
+        select_scalars_as_array=True,
+    )
 
     # Build the select expression from the FHIR resource table.
     table_names = self._view_table_names(view)

@@ -28,6 +28,7 @@ from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import context
 from google.fhir.core.fhir_path import expressions
+from google.fhir.core.fhir_path import python_compiled_expressions
 from google.fhir.core.fhir_path import quantity
 from google.fhir.core.utils import proto_utils
 
@@ -45,8 +46,8 @@ class FhirPathExpressionsTest(
 
   @abc.abstractmethod
   def compile_expression(
-      self, structdef_url: str,
-      fhir_path_expression: str) -> expressions.CompiledExpression:
+      self, structdef_url: str, fhir_path_expression: str
+  ) -> python_compiled_expressions.PythonCompiledExpression:
     pass
 
   @abc.abstractmethod
@@ -77,16 +78,23 @@ class FhirPathExpressionsTest(
     pass
 
   def assert_expression_result(
-      self, parsed_expression: expressions.CompiledExpression,
-      builder: expressions.Builder, resource: message.Message,
-      expected_result: Union[bool, str, float, int]):
+      self,
+      parsed_expression: python_compiled_expressions.PythonCompiledExpression,
+      builder: expressions.Builder,
+      resource: message.Message,
+      expected_result: Union[bool, str, float, int],
+  ):
     # Confirm the expressions themselves match.
     self.assertEqual(parsed_expression.fhir_path, builder.fhir_path)
 
     # Evaluate both the built and parsed expressions and ensure they
     # produce the same result.
     parsed_result = parsed_expression.evaluate(resource)
-    built_result = builder.to_expression().evaluate(resource)
+    built_result = (
+        python_compiled_expressions.PythonCompiledExpression.from_builder(
+            builder
+        ).evaluate(resource)
+    )
 
     if expected_result is None:
       self.assertFalse(parsed_result.has_value())
@@ -381,7 +389,9 @@ class FhirPathExpressionsTest(
     # Placeholder resource to call expression valuation.
     patient = self._new_patient()
 
-    def eval_literal(literal: str) -> expressions.EvaluationResult:
+    def eval_literal(
+        literal: str,
+    ) -> python_compiled_expressions.EvaluationResult:
       expression = self.compile_expression('Patient', literal)
       self.assertEqual(literal, expression.fhir_path)
       return expression.evaluate(patient)
@@ -668,7 +678,10 @@ class FhirPathExpressionsTest(
 
     expr = self.builder('Patient').active == None  # pylint: disable=singleton-comparison
     self.assertEqual(expr.fhir_path, 'active = {}')  # pytype: disable=attribute-error
-    self.assertFalse(expr.to_expression().evaluate(patient).has_value())  # pytype: disable=attribute-error
+    compiled = (
+        python_compiled_expressions.PythonCompiledExpression.from_builder(expr)  # pytype: disable=wrong-arg-types
+    )
+    self.assertFalse(compiled.evaluate(patient).has_value())  # pytype: disable=attribute-error
 
   def testNumericAdditionArithmetic(self):
     """Tests addition logic for numeric values defined at https://hl7.org/fhirpath/#math-2.
@@ -1078,7 +1091,9 @@ class FhirPathExpressionsTest(
 
   def testNoneComparison_forResource_hasNoValue(self):
     patient = self._new_patient()
-    expr = (self.builder('Patient').address.state > 'CA').to_expression()
+    expr = python_compiled_expressions.PythonCompiledExpression.from_builder(
+        self.builder('Patient').address.state > 'CA'
+    )
     self.assertFalse(expr.evaluate(patient).has_value())
 
   def testRootFields_onBuilder_matchFhirFields(self):
@@ -1140,7 +1155,9 @@ class FhirPathExpressionsTest(
     value_set = self.value_set_builder('url:test:valueset').with_codes(
         'http://loinc.org', ['10346-5', '10486-9']).build()
 
-    expr = self.builder('Observation').code.memberOf(value_set).to_expression()
+    expr = python_compiled_expressions.PythonCompiledExpression.from_builder(
+        self.builder('Observation').code.memberOf(value_set)
+    )
 
     # Check matches on multiple code values.
     self.assertTrue(expr.evaluate(observation).as_bool())
@@ -1426,7 +1443,9 @@ class FhirPathExpressionsTest(
     pat = self.builder('Patient')
     builder = pat.address.city.contains(pat.address.city)
     with self.assertRaises(ValueError):
-      builder.to_expression().evaluate(patient)
+      python_compiled_expressions.PythonCompiledExpression.from_builder(
+          builder
+      ).evaluate(patient)
 
   def testContainsOperator_withNestingInWhere_succeeds(self):
     """Ensures contains can be nested in a where function."""
@@ -1532,16 +1551,24 @@ class FhirPathExpressionsTest(
     first_name.given.add().value = 'c'
 
     pat = self.builder('Patient')
-    builder_expr = pat.address.city.union(pat.name.given)
+    builder = pat.address.city.union(pat.name.given)
     fhir_path_expr = self.compile_expression('Patient',
                                              'address.city | name.given)')
 
-    self.assertEqual(builder_expr.fhir_path, 'address.city | name.given')
-    self.assertEqual(builder_expr.get_node().return_type(),
-                     _fhir_path_data_types.String)
+    self.assertEqual(builder.fhir_path, 'address.city | name.given')
+    self.assertEqual(
+        builder.get_node().return_type(), _fhir_path_data_types.String
+    )
 
-    for result in (builder_expr.to_expression().evaluate(patient),
-                   fhir_path_expr.evaluate(patient)):
+    builder_expr = (
+        python_compiled_expressions.PythonCompiledExpression.from_builder(
+            builder
+        )
+    )
+    for result in (
+        builder_expr.evaluate(patient),
+        fhir_path_expr.evaluate(patient),
+    ):
       self.assertCountEqual([
           proto_utils.get_value_at_field(message, 'value')
           for message in result.messages
@@ -1559,20 +1586,28 @@ class FhirPathExpressionsTest(
     patient.telecom.add().rank.value = 2
 
     pat = self.builder('Patient')
-    builder_expr = pat.telecom.rank.union(pat.name.given)
+    builder = pat.telecom.rank.union(pat.name.given)
     fhir_path_expr = self.compile_expression('Patient',
                                              'telecom.rank | name.given')
 
-    self.assertEqual(builder_expr.fhir_path, 'telecom.rank | name.given')
+    self.assertEqual(builder.fhir_path, 'telecom.rank | name.given')
     self.assertEqual(
-        builder_expr.get_node().return_type(),
+        builder.get_node().return_type(),
         _fhir_path_data_types.Collection({
             _fhir_path_data_types.String,
             _fhir_path_data_types.Integer,
-        }))
+        }),
+    )
 
-    for result in (builder_expr.to_expression().evaluate(patient),
-                   fhir_path_expr.evaluate(patient)):
+    builder_expr = (
+        python_compiled_expressions.PythonCompiledExpression.from_builder(
+            builder
+        )
+    )
+    for result in (
+        builder_expr.evaluate(patient),
+        fhir_path_expr.evaluate(patient),
+    ):
       self.assertCountEqual([
           proto_utils.get_value_at_field(message, 'value')
           for message in result.messages
@@ -1606,15 +1641,23 @@ class FhirPathExpressionsTest(
     first_name.given.add().value = 'b'
 
     pat = self.builder('Patient')
-    builder_expr = pat.name.given.union(None)  # pytype: disable=wrong-arg-types
+    builder = pat.name.given.union(None)  # pytype: disable=wrong-arg-types
     fhir_path_expr = self.compile_expression('Patient', 'name.given | {}')
 
-    self.assertEqual(builder_expr.fhir_path, 'name.given | {}')
-    self.assertEqual(builder_expr.get_node().return_type(),
-                     _fhir_path_data_types.String)
+    self.assertEqual(builder.fhir_path, 'name.given | {}')
+    self.assertEqual(
+        builder.get_node().return_type(), _fhir_path_data_types.String
+    )
 
-    for result in (builder_expr.to_expression().evaluate(patient),
-                   fhir_path_expr.evaluate(patient)):
+    builder_expr = (
+        python_compiled_expressions.PythonCompiledExpression.from_builder(
+            builder
+        )
+    )
+    for result in (
+        builder_expr.evaluate(patient),
+        fhir_path_expr.evaluate(patient),
+    ):
       self.assertCountEqual([
           proto_utils.get_value_at_field(message, 'value')
           for message in result.messages

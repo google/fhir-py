@@ -17,14 +17,15 @@ from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import context
 from google.fhir.core.fhir_path import expressions
+from google.fhir.core.fhir_path import python_compiled_expressions
 from google.fhir.r4 import primitive_handler
 
 _PRIMITIVE_HANDLER = primitive_handler.PrimitiveHandler()
 
 
-def compile_expression(structdef_url: str,
-                       fhir_context: context.FhirPathContext,
-                       fhir_path: str) -> expressions.CompiledExpression:
+def compile_expression(
+    structdef_url: str, fhir_context: context.FhirPathContext, fhir_path: str
+) -> python_compiled_expressions.PythonCompiledExpression:
   """Compiles the FHIRPath expression for the given resource.
 
   Args:
@@ -35,11 +36,12 @@ def compile_expression(structdef_url: str,
 
   Returns:
 
-    A CompiledExpression representing the given FHIRPath string that can
+    A PythonCompiledExpression representing the given FHIRPath string that can
     be evaluated against the target resource.
   """
-  return expressions.CompiledExpression.compile(fhir_path, _PRIMITIVE_HANDLER,
-                                                structdef_url, fhir_context)
+  return python_compiled_expressions.PythonCompiledExpression.compile(
+      fhir_path, _PRIMITIVE_HANDLER, structdef_url, fhir_context
+  )
 
 
 def builder(structdef_url: str,

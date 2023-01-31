@@ -20,11 +20,9 @@ such as in the r4 sub-package.
 import collections
 import copy
 import datetime
-import decimal
 from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 from google.protobuf import message
-from google.fhir.core import codes
 from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
@@ -32,8 +30,6 @@ from google.fhir.core.fhir_path import context
 from google.fhir.core.fhir_path import quantity
 from google.fhir.core.internal import primitive_handler
 from google.fhir.core.utils import annotation_utils
-from google.fhir.core.utils import fhir_types
-from google.fhir.core.utils import proto_utils
 
 # TODO(b/208900793): Expand to all FHIRPath-comparable equivalent types.
 Comparable = Union[str, bool, int, float, datetime.date, datetime.datetime,
@@ -67,133 +63,6 @@ class ValueSetBuilder:
   def build(self) -> message.Message:
     # TODO(b/208900793): Use a protocol for ValueSets to avoid need to cast.
     return cast(message.Message, self._value_set)
-
-
-# TODO(b/208900793): support other result types and messages, and introspection
-# on the actual returned type.
-class EvaluationResult:
-  """The result of a FHIRPath expression evaluation.
-
-  Users should inspect and convert this to the expected target type based
-  on their evaluation needs.
-  """
-
-  def __init__(self, messages: List[message.Message],
-               work_space: _evaluation.WorkSpace):
-    self._messages = messages
-    self._work_space = work_space
-
-  @property
-  def messages(self) -> List[message.Message]:
-    return self._messages
-
-  def has_value(self) -> bool:
-    """Returns true if the evaluation returned a value; false if not."""
-    return bool(self._messages)
-
-  def as_string(self) -> str:
-    """Returns the result as a string.
-
-    Raises:
-      ValueError if the `EvaluationResult` is not a single string.
-    """
-    if len(self._messages) != 1:
-      raise ValueError('FHIRPath did not evaluate to a single string.')
-
-    # Codes can be stored internally as enums, but users will expect the FHIR
-    # defined string value.
-    if fhir_types.is_type_or_profile_of_code(self._messages[0]):
-      return codes.get_code_as_string(self._messages[0])
-
-    # TODO(b/208900793): Check primitive type rather than assuming value.
-    return proto_utils.get_value_at_field(self._messages[0], 'value')
-
-  def as_bool(self) -> bool:
-    """Returns the result as a boolean.
-
-    Raises:
-      ValueError if the `EvaluationResult` is not a single boolean.
-    """
-    if len(self._messages) != 1:
-      raise ValueError('FHIRPath did not evaluate to a single boolean.')
-
-    # TODO(b/208900793): Check primitive type rather than assuming value.
-    return proto_utils.get_value_at_field(self._messages[0], 'value')
-
-  def as_int(self) -> int:
-    """Returns the result as an integer.
-
-    Raises:
-      ValueError if the `EvaluationResult` is not a single integer.
-    """
-    if len(self._messages) != 1:
-      raise ValueError('FHIRPath did not evaluate to a single integer.')
-
-    # TODO(b/208900793): Check primitive type rather than assuming value.
-    return proto_utils.get_value_at_field(self._messages[0], 'value')
-
-  def as_decimal(self) -> decimal.Decimal:
-    """Returns the result as a decimal.
-
-    Raises:
-      ValueError if the `EvaluationResult` is not a single decimal.
-    """
-    if len(self._messages) != 1:
-      raise ValueError('FHIRPath did not evaluate to a single decimal.')
-
-    # TODO(b/208900793): Check primitive type rather than assuming value.
-    return decimal.Decimal(
-        proto_utils.get_value_at_field(self._messages[0], 'value'))
-
-
-class CompiledExpression:
-  """Compiled FHIRPath expression."""
-
-  def __init__(self, root_node: _evaluation.ExpressionNode,
-               handler: primitive_handler.PrimitiveHandler, fhir_path: str):
-    self._root_node = root_node
-    self._primitive_handler = handler
-    self._fhir_path = fhir_path
-
-  @classmethod
-  def compile(
-      cls,
-      fhir_path: str,
-      handler: primitive_handler.PrimitiveHandler,
-      structdef_url: str,
-      fhir_context: context.FhirPathContext,
-  ) -> 'CompiledExpression':
-    """Compiles the FHIRPath expression that targets the given structure."""
-
-    structdef = fhir_context.get_structure_definition(structdef_url)
-    data_type = _fhir_path_data_types.StructureDataType(structdef)
-
-    ast = _ast.build_fhir_path_ast(fhir_path)
-    visitor = _evaluation.FhirPathCompilerVisitor(handler, fhir_context,
-                                                  data_type)
-
-    root = visitor.visit(ast)
-    return CompiledExpression(root, handler, fhir_path)
-
-  def evaluate(self, resource: message.Message) -> EvaluationResult:
-    return self._evaluate(
-        _evaluation.WorkSpaceMessage(message=resource, parent=None))
-
-  @property
-  def fhir_path(self) -> str:
-    """The FHIRPath expression as a string."""
-    return self._fhir_path
-
-  def _evaluate(
-      self,
-      workspace_message: _evaluation.WorkSpaceMessage) -> EvaluationResult:
-    work_space = _evaluation.WorkSpace(
-        primitive_handler=self._primitive_handler,
-        fhir_context=self._root_node.context,
-        message_context_stack=[workspace_message])
-    results = self._root_node.evaluate(work_space)
-    return EvaluationResult(
-        messages=[result.message for result in results], work_space=work_space)
 
 
 # TODO(b/208900793): Add support for basic functions and comparisons.
@@ -236,10 +105,6 @@ class Builder:
                handler: primitive_handler.PrimitiveHandler):
     self._node = node
     self._handler = handler
-
-  def to_expression(self) -> CompiledExpression:
-    """Returns the compiled expression that was built here."""
-    return CompiledExpression(self._node, self._handler, self.fhir_path)
 
   def _primitive_to_fhir_path(self, primitive: Optional[Comparable]) -> str:
     """Converts a primitive type into a FHIRPath literal string."""
@@ -341,6 +206,9 @@ class Builder:
 
   def get_node(self) -> _evaluation.ExpressionNode:
     return self._node
+
+  def get_primitive_handler(self) -> primitive_handler.PrimitiveHandler:
+    return self._handler
 
   def get_parent_builder(self) -> 'Builder':
     return self._builder(self._node.get_parent_node())
@@ -617,63 +485,93 @@ class Builder:
 
   def contains(self, rhs: BuilderOperand) -> 'Builder':
     return Builder(
-        _evaluation.ContainsNode(self._node.context, self._handler, self._node,
-                                 self._to_node(rhs)), self._handler)
+        _evaluation.ContainsNode(
+            self._node.context, self._node, self._to_node(rhs)
+        ),
+        self._handler,
+    )
 
   def union(self, rhs: BuilderOperand) -> 'Builder':
     return Builder(
-        _evaluation.UnionNode(self._node.context, self._handler, self._node,
-                              self._to_node(rhs)), self._handler)
+        _evaluation.UnionNode(
+            self._node.context, self._node, self._to_node(rhs)
+        ),
+        self._handler,
+    )
 
   def __eq__(self, rhs: BuilderOperand) -> 'Builder':
     return Builder(
-        _evaluation.EqualityNode(self._node.context, self._handler,
-                                 _ast.EqualityRelation.Op.EQUAL, self._node,
-                                 self._to_node(rhs)), self._handler)
+        _evaluation.EqualityNode(
+            self._node.context,
+            _ast.EqualityRelation.Op.EQUAL,
+            self._node,
+            self._to_node(rhs),
+        ),
+        self._handler,
+    )
 
   def __ne__(self, rhs: BuilderOperand) -> 'Builder':
     return Builder(
-        _evaluation.EqualityNode(self._node.context, self._handler,
-                                 _ast.EqualityRelation.Op.NOT_EQUAL, self._node,
-                                 self._to_node(rhs)), self._handler)
+        _evaluation.EqualityNode(
+            self._node.context,
+            _ast.EqualityRelation.Op.NOT_EQUAL,
+            self._node,
+            self._to_node(rhs),
+        ),
+        self._handler,
+    )
 
   def __or__(self, rhs: 'Builder') -> 'Builder':
     return Builder(
-        _evaluation.BooleanOperatorNode(self._node.context, self._handler,
-                                        _ast.BooleanLogic.Op.OR, self._node,
-                                        rhs._node), self._handler)
+        _evaluation.BooleanOperatorNode(
+            self._node.context, _ast.BooleanLogic.Op.OR, self._node, rhs._node
+        ),
+        self._handler,
+    )
 
   def __and__(self, rhs: Union[str, 'Builder']) -> 'Builder':
     # Both string concatenation and boolean and use the operator '&'
     if isinstance(rhs, str):
       return self._arithmetic_node(_ast.Arithmetic.Op.STRING_CONCATENATION, rhs)
     return Builder(
-        _evaluation.BooleanOperatorNode(self._node.context, self._handler,
-                                        _ast.BooleanLogic.Op.AND, self._node,
-                                        rhs._node), self._handler)
+        _evaluation.BooleanOperatorNode(
+            self._node.context, _ast.BooleanLogic.Op.AND, self._node, rhs._node
+        ),
+        self._handler,
+    )
 
   def __xor__(self, rhs: 'Builder') -> 'Builder':
     return Builder(
-        _evaluation.BooleanOperatorNode(self._node.context, self._handler,
-                                        _ast.BooleanLogic.Op.XOR, self._node,
-                                        rhs._node), self._handler)
+        _evaluation.BooleanOperatorNode(
+            self._node.context, _ast.BooleanLogic.Op.XOR, self._node, rhs._node
+        ),
+        self._handler,
+    )
 
   def implies(self, rhs: 'Builder') -> 'Builder':
     """The FHIRPath implies opeator."""
     # Linter doesn't realize rhs is the same class.
     # pylint: disable=protected-access
     return Builder(
-        _evaluation.BooleanOperatorNode(self._node.context, self._handler,
-                                        _ast.BooleanLogic.Op.IMPLIES,
-                                        self._node, rhs._node), self._handler)
+        _evaluation.BooleanOperatorNode(
+            self._node.context,
+            _ast.BooleanLogic.Op.IMPLIES,
+            self._node,
+            rhs._node,
+        ),
+        self._handler,
+    )
     # pylint: enable=protected-access
 
   def _comparison_node(self, operator: _ast.Comparison.Op,
                        rhs: BuilderOperand) -> 'Builder':
     rhs_node = self._to_node(rhs)
     return Builder(
-        _evaluation.ComparisonNode(self._node.context, self._handler, operator,
-                                   self._node, rhs_node), self._handler)
+        _evaluation.ComparisonNode(
+            self._node.context, operator, self._node, rhs_node
+        ),
+        self._handler,
+    )
 
   def __lt__(self, rhs: BuilderOperand) -> 'Builder':
     return self._comparison_node(_ast.Comparison.Op.LESS_THAN, rhs)
@@ -690,9 +588,11 @@ class Builder:
   def _arithmetic_node(self, operator: _ast.Arithmetic.Op,
                        rhs: BuilderOperand) -> 'Builder':
     return Builder(
-        _evaluation.ArithmeticNode(self._node.context,
-                                   self._handler, operator, self._node,
-                                   self._to_node(rhs)), self._handler)
+        _evaluation.ArithmeticNode(
+            self._node.context, operator, self._node, self._to_node(rhs)
+        ),
+        self._handler,
+    )
 
   def __getitem__(self, key: int) -> 'Builder':
     # TODO(b/226135993): consider supporting other types, such as Builders

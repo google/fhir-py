@@ -18,22 +18,18 @@ import copy
 import dataclasses
 import datetime
 import decimal
-import itertools
 import re
 import threading
 from typing import Any, Dict, FrozenSet, List, Optional, Set, cast
 import urllib
 
-from google.protobuf import descriptor
 from google.protobuf import message
 from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import context
-from google.fhir.core.fhir_path import quantity
 from google.fhir.core.internal import primitive_handler
 from google.fhir.core.utils import annotation_utils
 from google.fhir.core.utils import fhir_types
-from google.fhir.core.utils import proto_utils
 
 # google-fhir supports multiple <major>.<minor>.x interpreters. If unable to
 # import zoneinfo from stdlib, fallback to the backports package. See more at:
@@ -48,37 +44,6 @@ except ImportError:
 VALUE_SET_URL = 'http://hl7.org/fhir/StructureDefinition/ValueSet'
 QUANTITY_URL = 'http://hl7.org/fhir/StructureDefinition/Quantity'
 ElementDefinition = message.Message
-
-
-def get_messages(parent: message.Message,
-                 json_name: str) -> List[message.Message]:
-  """Gets the child messages in the field with the given JSON name."""
-  target_field = None
-
-  for field in parent.DESCRIPTOR.fields:
-    if field.json_name == json_name:
-      target_field = field
-      break
-
-  if (target_field is None or
-      not proto_utils.field_is_set(parent, target_field.name)):
-    return []
-
-  results = proto_utils.get_value_at_field(parent, target_field.name)
-
-  # Wrap non-repeated items in an array per FHIRPath specification.
-  if target_field.label != descriptor.FieldDescriptor.LABEL_REPEATED:
-    return [results]
-  else:
-    return results
-
-
-def _is_numeric(
-    message_or_descriptor: annotation_utils.MessageOrDescriptorBase) -> bool:
-  return (fhir_types.is_decimal(message_or_descriptor) or
-          fhir_types.is_integer(message_or_descriptor) or
-          fhir_types.is_positive_integer(message_or_descriptor) or
-          fhir_types.is_unsigned_integer(message_or_descriptor))
 
 
 @dataclasses.dataclass(frozen=True, order=True)
@@ -108,33 +73,6 @@ def to_code_values(value_set_proto: message.Message) -> FrozenSet[CodeValue]:
   return frozenset(codes)
 
 
-@dataclasses.dataclass
-class WorkSpaceMessage:
-  """Message with parent context, as needed for some FHIRPath expressions."""
-  message: message.Message
-  parent: Optional['WorkSpaceMessage']
-
-
-@dataclasses.dataclass
-class WorkSpace:
-  """Working memory and context for evaluating FHIRPath expressions."""
-  primitive_handler: primitive_handler.PrimitiveHandler
-  fhir_context: context.FhirPathContext
-  message_context_stack: List[WorkSpaceMessage]
-
-  def root_message(self) -> WorkSpaceMessage:
-    return self.message_context_stack[0]
-
-  def current_message(self) -> WorkSpaceMessage:
-    return self.message_context_stack[-1]
-
-  def push_message(self, workspace_message: WorkSpaceMessage) -> None:
-    self.message_context_stack.append(workspace_message)
-
-  def pop_message(self) -> None:
-    self.message_context_stack.pop()
-
-
 class ExpressionNode(abc.ABC):
   """Abstract base class for all FHIRPath expression evaluation."""
 
@@ -142,10 +80,6 @@ class ExpressionNode(abc.ABC):
                return_type: _fhir_path_data_types.FhirPathDataType) -> None:
     self._return_type = copy.deepcopy(return_type)
     self._context = fhir_context
-
-  @abc.abstractmethod
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    """Evaluates the node and returns the resulting messages."""
 
   @abc.abstractmethod
   def to_fhir_path(self) -> str:
@@ -228,48 +162,6 @@ class ExpressionNode(abc.ABC):
     return self._operand_to_string(self, with_typing)
 
 
-def _to_boolean(operand: List[WorkSpaceMessage]) -> Optional[bool]:
-  """Converts an evaluation result to a boolean value or None.
-
-  Args:
-    operand: an expression operand result to convert to boolean.
-
-  Returns:
-    the boolean value, or None if the operand was empty.
-
-  Raises:
-    ValueError if it is not an empty result or a single, boolean value.
-  """
-  if not operand:
-    return None
-  if len(operand) > 1:
-    raise ValueError('Expected a single boolean result but got multiple items.')
-  if not fhir_types.is_boolean(operand[0].message):
-    raise ValueError('Expected a boolean but got a non-boolean value.')
-  return proto_utils.get_value_at_field(operand[0].message, 'value')
-
-
-def _to_int(operand: List[WorkSpaceMessage]) -> Optional[int]:
-  """Converts an evaluation result to an int value or None.
-
-  Args:
-    operand: an expression operand result to convert to int.
-
-  Returns:
-    the int value, or None if the operand was empty.
-
-  Raises:
-    ValueError if it is not an empty result or a single, int value.
-  """
-  if not operand:
-    return None
-  if len(operand) > 1:
-    raise ValueError('Expected single int result but got multiple items.')
-  if not fhir_types.is_integer(operand[0].message):
-    raise ValueError('Expected single int but got a non-int value.')
-  return proto_utils.get_value_at_field(operand[0].message, 'value')
-
-
 def _check_is_predicate(function_name: str,
                         params: List[ExpressionNode]) -> None:
   """Raise an exception if expression params are a boolean predicate."""
@@ -286,10 +178,8 @@ class BinaryExpressionNode(ExpressionNode):
   """Base class for binary expressions."""
 
   def __init__(self, fhir_context: context.FhirPathContext,
-               handler: primitive_handler.PrimitiveHandler,
                left: ExpressionNode, right: ExpressionNode,
                return_type: _fhir_path_data_types.FhirPathDataType) -> None:
-    self._handler = handler
     self._left = left
     self._right = right
     super().__init__(fhir_context, return_type)
@@ -338,14 +228,13 @@ class CoercibleBinaryExpressionNode(BinaryExpressionNode):
   """
 
   def __init__(self, fhir_context: context.FhirPathContext,
-               handler: primitive_handler.PrimitiveHandler,
                left: ExpressionNode, right: ExpressionNode,
                return_type: _fhir_path_data_types.FhirPathDataType) -> None:
     if not _fhir_path_data_types.is_coercible(left.return_type(),
                                               right.return_type()):
       raise ValueError(f'Left and right operands are not coercible to each '
                        f'other. {left.return_type()} {right.return_type()}')
-    super().__init__(fhir_context, handler, left, right, return_type)
+    super().__init__(fhir_context, left, right, return_type)
 
 
 class StructureBaseNode(ExpressionNode):
@@ -365,9 +254,6 @@ class StructureBaseNode(ExpressionNode):
 
   def get_parent_node(self):
     return None
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    return [work_space.root_message()]
 
   def to_path_token(self) -> str:
     # The FHIRPath of a root structure is simply the base type name,
@@ -431,16 +317,6 @@ class LiteralNode(ExpressionNode):
   def get_parent_node(self):
     return None
 
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    # Represent null as an empty list rather than a list with a None element.
-    if self._value is None:
-      return []
-
-    return [
-        WorkSpaceMessage(
-            message=self.get_value(), parent=work_space.current_message())
-    ]
-
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_literal(self)
 
@@ -465,31 +341,6 @@ class LiteralNode(ExpressionNode):
 
 class InvokeExpressionNode(ExpressionNode):
   """Handles the FHIRPath InvocationExpression."""
-
-  def _resolve_if_choice_type(
-      self, fhir_message: message.Message) -> Optional[message.Message]:
-    """Resolve to the proper field if given a choice type, return as-is if not.
-
-    Each value in a FHIR choice type is a different field on the protobuf
-    representation wrapped under a proto onoeof field.  Therefore, if
-    an expression points to a choice type, we should return the populated
-    field -- while just returning the field as-is for non-choice types. This
-    way we can simply pass nested messages through this class, and return the
-    populated item when appropriate.
-
-    Args:
-      fhir_message: the evaluation result which may or may not be a choice type
-
-    Returns:
-      The result value, resolved to the sub-field if it is a choice type.
-    """
-    if annotation_utils.is_choice_type(fhir_message):
-      choice_field = fhir_message.WhichOneof('choice')
-      if choice_field is None:
-        return None
-      return cast(message.Message,
-                  proto_utils.get_value_at_field(fhir_message, choice_field))
-    return fhir_message
 
   def __init__(self, fhir_context: context.FhirPathContext, identifier: str,
                parent_node: ExpressionNode) -> None:
@@ -516,19 +367,6 @@ class InvokeExpressionNode(ExpressionNode):
 
   def get_parent_node(self) -> ExpressionNode:
     return self._parent_node
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    operand_messages = self._parent_node.evaluate(work_space)
-    results = []
-    for operand_message in operand_messages:
-      operand_results = get_messages(operand_message.message, self._identifier)
-      for operand_result in operand_results:
-        resolved_result = self._resolve_if_choice_type(operand_result)
-        if resolved_result is not None:
-          results.append(
-              WorkSpaceMessage(message=resolved_result, parent=operand_message))
-
-    return results
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_invoke_expression(self)
@@ -597,21 +435,6 @@ class IndexerNode(ExpressionNode):
   def index(self) -> LiteralNode:
     return self._index  # pytype: disable=attribute-error
 
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    collection_messages = self._collection.evaluate(work_space)  # pytype: disable=attribute-error
-    index_messages = self._index.evaluate(work_space)  # pytype: disable=attribute-error
-    index = _to_int(index_messages)
-    if index is None:
-      raise ValueError('Expected a non-empty index')
-
-    # According to the spec, if the array is empty or the index is out of bounds
-    # an empty array is returned.
-    # https://hl7.org/fhirpath/#index-integer-collection
-    if not collection_messages or index >= len(collection_messages):
-      return []
-
-    return [collection_messages[index]]
-
   def to_fhir_path(self) -> str:
     return f'{self._collection.to_fhir_path()}[{self._index.to_fhir_path()}]'  # pytype: disable=attribute-error
 
@@ -658,31 +481,6 @@ class NumericPolarityNode(ExpressionNode):
   @property
   def op(self) -> str:
     return self._polarity.op
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    operand_messages = self._operand.evaluate(work_space)
-    if not operand_messages:
-      return []
-
-    if len(operand_messages) != 1:
-      raise ValueError('FHIRPath polarity must have a single value.')
-
-    operand_message = operand_messages[0]
-    if not _is_numeric(operand_message.message):
-      raise ValueError('Polarity operators allowed only on numeric types.')
-
-    value = decimal.Decimal(
-        proto_utils.get_value_at_field(operand_message.message, 'value'))
-    if self._polarity.op == _ast.Polarity.Op.NEGATIVE:
-      result = value.copy_negate()
-    else:
-      result = value
-
-    return [
-        WorkSpaceMessage(
-            message=work_space.primitive_handler.new_decimal(str(result)),
-            parent=None)
-    ]
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_polarity(self)
@@ -777,18 +575,6 @@ class ExistsFunction(FunctionNode):
     super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Boolean)
 
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    operand_messages = self._operand.evaluate(work_space)
-
-    # Exists is true if there messages is non-null and contains at least one
-    # item, which maps to Python array truthiness.
-    exists = bool(operand_messages)
-    return [
-        WorkSpaceMessage(
-            message=work_space.primitive_handler.new_boolean(exists),
-            parent=None)
-    ]
-
 
 class CountFunction(FunctionNode):
   """Implementation of the count() function."""
@@ -800,17 +586,6 @@ class CountFunction(FunctionNode):
     super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Integer)
 
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    operand_messages = self._operand.evaluate(work_space)
-
-    # Counts number of items in operand.
-    count = len(operand_messages)
-    return [
-        WorkSpaceMessage(
-            message=work_space.primitive_handler.new_integer(count),
-            parent=None)
-    ]
-
 
 class EmptyFunction(FunctionNode):
   """Implementation of the empty() function."""
@@ -821,17 +596,6 @@ class EmptyFunction(FunctionNode):
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
     super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Boolean)
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    operand_messages = self._operand.evaluate(work_space)
-
-    # Determines if operand is empty.
-    empty = not operand_messages
-    return [
-        WorkSpaceMessage(
-            message=work_space.primitive_handler.new_boolean(empty),
-            parent=None)
-    ]
 
 
 class FirstFunction(FunctionNode):
@@ -845,13 +609,6 @@ class FirstFunction(FunctionNode):
         fhir_context, operand, params,
         operand.return_type().get_new_cardinality_type(
             _fhir_path_data_types.Cardinality.SCALAR))
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    operand_messages = self._operand.evaluate(work_space)
-    if operand_messages:
-      return [operand_messages[0]]
-    else:
-      return []
 
 
 class AnyTrueFunction(FunctionNode):
@@ -869,26 +626,6 @@ class AnyTrueFunction(FunctionNode):
     super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Boolean)
 
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    child_results = self._operand.evaluate(work_space)  # pytype: disable=attribute-error
-    for candidate in child_results:
-      work_space.push_message(candidate)
-      try:
-        if _to_boolean([candidate]):
-          return [
-              WorkSpaceMessage(
-                  message=work_space.primitive_handler.new_boolean(True),
-                  parent=None)
-          ]
-      finally:
-        work_space.pop_message()
-
-    return [
-        WorkSpaceMessage(
-            message=work_space.primitive_handler.new_boolean(False),
-            parent=None)
-    ]
-
 
 class HasValueFunction(FunctionNode):
   """Implementation of the hasValue() function."""
@@ -899,18 +636,6 @@ class HasValueFunction(FunctionNode):
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
     super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Boolean)
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    operand_messages = self._operand.evaluate(work_space)
-
-    is_primitive = (
-        len(operand_messages) == 1 and
-        annotation_utils.is_primitive_type(operand_messages[0].message))
-    return [
-        WorkSpaceMessage(
-            message=work_space.primitive_handler.new_boolean(is_primitive),
-            parent=None)
-    ]
 
 
 # TODO(b/220344555): Fully define this placeholder for more than analytic use.
@@ -945,10 +670,6 @@ class IdForFunction(FunctionNode):
     return_type = fhir_context.get_fhir_type_from_string(
         self.struct_def_url, element_definition=None)
     super().__init__(fhir_context, operand, params, return_type)
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    # TODO(b/220344555): Support this for future non-SQL view users.
-    raise NotImplementedError('Currently only supported for SQL-based views.')
 
 
 class OfTypeFunction(FunctionNode):
@@ -991,18 +712,6 @@ class OfTypeFunction(FunctionNode):
           _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION)
 
     super().__init__(fhir_context, operand, params, return_type)
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    operand_messages = self._operand.evaluate(work_space)  # pytype: disable=attribute-error
-    results = []
-
-    for operand_message in operand_messages:
-      url = annotation_utils.get_structure_definition_url(
-          operand_message.message)
-      if url is not None and url.casefold() == self.struct_def_url.casefold():
-        results.append(operand_message)
-
-    return results
 
 
 class MemberOfFunction(FunctionNode):
@@ -1086,47 +795,6 @@ class MemberOfFunction(FunctionNode):
     return ValueSetCodes(self.value_set_url, value_set_proto.version.value or
                          None, to_code_values(value_set_proto))
 
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    result = False
-    operand_messages = self._operand.evaluate(work_space)  # pytype: disable=attribute-error
-
-    # If the code_values are not present, attempt to get them from FHIR context.
-    with self.code_values_lock:
-      if self.code_values is None:
-        value_set_url = cast(
-            Any, self._params[0].evaluate(work_space)[0].message).value  # pytype: disable=attribute-error
-        value_set_proto = work_space.fhir_context.get_value_set(value_set_url)
-
-        if value_set_proto is None:
-          raise ValueError(f'No value set {value_set_url} found.')
-        self.code_values = to_code_values(value_set_proto)
-
-    for workspace_message in operand_messages:
-      fhir_message = workspace_message.message
-      if fhir_types.is_codeable_concept(fhir_message):
-        for coding in cast(Any, fhir_message).coding:
-          if CodeValue(coding.system.value,
-                       coding.code.value) in self.code_values:
-            result = True
-            break
-
-      elif fhir_types.is_coding(fhir_message):
-        if CodeValue(coding.system.value,
-                     coding.code.value) in self.code_values:
-          result = True
-          break
-
-      # TODO(b/208900793): Add raw code support
-      else:
-        raise ValueError(
-            f'MemberOf not supported on {fhir_message.DESCRIPTOR.full_name}')
-
-    return [
-        WorkSpaceMessage(
-            message=work_space.primitive_handler.new_boolean(result),
-            parent=None)
-    ]
-
 
 class NotFunction(FunctionNode):
   """Implementation of the not_() function."""
@@ -1141,23 +809,6 @@ class NotFunction(FunctionNode):
       raise ValueError(('not() function should not have any parameters but has '
                         f'{str(len(params))} parameters.'))
 
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    operand_messages = self._operand.evaluate(work_space)
-    if not operand_messages:
-      return []
-
-    result = True
-    for operand_message in operand_messages:
-      if not fhir_types.is_boolean(operand_message.message):
-        raise ValueError('Boolean operators allowed only on boolean types.')
-      result &= proto_utils.get_value_at_field(operand_message.message, 'value')
-
-    return [
-        WorkSpaceMessage(
-            message=work_space.primitive_handler.new_boolean(not result),
-            parent=None)
-    ]
-
 
 class WhereFunction(FunctionNode):
   """Implementation of the where() function."""
@@ -1168,21 +819,6 @@ class WhereFunction(FunctionNode):
                operand: ExpressionNode, params: List[ExpressionNode]) -> None:
     _check_is_predicate(self.NAME, params)
     super().__init__(fhir_context, operand, params, operand.return_type())
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    results = []
-    child_results = self._operand.evaluate(work_space)
-    for candidate in child_results:
-      # Iterate through the candidates and evaluate them against the where
-      # predicate in a local workspace, keeping those that match.
-      work_space.push_message(candidate)
-      try:
-        predicate_result = self._params[0].evaluate(work_space)
-        if _to_boolean(predicate_result):
-          results.append(candidate)
-      finally:
-        work_space.pop_message()
-    return results
 
 
 class AllFunction(FunctionNode):
@@ -1195,27 +831,6 @@ class AllFunction(FunctionNode):
     _check_is_predicate(self.NAME, params)
     super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Boolean)
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    all_match = True
-    child_results = self._operand.evaluate(work_space)
-    for candidate in child_results:
-      # Iterate through the candidates and evaluate them against the
-      # predicate in a local workspace, and short circuit if one doesn't.
-      work_space.push_message(candidate)
-      try:
-        predicate_result = self._params[0].evaluate(work_space)
-        if not _to_boolean(predicate_result):
-          all_match = False
-          break
-      finally:
-        work_space.pop_message()
-
-    return [
-        WorkSpaceMessage(
-            message=work_space.primitive_handler.new_boolean(all_match),
-            parent=None)
-    ]
 
 
 class MatchesFunction(FunctionNode):
@@ -1237,74 +852,19 @@ class MatchesFunction(FunctionNode):
     super().__init__(fhir_context, operand, params,
                      _fhir_path_data_types.Boolean)
 
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    operand_messages = self._operand.evaluate(work_space)
-    result = True
-
-    if not self.pattern or not operand_messages:
-      return []
-
-    if len(operand_messages) > 1 or not fhir_types.is_string(
-        operand_messages[0].message):
-      raise ValueError(
-          'Input collection contains more than one item or is not of string '
-          'type.')
-
-    operand_str = cast(str, operand_messages[0].message).value  # pytype: disable=attribute-error
-    if not self.pattern.match(operand_str):
-      result = False
-
-    return [
-        WorkSpaceMessage(
-            message=work_space.primitive_handler.new_boolean(result),
-            parent=None)
-    ]
-
 
 class EqualityNode(CoercibleBinaryExpressionNode):
   """Implementation of FHIRPath equality and equivalence operators."""
 
   def __init__(self, fhir_context: context.FhirPathContext,
-               handler: primitive_handler.PrimitiveHandler,
                operator: _ast.EqualityRelation.Op, left: ExpressionNode,
                right: ExpressionNode) -> None:
     self._operator = operator
-    super().__init__(fhir_context, handler, left, right,
-                     _fhir_path_data_types.Boolean)
+    super().__init__(fhir_context, left, right, _fhir_path_data_types.Boolean)
 
   @property
   def op(self) -> _ast.EqualityRelation.Op:
     return self._operator
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    # TODO(b/234657818): Add support for FHIRPath equivalence operators.
-    if (self._operator != _ast.EqualityRelation.Op.EQUAL and
-        self._operator != _ast.EqualityRelation.Op.NOT_EQUAL):
-      raise NotImplementedError('Implement all equality relations.')
-
-    left_messages = self._left.evaluate(work_space)
-    right_messages = self._right.evaluate(work_space)
-
-    if not left_messages or not right_messages:
-      return []
-
-    are_equal = True
-
-    if len(left_messages) != len(right_messages):
-      are_equal = False
-    else:
-      are_equal = all(
-          _messages_equal(self._handler, left_message, right_message)
-          for left_message, right_message in zip(left_messages, right_messages))
-
-    result = (
-        are_equal
-        if self._operator == _ast.EqualityRelation.Op.EQUAL else not are_equal)
-    return [
-        WorkSpaceMessage(
-            message=work_space.primitive_handler.new_boolean(result),
-            parent=None)
-    ]
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_equality(self)
@@ -1320,60 +880,14 @@ class BooleanOperatorNode(BinaryExpressionNode):
   """
 
   def __init__(self, fhir_context: context.FhirPathContext,
-               handler: primitive_handler.PrimitiveHandler,
                operator: _ast.BooleanLogic.Op, left: ExpressionNode,
                right: ExpressionNode) -> None:
     self._operator = operator
-    super().__init__(fhir_context, handler, left, right,
-                     _fhir_path_data_types.Boolean)
+    super().__init__(fhir_context, left, right, _fhir_path_data_types.Boolean)
 
   @property
   def op(self) -> _ast.BooleanLogic.Op:
     return self._operator
-
-  def _evaluate_expression(self, left: Optional[bool],
-                           right: Optional[bool]) -> Optional[bool]:
-    """Applies the FHIRPath boolean evaluataion semantics."""
-    # Explicit comparison needed for FHIRPath empty/none semantics.
-    # pylint: disable=g-bool-id-comparison
-    if self._operator == _ast.BooleanLogic.Op.AND:
-      # 'None and False' returns False in FHIRPath, unlike Python.
-      if ((left is None and right is False) or
-          (right is None and left is False)):
-        return False
-      else:
-        return left and right
-    elif self._operator == _ast.BooleanLogic.Op.OR:
-      return left or right
-    elif self._operator == _ast.BooleanLogic.Op.IMPLIES:
-      # Handle implies semantics for None as defined by FHIRPath.
-      if left is None:
-        return True if right else None
-      else:
-        return (not left) or right
-    else:  # self._operator == _ast.BooleanLogic.Op.XOR:
-      if left is None or right is None:
-        return None
-      else:
-        return (left and not right) or (right and not left)
-    # pylint: enable=g-bool-id-comparison
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    left_messages = self._left.evaluate(work_space)
-    right_messages = self._right.evaluate(work_space)
-    left = _to_boolean(left_messages)
-    right = _to_boolean(right_messages)
-
-    result = self._evaluate_expression(left, right)
-
-    if result is None:
-      return []
-    else:
-      return [
-          WorkSpaceMessage(
-              message=work_space.primitive_handler.new_boolean(result),
-              parent=None)
-      ]
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_boolean_op(self)
@@ -1390,7 +904,6 @@ class ArithmeticNode(CoercibleBinaryExpressionNode):
   """
 
   def __init__(self, fhir_context: context.FhirPathContext,
-               handler: primitive_handler.PrimitiveHandler,
                operator: _ast.Arithmetic.Op, left: ExpressionNode,
                right: ExpressionNode) -> None:
     if not _fhir_path_data_types.is_coercible(left.return_type(),
@@ -1400,109 +913,11 @@ class ArithmeticNode(CoercibleBinaryExpressionNode):
 
     self._operator = operator
     return_type = left.return_type() if left else right.return_type()
-    super().__init__(fhir_context, handler, left, right, return_type)
+    super().__init__(fhir_context, left, right, return_type)
 
   @property
   def op(self) -> _ast.Arithmetic.Op:
     return self._operator
-
-  def _stringify(self, string_messages: List[WorkSpaceMessage]) -> str:
-    """Returns empty string for None messages."""
-    if not string_messages:
-      return ''
-
-    if len(string_messages) != 1:
-      raise ValueError(
-          'FHIRPath arithmetic must have single elements on each side.')
-    string_message = string_messages[0].message
-
-    if string_message is None:
-      return ''
-
-    if not fhir_types.is_string(string_message):
-      raise ValueError(
-          'String concatenation only accepts str or None operands.')
-    return cast(str, string_message).value  # pytype: disable=attribute-error
-
-  def _evaluate_numeric_expression(
-      self, left: Optional[decimal.Decimal],
-      right: Optional[decimal.Decimal]) -> Optional[decimal.Decimal]:
-    """Applies the FHIRPath arithmetic evaluataion semantics."""
-    # Explicit comparison needed for FHIRPath empty/none semantics.
-    # pylint: disable=g-bool-id-comparison
-    if left is None or right is None:
-      return None
-
-    if self._operator == _ast.Arithmetic.Op.MULTIPLICATION:
-      return left * right
-    elif self._operator == _ast.Arithmetic.Op.ADDITION:
-      return left + right
-    elif self._operator == _ast.Arithmetic.Op.SUBTRACTION:
-      return left - right
-
-    # Division operators need to check if denominator is 0.
-    if right == 0.0:
-      return None
-
-    if self._operator == _ast.Arithmetic.Op.DIVISION:
-      return left / right
-    elif self._operator == _ast.Arithmetic.Op.MODULO:
-      return left % right
-    else:  # self._operator == _ast.Arithmetic.Op.TRUNCATED_DIVISON:
-      return left // right
-    # pylint: enable=g-bool-id-comparison
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    left_messages = self._left.evaluate(work_space)
-    right_messages = self._right.evaluate(work_space)
-    result = None
-
-    # String concatenation is the only operator that doesn't return an empty
-    # array if one of the operands is None so we need to special case it.
-    if self._operator == _ast.Arithmetic.Op.STRING_CONCATENATION:
-      result = self._stringify(left_messages) + self._stringify(right_messages)
-    else:
-      # Propagate empty/null values if they exist in operands.
-      if not left_messages or not right_messages:
-        return []
-
-      if len(left_messages) != 1 or len(right_messages) != 1:
-        raise ValueError(
-            'FHIRPath arithmetic must have single elements on each side.')
-
-      left = left_messages[0].message
-      right = right_messages[0].message
-
-      # TODO(b/226131330): Add support for arithmetic with units.
-      left_value = cast(Any, left).value
-      right_value = cast(Any, right).value
-
-      if (fhir_types.is_string(left) and fhir_types.is_string(right) and
-          self._operator == _ast.Arithmetic.Op.ADDITION):
-        result = left_value + right_value
-      elif _is_numeric(left) and _is_numeric(right):
-        left_value = decimal.Decimal(left_value)
-        right_value = decimal.Decimal(right_value)
-        result = self._evaluate_numeric_expression(left_value, right_value)
-      else:
-        raise ValueError(
-            (f'Cannot {self._operator.value} {left.DESCRIPTOR.full_name} with '
-             f'{right.DESCRIPTOR.full_name}.'))
-
-    if result is None:
-      return []
-    elif isinstance(result, str):
-      return [
-          WorkSpaceMessage(
-              message=work_space.primitive_handler.new_string(result),
-              parent=None)
-      ]
-    else:
-      return [
-          WorkSpaceMessage(
-              message=work_space.primitive_handler.new_decimal(str(result)),
-              parent=None)
-      ]
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_arithmetic(self)
@@ -1516,72 +931,14 @@ class ComparisonNode(CoercibleBinaryExpressionNode):
   """Implementation of the FHIRPath comparison functions."""
 
   def __init__(self, fhir_context: context.FhirPathContext,
-               handler: primitive_handler.PrimitiveHandler,
                operator: _ast.Comparison.Op, left: ExpressionNode,
                right: ExpressionNode) -> None:
     self._operator = operator
-    super().__init__(fhir_context, handler, left, right,
-                     _fhir_path_data_types.Boolean)
+    super().__init__(fhir_context, left, right, _fhir_path_data_types.Boolean)
 
   @property
   def op(self) -> _ast.Comparison.Op:
     return self._operator
-
-  def _compare(self, left: Any, right: Any) -> bool:
-    if self._operator == _ast.Comparison.Op.LESS_THAN:
-      return left < right
-    elif self._operator == _ast.Comparison.Op.GREATER_THAN:
-      return left > right
-    elif self._operator == _ast.Comparison.Op.LESS_THAN_OR_EQUAL:
-      return left <= right
-    else:  # self._operator == _ast.Comparison.Op.GREATER_THAN_OR_EQUAL:
-      return left >= right
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    left_messages = self._left.evaluate(work_space)
-    right_messages = self._right.evaluate(work_space)
-    result = None
-
-    # Propagate empty/null values if they exist in operands.
-    if not left_messages or not right_messages:
-      return []
-
-    if len(left_messages) != 1 or len(right_messages) != 1:
-      raise ValueError(
-          'FHIRPath comparisons must have single elements on each side.')
-
-    left = left_messages[0].message
-    right = right_messages[0].message
-
-    if (annotation_utils.get_structure_definition_url(left) == QUANTITY_URL and
-        annotation_utils.get_structure_definition_url(right) == QUANTITY_URL):
-      result = self._compare(
-          quantity.quantity_from_proto(left),
-          quantity.quantity_from_proto(right))
-    elif hasattr(left, 'value') and hasattr(right, 'value'):
-      left_value = cast(Any, left).value
-      right_value = cast(Any, right).value
-      # Wrap decimal types to ensure numeric rather than alpha comparison
-      if fhir_types.is_decimal(left) and fhir_types.is_decimal(right):
-        left_value = decimal.Decimal(left_value)
-        right_value = decimal.Decimal(right_value)
-      result = self._compare(left_value, right_value)
-    elif ((fhir_types.is_date(left) or fhir_types.is_date_time(left)) and
-          (fhir_types.is_date(right) or fhir_types.is_date_time(right))):
-      # Both left and right are date-related types, so we can compare
-      # timestamps.
-      left_value = cast(Any, left).value_us
-      right_value = cast(Any, right).value_us
-      result = self._compare(left_value, right_value)
-    else:
-      raise ValueError((f'{left.DESCRIPTOR.full_name} not comaprable with '
-                        f'{right.DESCRIPTOR.full_name}.'))
-
-    return [
-        WorkSpaceMessage(
-            message=work_space.primitive_handler.new_boolean(result),
-            parent=None)
-    ]
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_comparison(self)
@@ -1620,9 +977,6 @@ class ReferenceNode(ExpressionNode):
     if self._reference_node.to_fhir_path() == expression_to_replace:
       self._reference_node = replacement
 
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    return [work_space.current_message()]
-
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_reference(self)
 
@@ -1645,16 +999,8 @@ class InNode(MembershipRelationNode):
   """
 
   def __init__(self, fhir_context: context.FhirPathContext,
-               handler: primitive_handler.PrimitiveHandler,
                left: ExpressionNode, right: ExpressionNode) -> None:
-    super().__init__(fhir_context, handler, left, right,
-                     _fhir_path_data_types.Boolean)
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    left_messages = self._left.evaluate(work_space)
-    right_messages = self._right.evaluate(work_space)
-    return _is_element_in_collection(self._handler, work_space, left_messages,
-                                     right_messages)
+    super().__init__(fhir_context, left, right, _fhir_path_data_types.Boolean)
 
   def to_fhir_path(self) -> str:
     return f'{self._left.to_fhir_path()} in {self._right.to_fhir_path()}'
@@ -1669,16 +1015,8 @@ class ContainsNode(MembershipRelationNode):
   """
 
   def __init__(self, fhir_context: context.FhirPathContext,
-               handler: primitive_handler.PrimitiveHandler,
                left: ExpressionNode, right: ExpressionNode) -> None:
-    super().__init__(fhir_context, handler, left, right,
-                     _fhir_path_data_types.Boolean)
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    left_messages = self._left.evaluate(work_space)
-    right_messages = self._right.evaluate(work_space)
-    return _is_element_in_collection(self._handler, work_space, right_messages,
-                                     left_messages)
+    super().__init__(fhir_context, left, right, _fhir_path_data_types.Boolean)
 
   def to_fhir_path(self) -> str:
     return f'{self._left.to_fhir_path()} contains {self._right.to_fhir_path()}'
@@ -1693,7 +1031,6 @@ class UnionNode(BinaryExpressionNode):
   """
 
   def __init__(self, fhir_context: context.FhirPathContext,
-               handler: primitive_handler.PrimitiveHandler,
                left: ExpressionNode, right: ExpressionNode) -> None:
     left_type = left.return_type()
     right_type = right.return_type()
@@ -1715,22 +1052,7 @@ class UnionNode(BinaryExpressionNode):
           types_union.add(node_type)
       return_type = _fhir_path_data_types.Collection(types_union)
 
-    super().__init__(fhir_context, handler, left, right, return_type)
-
-  def evaluate(self, work_space: WorkSpace) -> List[WorkSpaceMessage]:
-    left_messages = self._left.evaluate(work_space)
-    right_messages = self._right.evaluate(work_space)
-
-    # Build a set of unique messages by using their json_value to
-    # determine uniqueness. As in the _messages_equal function, we use
-    # the json_value to determine message equality.
-    messages_union: Dict[str, WorkSpaceMessage] = {}
-    for work_space_message in itertools.chain(left_messages, right_messages):
-      json_value = self._handler.primitive_wrapper_from_primitive(
-          work_space_message.message).json_value()
-      messages_union.setdefault(json_value, work_space_message)
-
-    return list(messages_union.values())
+    super().__init__(fhir_context, left, right, return_type)
 
   def to_fhir_path(self) -> str:
     return f'{self._left.to_fhir_path()} | {self._right.to_fhir_path()}'
@@ -1904,8 +1226,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     left = self.visit(arithmetic.lhs)
     right = self.visit(arithmetic.rhs)
 
-    return ArithmeticNode(self._context, self._handler, arithmetic.op, left,
-                          right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
+    return ArithmeticNode(self._context, arithmetic.op, left, right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
 
   def visit_type_expression(self, type_expression: _ast.TypeExpression,
                             **kwargs: Any) -> Any:
@@ -1917,22 +1238,20 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     left = self.visit(equality.lhs)
     right = self.visit(equality.rhs)
 
-    return EqualityNode(self._context, self._handler, equality.op, left, right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
+    return EqualityNode(self._context, equality.op, left, right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
 
   def visit_comparison(self, comparison: _ast.Comparison, **kwargs: Any) -> Any:
     left = self.visit(comparison.lhs)
     right = self.visit(comparison.rhs)
 
-    return ComparisonNode(self._context, self._handler, comparison.op, left,
-                          right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
+    return ComparisonNode(self._context, comparison.op, left, right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
 
   def visit_boolean_logic(self, boolean_logic: _ast.BooleanLogic,
                           **kwargs: Any) -> Any:
     left = self.visit(boolean_logic.lhs)
     right = self.visit(boolean_logic.rhs)
 
-    return BooleanOperatorNode(self._context, self._handler, boolean_logic.op,
-                               left, right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
+    return BooleanOperatorNode(self._context, boolean_logic.op, left, right)  # pytype: disable=wrong-arg-types  # enable-nested-classes
 
   def visit_membership(self, membership: _ast.MembershipRelation,
                        **kwargs: Any) -> Any:
@@ -1940,15 +1259,16 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     right = self.visit(membership.rhs)
 
     if membership.op == membership.Op.CONTAINS:
-      return ContainsNode(self._context, self._handler, left, right)
+      return ContainsNode(self._context, left, right)
     elif membership.op == membership.Op.IN:
-      return InNode(self._context, self._handler, left, right)
+      return InNode(self._context, left, right)
     else:
       raise ValueError(f'Unknown membership operator "{membership.op}".')
 
   def visit_union(self, union: _ast.UnionOp, **kwargs: Any) -> Any:
-    return UnionNode(self._context, self._handler, self.visit(union.lhs),
-                     self.visit(union.rhs))
+    return UnionNode(
+        self._context, self.visit(union.lhs), self.visit(union.rhs)
+    )
 
   def visit_polarity(self, polarity: _ast.Polarity) -> ExpressionNode:
     operand_node = self.visit(polarity.operand)
@@ -2005,55 +1325,3 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
       params.append(new_param)
     self._node_context.pop()
     return function_class(self._context, operand_node, params)
-
-
-def _messages_equal(handler: primitive_handler.PrimitiveHandler,
-                    left: WorkSpaceMessage, right: WorkSpaceMessage) -> bool:
-  """Returns true if left and right are equal."""
-  # If left and right are the same types, simply compare the protos.
-  if (left.message.DESCRIPTOR is right.message.DESCRIPTOR or
-      left.message.DESCRIPTOR.full_name == right.message.DESCRIPTOR.full_name):
-    if (annotation_utils.get_structure_definition_url(left.message)
-        == QUANTITY_URL and annotation_utils.get_structure_definition_url(
-            right.message) == QUANTITY_URL):
-      return quantity.quantity_from_proto(
-          left.message) == quantity.quantity_from_proto(right.message)
-    return left.message == right.message
-
-  # Left and right are different types, but may still be logically equal if
-  # they are primitives and we are comparing a literal value to a FHIR proto
-  # with an enum field. We can compare their JSON values to check that.
-  if (annotation_utils.is_primitive_type(left.message) and
-      annotation_utils.is_primitive_type(right.message)):
-    left_wrapper = handler.primitive_wrapper_from_primitive(left.message)
-    right_wrapper = handler.primitive_wrapper_from_primitive(right.message)
-    return left_wrapper.json_value() == right_wrapper.json_value()
-
-  return False
-
-
-def _is_element_in_collection(
-    handler: primitive_handler.PrimitiveHandler, work_space: WorkSpace,
-    element: List[WorkSpaceMessage],
-    collection: List[WorkSpaceMessage]) -> List[WorkSpaceMessage]:
-  """Indicates if `element` is a member of `collection`."""
-  # If the element is empty, the result is empty.
-  if not element:
-    return []
-
-  # If the element has multiple items, an error is returned.
-  if len(element) != 1:
-    raise ValueError(
-        'Right hand side of "contains" operator must be a single element.')
-
-  # If the element operand is a collection with a single item, the
-  # operator returns true if the item is in the collection using
-  # equality semantics.
-  # If the collection is empty, the result is false.
-  result = any(
-      _messages_equal(handler, element[0], item) for item in collection)
-
-  return [
-      WorkSpaceMessage(
-          message=work_space.primitive_handler.new_boolean(result), parent=None)
-  ]
