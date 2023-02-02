@@ -422,6 +422,73 @@ _WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES = [
     },
 ]
 
+_WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
+    {
+        'testcase_name':
+            '_withIntegerGreaterThan',
+        'fhir_path_expression':
+            '4 > 3',
+        'expected_sql_expression':
+            ('(SELECT COLLECT_LIST(comparison_) FROM (SELECT 4 > 3 AS '
+             'comparison_) WHERE comparison_ IS NOT NULL)')
+    }, {
+        'testcase_name':
+            '_withIntegerLessThan',
+        'fhir_path_expression':
+            '3 < 4',
+        'expected_sql_expression':
+            ('(SELECT COLLECT_LIST(comparison_) FROM (SELECT 3 < 4 AS '
+             'comparison_) WHERE comparison_ IS NOT NULL)')
+    }, {
+        'testcase_name':
+            '_withIntegerLessThanOrEqualTo',
+        'fhir_path_expression':
+            '3 <= 4',
+        'expected_sql_expression':
+            ('(SELECT COLLECT_LIST(comparison_) FROM (SELECT 3 <= 4 AS '
+             'comparison_) WHERE comparison_ IS NOT NULL)')
+    }, {
+        'testcase_name':
+            '_withFloatLessThanOrEqualTo',
+        'fhir_path_expression':
+            '3.14159 <= 4.00000',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(comparison_) FROM (SELECT 3.14159 <= 4.00000'
+            ' AS comparison_) WHERE comparison_ IS NOT NULL)')
+    }, {
+        'testcase_name':
+            '_withStringGreaterThan',
+        'fhir_path_expression':
+            " 'a' > 'b'",
+        'expected_sql_expression':
+            ('(SELECT COLLECT_LIST(comparison_) FROM (SELECT \'a\' > \'b\' AS '
+             'comparison_) WHERE comparison_ IS NOT NULL)')
+    }
+    # TODO(b/262544393): add _withDateLessThan and _dateComparedWithTimestamp
+    # tests when visit_invoke_expression is implemented
+    # {
+    #     'testcase_name':
+    #         '_withDateLessThan',
+    #     'fhir_path_expression':
+    #         'dateField < @2000-01-01',
+    #     'expected_sql_expression': (
+    #         '(SELECT COLLECT_LIST(comparison_) '
+    #         'FROM (SELECT 3 <= 4 AS comparison_) '
+    #         'WHERE comparison_ IS NOT NULL)'
+    #     )
+    # }, {
+    #     'testcase_name':
+    #         '_dateComparedWithTimestamp',
+    #     'fhir_path_expression':
+    #         'dateField < @2000-01-01T14:34',
+    #     'expected_sql_expression': (
+    #         '(SELECT COLLECT_LIST(comparison_) '
+    #         'FROM (SELECT 3 <= 4 AS comparison_) '
+    #         'WHERE comparison_ IS NOT NULL)'
+    #     )
+    # }
+]
+
 
 class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
                                   parameterized.TestCase):
@@ -467,6 +534,15 @@ class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES)
   def testEncode_withFhirPathV2LiteralBoolean_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str):
+    self.assertEvaluationNodeSqlCorrect(
+        structdef=None,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=True)
+
+  @parameterized.named_parameters(_WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES)
+  def testEncode_withFhirPathV2LiteralComparison_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str):
     self.assertEvaluationNodeSqlCorrect(
         structdef=None,

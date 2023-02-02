@@ -196,7 +196,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       A compiled Standard SQL expression.
     """
 
-  def visit_comparison(self, comparison: _evaluation.ComparisonNode) -> Any:
+  def visit_comparison(
+      self, comparison: _evaluation.ComparisonNode) -> _sql_data_types.Select:
     """Translates a FHIRPath comparison to Standard SQL.
 
     Each operand is expected to be a collection of a single element. Operands
@@ -209,6 +210,21 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     Returns:
       A compiled Standard SQL expression.
     """
+    lhs_result = self.visit(comparison.left)
+    rhs_result = self.visit(comparison.right)
+
+    # Extract the values of LHS and RHS to be used as scalar subqueries.
+    lhs_subquery = lhs_result.as_operand()
+    rhs_subquery = rhs_result.as_operand()
+
+    sql_value = f'{lhs_subquery} {comparison.op} {rhs_subquery}'
+    sql_alias = 'comparison_'
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            sql_value,
+            _sql_data_type=_sql_data_types.Boolean,
+            _sql_alias=sql_alias),
+        from_part=None)
 
   def visit_boolean_op(
       self,
