@@ -78,7 +78,7 @@ class ExpressionNode(abc.ABC):
 
   def __init__(self, fhir_context: context.FhirPathContext,
                return_type: _fhir_path_data_types.FhirPathDataType) -> None:
-    self._return_type = copy.deepcopy(return_type)
+    self._return_type = return_type
     self._context = fhir_context
 
   @abc.abstractmethod

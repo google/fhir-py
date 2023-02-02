@@ -467,7 +467,14 @@ class Builder:
         # For example, the "where" expression builder in
         # `patient.address.where(patient.address.use = 'home')` is built from
         # patient, but should be evaluated in the context of address.
-        localized = copy.deepcopy(arg.get_node(), {})
+
+        localized = copy.deepcopy(
+            arg.get_node(),
+            # Context contains all the structdefs necessary for a resource so it
+            # can be very large and won't be modified between nodes anyway so
+            # avoid deepcopying context.
+            {id(arg.get_node().context): arg.get_node().context},
+        )
         localized.replace_operand(
             operand_node.to_fhir_path(),
             _evaluation.ReferenceNode(self._node.context, operand_node))
