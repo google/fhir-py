@@ -43,8 +43,9 @@ from google.fhir.r4 import primitive_handler
 # public FHIR views.
 
 
-class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
-                                     parameterized.TestCase):
+class FhirPathStandardSqlEncoderTest(
+    fhir_path_test_base.FhirPathTestBase, parameterized.TestCase
+):
   """Unit tests for `fhir_path.FhirPathStandardSqlEncoder`."""
 
   def assertEvaluationNodeSqlCorrect(
@@ -52,11 +53,13 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
       structdef: message.Message,
       fhir_path_expression: str,
       expected_sql_expression: str,
-      select_scalars_as_array: bool = True) -> None:
+      select_scalars_as_array: bool = True,
+  ) -> None:
     builder = self.create_builder_from_str(structdef, fhir_path_expression)
 
     actual_sql_expression = self.bq_interpreter.encode(
-        builder, select_scalars_as_array=select_scalars_as_array)
+        builder, select_scalars_as_array=select_scalars_as_array
+    )
 
     self.assertEqual(actual_sql_expression, expected_sql_expression)
 
@@ -68,762 +71,1046 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
     expected_element_def = sdefs.build_element_definition(
         id_='Struct.value',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
-    self.assertEqual(builder.return_type.root_element_definition,
-                     expected_element_def)
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    self.assertEqual(
+        builder.return_type.root_element_definition, expected_element_def
+    )
 
   def testElementDefs_notInBuilder(self):
-    """Tests that element defs will not exist if a function is called on the builder.
-    """
+    """Tests that element defs will not exist if a function is called on the builder."""
     fhir_path_expression = 'bar.bats.struct'
     builder = self.create_builder_from_str(self.foo, fhir_path_expression)
     expected_element_def = sdefs.build_element_definition(
         id_='Bats.struct',
         type_codes=['Struct'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
 
-    self.assertEqual(builder.return_type.root_element_definition,
-                     expected_element_def)
+    self.assertEqual(
+        builder.return_type.root_element_definition, expected_element_def
+    )
     self.assertIsNone(builder.exists().return_type.root_element_definition)
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withNull',
           fhir_path_expression='{ }',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT NULL AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withBooleanTrue',
           fhir_path_expression='true',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT TRUE AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withBooleanFalse',
           fhir_path_expression='false',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT FALSE AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withString',
           fhir_path_expression="'Foo'",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT \'Foo\' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withNumberDecimal',
           fhir_path_expression='3.14',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT 3.14 AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withNumberLargeDecimal',
           # 32 decimal places
           fhir_path_expression='3.14141414141414141414141414141414',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT 3.14141414141414141414141414141414 AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withNumberInteger',
           fhir_path_expression='314',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT 314 AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateYear',
           fhir_path_expression='@1970',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '1970' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateYearMonth',
           fhir_path_expression='@1970-01',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '1970-01' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateYearMonthDay',
           fhir_path_expression='@1970-01-01',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '1970-01-01' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHours',
           fhir_path_expression='@2015-02-04T14',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '2015-02-04T14' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutes',
           fhir_path_expression='@2015-02-04T14:34',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '2015-02-04T14:34' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutesSeconds',
           fhir_path_expression='@2015-02-04T14:34:28',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '2015-02-04T14:34:28' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutesSecondsMilli',
           fhir_path_expression='@2015-02-04T14:34:28.123',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '2015-02-04T14:34:28.123' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutesSecondsMilliTz',
           fhir_path_expression='@2015-02-04T14:34:28.123+09:00',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '2015-02-04T14:34:28.123+09:00' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withTimeHours',
           fhir_path_expression='@T14',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '14' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withTimeHoursMinutes',
           fhir_path_expression='@T14:34',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '14:34' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withTimeHoursMinutesSeconds',
           fhir_path_expression='@T14:34:28',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '14:34:28' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withTimeHoursMinutesSecondsMilli',
           fhir_path_expression='@T14:34:28.123',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '14:34:28.123' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withQuantity',
           fhir_path_expression="10 'mg'",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '10 \\'mg\\'' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
   )
-  def testEncode_withFhirPathLiteral_succeeds(self, fhir_path_expression: str,
-                                              expected_sql_expression: str):
+  def testEncode_withFhirPathLiteral_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withNull',
           fhir_path_expression='{ }',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT NULL AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withBooleanTrue',
           fhir_path_expression='true',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT TRUE AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withBooleanFalse',
           fhir_path_expression='false',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT FALSE AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withString',
           fhir_path_expression="'Foo'",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT \'Foo\' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withNumberDecimal',
           fhir_path_expression='3.14',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT 3.14 AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withNumberLargeDecimal',
           # 32 decimal places
           fhir_path_expression='3.14141414141414141414141414141414',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT 3.14141414141414141414141414141414 AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withNumberInteger',
           fhir_path_expression='314',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT 314 AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateYear',
           fhir_path_expression='@1970',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%d", '1970-01-01') AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateYearMonth',
           fhir_path_expression='@1970-01',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%d", '1970-01-01') AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateYearMonthDay',
           fhir_path_expression='@1970-01-01',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%d", '1970-01-01') AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHours',
           fhir_path_expression='@2015-02-04T14',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:00:00+00:00') AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutes',
           fhir_path_expression='@2015-02-04T14:34',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:00+00:00') AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutesSeconds',
           fhir_path_expression='@2015-02-04T14:34:28',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28+00:00') AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutesSecondsMilli',
           fhir_path_expression='@2015-02-04T14:34:28.123',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28.123000+00:00') AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutesSecondsMilliTz',
           fhir_path_expression='@2015-02-04T14:34:28.123+09:00',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28.123000+09:00') AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withTimeHours',
           fhir_path_expression='@T14',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '14' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withTimeHoursMinutes',
           fhir_path_expression='@T14:34',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '14:34' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withTimeHoursMinutesSeconds',
           fhir_path_expression='@T14:34:28',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '14:34:28' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withTimeHoursMinutesSecondsMilli',
           fhir_path_expression='@T14:34:28.123',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '14:34:28.123' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withQuantity',
           fhir_path_expression="10 'mg'",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT '10 \\'mg\\'' AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeEqual',
           fhir_path_expression='@2015-02-04T14:34:28 = @2015-02-04T14',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28+00:00') = PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:00:00+00:00')) AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeEquivalent',
           fhir_path_expression='@2015-02-04T14:34:28 ~ @2015-02-04T14',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28+00:00') = PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:00:00+00:00')) AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withFhirPathV2DateTimeLiteral_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
-    self.assertEvaluationNodeSqlCorrect(None, fhir_path_expression,
-                                        expected_sql_expression)
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
+    self.assertEvaluationNodeSqlCorrect(
+        None, fhir_path_expression, expected_sql_expression
+    )
 
   def testEncode_withFhirPathV2SelectScalarsAsArrayFalseForLiteral_succeeds(
-      self):
+      self,
+  ):
     fhir_path_expression = 'true'
     expected_sql_expression = '(SELECT TRUE AS literal_)'
     self.assertEvaluationNodeSqlCorrect(
         structdef=None,
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
-        select_scalars_as_array=False)
+        select_scalars_as_array=False,
+    )
 
   def testEncode_SelectScalarsAsArrayFalseForLiteral_succeeds(self):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=None,
         fhir_path_expression='true',
-        select_scalars_as_array=False)
+        select_scalars_as_array=False,
+    )
     expected_sql_expression = '(SELECT TRUE AS literal_)'
     self.assertEqual(actual_sql_expression, expected_sql_expression)
 
   def testEncode_withNoElementDefinitionGiven_succeeds(self):
     fhir_path_expression = "inline.value = 'abc'"
-    expected_sql_expression = textwrap.dedent("""\
-          (SELECT (inline.value = 'abc') AS eq_)""")
+    expected_sql_expression = textwrap.dedent(
+        """\
+          (SELECT (inline.value = 'abc') AS eq_)"""
+    )
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=None,
         fhir_path_expression=fhir_path_expression,
-        select_scalars_as_array=False)
+        select_scalars_as_array=False,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
         self.foo,
         fhir_path_expression,
         expected_sql_expression,
-        select_scalars_as_array=False)
+        select_scalars_as_array=False,
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withIntegerAddition',
           fhir_path_expression='1 + 2',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT (1 + 2) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDecimalAddition',
           fhir_path_expression='3.14 + 1.681',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT (3.14 + 1.681) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerDivision',
           fhir_path_expression='3 / 2',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT (3 / 2) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDecimalDivision',
           fhir_path_expression='3.14 / 1.681',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT (3.14 / 1.681) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerModularArithmetic',
           fhir_path_expression='2 mod 5',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT MOD(2, 5) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerMultiplication',
           fhir_path_expression='2 * 5',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT (2 * 5) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDecimalMultiplication',
           fhir_path_expression='2.124 * 5.72',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT (2.124 * 5.72) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerSubtraction',
           fhir_path_expression='2 - 5',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT (2 - 5) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDecimalSubtraction',
           fhir_path_expression='2.124 - 5.72',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT (2.124 - 5.72) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerTrunctatedDivision',
           fhir_path_expression='2 div 5',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT DIV(2, 5) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDecimalTruncatedDivision',
           fhir_path_expression='2.124 div 5.72',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT DIV(2.124, 5.72) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerAdditionAndMultiplication',
           fhir_path_expression='(1 + 2) * 3',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT ((1 + 2) * 3) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerSubtractionAndDivision',
           fhir_path_expression='(21 - 6) / 3',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT ((21 - 6) / 3) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerAdditionAndModularArithmetic',
           fhir_path_expression='21 + 6 mod 5',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT (21 + MOD(6, 5)) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerAdditionAndTruncatedDivision',
           fhir_path_expression='21 + 6 div 5',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT (21 + DIV(6, 5)) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withStringConcatenationAmpersand',
           fhir_path_expression="'foo' & 'bar'",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT CONCAT('foo', 'bar') AS arith_)
-          WHERE arith_ IS NOT NULL)"""),
+          WHERE arith_ IS NOT NULL)"""
+          ),
       ),
       dict(
           testcase_name='_withStringConcatenationPlus',
           fhir_path_expression="'foo' + 'bar'",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT CONCAT('foo', 'bar') AS arith_)
-          WHERE arith_ IS NOT NULL)"""),
-      ))
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
+  )
   def testEncode_withFhirPathLiteralArithmetic_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(None, fhir_path_expression,
-                                        expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(
+        None, fhir_path_expression, expected_sql_expression
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withBooleanAnd',
           fhir_path_expression='true and false',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT logic_
           FROM (SELECT (TRUE AND FALSE) AS logic_)
-          WHERE logic_ IS NOT NULL)""")),
+          WHERE logic_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerGreaterThan',
           fhir_path_expression='4 > 3',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT comparison_
           FROM (SELECT (4 > 3) AS comparison_)
-          WHERE comparison_ IS NOT NULL)""")),
+          WHERE comparison_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerLessThan',
           fhir_path_expression='3 < 4',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT comparison_
           FROM (SELECT (3 < 4) AS comparison_)
-          WHERE comparison_ IS NOT NULL)""")),
+          WHERE comparison_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerLessThanOrEqualTo',
           fhir_path_expression='3 <= 4',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT comparison_
           FROM (SELECT (3 <= 4) AS comparison_)
-          WHERE comparison_ IS NOT NULL)""")),
+          WHERE comparison_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateLessThan',
           fhir_path_expression='dateField < @2000-01-01',
           different_from_v2=True,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT comparison_
           FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%d", dateField) < PARSE_TIMESTAMP("%Y-%m-%d", '2000-01-01')) AS comparison_)
-          WHERE comparison_ IS NOT NULL)""")),
+          WHERE comparison_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_dateComparedWithTimestamp',
           fhir_path_expression='dateField < @2000-01-01T14:34',
           different_from_v2=True,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT comparison_
           FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%d", dateField) < PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2000-01-01T14:34:00+00:00')) AS comparison_)
-          WHERE comparison_ IS NOT NULL)""")),
+          WHERE comparison_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withBooleanOr',
           fhir_path_expression='true or false',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT logic_
           FROM (SELECT (TRUE OR FALSE) AS logic_)
-          WHERE logic_ IS NOT NULL)""")),
+          WHERE logic_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withBooleanXor',
           fhir_path_expression='true xor false',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT logic_
           FROM (SELECT (TRUE <> FALSE) AS logic_)
-          WHERE logic_ IS NOT NULL)""")),
+          WHERE logic_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withBooleanRelationBetweenStringInteger',
           fhir_path_expression="3 and 'true'",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT logic_
           FROM (SELECT ((3 IS NOT NULL) AND ('true' IS NOT NULL)) AS logic_)
-          WHERE logic_ IS NOT NULL)""")),
+          WHERE logic_ IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withFhirPathLiteralLogicalRelation_succeeds(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
-      different_from_v2: bool = False):
+      different_from_v2: bool = False,
+  ):
     if not different_from_v2:
       actual_sql_expression = self.fhir_path_encoder.encode(
           structure_definition=self.foo,
           element_definition=self.foo_root,
-          fhir_path_expression=fhir_path_expression)
+          fhir_path_expression=fhir_path_expression,
+      )
       self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                        expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(
+        self.foo, fhir_path_expression, expected_sql_expression
+    )
 
   # TODO(b/191895721): Verify order-dependence of equivalence vs. equality
   @parameterized.named_parameters(
       dict(
           testcase_name='_withIntegerEqual',
           fhir_path_expression='3 = 4',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT (3 = 4) AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerEquivalent',
           fhir_path_expression='3 ~ 4',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT (3 = 4) AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeEqual',
           fhir_path_expression='@2015-02-04T14:34:28 = @2015-02-04T14',
           different_from_v2=True,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT ('2015-02-04T14:34:28' = '2015-02-04T14') AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDateTimeEquivalent',
           fhir_path_expression='@2015-02-04T14:34:28 ~ @2015-02-04T14',
           different_from_v2=True,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT ('2015-02-04T14:34:28' = '2015-02-04T14') AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerNotEqualTo',
           fhir_path_expression='3 != 4',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT (3 != 4) AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerNotEquivalentTo',
           fhir_path_expression='3 !~ 4',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT (3 != 4) AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withFhirPathLiteralEqualityRelation_succeeds(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
-      different_from_v2: bool = True):
+      different_from_v2: bool = True,
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     if not different_from_v2:
-      self.assertEvaluationNodeSqlCorrect(None, fhir_path_expression,
-                                          expected_sql_expression)
+      self.assertEvaluationNodeSqlCorrect(
+          None, fhir_path_expression, expected_sql_expression
+      )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withEquals_andIdentifierAndStringLiteral',
           fhir_path_expression="text = ''",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT (text = '') AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withEquivalent_andIdentifierAndStringLiteral',
           fhir_path_expression="text ~ ''",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT (text = '') AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withNotEqual_andIdentifierAndStringLiteral',
           fhir_path_expression="text != ''",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT (text != '') AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withNotEquivalent_andTwoIdentifiers',
           fhir_path_expression='text !~ text',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT (text != text) AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withEqual_andTwoIdentifiers',
           fhir_path_expression='text = text',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT (text = text) AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIsNotNullOperator',
           fhir_path_expression='text.exists() = true',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT ((text IS NOT NULL) = TRUE) AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIsNullOperator',
           fhir_path_expression='text.empty() = true',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT eq_
           FROM (SELECT ((text IS NULL) = TRUE) AS eq_)
-          WHERE eq_ IS NOT NULL)""")),
+          WHERE eq_ IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withFhirPathEqualityRelation_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.div,
         element_definition=self.div_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(self.div, fhir_path_expression,
-                                        expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(
+        self.div, fhir_path_expression, expected_sql_expression
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withIntegerIn',
           fhir_path_expression='3 in 4',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT mem_
           FROM (SELECT (3)
           IN (4) AS mem_)
-          WHERE mem_ IS NOT NULL)""")),
+          WHERE mem_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerContains',
           fhir_path_expression='3 contains 4',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT mem_
           FROM (SELECT (4)
           IN (3) AS mem_)
-          WHERE mem_ IS NOT NULL)""")),
+          WHERE mem_ IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withFhirPathLiteralMembershipRelation_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(None, fhir_path_expression,
-                                        expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(
+        None, fhir_path_expression, expected_sql_expression
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withIntegerUnion',
           fhir_path_expression='3 | 4',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT union_
           FROM (SELECT lhs_.literal_ AS union_
           FROM (SELECT 3 AS literal_) AS lhs_
           UNION DISTINCT
           SELECT rhs_.literal_ AS union_
           FROM (SELECT 4 AS literal_) AS rhs_)
-          WHERE union_ IS NOT NULL)""")),
+          WHERE union_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withStringUnion',
           fhir_path_expression="'Foo' | 'Bar'",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT union_
           FROM (SELECT lhs_.literal_ AS union_
           FROM (SELECT 'Foo' AS literal_) AS lhs_
           UNION DISTINCT
           SELECT rhs_.literal_ AS union_
           FROM (SELECT 'Bar' AS literal_) AS rhs_)
-          WHERE union_ IS NOT NULL)""")),
+          WHERE union_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withStringNestedUnion',
           fhir_path_expression="('Foo' | 'Bar') | ('Bats')",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT union_
           FROM (SELECT lhs_.union_
           FROM (SELECT lhs_.literal_ AS union_
@@ -834,284 +1121,381 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           UNION DISTINCT
           SELECT rhs_.literal_ AS union_
           FROM (SELECT 'Bats' AS literal_) AS rhs_)
-          WHERE union_ IS NOT NULL)""")),
+          WHERE union_ IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withFhirPathLiteralUnion_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                        expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(
+        self.foo, fhir_path_expression, expected_sql_expression
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withIntegerPositivePolarity',
           fhir_path_expression='+5',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT +5 AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDecimalPositivePolarity',
           fhir_path_expression='+5.72',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT +5.72 AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerNegativePolarity',
           fhir_path_expression='-5',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT -5 AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDecimalNegativePolarity',
           fhir_path_expression='-5.1349',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT literal_
           FROM (SELECT -5.1349 AS literal_)
-          WHERE literal_ IS NOT NULL)""")),
+          WHERE literal_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerPositivePolarityAndAddition',
           fhir_path_expression='+5 + 10',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT (+5 + 10) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerNegativePolarityAndAddition',
           fhir_path_expression='-5 + 10',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT (-5 + 10) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerNegativePolarityAndModularArithmetic',
           fhir_path_expression='-5 mod 6',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT MOD(-5, 6) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withIntegerPositivePolarityAndModularArithmetic',
           fhir_path_expression='+(7 mod 6)',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT pol_
           FROM (SELECT +MOD(7, 6) AS pol_)
-          WHERE pol_ IS NOT NULL)""")),
+          WHERE pol_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDecimalNegativePolarityAndMultiplication',
           fhir_path_expression='-(3.79 * 2.124)',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT pol_
           FROM (SELECT -(3.79 * 2.124) AS pol_)
-          WHERE pol_ IS NOT NULL)""")),
+          WHERE pol_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDecimalNegativePolarityAndDivision',
           fhir_path_expression='-3.79 / 2.124',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT arith_
           FROM (SELECT (-3.79 / 2.124) AS arith_)
-          WHERE arith_ IS NOT NULL)""")),
+          WHERE arith_ IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withFhirPathLiteralPolarity_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(None, fhir_path_expression,
-                                        expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(
+        None, fhir_path_expression, expected_sql_expression
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withIntegerIndexer',
           fhir_path_expression='7[0]',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT indexed_literal_
           FROM (SELECT literal_ AS indexed_literal_
           FROM (SELECT ROW_NUMBER() OVER() AS row_,
           literal_
           FROM (SELECT 7 AS literal_)) AS inner_tbl
           WHERE (inner_tbl.row_ - 1) = 0)
-          WHERE indexed_literal_ IS NOT NULL)"""),
+          WHERE indexed_literal_ IS NOT NULL)"""
+          ),
       ),
       dict(
           testcase_name='_withIntegerIndexerArithmeticIndex',
           fhir_path_expression='7[0 + 1]',  # Out-of-bounds, empty table
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT indexed_literal_
           FROM (SELECT literal_ AS indexed_literal_
           FROM (SELECT ROW_NUMBER() OVER() AS row_,
           literal_
           FROM (SELECT 7 AS literal_)) AS inner_tbl
           WHERE (inner_tbl.row_ - 1) = (0 + 1))
-          WHERE indexed_literal_ IS NOT NULL)"""),
+          WHERE indexed_literal_ IS NOT NULL)"""
+          ),
       ),
       dict(
           testcase_name='_withStringIndexer',
           fhir_path_expression="'foo'[0]",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT indexed_literal_
           FROM (SELECT literal_ AS indexed_literal_
           FROM (SELECT ROW_NUMBER() OVER() AS row_,
           literal_
           FROM (SELECT 'foo' AS literal_)) AS inner_tbl
           WHERE (inner_tbl.row_ - 1) = 0)
-          WHERE indexed_literal_ IS NOT NULL)"""),
+          WHERE indexed_literal_ IS NOT NULL)"""
+          ),
       ),
   )
   def testEncode_withFhirPathLiteralIndexer_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                        expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(
+        self.foo, fhir_path_expression, expected_sql_expression
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withExists',
           fhir_path_expression='exists()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT exists_
           FROM (SELECT TRUE AS exists_)
-          WHERE exists_ IS NOT NULL)""")),
+          WHERE exists_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withNot',
           fhir_path_expression='not()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT not_
           FROM (SELECT FALSE AS not_)
-          WHERE not_ IS NOT NULL)""")),
+          WHERE not_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withEmpty',
           fhir_path_expression='empty()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT empty_
           FROM (SELECT FALSE AS empty_)
-          WHERE empty_ IS NOT NULL)""")),
+          WHERE empty_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withCount',
           fhir_path_expression='count()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT count_
           FROM (SELECT 0 AS count_)
-          WHERE count_ IS NOT NULL)""")),
+          WHERE count_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withHasValue',
           fhir_path_expression='hasValue()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT has_value_
           FROM (SELECT FALSE AS has_value_)
-          WHERE has_value_ IS NOT NULL)""")),
+          WHERE has_value_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withMatches',
           fhir_path_expression="matches('')",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT matches_
           FROM (SELECT REGEXP_CONTAINS(
           NULL, '') AS matches_)
-          WHERE matches_ IS NOT NULL)""")),
+          WHERE matches_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withMatchesAndNoParams',
           fhir_path_expression='matches()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT matches_
           FROM (SELECT NULL AS matches_)
-          WHERE matches_ IS NOT NULL)""")),
+          WHERE matches_ IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withFhirPathFunctionNoOperand_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                        expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(
+        self.foo, fhir_path_expression, expected_sql_expression
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withNot',
           fhir_path_expression="(' ' contains 'history').not()",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT not_
           FROM (SELECT NOT(
           ('history')
           IN (' ')) AS not_)
-          WHERE not_ IS NOT NULL)""")),)
+          WHERE not_ IS NOT NULL)"""
+          ),
+      ),
+  )
   def testEncode_withFhirPathFunctionNoneTypeOperand_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                        expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(
+        self.foo, fhir_path_expression, expected_sql_expression
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withCollectionsANdScalarsAsArrayTrue',
           fhir_path_expression='bar.bats',
           select_scalars_as_array=True,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT bats_element_
           FROM (SELECT bats_element_
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
-          WHERE bats_element_ IS NOT NULL)""")),
+          WHERE bats_element_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withCollectionsANdScalarsAsArrayFalse',
           fhir_path_expression='bar.bats',
           select_scalars_as_array=False,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT bats_element_
           FROM (SELECT bats_element_
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
-          WHERE bats_element_ IS NOT NULL)""")),
+          WHERE bats_element_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarAndScalarsAsArrayDefault',
           fhir_path_expression='inline.value',
           select_scalars_as_array=None,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT value
           FROM (SELECT inline.value)
-          WHERE value IS NOT NULL)""")),
+          WHERE value IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarAndScalarsAsArrayTrue',
           fhir_path_expression='inline.value',
           select_scalars_as_array=True,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT value
           FROM (SELECT inline.value)
-          WHERE value IS NOT NULL)""")),
+          WHERE value IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarAndScalarsAsArrayFalse',
           fhir_path_expression='inline.value',
           select_scalars_as_array=False,
-          expected_sql_expression=textwrap.dedent("""\
-          (SELECT inline.value)""")),
+          expected_sql_expression=textwrap.dedent(
+              """\
+          (SELECT inline.value)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarComparisonAndScalarsAsArrayFalse',
           fhir_path_expression="inline.value = 'abc'",
           select_scalars_as_array=False,
-          expected_sql_expression=textwrap.dedent("""\
-          (SELECT (inline.value = 'abc') AS eq_)""")),
+          expected_sql_expression=textwrap.dedent(
+              """\
+          (SELECT (inline.value = 'abc') AS eq_)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarComplexComparisonAndScalarsAsArrayFalse',
           fhir_path_expression="bar.bats.struct.value = ('abc' | '123')",
           select_scalars_as_array=False,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT NOT EXISTS(
           SELECT lhs_.*
           FROM (SELECT ROW_NUMBER() OVER() AS row_, value
@@ -1125,11 +1509,16 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           FROM (SELECT 'abc' AS literal_) AS lhs_
           UNION DISTINCT
           SELECT rhs_.literal_ AS union_
-          FROM (SELECT '123' AS literal_) AS rhs_)) AS rhs_) AS eq_)""")),
+          FROM (SELECT '123' AS literal_) AS rhs_)) AS rhs_) AS eq_)"""
+          ),
+      ),
   )
   def testEncode_withSelectScalarsAsArray_generatesSql(
-      self, fhir_path_expression: str, expected_sql_expression: str,
-      select_scalars_as_array: Optional[bool]):
+      self,
+      fhir_path_expression: str,
+      expected_sql_expression: str,
+      select_scalars_as_array: Optional[bool],
+  ):
     """Ensures the select_scalars_as_array flag is respected."""
     kwargs = {}
     if select_scalars_as_array is not None:
@@ -1139,111 +1528,155 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
         structure_definition=self.foo,
         element_definition=self.foo_root,
         fhir_path_expression=fhir_path_expression,
-        **kwargs)
+        **kwargs,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                        expected_sql_expression, **kwargs)
+    self.assertEvaluationNodeSqlCorrect(
+        self.foo, fhir_path_expression, expected_sql_expression, **kwargs
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withChoiceNoType',
           fhir_path_expression='choiceExample',
           # Return full choice structure if no sub-type is specified.
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT choiceExample
           FROM (SELECT choiceExample)
-          WHERE choiceExample IS NOT NULL)"""),
-          select_scalars_as_array=True),
+          WHERE choiceExample IS NOT NULL)"""
+          ),
+          select_scalars_as_array=True,
+      ),
       dict(
           testcase_name='_withChoiceStringType',
           fhir_path_expression="choiceExample.ofType('string')",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT ofType_
           FROM (SELECT choiceExample.string AS ofType_)
-          WHERE ofType_ IS NOT NULL)"""),
-          select_scalars_as_array=True),
+          WHERE ofType_ IS NOT NULL)"""
+          ),
+          select_scalars_as_array=True,
+      ),
       dict(
           testcase_name='_withChoiceIntegerType',
           fhir_path_expression="choiceExample.ofType('integer')",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT ofType_
           FROM (SELECT choiceExample.integer AS ofType_)
-          WHERE ofType_ IS NOT NULL)"""),
-          select_scalars_as_array=True),
+          WHERE ofType_ IS NOT NULL)"""
+          ),
+          select_scalars_as_array=True,
+      ),
       dict(
           testcase_name='_scalarWithChoiceIntegerType',
           fhir_path_expression="choiceExample.ofType('integer')",
-          expected_sql_expression=textwrap.dedent("""\
-          (SELECT choiceExample.integer AS ofType_)"""),
-          select_scalars_as_array=False),
+          expected_sql_expression=textwrap.dedent(
+              """\
+          (SELECT choiceExample.integer AS ofType_)"""
+          ),
+          select_scalars_as_array=False,
+      ),
       dict(
           testcase_name='_ArrayWithChoice',
           fhir_path_expression="multipleChoiceExample.ofType('integer')",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT ofType_
           FROM (SELECT multipleChoiceExample_element_.integer AS ofType_
           FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset)
-          WHERE ofType_ IS NOT NULL)"""),
-          select_scalars_as_array=False),
+          WHERE ofType_ IS NOT NULL)"""
+          ),
+          select_scalars_as_array=False,
+      ),
       dict(
           testcase_name='_ScalarWithFunction',
-          fhir_path_expression="choiceExample.ofType('CodeableConcept').exists()",
+          fhir_path_expression=(
+              "choiceExample.ofType('CodeableConcept').exists()"
+          ),
           select_scalars_as_array=False,
-          expected_sql_expression=textwrap.dedent("""\
-          (SELECT choiceExample.CodeableConcept IS NOT NULL AS exists_)""")),
+          expected_sql_expression=textwrap.dedent(
+              """\
+          (SELECT choiceExample.CodeableConcept IS NOT NULL AS exists_)"""
+          ),
+      ),
       dict(
           testcase_name='_ScalarWithRepeatedMessageChoice',
           fhir_path_expression="choiceExample.ofType('CodeableConcept').coding",
           # This option shouldn't matter in this case, but
           # .coding is returning an empty type object.
           select_scalars_as_array=True,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT coding_element_
           FROM (SELECT coding_element_
           FROM (SELECT choiceExample.CodeableConcept AS ofType_),
           UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset)
-          WHERE coding_element_ IS NOT NULL)""")),
+          WHERE coding_element_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_ArrayWithMessageChoice',
-          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding",
+          fhir_path_expression=(
+              "multipleChoiceExample.ofType('CodeableConcept').coding"
+          ),
           # This option shouldn't matter in this case, but
           # .coding is returning an empty type object.
           select_scalars_as_array=True,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT coding_element_
           FROM (SELECT coding_element_
           FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
           FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset),
           UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset)
-          WHERE coding_element_ IS NOT NULL)""")),
+          WHERE coding_element_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_ArrayWithFunction',
-          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').exists()",
+          fhir_path_expression=(
+              "multipleChoiceExample.ofType('CodeableConcept').exists()"
+          ),
           select_scalars_as_array=False,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT EXISTS(
           SELECT ofType_
           FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
           FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset)
-          WHERE ofType_ IS NOT NULL) AS exists_)""")),
+          WHERE ofType_ IS NOT NULL) AS exists_)"""
+          ),
+      ),
       dict(
           testcase_name='_ArrayWithMessageChoice_andIdentifier',
-          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding.system",
+          fhir_path_expression=(
+              "multipleChoiceExample.ofType('CodeableConcept').coding.system"
+          ),
           select_scalars_as_array=False,
           only_works_in_v2=True,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT system
           FROM (SELECT coding_element_.system
           FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
           FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset),
           UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset)
-          WHERE system IS NOT NULL)""")),
+          WHERE system IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_ArrayWithMessageChoice_andEquality',
-          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding.system = 'test'",
+          fhir_path_expression=(
+              "multipleChoiceExample.ofType('CodeableConcept').coding.system ="
+              " 'test'"
+          ),
           select_scalars_as_array=False,
           only_works_in_v2=True,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT NOT EXISTS(
           SELECT lhs_.*
           FROM (SELECT ROW_NUMBER() OVER() AS row_, system
@@ -1254,13 +1687,19 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           EXCEPT DISTINCT
           SELECT rhs_.*
           FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-          FROM (SELECT 'test' AS literal_)) AS rhs_) AS eq_)""")),
+          FROM (SELECT 'test' AS literal_)) AS rhs_) AS eq_)"""
+          ),
+      ),
       dict(
           testcase_name='_ArrayWithMessageChoice_andWhere',
-          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding.where(system = 'test')",
+          fhir_path_expression=(
+              "multipleChoiceExample.ofType('CodeableConcept').coding.where(system"
+              " = 'test')"
+          ),
           only_works_in_v2=True,
           select_scalars_as_array=False,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT coding_element_
           FROM (SELECT coding_element_
           FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
@@ -1274,13 +1713,19 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           SELECT rhs_.*
           FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
           FROM (SELECT 'test' AS literal_)) AS rhs_))
-          WHERE coding_element_ IS NOT NULL)""")),
+          WHERE coding_element_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_ScalarWithRepeatedMessageChoice_andWhere',
-          fhir_path_expression="choiceExample.ofType('CodeableConcept').coding.where(system = 'test')",
+          fhir_path_expression=(
+              "choiceExample.ofType('CodeableConcept').coding.where(system ="
+              " 'test')"
+          ),
           select_scalars_as_array=False,
           only_works_in_v2=True,
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT coding_element_
           FROM (SELECT coding_element_
           FROM (SELECT choiceExample.CodeableConcept AS ofType_),
@@ -1293,13 +1738,17 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           SELECT rhs_.*
           FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
           FROM (SELECT 'test' AS literal_)) AS rhs_))
-          WHERE coding_element_ IS NOT NULL)""")))
+          WHERE coding_element_ IS NOT NULL)"""
+          ),
+      ),
+  )
   def testEncode_ChoiceType_generatesSql(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
       select_scalars_as_array: Optional[bool],
-      only_works_in_v2: bool = False):
+      only_works_in_v2: bool = False,
+  ):
     kwargs = {}
     if select_scalars_as_array is not None:
       kwargs['select_scalars_as_array'] = select_scalars_as_array
@@ -1307,29 +1756,35 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
         structure_definition=self.foo,
         element_definition=self.foo_root,
         fhir_path_expression=fhir_path_expression,
-        **kwargs)
+        **kwargs,
+    )
 
     if not only_works_in_v2:
       self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                        expected_sql_expression, **kwargs)
+    self.assertEvaluationNodeSqlCorrect(
+        self.foo, fhir_path_expression, expected_sql_expression, **kwargs
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withNot',
           fhir_path_expression="' '.contains('history').not()",
-      ))
-  def testEncode_withInvalidFhirPathExpression_fails(self,
-                                                     fhir_path_expression: str):
+      )
+  )
+  def testEncode_withInvalidFhirPathExpression_fails(
+      self, fhir_path_expression: str
+  ):
     with self.assertRaisesRegex(ValueError, 'Unsupported FHIRPath expression.'):
       _ = self.fhir_path_encoder.encode(
           structure_definition=self.foo,
           element_definition=self.foo_root,
-          fhir_path_expression=fhir_path_expression)
+          fhir_path_expression=fhir_path_expression,
+      )
 
   def testEncode_withUnsupportedExistsParameter(self):
-    builder = self.create_builder_from_str(self.foo,
-                                           'bar.bats.struct.exists(true)')
+    builder = self.create_builder_from_str(
+        self.foo, 'bar.bats.struct.exists(true)'
+    )
     with self.assertRaisesRegex(ValueError, 'Unsupported FHIRPath expression'):
       self.bq_interpreter.encode(builder, select_scalars_as_array=True)
 
@@ -1337,74 +1792,99 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
       dict(
           testcase_name='_withSingleMemberAccess',
           fhir_path_expression='bar',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT bar
           FROM (SELECT bar)
-          WHERE bar IS NOT NULL)""")),
+          WHERE bar IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withInlineMemberAccess',
           fhir_path_expression='inline',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT inline
           FROM (SELECT inline)
-          WHERE inline IS NOT NULL)""")),
+          WHERE inline IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withNestedMemberAccess',
           fhir_path_expression='bar.bats',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT bats_element_
           FROM (SELECT bats_element_
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
-          WHERE bats_element_ IS NOT NULL)""")),
+          WHERE bats_element_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withInlineNestedMemberAccess',
           fhir_path_expression='inline.value',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT value
           FROM (SELECT inline.value)
-          WHERE value IS NOT NULL)""")),
+          WHERE value IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDeepestNestedMemberSqlKeywordAccess',
           fhir_path_expression='bar.bats.struct',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT `struct`
           FROM (SELECT bats_element_.struct
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
-          WHERE `struct` IS NOT NULL)""")),
+          WHERE `struct` IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDeepestNestedMemberFhirPathKeywordAccess',
           fhir_path_expression='bar.bats.`div`',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT div
           FROM (SELECT bats_element_.div
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
-          WHERE div IS NOT NULL)""")),
+          WHERE div IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDeepestNestedScalarMemberFhirPathAccess',
           fhir_path_expression='bat.struct.anotherStruct.anotherValue',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT anotherValue
           FROM (SELECT bat.struct.anotherStruct.anotherValue)
-          WHERE anotherValue IS NOT NULL)""")),
+          WHERE anotherValue IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withFhirPathMemberInvocation_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                        expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(
+        self.foo, fhir_path_expression, expected_sql_expression
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withDeepestNestedMemberSqlKeywordExists',
           fhir_path_expression='bar.bats.struct.exists()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
           SELECT `struct`
@@ -1412,11 +1892,14 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
           WHERE `struct` IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)""")),
+          WHERE exists_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDeepestNestedMemberFhirPathKeywordExists',
           fhir_path_expression='bar.bats.`div`.exists()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
           SELECT div
@@ -1424,19 +1907,25 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
           WHERE div IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)""")),
+          WHERE exists_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withMemberExistsNot',
           fhir_path_expression='bar.exists().not()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT not_
           FROM (SELECT NOT(
           bar IS NOT NULL) AS not_)
-          WHERE not_ IS NOT NULL)""")),
+          WHERE not_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withNestedMemberExistsNot',
           fhir_path_expression='bar.bats.exists().not()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT not_
           FROM (SELECT NOT(
           EXISTS(
@@ -1445,39 +1934,51 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
           WHERE bats_element_ IS NOT NULL)) AS not_)
-          WHERE not_ IS NOT NULL)""")),
+          WHERE not_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withFirst',
           fhir_path_expression='bar.bats.first()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT bats_element_
           FROM (SELECT bats_element_
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
           LIMIT 1)
-          WHERE bats_element_ IS NOT NULL)""")),
+          WHERE bats_element_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withFirstOnNonCollection',
           fhir_path_expression='bar.first()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT bar
           FROM (SELECT bar
           LIMIT 1)
-          WHERE bar IS NOT NULL)""")),
+          WHERE bar IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withAnyTrue',
           fhir_path_expression='boolList.anyTrue()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT _anyTrue
           FROM (SELECT LOGICAL_OR(
           boolList_element_) AS _anyTrue
           FROM (SELECT boolList_element_
           FROM UNNEST(boolList) AS boolList_element_ WITH OFFSET AS element_offset))
-          WHERE _anyTrue IS NOT NULL)""")),
+          WHERE _anyTrue IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDeepestNestedMemberSqlKeywordExistsNot',
           fhir_path_expression='bar.bats.struct.exists().not()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT not_
           FROM (SELECT NOT(
           EXISTS(
@@ -1486,18 +1987,24 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
           WHERE `struct` IS NOT NULL)) AS not_)
-          WHERE not_ IS NOT NULL)""")),
+          WHERE not_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withMemberEmpty',
           fhir_path_expression='bar.empty()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT empty_
           FROM (SELECT bar IS NULL AS empty_)
-          WHERE empty_ IS NOT NULL)""")),
+          WHERE empty_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDeepestNestedMemberSqlKeywordEmpty',
           fhir_path_expression='bar.bats.struct.empty()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT empty_
           FROM (SELECT NOT EXISTS(
           SELECT `struct`
@@ -1505,54 +2012,77 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
           WHERE `struct` IS NOT NULL) AS empty_)
-          WHERE empty_ IS NOT NULL)""")),
+          WHERE empty_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withMemberCount',
           fhir_path_expression='bar.count()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT count_
           FROM (SELECT COUNT(
           bar) AS count_
           FROM (SELECT bar))
-          WHERE count_ IS NOT NULL)""")),
+          WHERE count_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDeepestNestedMemberSqlKeywordCount',
           fhir_path_expression='bar.bats.struct.count()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT count_
           FROM (SELECT COUNT(
           bats_element_.struct) AS count_
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
-          WHERE count_ IS NOT NULL)""")),
+          WHERE count_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withMemberHasValue',
           fhir_path_expression='bar.hasValue()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT has_value_
           FROM (SELECT bar IS NOT NULL AS has_value_)
-          WHERE has_value_ IS NOT NULL)""")),
+          WHERE has_value_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDeepestMemberSqlKeywordHasValue',
           fhir_path_expression='bar.bats.struct.hasValue()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT has_value_
           FROM (SELECT bats_element_.struct IS NOT NULL AS has_value_
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
-          WHERE has_value_ IS NOT NULL)""")),
+          WHERE has_value_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withDeepMemberMatches',
-          fhir_path_expression="bat.struct.anotherStruct.anotherValue.matches('foo_regex')",
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression=(
+              "bat.struct.anotherStruct.anotherValue.matches('foo_regex')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT matches_
           FROM (SELECT REGEXP_CONTAINS(
           bat.struct.anotherStruct.anotherValue, 'foo_regex') AS matches_)
-          WHERE matches_ IS NOT NULL)""")),
+          WHERE matches_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withLogicOnExists',
-          fhir_path_expression='(bar.bats.struct.value.exists() and bar.bats.struct.anotherValue.exists()).not()',
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression=(
+              '(bar.bats.struct.value.exists() and'
+              ' bar.bats.struct.anotherValue.exists()).not()'
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT not_
           FROM (SELECT NOT(
           (EXISTS(
@@ -1566,11 +2096,16 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
           WHERE anotherValue IS NOT NULL))) AS not_)
-          WHERE not_ IS NOT NULL)""")),
+          WHERE not_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarCodeMemberOf',
-          fhir_path_expression="codeFlavor.code.memberOf('http://value.set/id')",
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression=(
+              "codeFlavor.code.memberOf('http://value.set/id')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT memberof_
           FROM (SELECT memberof_
           FROM UNNEST((SELECT IF(codeFlavor.code IS NULL, [], [
@@ -1581,11 +2116,16 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           vs.valueseturi='http://value.set/id'
           AND vs.code=codeFlavor.code
           )]))) AS memberof_)
-          WHERE memberof_ IS NOT NULL)""")),
+          WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarCodeMemberOfValueSetVersion',
-          fhir_path_expression="codeFlavor.code.memberOf('http://value.set/id|1.0')",
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression=(
+              "codeFlavor.code.memberOf('http://value.set/id|1.0')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT memberof_
           FROM (SELECT memberof_
           FROM UNNEST((SELECT IF(codeFlavor.code IS NULL, [], [
@@ -1597,11 +2137,16 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           AND vs.valuesetversion='1.0'
           AND vs.code=codeFlavor.code
           )]))) AS memberof_)
-          WHERE memberof_ IS NOT NULL)""")),
+          WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withVectorCodeMemberOf',
-          fhir_path_expression="codeFlavors.code.memberOf('http://value.set/id')",
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression=(
+              "codeFlavors.code.memberOf('http://value.set/id')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT memberof_
           FROM (SELECT matches.element_offset IS NOT NULL AS memberof_
           FROM (SELECT element_offset
@@ -1617,11 +2162,16 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           ) AS matches
           ON all_.element_offset=matches.element_offset
           ORDER BY all_.element_offset)
-          WHERE memberof_ IS NOT NULL)""")),
+          WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarCodingMemberOf',
-          fhir_path_expression="codeFlavor.coding.memberOf('http://value.set/id')",
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression=(
+              "codeFlavor.coding.memberOf('http://value.set/id')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT memberof_
           FROM (SELECT memberof_
           FROM UNNEST((SELECT IF(codeFlavor.coding IS NULL, [], [
@@ -1633,11 +2183,16 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           AND vs.system=codeFlavor.coding.system
           AND vs.code=codeFlavor.coding.code
           )]))) AS memberof_)
-          WHERE memberof_ IS NOT NULL)""")),
+          WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarCodingMemberOfValueSetVersion',
-          fhir_path_expression="codeFlavor.coding.memberOf('http://value.set/id|1.0')",
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression=(
+              "codeFlavor.coding.memberOf('http://value.set/id|1.0')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT memberof_
           FROM (SELECT memberof_
           FROM UNNEST((SELECT IF(codeFlavor.coding IS NULL, [], [
@@ -1650,11 +2205,16 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           AND vs.system=codeFlavor.coding.system
           AND vs.code=codeFlavor.coding.code
           )]))) AS memberof_)
-          WHERE memberof_ IS NOT NULL)""")),
+          WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withVectorCodingMemberOf',
-          fhir_path_expression="codeFlavors.coding.memberOf('http://value.set/id')",
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression=(
+              "codeFlavors.coding.memberOf('http://value.set/id')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT memberof_
           FROM (SELECT matches.element_offset IS NOT NULL AS memberof_
           FROM (SELECT element_offset
@@ -1671,11 +2231,16 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           ) AS matches
           ON all_.element_offset=matches.element_offset
           ORDER BY all_.element_offset)
-          WHERE memberof_ IS NOT NULL)""")),
+          WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarCodeableConceptMemberOf',
-          fhir_path_expression="codeFlavor.codeableConcept.memberOf('http://value.set/id')",
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression=(
+              "codeFlavor.codeableConcept.memberOf('http://value.set/id')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT memberof_
           FROM (SELECT memberof_
           FROM UNNEST((SELECT IF(codeFlavor.codeableConcept IS NULL, [], [
@@ -1687,11 +2252,16 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           AND vs.system=codings.system
           AND vs.code=codings.code
           )]))) AS memberof_)
-          WHERE memberof_ IS NOT NULL)""")),
+          WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withVectorCodeableConceptMemberOf',
-          fhir_path_expression="codeFlavors.codeableConcept.memberOf('http://value.set/id')",
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression=(
+              "codeFlavors.codeableConcept.memberOf('http://value.set/id')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT memberof_
           FROM (SELECT matches.element_offset IS NOT NULL AS memberof_
           FROM (SELECT element_offset
@@ -1709,11 +2279,14 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           ) AS matches
           ON all_.element_offset=matches.element_offset
           ORDER BY all_.element_offset)
-          WHERE memberof_ IS NOT NULL)""")),
+          WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarOfTypeCodeableConceptMemberOf',
           fhir_path_expression="codeFlavor.ofType('codeableConcept').memberOf('http://value.set/id')",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT memberof_
           FROM (SELECT memberof_
           FROM UNNEST((SELECT IF(codeFlavor.codeableConcept IS NULL, [], [
@@ -1725,11 +2298,14 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           AND vs.system=codings.system
           AND vs.code=codings.code
           )]))) AS memberof_)
-          WHERE memberof_ IS NOT NULL)""")),
+          WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withVectorOfTypeCodeableConceptMemberOf',
           fhir_path_expression="codeFlavors.ofType('codeableConcept').memberOf('http://value.set/id')",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT memberof_
           FROM (SELECT matches.element_offset IS NOT NULL AS memberof_
           FROM (SELECT element_offset
@@ -1747,134 +2323,173 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           ) AS matches
           ON all_.element_offset=matches.element_offset
           ORDER BY all_.element_offset)
-          WHERE memberof_ IS NOT NULL)""")),
+          WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withFhirPathMemberFunctionInvocation_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                        expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(
+        self.foo, fhir_path_expression, expected_sql_expression
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withWhereAndNoOperand',
-          fhir_path_expression=('where(true)'),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression='where(true)',
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT where_clause_
           FROM (SELECT NULL AS where_clause_)
-          WHERE where_clause_ IS NOT NULL)""")),
+          WHERE where_clause_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withWhere',
-          fhir_path_expression=("bat.struct.where(value='')"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.where(value='')",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT `struct`
           FROM (SELECT bat.struct
           FROM (SELECT bat.struct.*)
           WHERE (value = ''))
-          WHERE `struct` IS NOT NULL)""")),
+          WHERE `struct` IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withWhereAndEmpty',
-          fhir_path_expression=("bat.struct.where(value='').empty()"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.where(value='').empty()",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT empty_
           FROM (SELECT bat.struct IS NULL AS empty_
           FROM (SELECT bat.struct.*)
           WHERE (value = ''))
-          WHERE empty_ IS NOT NULL)""")),
+          WHERE empty_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withChainedWhere',
           fhir_path_expression=(
-              "bat.struct.where(value='').where(anotherValue='')"),
-          expected_sql_expression=textwrap.dedent("""\
+              "bat.struct.where(value='').where(anotherValue='')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT `struct`
           FROM (SELECT bat.struct
           FROM (SELECT bat.struct.*)
           WHERE (value = '') AND (anotherValue = ''))
-          WHERE `struct` IS NOT NULL)""")),
+          WHERE `struct` IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withComplexWhere',
-          fhir_path_expression=(
-              "bat.struct.where(value='' and anotherValue='')"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.where(value='' and anotherValue='')",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT `struct`
           FROM (SELECT bat.struct
           FROM (SELECT bat.struct.*)
           WHERE ((value = '') AND (anotherValue = '')))
-          WHERE `struct` IS NOT NULL)""")),
+          WHERE `struct` IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withWhereAndThisAndValue',
-          fhir_path_expression=("bat.struct.value.where($this='')"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.value.where($this='')",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT value
           FROM (SELECT bat.struct.value
           FROM (SELECT bat.struct.value)
           WHERE (value = ''))
-          WHERE value IS NOT NULL)""")),
+          WHERE value IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withWhereAndThisAndAnotherValue',
-          fhir_path_expression=("bat.struct.anotherValue.where($this='')"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.anotherValue.where($this='')",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT anotherValue
           FROM (SELECT bat.struct.anotherValue
           FROM (SELECT bat.struct.anotherValue)
           WHERE (anotherValue = ''))
-          WHERE anotherValue IS NOT NULL)""")),
+          WHERE anotherValue IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withAll',
-          fhir_path_expression=("bat.struct.value.all($this='')"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.value.all($this='')",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
           (SELECT (value = '') AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bat.struct.value))
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withAllAndIdentifier',
-          fhir_path_expression=("bat.struct.all(anotherValue = '')"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.all(anotherValue = '')",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
           (SELECT (anotherValue = '') AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bat.struct))
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withAllAndMultipleIdentifiers',
           fhir_path_expression=(
-              "bat.struct.all(anotherValue = '' and value = '')"),
-          expected_sql_expression=textwrap.dedent("""\
+              "bat.struct.all(anotherValue = '' and value = '')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
           (SELECT ((anotherValue = '') AND (value = '')) AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bat.struct))
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withAllAndIdentifierPlusThis',
-          fhir_path_expression=(
-              "bat.struct.all(anotherValue = '' and $this)"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.all(anotherValue = '' and $this)",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
           (SELECT ((anotherValue = '') AND (SELECT `struct` IS NOT NULL)) AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bat.struct))
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           # TODO(b/197153513): Remove unnecessary `(SELECT inline),` from the
           # below sql query.
           testcase_name='_withAllAndRepeatedPrimitiveOnlyComparison',
-          fhir_path_expression=('inline.numbers.all($this > 0)'),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression='inline.numbers.all($this > 0)',
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
@@ -1882,13 +2497,16 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           (SELECT (numbers_element_ > 0) AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT inline),
           UNNEST(inline.numbers) AS numbers_element_ WITH OFFSET AS element_offset)
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withAllAndRepeatedSubfieldPrimitiveOnlyComparison',
           # TODO(b/253262668): Determine if this is a bug in the old
           # implementation or new implementation.
-          fhir_path_expression=("bar.bats.struct.all( value = '' )"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bar.bats.struct.all( value = '' )",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
@@ -1896,14 +2514,17 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           (SELECT (value = '') AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           # This test checks that we are semantically checking our parameters
           # because it uses an EXIST here for a repeated item in the operand
           # instead of assuming that it is a scalar.
           testcase_name='_withAllAndRepeatedOperandUsesExistFunction',
-          fhir_path_expression=('bar.all( bats.exists() )'),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression='bar.all( bats.exists() )',
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
@@ -1914,22 +2535,27 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           FROM UNNEST(bats) AS bats_element_ WITH OFFSET AS element_offset)
           WHERE bats_element_ IS NOT NULL) AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bar))
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withWhereAndRepeated',
-          fhir_path_expression=('bar.bats.where( struct.exists() )'),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression='bar.bats.where( struct.exists() )',
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT bats_element_
           FROM (SELECT bats_element_
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
           WHERE (`struct` IS NOT NULL))
-          WHERE bats_element_ IS NOT NULL)""")),
+          WHERE bats_element_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withWhereAndRepeatedAndExists',
-          fhir_path_expression=(
-              'bar.bats.where( struct = struct ).exists()'),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression='bar.bats.where( struct = struct ).exists()',
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
           SELECT bats_element_
@@ -1938,32 +2564,42 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
           WHERE (`struct` = `struct`))
           WHERE bats_element_ IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)""")),
+          WHERE exists_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withRetrieveNestedField',
-          fhir_path_expression=("bat.struct.where(value='').anotherValue"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.where(value='').anotherValue",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT anotherValue
           FROM (SELECT bat.struct.anotherValue
           FROM (SELECT bat.struct.*)
           WHERE (value = ''))
-          WHERE anotherValue IS NOT NULL)""")),
+          WHERE anotherValue IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withMultipleWhereClauseAndRetrieveNestedField',
           fhir_path_expression=(
               "bat.struct.where(value='').where(anotherValue='').anotherValue"
           ),
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT anotherValue
           FROM (SELECT bat.struct.anotherValue
           FROM (SELECT bat.struct.*)
           WHERE (value = '') AND (anotherValue = ''))
-          WHERE anotherValue IS NOT NULL)""")),
+          WHERE anotherValue IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withRetrieveNestedFieldExists',
           fhir_path_expression=(
-              "bat.struct.where(value='').anotherValue.exists()"),
-          expected_sql_expression=textwrap.dedent("""\
+              "bat.struct.where(value='').anotherValue.exists()"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
           SELECT anotherValue
@@ -1971,132 +2607,170 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           FROM (SELECT bat.struct.*)
           WHERE (value = ''))
           WHERE anotherValue IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)""")),
+          WHERE exists_ IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withAdvancedFhirPathMemberFunctionInvocation_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withWhereAndNoOperand',
-          fhir_path_expression=('where(true)'),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression='where(true)',
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT where_clause_
           FROM (SELECT NULL AS where_clause_)
-          WHERE where_clause_ IS NOT NULL)""")),
+          WHERE where_clause_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withWhere',
-          fhir_path_expression=("bat.struct.where(value='')"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.where(value='')",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT `struct`
           FROM (SELECT bat.struct
           FROM (SELECT bat.struct.*)
           WHERE (`struct`.value = ''))
-          WHERE `struct` IS NOT NULL)""")),
+          WHERE `struct` IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withWhereAndEmpty',
-          fhir_path_expression=("bat.struct.where(value='').empty()"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.where(value='').empty()",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT empty_
           FROM (SELECT bat.struct IS NULL AS empty_
           FROM (SELECT bat.struct.*)
           WHERE (`struct`.value = ''))
-          WHERE empty_ IS NOT NULL)""")),
+          WHERE empty_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withChainedWhere',
           fhir_path_expression=(
-              "bat.struct.where(value='').where(anotherValue='')"),
-          expected_sql_expression=textwrap.dedent("""\
+              "bat.struct.where(value='').where(anotherValue='')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT `struct`
           FROM (SELECT bat.struct
           FROM (SELECT bat.struct.*)
           WHERE (`struct`.value = '') AND (`struct`.anotherValue = ''))
-          WHERE `struct` IS NOT NULL)""")),
+          WHERE `struct` IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withComplexWhere',
-          fhir_path_expression=(
-              "bat.struct.where(value='' and anotherValue='')"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.where(value='' and anotherValue='')",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT `struct`
           FROM (SELECT bat.struct
           FROM (SELECT bat.struct.*)
           WHERE ((`struct`.value = '') AND (`struct`.anotherValue = '')))
-          WHERE `struct` IS NOT NULL)""")),
+          WHERE `struct` IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withWhereAndThisAndValue',
-          fhir_path_expression=("bat.struct.value.where($this='')"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.value.where($this='')",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT value
           FROM (SELECT bat.struct.value
           FROM (SELECT bat.struct.value)
           WHERE (value = ''))
-          WHERE value IS NOT NULL)""")),
+          WHERE value IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withWhereAndThisAndAnotherValue',
-          fhir_path_expression=("bat.struct.anotherValue.where($this='')"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.anotherValue.where($this='')",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT anotherValue
           FROM (SELECT bat.struct.anotherValue
           FROM (SELECT bat.struct.anotherValue)
           WHERE (anotherValue = ''))
-          WHERE anotherValue IS NOT NULL)""")),
+          WHERE anotherValue IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withAll',
-          fhir_path_expression=("bat.struct.value.all($this='')"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.value.all($this='')",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
           (SELECT (value = '') AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bat.struct.value))
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withAllAndIdentifier',
-          fhir_path_expression=("bat.struct.all(anotherValue = '')"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.all(anotherValue = '')",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
           (SELECT (`struct`.anotherValue = '') AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bat.struct))
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withAllAndMultipleIdentifiers',
           fhir_path_expression=(
-              "bat.struct.all(anotherValue = '' and value = '')"),
-          expected_sql_expression=textwrap.dedent("""\
+              "bat.struct.all(anotherValue = '' and value = '')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
           (SELECT ((`struct`.anotherValue = '') AND (`struct`.value = '')) AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bat.struct))
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withAllAndIdentifierPlusThis',
-          fhir_path_expression=(
-              "bat.struct.all(anotherValue = '' and $this)"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.all(anotherValue = '' and $this)",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
           (SELECT ((`struct`.anotherValue = '') AND (SELECT `struct` IS NOT NULL)) AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bat.struct))
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           # TODO(b/197153513): Remove unnecessary `(SELECT inline),` from the
           # below sql query.
           testcase_name='_withAllAndRepeatedPrimitiveOnlyComparison',
-          fhir_path_expression=('inline.numbers.all($this > 0)'),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression='inline.numbers.all($this > 0)',
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
@@ -2104,13 +2778,16 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           (SELECT (numbers_element_ > 0) AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT inline),
           UNNEST(inline.numbers) AS numbers_element_ WITH OFFSET AS element_offset)
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withAllAndRepeatedSubfieldPrimitiveOnlyComparison',
           # TODO(b/253262668): Determine if this is a bug in the old
           # implementation or new implementation.
-          fhir_path_expression=("bar.bats.struct.all( value = '' )"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bar.bats.struct.all( value = '' )",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
@@ -2126,14 +2803,17 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           FROM (SELECT bats_element_.struct
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset))
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           # This test checks that we are semantically checking our parameters
           # because it uses an EXIST here for a repeated item in the operand
           # instead of assuming that it is a scalar.
           testcase_name='_withAllAndRepeatedOperandUsesExistFunction',
-          fhir_path_expression=('bar.all( bats.exists() )'),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression='bar.all( bats.exists() )',
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT all_
           FROM (SELECT IFNULL(
           LOGICAL_AND(
@@ -2145,11 +2825,14 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
           WHERE bats_element_ IS NOT NULL) AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bar))
-          WHERE all_ IS NOT NULL)""")),
+          WHERE all_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withWhereAndRepeated',
-          fhir_path_expression=('bar.bats.where( struct.exists() )'),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression='bar.bats.where( struct.exists() )',
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT bats_element_
           FROM (SELECT bats_element_
           FROM (SELECT bar),
@@ -2158,12 +2841,14 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           SELECT `struct`
           FROM (SELECT bats_element_.struct)
           WHERE `struct` IS NOT NULL))
-          WHERE bats_element_ IS NOT NULL)""")),
+          WHERE bats_element_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withWhereAndRepeatedAndExists',
-          fhir_path_expression=(
-              'bar.bats.where( struct = struct ).exists()'),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression='bar.bats.where( struct = struct ).exists()',
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
           SELECT bats_element_
@@ -2179,32 +2864,42 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           FROM (SELECT ROW_NUMBER() OVER() AS row_, `struct`
           FROM (SELECT bats_element_.struct)) AS rhs_))
           WHERE bats_element_ IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)""")),
+          WHERE exists_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withRetrieveNestedField',
-          fhir_path_expression=("bat.struct.where(value='').anotherValue"),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression="bat.struct.where(value='').anotherValue",
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT anotherValue
           FROM (SELECT bat.struct.anotherValue
           FROM (SELECT bat.struct.*)
           WHERE (`struct`.value = ''))
-          WHERE anotherValue IS NOT NULL)""")),
+          WHERE anotherValue IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withMultipleWhereClauseAndRetrieveNestedField',
           fhir_path_expression=(
               "bat.struct.where(value='').where(anotherValue='').anotherValue"
           ),
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT anotherValue
           FROM (SELECT bat.struct.anotherValue
           FROM (SELECT bat.struct.*)
           WHERE (`struct`.value = '') AND (`struct`.anotherValue = ''))
-          WHERE anotherValue IS NOT NULL)""")),
+          WHERE anotherValue IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withRetrieveNestedFieldExists',
           fhir_path_expression=(
-              "bat.struct.where(value='').anotherValue.exists()"),
-          expected_sql_expression=textwrap.dedent("""\
+              "bat.struct.where(value='').anotherValue.exists()"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
           SELECT anotherValue
@@ -2212,12 +2907,16 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
           FROM (SELECT bat.struct.*)
           WHERE (`struct`.value = ''))
           WHERE anotherValue IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)""")),
+          WHERE exists_ IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withAdvancedFhirPathMemberFunctionInvocation_succeeds_v2(
-      self, fhir_path_expression: str, expected_sql_expression: str):
-    self.assertEvaluationNodeSqlCorrect(self.foo, fhir_path_expression,
-                                        expected_sql_expression)
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
+    self.assertEvaluationNodeSqlCorrect(
+        self.foo, fhir_path_expression, expected_sql_expression
+    )
 
   @parameterized.named_parameters(
       dict(
@@ -2234,152 +2933,206 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
       ),
       dict(
           testcase_name='_withDeepestNestedAdvancedMemberFunction',
-          fhir_path_expression=("bat.struct.value.where($this='')"),
-      ))
+          fhir_path_expression="bat.struct.value.where($this='')",
+      ),
+  )
   def testValidate_withValidFhirPathExpressions_succeeds(
-      self, fhir_path_expression: str):
+      self, fhir_path_expression: str
+  ):
     error_reporter = self.fhir_path_encoder.validate(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertEmpty(error_reporter.errors)
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withInvalidUnionBetweenStructs',
-          fhir_path_expression='bar.bats | bar.bats.struct'),
+          fhir_path_expression='bar.bats | bar.bats.struct',
+      ),
       dict(
           testcase_name='_withInvalidUnionBetweenStructLiteral',
-          fhir_path_expression='bar.bats.struct | 2'),
+          fhir_path_expression='bar.bats.struct | 2',
+      ),
       dict(
           testcase_name='_withInvalidUnionBetweenLiteralStruct',
-          fhir_path_expression='3 | bar.bats.struct'),
+          fhir_path_expression='3 | bar.bats.struct',
+      ),
       dict(
           testcase_name='_withInvalidEqualityBetweenStructs',
-          fhir_path_expression='bar.bats = bar.bats.struct'),
+          fhir_path_expression='bar.bats = bar.bats.struct',
+      ),
       dict(
           testcase_name='_withInvalidEqualityBetweenStructLiteral',
-          fhir_path_expression='bar.bats = 2'),
+          fhir_path_expression='bar.bats = 2',
+      ),
       dict(
           testcase_name='_withInvalidEqualityBetweenLiteralStruct',
-          fhir_path_expression='3 = bar.bats.struct'),
+          fhir_path_expression='3 = bar.bats.struct',
+      ),
       dict(
           testcase_name='_withInvalidEquivalenceBetweenStructs',
-          fhir_path_expression='bar.bats ~ bar.bats.struct'),
+          fhir_path_expression='bar.bats ~ bar.bats.struct',
+      ),
       dict(
           testcase_name='_withInvalidEquivalenceBetweenStructLiteral',
-          fhir_path_expression='bar.bats.struct ~ 2'),
+          fhir_path_expression='bar.bats.struct ~ 2',
+      ),
       dict(
           testcase_name='_withInvalidEquivalenceBetweenLiteralStruct',
-          fhir_path_expression='3 ~ bar.bats.struct'),
+          fhir_path_expression='3 ~ bar.bats.struct',
+      ),
       dict(
           testcase_name='_withInvalidComparisonBetweenStructs',
-          fhir_path_expression='bar.bats < bar.bats.struct'),
+          fhir_path_expression='bar.bats < bar.bats.struct',
+      ),
       # TODO(b/193046163): Add support for arbitrary leading expressions
       dict(
           testcase_name='_withSingleMemberAccessLeadingExpression',
-          fhir_path_expression='(true or false).bar'),
+          fhir_path_expression='(true or false).bar',
+      ),
   )
   def testEncode_withUnsupportedFhirPathExpression_raisesTypeError(
-      self, fhir_path_expression: str):
+      self, fhir_path_expression: str
+  ):
     """Tests FHIRPath expressions that are unsupported for Standard SQL."""
     with self.assertRaises(TypeError) as te:
       _ = self.fhir_path_encoder.encode(
           structure_definition=self.foo,
           element_definition=self.foo_root,
-          fhir_path_expression=fhir_path_expression)
+          fhir_path_expression=fhir_path_expression,
+      )
     self.assertIsInstance(te.exception, TypeError)
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withWhereFunctionAndNoCriteria',
-          fhir_path_expression='bat.struct.where()'),
+          fhir_path_expression='bat.struct.where()',
+      ),
       dict(
           testcase_name='_withWhereFunctionAndNonBoolCriteria',
-          fhir_path_expression='bat.struct.where(value)'),
+          fhir_path_expression='bat.struct.where(value)',
+      ),
       dict(
           testcase_name='_withMatchesFunctionAndRepeatedOperand',
-          fhir_path_expression="bar.bats.matches('*')"),
+          fhir_path_expression="bar.bats.matches('*')",
+      ),
       dict(
           testcase_name='_withAllFunctionAndNoCriteria',
-          fhir_path_expression='bat.struct.all()'),
+          fhir_path_expression='bat.struct.all()',
+      ),
       dict(
           testcase_name='_withMemberOfFunctionAndNoValueSet',
-          fhir_path_expression='codeFlavor.code.memberOf()'),
+          fhir_path_expression='codeFlavor.code.memberOf()',
+      ),
       dict(
           testcase_name='_withMemberOfFunctionAndNonStringValueSet',
-          fhir_path_expression='codeFlavor.code.memberOf(1)'),
+          fhir_path_expression='codeFlavor.code.memberOf(1)',
+      ),
       dict(
           testcase_name='_withMemberOfFunctionAndInvalidUri',
-          fhir_path_expression="codeFlavor.code.memberOf('not-a-uri')"),
+          fhir_path_expression="codeFlavor.code.memberOf('not-a-uri')",
+      ),
       dict(
           testcase_name='_withMemberOfFunctionAndInvalidOperand',
-          fhir_path_expression="inline.memberOf('http://value.set/id')"),
+          fhir_path_expression="inline.memberOf('http://value.set/id')",
+      ),
   )
   def testFhirPathFunctions_withWrongInputs_raisesErrorsInSemanticAnalysis(
-      self, fhir_path_expression: str):
+      self, fhir_path_expression: str
+  ):
     """Tests FHIRPath expressions that are unsupported for Standard SQL."""
-    with self.assertRaisesRegex(TypeError,
-                                'FHIR Path Error: Semantic Analysis;') as te:
+    with self.assertRaisesRegex(
+        TypeError, 'FHIR Path Error: Semantic Analysis;'
+    ) as te:
       _ = self.fhir_path_encoder.encode(
           structure_definition=self.foo,
           element_definition=self.foo_root,
-          fhir_path_expression=fhir_path_expression)
+          fhir_path_expression=fhir_path_expression,
+      )
     self.assertIsInstance(te.exception, TypeError)
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withUnknownValueSet',
-          fhir_path_expression="codeFlavor.code.memberOf('http://value.set/id')",
+          fhir_path_expression=(
+              "codeFlavor.code.memberOf('http://value.set/id')"
+          ),
           options=fhir_path_options.SqlValidationOptions(
-              num_code_systems_per_value_set={'something-else': 1})),
+              num_code_systems_per_value_set={'something-else': 1}
+          ),
+      ),
       dict(
           testcase_name='_withStringAgainstTooManyCodeSystems',
-          fhir_path_expression="codeFlavor.code.memberOf('http://value.set/id')",
+          fhir_path_expression=(
+              "codeFlavor.code.memberOf('http://value.set/id')"
+          ),
           options=fhir_path_options.SqlValidationOptions(
-              num_code_systems_per_value_set={'http://value.set/id': 2})),
+              num_code_systems_per_value_set={'http://value.set/id': 2}
+          ),
+      ),
   )
   def testFhirPathMemberOf_withWrongInputs_raisesErrorsInSemanticAnalysis(
       self,
       fhir_path_expression: str,
-      options: Optional[fhir_path_options.SqlValidationOptions] = None):
+      options: Optional[fhir_path_options.SqlValidationOptions] = None,
+  ):
     fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(
-        self.resources, validation_options=options)
-    with self.assertRaisesRegex(TypeError,
-                                'FHIR Path Error: Semantic Analysis;') as te:
+        self.resources, validation_options=options
+    )
+    with self.assertRaisesRegex(
+        TypeError, 'FHIR Path Error: Semantic Analysis;'
+    ) as te:
       _ = fhir_path_encoder.encode(
           structure_definition=self.foo,
           element_definition=self.foo_root,
-          fhir_path_expression=fhir_path_expression)
+          fhir_path_expression=fhir_path_expression,
+      )
     self.assertIsInstance(te.exception, TypeError)
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withKnownValueSet',
-          fhir_path_expression="codeFlavor.code.memberOf('http://value.set/id')",
+          fhir_path_expression=(
+              "codeFlavor.code.memberOf('http://value.set/id')"
+          ),
           options=fhir_path_options.SqlValidationOptions(
-              num_code_systems_per_value_set={'http://value.set/id': 1})),
+              num_code_systems_per_value_set={'http://value.set/id': 1}
+          ),
+      ),
       dict(
           testcase_name='_withCodingAgainstMultipleCodeSystems',
-          fhir_path_expression="codeFlavor.coding.memberOf('http://value.set/id')",
+          fhir_path_expression=(
+              "codeFlavor.coding.memberOf('http://value.set/id')"
+          ),
           options=fhir_path_options.SqlValidationOptions(
-              num_code_systems_per_value_set={'http://value.set/id': 2})),
+              num_code_systems_per_value_set={'http://value.set/id': 2}
+          ),
+      ),
       dict(
           testcase_name='_withCodeableConceptAgainstMultipleCodeSystems',
-          fhir_path_expression="codeFlavor.codeableConcept.memberOf('http://value.set/id')",
+          fhir_path_expression=(
+              "codeFlavor.codeableConcept.memberOf('http://value.set/id')"
+          ),
           options=fhir_path_options.SqlValidationOptions(
-              num_code_systems_per_value_set={'http://value.set/id': 2})),
+              num_code_systems_per_value_set={'http://value.set/id': 2}
+          ),
+      ),
   )
   def testFhirPathMemberOf_withCorrectInputs_succeeds(
       self,
       fhir_path_expression: str,
-      options: Optional[fhir_path_options.SqlValidationOptions] = None):
+      options: Optional[fhir_path_options.SqlValidationOptions] = None,
+  ):
     fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(
-        self.resources, validation_options=options)
+        self.resources, validation_options=options
+    )
     result = fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
 
     self.assertTrue(result)
 
@@ -2390,70 +3143,87 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
       ),
       dict(
           testcase_name='_withNestedMemberAccessUnknown',
-          fhir_path_expression='bar.bats.unknown'),
+          fhir_path_expression='bar.bats.unknown',
+      ),
       dict(
           testcase_name='_withDeepNestedMemberAccessUnknown',
-          fhir_path_expression='bar.bats.struct.unknown'),
+          fhir_path_expression='bar.bats.struct.unknown',
+      ),
   )
   def testEncode_withUnknownFhirPathMemberInvocation_raisesValueError(
-      self, fhir_path_expression: str):
+      self, fhir_path_expression: str
+  ):
     with self.assertRaises(ValueError) as ve:
       _ = self.fhir_path_encoder.encode(
           structure_definition=self.foo,
           element_definition=self.foo_root,
-          fhir_path_expression=fhir_path_expression)
+          fhir_path_expression=fhir_path_expression,
+      )
     self.assertIsInstance(ve.exception, ValueError)
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withInvalidInvocationInternalExpression',
-          fhir_path_expression='foo.bar.exists().(2+3)'),
+          fhir_path_expression='foo.bar.exists().(2+3)',
+      ),
       dict(
           testcase_name='_withInvalidInvocationNoIdentifier',
-          fhir_path_expression='foo.bar.exists()..'),
+          fhir_path_expression='foo.bar.exists()..',
+      ),
       dict(
-          testcase_name='_withInvalidOperation',
-          fhir_path_expression='foo + +'),
+          testcase_name='_withInvalidOperation', fhir_path_expression='foo + +'
+      ),
   )
   def testEncode_withInvalidFhirPathExpression_raisesValueError(
-      self, fhir_path_expression: str):
+      self, fhir_path_expression: str
+  ):
     """Tests FHIRPath expressions that are syntactically incorrect."""
     with self.assertRaises(ValueError) as ve:
       _ = self.fhir_path_encoder.encode(
           structure_definition=self.foo,
           element_definition=self.foo_root,
-          fhir_path_expression=fhir_path_expression)
+          fhir_path_expression=fhir_path_expression,
+      )
     self.assertIsInstance(ve.exception, ValueError)
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withWhereFunctionAndNoCriteria',
-          fhir_path_expression='bat.struct.where()'),
+          fhir_path_expression='bat.struct.where()',
+      ),
       dict(
           testcase_name='_withWhereFunctionAndNonBoolCriteria',
-          fhir_path_expression='bat.struct.where(value)'),
+          fhir_path_expression='bat.struct.where(value)',
+      ),
       dict(
           testcase_name='_withMatchesFunctionAndRepeatedOperand',
-          fhir_path_expression="bar.bats.matches('*')"),
+          fhir_path_expression="bar.bats.matches('*')",
+      ),
       dict(
           testcase_name='_withMemberOfFunctionAndNoValueSet',
-          fhir_path_expression='codeFlavor.code.memberOf()'),
+          fhir_path_expression='codeFlavor.code.memberOf()',
+      ),
       dict(
           testcase_name='_withMemberOfFunctionAndNonStringValueSet',
-          fhir_path_expression='codeFlavor.code.memberOf(1)'),
+          fhir_path_expression='codeFlavor.code.memberOf(1)',
+      ),
       dict(
           testcase_name='_withMemberOfFunctionAndInvalidUri',
-          fhir_path_expression="codeFlavor.code.memberOf('not-a-uri')"),
+          fhir_path_expression="codeFlavor.code.memberOf('not-a-uri')",
+      ),
       dict(
           testcase_name='_withMemberOfFunctionAndInvalidOperand',
-          fhir_path_expression="inline.memberOf('http://value.set/id')"),
+          fhir_path_expression="inline.memberOf('http://value.set/id')",
+      ),
   )
   def testValidate_withInvalidExpressions_failsAndPopulates_errorReporter(
-      self, fhir_path_expression: str):
+      self, fhir_path_expression: str
+  ):
     error_reporter = self.fhir_path_encoder.validate(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertNotEmpty(error_reporter.errors)
 
   @parameterized.named_parameters(
@@ -2475,11 +3245,13 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
       ),
   )
   def testValidate_withInvalidFHIRPathSyntax_failsAndPopulates_errorReporter(
-      self, fhir_path_expression: str):
+      self, fhir_path_expression: str
+  ):
     error_reporter = self.fhir_path_encoder.validate(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
     self.assertNotEmpty(error_reporter.errors)
 
   def testEncode_withFhirSliceElementDefinition_isSkipped(self):
@@ -2491,21 +3263,26 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
     to find a corresponding `ElementDefinition` that is not a slice at <path>.
     """
     root = sdefs.build_element_definition(
-        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     soft_delete_slice = sdefs.build_element_definition(
         id_='Foo.bar:softDelete',
         path='Foo.bar',
         type_codes=['Bar'],
-        cardinality=sdefs.Cardinality(0, '*'))
+        cardinality=sdefs.Cardinality(0, '*'),
+    )
     resource = sdefs.build_resource_definition(
-        id_='Foo', element_definitions=[root, soft_delete_slice])
+        id_='Foo', element_definitions=[root, soft_delete_slice]
+    )
     fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(
-        structure_definitions=[resource])
+        structure_definitions=[resource]
+    )
     with self.assertRaises(ValueError) as ve:
       _ = fhir_path_encoder.encode(
           structure_definition=resource,
           element_definition=root,
-          fhir_path_expression='bar.exists()')
+          fhir_path_expression='bar.exists()',
+      )
     self.assertIsInstance(ve.exception, ValueError)
 
   def testEncode_withInlineProfiledElement_succeeds(self):
@@ -2524,57 +3301,70 @@ class FhirPathStandardSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
             sdefs.build_element_definition(
                 id_='string',
                 type_codes=None,
-                cardinality=sdefs.Cardinality(min=0, max='1'))
-        ])
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            )
+        ],
+    )
 
     # Foo type; note that "Foo.bar.value" inline profile is of cardinality 1.
     foo_root = sdefs.build_element_definition(
         id_='Foo',
         type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     foo_bar_inline = sdefs.build_element_definition(
         id_='Foo.bar',
         type_codes=['Bar'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     foo_bar_value_inline = sdefs.build_element_definition(
         id_='Foo.bar.value',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     foo = sdefs.build_resource_definition(
         id_='Foo',
-        element_definitions=[foo_root, foo_bar_inline, foo_bar_value_inline])
+        element_definitions=[foo_root, foo_bar_inline, foo_bar_value_inline],
+    )
 
     # Bar type; note that "Bar.value" is of cardinality >= 1.
     bar_root = sdefs.build_element_definition(
         id_='Bar',
         type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     bar_value = sdefs.build_element_definition(
         id_='Bar.value',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=0, max='*'))
+        cardinality=sdefs.Cardinality(min=0, max='*'),
+    )
     bar = sdefs.build_resource_definition(
-        id_='Bar', element_definitions=[bar_root, bar_value])
+        id_='Bar', element_definitions=[bar_root, bar_value]
+    )
 
     fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(
-        structure_definitions=[string_datatype, foo, bar])
+        structure_definitions=[string_datatype, foo, bar]
+    )
     actual_sql_expression = fhir_path_encoder.encode(
         structure_definition=foo,
         element_definition=foo_root,
-        fhir_path_expression='bar.value.exists()')
+        fhir_path_expression='bar.value.exists()',
+    )
 
     # We prioritize inline children, so we expect that a query reflecting
     # the constrained cardinality of 1 should be generated.
-    expected_sql_expression = textwrap.dedent("""\
+    expected_sql_expression = textwrap.dedent(
+        """\
     ARRAY(SELECT exists_
     FROM (SELECT bar.value IS NOT NULL AS exists_)
-    WHERE exists_ IS NOT NULL)""")
+    WHERE exists_ IS NOT NULL)"""
+    )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
 
 
-class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase,
-                                            fhir_path_test_base.FhirPathTestBase
-                                           ):
+class FhirProfileStandardSqlEncoderTestBase(
+    parameterized.TestCase, fhir_path_test_base.FhirPathTestBase
+):
   """A base test class providing functionality for testing profile encoding.
 
   Tests should leverage one of the base `assert_...` methods which will create a
@@ -2597,8 +3387,10 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase,
     cls.resources: Dict[str, structure_definition_pb2.StructureDefinition] = {}
 
   def _create_profile_of(
-      self, base_id: str, element_definition_id: str,
-      constraint: datatypes_pb2.ElementDefinition.Constraint
+      self,
+      base_id: str,
+      element_definition_id: str,
+      constraint: datatypes_pb2.ElementDefinition.Constraint,
   ) -> structure_definition_pb2.StructureDefinition:
     """Returns a profile of an existing `StructureDefinition`.
 
@@ -2639,16 +3431,19 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase,
       if element_definition.id.value == element_definition_id:
         if element_definition_found:
           raise ValueError(
-              f'Found duplicate ElementDefinition: {element_definition_id!r}.')
+              f'Found duplicate ElementDefinition: {element_definition_id!r}.'
+          )
         element_definition_found = True
         element_definition_cpy.constraint.append(constraint)
       element_definitions.append(element_definition_cpy)
 
     if not element_definition_found:
-      raise ValueError(f'No ElementDefinition {element_definition_id!r} '
-                       f'in type {base_id!r}.')
+      raise ValueError(
+          f'No ElementDefinition {element_definition_id!r} in type {base_id!r}.'
+      )
     return self.build_profile(
-        id_=base_id, element_definitions=element_definitions)
+        id_=base_id, element_definitions=element_definitions
+    )
 
   def assert_constraint_is_equal_to_expression(
       self,
@@ -2657,10 +3452,10 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase,
       element_definition_id: str,
       constraint: datatypes_pb2.ElementDefinition.Constraint,
       expected_sql_expression: str,
-      expected_severity: codes_pb2.ConstraintSeverityCode.Value = codes_pb2
-      .ConstraintSeverityCode.ERROR,
+      expected_severity: codes_pb2.ConstraintSeverityCode.Value = codes_pb2.ConstraintSeverityCode.ERROR,
       supported_in_v2: bool = False,
-      expected_sql_expression_v2: Optional[str] = None) -> None:
+      expected_sql_expression_v2: Optional[str] = None,
+  ) -> None:
     """Asserts that `expected_sql_expression` is generated."""
 
     # Create profile-under-test
@@ -2674,7 +3469,8 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase,
     all_resources = [profile] + list(self.resources.values())
     error_reporter = fhir_errors.ListErrorReporter()
     profile_std_sql_encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
-        all_resources, error_reporter)
+        all_resources, error_reporter
+    )
     actual_bindings = profile_std_sql_encoder.encode(profile)
 
     expected_column_base = element_definition_id.lower().replace('.', '_')
@@ -2688,7 +3484,10 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase,
         fhir_path_expression=constraint.expression.value,
         fields_referenced_by_expression=(
             fhir_path_validator._fields_referenced_by_expression(
-                constraint.expression.value)))
+                constraint.expression.value
+            )
+        ),
+    )
 
     self.assertEmpty(error_reporter.errors)
     self.assertEmpty(error_reporter.warnings)
@@ -2703,9 +3502,13 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase,
 
     if supported_in_v2:
       error_reporter_v2 = fhir_errors.ListErrorReporter()
-      profile_std_sql_encoder_v2 = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
-          all_resources, primitive_handler.PrimitiveHandler(),
-          error_reporter_v2)
+      profile_std_sql_encoder_v2 = (
+          fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+              all_resources,
+              primitive_handler.PrimitiveHandler(),
+              error_reporter_v2,
+          )
+      )
       actual_bindings_v2 = profile_std_sql_encoder_v2.encode(profile)
       self.assertEmpty(error_reporter_v2.errors)
       self.assertEmpty(error_reporter_v2.warnings)
@@ -2717,14 +3520,16 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase,
             column_name=f'{expected_column_base}_key_1',
             sql_expression=expected_sql_expression_v2,
             severity=expected_severity,
-            type=validation_pb2.ValidationType
-            .VALIDATION_TYPE_FHIR_PATH_CONSTRAINT,
+            type=validation_pb2.ValidationType.VALIDATION_TYPE_FHIR_PATH_CONSTRAINT,
             element_path=element_definition_id,
             fhir_path_key=constraint.key.value,
             fhir_path_expression=constraint.expression.value,
             fields_referenced_by_expression=(
                 fhir_path_validator_v2._fields_referenced_by_expression(
-                    constraint.expression.value)))
+                    constraint.expression.value
+                )
+            ),
+        )
 
       self.assertListEqual(actual_bindings_v2, [expected_binding])
 
@@ -2742,34 +3547,47 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase,
       expected_column_name: str,
       description: str,
       expected_sql_expression: str,
-      expected_severity: codes_pb2.ConstraintSeverityCode.Value = codes_pb2
-      .ConstraintSeverityCode.ERROR,
+      expected_severity: codes_pb2.ConstraintSeverityCode.Value = codes_pb2.ConstraintSeverityCode.ERROR,
       fhir_path_key: Optional[str] = None,
       fhir_path_expression: Optional[str] = None,
       fields_referenced_by_expression: Optional[List[str]] = None,
-      supported_in_v2: bool = False) -> None:
+      supported_in_v2: bool = False,
+  ) -> None:
     """Asserts `expected_sql_expression` is generated for a required field."""
 
     resource = self.resources[
-        f'http://hl7.org/fhir/StructureDefinition/{base_id}']
+        f'http://hl7.org/fhir/StructureDefinition/{base_id}'
+    ]
 
     # Encode as Standard SQL expression.
     all_resources = list(self.resources.values())
     error_reporter = fhir_errors.ListErrorReporter()
     profile_std_sql_encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
-        all_resources, error_reporter)
+        all_resources, error_reporter
+    )
     actual_bindings = profile_std_sql_encoder.encode(resource)
 
     if supported_in_v2:
-      profile_std_sql_encoder_v2 = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
-          all_resources, primitive_handler.PrimitiveHandler(), error_reporter)
+      profile_std_sql_encoder_v2 = (
+          fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+              all_resources,
+              primitive_handler.PrimitiveHandler(),
+              error_reporter,
+          )
+      )
       actual_bindings_v2 = profile_std_sql_encoder_v2.encode(resource)
 
     # Replace optional params with defaults if needed.
-    fhir_path_key = fhir_path_key if fhir_path_key else (
-        f'{required_field}-cardinality-is-valid')
-    fhir_path_expression = fhir_path_expression if fhir_path_expression else (
-        f'{required_field}.exists()')
+    fhir_path_key = (
+        fhir_path_key
+        if fhir_path_key
+        else (f'{required_field}-cardinality-is-valid')
+    )
+    fhir_path_expression = (
+        fhir_path_expression
+        if fhir_path_expression
+        else (f'{required_field}.exists()')
+    )
 
     expected_binding = validation_pb2.SqlRequirement(
         column_name=expected_column_name,
@@ -2780,7 +3598,8 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase,
         description=description,
         fhir_path_key=fhir_path_key,
         fhir_path_expression=fhir_path_expression,
-        fields_referenced_by_expression=fields_referenced_by_expression)
+        fields_referenced_by_expression=fields_referenced_by_expression,
+    )
 
     self.assertEmpty(error_reporter.errors)
     self.assertEmpty(error_reporter.warnings)
@@ -2794,7 +3613,8 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase,
       base_id: str,
       element_definition_id: str,
       constraint: datatypes_pb2.ElementDefinition.Constraint,
-      supported_in_v2: bool = False) -> None:
+      supported_in_v2: bool = False,
+  ) -> None:
     """Asserts that a single error is raised."""
 
     # Create profile-under-test
@@ -2808,29 +3628,37 @@ class FhirProfileStandardSqlEncoderTestBase(parameterized.TestCase,
     all_resources = [profile] + list(self.resources.values())
     error_reporter = fhir_errors.ListErrorReporter()
     profile_std_sql_encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
-        all_resources, error_reporter)
+        all_resources, error_reporter
+    )
     _ = profile_std_sql_encoder.encode(profile)
     self.assertLen(error_reporter.errors, 1)
     self.assertEmpty(error_reporter.warnings)
 
     if supported_in_v2:
       error_reporter = fhir_errors.ListErrorReporter()
-      profile_std_sql_encoder_v2 = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
-          all_resources, primitive_handler.PrimitiveHandler(), error_reporter)
+      profile_std_sql_encoder_v2 = (
+          fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+              all_resources,
+              primitive_handler.PrimitiveHandler(),
+              error_reporter,
+          )
+      )
       _ = profile_std_sql_encoder_v2.encode(profile)
       self.assertLen(error_reporter.errors, 1)
       self.assertEmpty(error_reporter.warnings)
 
 
 class FhirProfileStandardSqlEncoderConfigurationTest(
-    FhirProfileStandardSqlEncoderTestBase):
+    FhirProfileStandardSqlEncoderTestBase
+):
   """Tests various configurations and behaviors of the profile encoder."""
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withAddValueSetBindingsOption',
           options=fhir_path.SqlGenerationOptions(add_value_set_bindings=True),
-          expected_sql=textwrap.dedent("""\
+          expected_sql=textwrap.dedent(
+              """\
       (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
       FROM UNNEST(ARRAY(SELECT memberof_
       FROM (SELECT memberof_
@@ -2842,14 +3670,19 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
       vs.valueseturi='http://value.set/id'
       AND vs.code=bar.code
       )]))) AS memberof_)
-      WHERE memberof_ IS NOT NULL)) AS result_)""")),
+      WHERE memberof_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withValueSetCodesTableOption',
           options=fhir_path.SqlGenerationOptions(
               add_value_set_bindings=True,
               value_set_codes_table=bigquery.TableReference(
-                  bigquery.DatasetReference('project', 'dataset'), 'table')),
-          expected_sql=textwrap.dedent("""\
+                  bigquery.DatasetReference('project', 'dataset'), 'table'
+              ),
+          ),
+          expected_sql=textwrap.dedent(
+              """\
       (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
       FROM UNNEST(ARRAY(SELECT memberof_
       FROM (SELECT memberof_
@@ -2861,43 +3694,55 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
       vs.valueseturi='http://value.set/id'
       AND vs.code=bar.code
       )]))) AS memberof_)
-      WHERE memberof_ IS NOT NULL)) AS result_)""")),
+      WHERE memberof_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
   )
   def testEncode_withValueSetBindings_producesValueSetConstraint(
-      self, options, expected_sql):
+      self, options, expected_sql
+  ):
     foo_root = sdefs.build_element_definition(
-        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     foo_bar_element_definition = sdefs.build_element_definition(
         id_='Foo.bar',
         type_codes=['Bar'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     foo = sdefs.build_resource_definition(
-        id_='Foo', element_definitions=[foo_root, foo_bar_element_definition])
+        id_='Foo', element_definitions=[foo_root, foo_bar_element_definition]
+    )
 
     bar_root = sdefs.build_element_definition(
-        id_='Bar', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Bar', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     bar_code_element_definition = sdefs.build_element_definition(
         id_='Bar.code',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     bar_code_element_definition.binding.strength.value = 1
     bar_code_element_definition.binding.value_set.value = 'http://value.set/id'
     bar = sdefs.build_resource_definition(
-        id_='Bar', element_definitions=[bar_root, bar_code_element_definition])
+        id_='Bar', element_definitions=[bar_root, bar_code_element_definition]
+    )
 
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder([foo, bar],
-                                                                error_reporter,
-                                                                options=options)
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
+        [foo, bar], error_reporter, options=options
+    )
     actual_bindings = encoder.encode(foo)
     self.assertEmpty(error_reporter.warnings)
     self.assertEmpty(error_reporter.errors)
     self.assertLen(actual_bindings, 1)
     self.assertEqual(actual_bindings[0].element_path, 'Foo.bar.code')
-    self.assertEqual(actual_bindings[0].fhir_path_expression,
-                     "code.memberOf('http://value.set/id')")
-    self.assertEqual(actual_bindings[0].fields_referenced_by_expression,
-                     ['code'])
+    self.assertEqual(
+        actual_bindings[0].fhir_path_expression,
+        "code.memberOf('http://value.set/id')",
+    )
+    self.assertEqual(
+        actual_bindings[0].fields_referenced_by_expression, ['code']
+    )
     self.assertEqual(actual_bindings[0].sql_expression, expected_sql)
 
     error_reporter_v2 = fhir_errors.ListErrorReporter()
@@ -2905,33 +3750,40 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         [foo, bar],
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=options)
+        options=options,
+    )
     actual_bindings_v2 = encoder_v2.encode(foo)
     self.assertEmpty(error_reporter_v2.warnings)
     self.assertEmpty(error_reporter_v2.errors)
     self.assertLen(actual_bindings_v2, 1)
     self.assertEqual(actual_bindings_v2[0].element_path, 'Foo.bar.code')
-    self.assertEqual(actual_bindings_v2[0].fhir_path_expression,
-                     "code.memberOf('http://value.set/id')")
-    self.assertEqual(actual_bindings_v2[0].fields_referenced_by_expression,
-                     ['code'])
+    self.assertEqual(
+        actual_bindings_v2[0].fhir_path_expression,
+        "code.memberOf('http://value.set/id')",
+    )
+    self.assertEqual(
+        actual_bindings_v2[0].fields_referenced_by_expression, ['code']
+    )
     self.assertEqual(actual_bindings_v2[0].sql_expression, expected_sql)
 
   def testSkipKeys_withValidResource_producesNoConstraints(self):
     # Setup resource with a defined constraint
     constraint = self.build_constraint(
-        fhir_path_expression='false', key='always-fail-constraint-key')
+        fhir_path_expression='false', key='always-fail-constraint-key'
+    )
     foo_root = sdefs.build_element_definition(
         id_='Foo',
         type_codes=None,
         cardinality=sdefs.Cardinality(0, '1'),
-        constraints=[constraint])
+        constraints=[constraint],
+    )
     profile = self.build_profile(id_='Foo', element_definitions=[foo_root])
 
     # Standup encoder; skip 'always-fail-constraint-key'
     error_reporter = fhir_errors.ListErrorReporter()
     options = fhir_path.SqlGenerationOptions(
-        skip_keys=set(['always-fail-constraint-key']))
+        skip_keys=set(['always-fail-constraint-key'])
+    )
     encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         [profile],
         error_reporter,
@@ -2956,18 +3808,21 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
   def testSkipKeys_withValidResource_producesNoConstraints_v2(self):
     # Setup resource with a defined constraint
     constraint = self.build_constraint(
-        fhir_path_expression='false', key='always-fail-constraint-key')
+        fhir_path_expression='false', key='always-fail-constraint-key'
+    )
     foo_root = sdefs.build_element_definition(
         id_='Foo',
         type_codes=None,
         cardinality=sdefs.Cardinality(0, '1'),
-        constraints=[constraint])
+        constraints=[constraint],
+    )
     profile = self.build_profile(id_='Foo', element_definitions=[foo_root])
 
     # Standup encoder; skip 'always-fail-constraint-key'
     error_reporter = fhir_errors.ListErrorReporter()
     options = fhir_path.SqlGenerationOptions(
-        skip_keys=set(['always-fail-constraint-key']))
+        skip_keys=set(['always-fail-constraint-key'])
+    )
     encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
         [profile],
         primitive_handler.PrimitiveHandler(),
@@ -2985,52 +3840,65 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         id_='Bar',
         type_codes=None,
         cardinality=sdefs.Cardinality(0, '1'),
-        constraints=[constraint])
+        constraints=[constraint],
+    )
     bar = sdefs.build_resource_definition(
-        id_='Bar', element_definitions=[bar_root])
+        id_='Bar', element_definitions=[bar_root]
+    )
 
     # Setup resource with a defined constraint
     foo_root = sdefs.build_element_definition(
-        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     bar_soft_delete_slice = sdefs.build_element_definition(
         id_='Foo.bar:softDelete',
         path='Foo.bar',
         type_codes=['Bar'],
-        cardinality=sdefs.Cardinality(0, '*'))
+        cardinality=sdefs.Cardinality(0, '*'),
+    )
     foo = sdefs.build_resource_definition(
-        id_='Foo', element_definitions=[foo_root, bar_soft_delete_slice])
+        id_='Foo', element_definitions=[foo_root, bar_soft_delete_slice]
+    )
 
     # Standup encoder
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder([foo, bar],
-                                                                error_reporter)
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
+        [foo, bar], error_reporter
+    )
 
     actual_bindings = encoder.encode(foo)
     self.assertEmpty(error_reporter.warnings)
-    self.assertEqual(error_reporter.errors, [
-        'Conversion Error: Foo.bar; The given element is a slice that is ' +
-        'not on an extension. This is not yet supported.'
-    ])
+    self.assertEqual(
+        error_reporter.errors,
+        [
+            'Conversion Error: Foo.bar; The given element is a slice that is '
+            + 'not on an extension. This is not yet supported.'
+        ],
+    )
     self.assertEmpty(actual_bindings)
 
   def testSkipSlice_withSliceOnExtension_andValidResource_isNotSkipped(self):
     # Set up resource with a defined constraint
     constraint = self.build_constraint(fhir_path_expression='false')
     foo_root = sdefs.build_element_definition(
-        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     extension_slice = sdefs.build_element_definition(
         id_='Foo.extension:softDelete',
         path='Foo.extension',
         type_codes=['Extension'],
         cardinality=sdefs.Cardinality(0, '*'),
-        constraints=[constraint])
+        constraints=[constraint],
+    )
     foo = sdefs.build_resource_definition(
-        id_='Foo', element_definitions=[foo_root, extension_slice])
+        id_='Foo', element_definitions=[foo_root, extension_slice]
+    )
 
     # Stand up encoder
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder([foo],
-                                                                error_reporter)
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
+        [foo], error_reporter
+    )
 
     actual_bindings = encoder.encode(foo)
     self.assertEmpty(error_reporter.warnings)
@@ -3038,20 +3906,25 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertLen(actual_bindings, 1)
 
   def testEncode_withDuplicateSqlRequirement_createsConstraintAndLogsError(
-      self):
+      self,
+  ):
     first_constraint = self.build_constraint(
-        fhir_path_expression='false', key='some-key')
+        fhir_path_expression='false', key='some-key'
+    )
     second_constraint = self.build_constraint(
-        fhir_path_expression='false', key='some-key')
+        fhir_path_expression='false', key='some-key'
+    )
 
     # Setup resource with a defined constraint
     foo_root = sdefs.build_element_definition(
         id_='Foo',
         type_codes=None,
         cardinality=sdefs.Cardinality(1, '1'),
-        constraints=[first_constraint, second_constraint])
+        constraints=[first_constraint, second_constraint],
+    )
     foo = sdefs.build_resource_definition(
-        id_='Foo', element_definitions=[foo_root])
+        id_='Foo', element_definitions=[foo_root]
+    )
 
     # Standup encoder
     error_reporter = fhir_errors.ListErrorReporter()
@@ -3084,18 +3957,22 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
   def testEncode_withReplacement_replacesConstraint(self):
     first_constraint = self.build_constraint(
-        fhir_path_expression='1 + 1', key='some-key')
+        fhir_path_expression='1 + 1', key='some-key'
+    )
     second_constraint = self.build_constraint(
-        fhir_path_expression='2 + 3', key='other-key')
+        fhir_path_expression='2 + 3', key='other-key'
+    )
 
     # Setup resource with a defined constraint
     foo_root = sdefs.build_element_definition(
         id_='Foo',
         type_codes=None,
         cardinality=sdefs.Cardinality(1, '1'),
-        constraints=[first_constraint, second_constraint])
+        constraints=[first_constraint, second_constraint],
+    )
     foo = sdefs.build_resource_definition(
-        id_='Foo', element_definitions=[foo_root])
+        id_='Foo', element_definitions=[foo_root]
+    )
 
     # Standup encoder
     error_reporter = fhir_errors.ListErrorReporter()
@@ -3104,12 +3981,13 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     _ = replace_list.replacement.add(
         element_path='Foo',
         expression_to_replace='1 + 1',
-        replacement_expression='4 + 5')
+        replacement_expression='4 + 5',
+    )
 
     options = fhir_path.SqlGenerationOptions(expr_replace_list=replace_list)
-    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder([foo],
-                                                                error_reporter,
-                                                                options=options)
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
+        [foo], error_reporter, options=options
+    )
 
     # Ensure that we only produce a single Standard SQL requirement, and that
     # an error is logged since we were given a duplicate constraint.
@@ -3124,7 +4002,8 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         [foo],
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=options)
+        options=options,
+    )
 
     actual_bindings = encoder.encode(foo)
     self.assertEmpty(error_reporter.warnings)
@@ -3135,31 +4014,38 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
   def testEncode_withReplacement_andNoElementPath_replacesConstraint(self):
     first_constraint = self.build_constraint(
-        fhir_path_expression='1 + 1', key='some-key')
+        fhir_path_expression='1 + 1', key='some-key'
+    )
     second_constraint = self.build_constraint(
-        fhir_path_expression='1 + 1', key='other-key')
+        fhir_path_expression='1 + 1', key='other-key'
+    )
 
     # Setup resources with a defined constraint
     foo_root = sdefs.build_element_definition(
         id_='Foo',
         type_codes=None,
         cardinality=sdefs.Cardinality(1, '1'),
-        constraints=[first_constraint])
+        constraints=[first_constraint],
+    )
     bar = sdefs.build_element_definition(
         id_='Foo.bar',
         type_codes=['Bar'],
         cardinality=sdefs.Cardinality(0, '*'),
-        constraints=[second_constraint])
+        constraints=[second_constraint],
+    )
     foo = sdefs.build_resource_definition(
-        id_='Foo', element_definitions=[foo_root, bar])
+        id_='Foo', element_definitions=[foo_root, bar]
+    )
 
     # Bar resource.
     bar_root = sdefs.build_element_definition(
         id_='Bar',
         type_codes=None,
-        cardinality=sdefs.Cardinality(min=1, max='1'))
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
     bar = sdefs.build_resource_definition(
-        id_='Bar', element_definitions=[bar_root])
+        id_='Bar', element_definitions=[bar_root]
+    )
 
     # Standup encoder
     error_reporter = fhir_errors.ListErrorReporter()
@@ -3168,12 +4054,13 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     _ = replace_list.replacement.add(
         element_path='',
         expression_to_replace='1 + 1',
-        replacement_expression='4 + 5')
+        replacement_expression='4 + 5',
+    )
 
     options = fhir_path.SqlGenerationOptions(expr_replace_list=replace_list)
-    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder([foo, bar],
-                                                                error_reporter,
-                                                                options=options)
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
+        [foo, bar], error_reporter, options=options
+    )
 
     # Ensure that we only produce a single Standard SQL requirement, and that
     # an error is logged since we were given a duplicate constraint.
@@ -3190,7 +4077,8 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         [foo, bar],
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=options)
+        options=options,
+    )
 
     actual_bindings = encoder.encode(foo)
     self.assertEmpty(error_reporter.warnings)
@@ -3207,30 +4095,37 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
   def testEncode_withPrimitiveStructureDefinition_producesNoConstraints(self):
     # Setup primitive structure definition with 'always-fail-constraint-key'.
     constraint = self.build_constraint(
-        fhir_path_expression='false', key='always-fail-constraint-key')
+        fhir_path_expression='false', key='always-fail-constraint-key'
+    )
     string_root = sdefs.build_element_definition(
         id_='string',
         type_codes=None,
         cardinality=sdefs.Cardinality(0, '1'),
-        constraints=[constraint])
+        constraints=[constraint],
+    )
     string = self.build_profile(id_='string', element_definitions=[string_root])
 
     # Setup resource with a defined constraint
     constraint = self.build_constraint(
-        fhir_path_expression='false', key='always-fail-constraint-key')
+        fhir_path_expression='false', key='always-fail-constraint-key'
+    )
     foo_root = sdefs.build_element_definition(
-        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     foo_name = sdefs.build_element_definition(
         id_='Foo.name',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     profile = self.build_profile(
-        id_='Foo', element_definitions=[foo_root, foo_name])
+        id_='Foo', element_definitions=[foo_root, foo_name]
+    )
 
     # Standup encoder; adding profile and string structure definitions.
     error_reporter = fhir_errors.ListErrorReporter()
     options = fhir_path.SqlGenerationOptions(
-        skip_keys=set(['always-fail-constraint-key']))
+        skip_keys=set(['always-fail-constraint-key'])
+    )
     encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         [profile, string],
         error_reporter,
@@ -3258,7 +4153,8 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
 
 class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
-    FhirProfileStandardSqlEncoderTestBase):
+    FhirProfileStandardSqlEncoderTestBase
+):
   """Tests Standard SQL encoding over a cyclic FHIR resource graph.
 
   The suite stands-up a list of synthetic resources for profiling and
@@ -3284,49 +4180,58 @@ class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
     simple_cycle_root_element = sdefs.build_element_definition(
         id_='SimpleCycle',
         type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     cycle_element_definition = sdefs.build_element_definition(
         id_='SimpleCycle.cycle',
         type_codes=['SimpleCycle'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     simple_cycle = sdefs.build_resource_definition(
         id_='SimpleCycle',
         element_definitions=[
             simple_cycle_root_element,
             cycle_element_definition,
-        ])
+        ],
+    )
 
     # CycleA resource
     cycle_a_root_element = sdefs.build_element_definition(
         id_='CycleA',
         type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     cycle_b_element_definition = sdefs.build_element_definition(
         id_='CycleA.b',
         type_codes=['CycleB'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     cycle_a = sdefs.build_resource_definition(
         id_='CycleA',
         element_definitions=[
             cycle_a_root_element,
             cycle_b_element_definition,
-        ])
+        ],
+    )
 
     # CycleB resource
     cycle_b_root_element = sdefs.build_element_definition(
         id_='CycleB',
         type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     cycle_a_element_definition = sdefs.build_element_definition(
         id_='CycleB.a',
         type_codes=['CycleA'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     cycle_b = sdefs.build_resource_definition(
         id_='CycleB',
         element_definitions=[
             cycle_b_root_element,
             cycle_a_element_definition,
-        ])
+        ],
+    )
 
     all_resources = [simple_cycle, cycle_a, cycle_b]
     cls.resources = {resource.url.value: resource for resource in all_resources}
@@ -3338,7 +4243,8 @@ class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
         base_id='SimpleCycle',
         element_definition_id='SimpleCycle.cycle',
         constraint=constraint,
-        supported_in_v2=True)
+        supported_in_v2=True,
+    )
 
   def testEncodeProfile_withCycle_reportsCycleError(self):
     # Simple cycle between the `ElementDefinition` of our profile, whose type
@@ -3349,7 +4255,8 @@ class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
         base_id='CycleA',
         element_definition_id='CycleA.b',
         constraint=constraint,
-        supported_in_v2=True)
+        supported_in_v2=True,
+    )
 
 
 class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
@@ -3410,63 +4317,79 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
             sdefs.build_element_definition(
                 id_='integer',
                 type_codes=None,
-                cardinality=sdefs.Cardinality(min=0, max='1'))
-        ])
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            )
+        ],
+    )
     float_datatype = sdefs.build_resource_definition(
         id_='float',
         element_definitions=[
             sdefs.build_element_definition(
                 id_='float',
                 type_codes=None,
-                cardinality=sdefs.Cardinality(min=0, max='1'))
-        ])
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            )
+        ],
+    )
     string_datatype = sdefs.build_resource_definition(
         id_='string',
         element_definitions=[
             sdefs.build_element_definition(
                 id_='string',
                 type_codes=None,
-                cardinality=sdefs.Cardinality(min=0, max='1'))
-        ])
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            )
+        ],
+    )
     backbone_element = sdefs.build_resource_definition(
         id_='BackboneElement',
         element_definitions=[
             sdefs.build_element_definition(
                 id_='BackboneElement',
                 type_codes=None,
-                cardinality=sdefs.Cardinality(min=0, max='1'))
-        ])
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            )
+        ],
+    )
 
     # Position resource
     position_root = sdefs.build_element_definition(
-        id_='Position', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Position', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     position_lat = sdefs.build_element_definition(
         id_='Position.latitude',
         type_codes=['float'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     position_lon = sdefs.build_element_definition(
         id_='Position.longitude',
         type_codes=['float'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     position = sdefs.build_resource_definition(
         id_='Position',
-        element_definitions=[position_root, position_lat, position_lon])
+        element_definitions=[position_root, position_lat, position_lon],
+    )
 
     # Location resource
     location_root = sdefs.build_element_definition(
-        id_='Location', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Location', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     location_position = sdefs.build_element_definition(
         id_='Location.position',
         type_codes=['Position'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     location_name = sdefs.build_element_definition(
         id_='Location.name',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     location_address = sdefs.build_element_definition(
         id_='Location.address',
         type_codes=['Address'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     location_ids = sdefs.build_element_definition(
         id_='Location.ids',
         type_codes=['string'],
@@ -3480,82 +4403,100 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
             location_name,
             location_address,
             location_ids,
-        ])
+        ],
+    )
 
     # Hospital info resource
     hospital_info_root = sdefs.build_element_definition(
         id_='HospitalInfo',
         type_codes=None,
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     hospital_info_name = sdefs.build_element_definition(
         id_='HospitalInfo.name',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     hospital_info_locations = sdefs.build_element_definition(
         id_='HospitalInfo.locations',
         type_codes=['Location'],
-        cardinality=sdefs.Cardinality(0, '*'))
+        cardinality=sdefs.Cardinality(0, '*'),
+    )
     hospital_info = sdefs.build_resource_definition(
         id_='HospitalInfo',
         element_definitions=[
             hospital_info_root,
             hospital_info_name,
             hospital_info_locations,
-        ])
+        ],
+    )
 
     # Hospital resource
     hospital_root = sdefs.build_element_definition(
-        id_='Hospital', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Hospital', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     hospital_info_ = sdefs.build_element_definition(
         id_='Hospital.info',
         type_codes=['HospitalInfo'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     hospital_patients = sdefs.build_element_definition(
         id_='Hospital.patients',
         type_codes=['Patient'],
-        cardinality=sdefs.Cardinality(0, '*'))
+        cardinality=sdefs.Cardinality(0, '*'),
+    )
     hospital = sdefs.build_resource_definition(
         id_='Hospital',
-        element_definitions=[hospital_root, hospital_info_, hospital_patients])
+        element_definitions=[hospital_root, hospital_info_, hospital_patients],
+    )
 
     # HumanName resource
     human_name_root = sdefs.build_element_definition(
-        id_='HumanName', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='HumanName', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     human_name_first = sdefs.build_element_definition(
         id_='HumanName.first',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     human_name_last = sdefs.build_element_definition(
         id_='HumanName.last',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     human_name = sdefs.build_resource_definition(
         id_='HumanName',
         element_definitions=[
             human_name_root,
             human_name_first,
             human_name_last,
-        ])
+        ],
+    )
 
     # Patient resource
     patient_root = sdefs.build_element_definition(
-        id_='Patient', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Patient', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     patient_name = sdefs.build_element_definition(
         id_='Patient.name',
         type_codes=['HumanName'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     patient_addresses = sdefs.build_element_definition(
         id_='Patient.addresses',
         type_codes=['Address'],
-        cardinality=sdefs.Cardinality(0, '*'))
+        cardinality=sdefs.Cardinality(0, '*'),
+    )
     patient_contact = sdefs.build_element_definition(
         id_='Patient.contact',
         type_codes=['BackboneElement'],
-        cardinality=sdefs.Cardinality(0, '*'))
+        cardinality=sdefs.Cardinality(0, '*'),
+    )
     patient_contact_name = sdefs.build_element_definition(
         id_='Patient.contact.name',
         type_codes=['HumanName'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     patient = sdefs.build_resource_definition(
         id_='Patient',
         element_definitions=[
@@ -3564,23 +4505,28 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
             patient_addresses,
             patient_contact,
             patient_contact_name,
-        ])
+        ],
+    )
 
     # Address resource
     address_root = sdefs.build_element_definition(
-        id_='Address', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Address', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     address_city = sdefs.build_element_definition(
         id_='Address.city',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     address_state = sdefs.build_element_definition(
         id_='Address.state',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     address_zip = sdefs.build_element_definition(
         id_='Address.zip',
         type_codes=['integer'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     address = sdefs.build_resource_definition(
         id_='Address',
         element_definitions=[
@@ -3588,7 +4534,8 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
             address_city,
             address_state,
             address_zip,
-        ])
+        ],
+    )
 
     all_resources = [
         # Mock core types
@@ -3596,7 +4543,6 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
         float_datatype,
         string_datatype,
         backbone_element,
-
         # Resources
         address,
         hospital,
@@ -3611,17 +4557,20 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
   def testEncode_withInvalidUninitializedSeverity_logsError(self):
     constraint = self.build_constraint(
         fhir_path_expression='true',
-        severity=codes_pb2.ConstraintSeverityCode.INVALID_UNINITIALIZED)
+        severity=codes_pb2.ConstraintSeverityCode.INVALID_UNINITIALIZED,
+    )
     self.assert_raises_fhir_path_encoding_error(
         base_id='Hospital',
         element_definition_id='Hospital',
-        constraint=constraint)
+        constraint=constraint,
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withArrayScalarMemberExists',
           fhir_path_expression='patients.name.exists()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
@@ -3629,11 +4578,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_.name
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE name IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)) AS result_)""")),
+          WHERE exists_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withArrayScalarMemberNotExists',
           fhir_path_expression='patients.name.exists().not()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT not_
           FROM (SELECT NOT(
@@ -3642,11 +4594,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_.name
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE name IS NOT NULL)) AS not_)
-          WHERE not_ IS NOT NULL)) AS result_)""")),
+          WHERE not_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarArrayMemberExists',
           fhir_path_expression='info.locations.exists()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
@@ -3655,11 +4610,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT info),
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
           WHERE locations_element_ IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)) AS result_)""")),
+          WHERE exists_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarArrayMemberExistsNot',
           fhir_path_expression='info.locations.exists().not()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT not_
           FROM (SELECT NOT(
@@ -3669,11 +4627,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT info),
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
           WHERE locations_element_ IS NOT NULL)) AS not_)
-          WHERE not_ IS NOT NULL)) AS result_)""")),
+          WHERE not_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarArrayScalarMemberExists',
           fhir_path_expression='info.locations.address.exists()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
@@ -3682,11 +4643,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT info),
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
           WHERE address IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)) AS result_)""")),
+          WHERE exists_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarArrayScalarMemberExistsNot',
           fhir_path_expression='info.locations.address.exists().not()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT not_
           FROM (SELECT NOT(
@@ -3696,11 +4660,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT info),
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
           WHERE address IS NOT NULL)) AS not_)
-          WHERE not_ IS NOT NULL)) AS result_)""")),
+          WHERE not_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarArrayScalarScalarMemberExists',
           fhir_path_expression='info.locations.address.city.exists()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
@@ -3709,11 +4676,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT info),
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
           WHERE city IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)) AS result_)""")),
+          WHERE exists_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarArrayScalarScalarMemberExistsNot',
           fhir_path_expression='info.locations.address.city.exists().not()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT not_
           FROM (SELECT NOT(
@@ -3723,11 +4693,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT info),
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
           WHERE city IS NOT NULL)) AS not_)
-          WHERE not_ IS NOT NULL)) AS result_)""")),
+          WHERE not_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarArrayArrayMemberExists',
           fhir_path_expression='info.locations.ids.exists()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
@@ -3738,11 +4711,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset),
           UNNEST(locations_element_.ids) AS ids_element_ WITH OFFSET AS element_offset)
           WHERE ids_element_ IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)) AS result_)""")),
+          WHERE exists_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withScalarArrayArrayMemberExistsNot',
           fhir_path_expression='info.locations.ids.exists().not()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT not_
           FROM (SELECT NOT(
@@ -3754,11 +4730,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset),
           UNNEST(locations_element_.ids) AS ids_element_ WITH OFFSET AS element_offset)
           WHERE ids_element_ IS NOT NULL)) AS not_)
-          WHERE not_ IS NOT NULL)) AS result_)""")),
+          WHERE not_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withArrayArrayMemberExists',
           fhir_path_expression='patients.addresses.exists()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
@@ -3768,11 +4747,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
           WHERE addresses_element_ IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)) AS result_)""")),
+          WHERE exists_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withArrayArrayMemberExistsNot',
           fhir_path_expression='patients.addresses.exists().not()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT not_
           FROM (SELECT NOT(
@@ -3783,11 +4765,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
           WHERE addresses_element_ IS NOT NULL)) AS not_)
-          WHERE not_ IS NOT NULL)) AS result_)""")),
+          WHERE not_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withArrayArrayScalarMemberExists',
           fhir_path_expression='patients.addresses.city.exists()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
@@ -3797,11 +4782,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
           WHERE city IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)) AS result_)""")),
+          WHERE exists_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withArrayArrayScalarMemberExistsNot',
           fhir_path_expression='patients.addresses.city.exists().not()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT not_
           FROM (SELECT NOT(
@@ -3812,12 +4800,17 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
           WHERE city IS NOT NULL)) AS not_)
-          WHERE not_ IS NOT NULL)) AS result_)""")),
+          WHERE not_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withArrayArrayScalarMemberExistsAnd',
-          fhir_path_expression=('patients.addresses.city.exists() and '
-                                'patients.addresses.state.exists()'),
-          expected_sql_expression=textwrap.dedent("""\
+          fhir_path_expression=(
+              'patients.addresses.city.exists() and '
+              'patients.addresses.state.exists()'
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT logic_
           FROM (SELECT (EXISTS(
@@ -3833,12 +4826,16 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
           WHERE state IS NOT NULL)) AS logic_)
-          WHERE logic_ IS NOT NULL)) AS result_)""")),
+          WHERE logic_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withHospitalCityEqualsPatientCity',
           fhir_path_expression=(
-              'info.locations.address.city = patients.addresses.city'),
-          expected_sql_expression=textwrap.dedent("""\
+              'info.locations.address.city = patients.addresses.city'
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT eq_
           FROM (SELECT NOT EXISTS(
@@ -3854,12 +4851,16 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)) AS rhs_) AS eq_)
-          WHERE eq_ IS NOT NULL)) AS result_)""")),
+          WHERE eq_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withHospitalCityEquivalentToPatientCity',
           fhir_path_expression=(
-              'info.locations.address.city ~ patients.addresses.city'),
-          expected_sql_expression=textwrap.dedent("""\
+              'info.locations.address.city ~ patients.addresses.city'
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT eq_
           FROM (SELECT NOT EXISTS(
@@ -3875,12 +4876,16 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)) AS rhs_) AS eq_)
-          WHERE eq_ IS NOT NULL)) AS result_)""")),
+          WHERE eq_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withHospitalCityNotEqualsPatientCity',
           fhir_path_expression=(
-              'info.locations.address.city != patients.addresses.city'),
-          expected_sql_expression=textwrap.dedent("""\
+              'info.locations.address.city != patients.addresses.city'
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT eq_
           FROM (SELECT EXISTS(
@@ -3896,12 +4901,16 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)) AS rhs_) AS eq_)
-          WHERE eq_ IS NOT NULL)) AS result_)""")),
+          WHERE eq_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withHospitalCityNotEquivalentToPatientCity',
           fhir_path_expression=(
-              'info.locations.address.city !~ patients.addresses.city'),
-          expected_sql_expression=textwrap.dedent("""\
+              'info.locations.address.city !~ patients.addresses.city'
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT eq_
           FROM (SELECT EXISTS(
@@ -3917,24 +4926,30 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)) AS rhs_) AS eq_)
-          WHERE eq_ IS NOT NULL)) AS result_)""")),
+          WHERE eq_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
   )
   def testEncode_withRootFhirPathConstraint_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     constraint = self.build_constraint(
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression
+    )
     self.assert_constraint_is_equal_to_expression(
         base_id='Hospital',
         element_definition_id='Hospital',
         constraint=constraint,
         expected_sql_expression=expected_sql_expression,
-        supported_in_v2=True)
+        supported_in_v2=True,
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withScalarMemberAccess',
           fhir_path_expression='name',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT name
           FROM (SELECT name)
@@ -3944,11 +4959,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)""")),
+          UNNEST(subquery_) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withArrayScalarAccess',
           fhir_path_expression='addresses.city',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT city
           FROM (SELECT addresses_element_.city
@@ -3959,11 +4977,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)""")),
+          UNNEST(subquery_) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withLiteralUnionArrayScalarMember',
           fhir_path_expression="'Hyrule' | addresses.state",
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT union_
           FROM (SELECT lhs_.literal_ AS union_
@@ -3978,11 +4999,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)""")),
+          UNNEST(subquery_) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withArrayArrayScalarMemberExistsNot',
           fhir_path_expression='addresses.city.exists().not()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT not_
           FROM (SELECT NOT(
@@ -3997,12 +5021,16 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)""")),
+          UNNEST(subquery_) AS result_)"""
+          ),
+      ),
       dict(
           testcase_name='_withArrayArrayScalarMemberExistsAndLogical',
           fhir_path_expression=(
-              'addresses.city.exists() and addresses.state.exists()'),
-          expected_sql_expression=textwrap.dedent("""\
+              'addresses.city.exists() and addresses.state.exists()'
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT logic_
           FROM (SELECT (EXISTS(
@@ -4020,10 +5048,13 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT patients_element_
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)""")),
+          UNNEST(subquery_) AS result_)"""
+          ),
+      ),
   )
   def testEncode_withNonRootFhirPathConstraint_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str):
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     """Tests that a "transitive constraint" is properly encoded.
 
     A "transitive constraint" is a constraint defined relative to a resource
@@ -4034,19 +5065,22 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
       expected_sql_expression: The expected generated Standard SQL.
     """
     constraint = self.build_constraint(
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression
+    )
     self.assert_constraint_is_equal_to_expression(
         base_id='Hospital',
         element_definition_id='Hospital.patients',
         constraint=constraint,
         expected_sql_expression=expected_sql_expression,
-        supported_in_v2=True)
+        supported_in_v2=True,
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withRepeatedBackboneElementMemberExists',
           fhir_path_expression='first.exists()',
-          expected_sql_expression_v1=textwrap.dedent("""\
+          expected_sql_expression_v1=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT exists_
           FROM (SELECT first IS NOT NULL AS exists_)
@@ -4056,8 +5090,10 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT contact_element_.name
           FROM UNNEST(contact) AS contact_element_ WITH OFFSET AS element_offset)
           WHERE name IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)"""),
-          expected_sql_expression_v2=textwrap.dedent("""\
+          UNNEST(subquery_) AS result_)"""
+          ),
+          expected_sql_expression_v2=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
@@ -4070,10 +5106,16 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM (SELECT contact_element_.name
           FROM UNNEST(contact) AS contact_element_ WITH OFFSET AS element_offset)
           WHERE name IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)""")))
+          UNNEST(subquery_) AS result_)"""
+          ),
+      )
+  )
   def testEncode_withBackboneElementConstraint_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression_v1: str,
-      expected_sql_expression_v2: str):
+      self,
+      fhir_path_expression: str,
+      expected_sql_expression_v1: str,
+      expected_sql_expression_v2: str,
+  ):
     """Tests encoding of a "transitive constraint" defined on a BackboneElement.
 
     A "transitive constraint" is a constraint defined relative to a resource
@@ -4085,20 +5127,23 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
       expected_sql_expression_v2: The expected generated Standard SQL from v2.
     """
     constraint = self.build_constraint(
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression
+    )
     self.assert_constraint_is_equal_to_expression(
         base_id='Patient',
         element_definition_id='Patient.contact.name',
         constraint=constraint,
         expected_sql_expression=expected_sql_expression_v1,
         supported_in_v2=True,
-        expected_sql_expression_v2=expected_sql_expression_v2)
+        expected_sql_expression_v2=expected_sql_expression_v2,
+    )
 
 
 # TODO(b/201111782): Add support in fhir_path_test.py for checking if we can
 # encode more than one required field at a time..
 class FhirProfileStandardSqlEncoderTestWithRequiredFields(
-    FhirProfileStandardSqlEncoderTestBase):
+    FhirProfileStandardSqlEncoderTestBase
+):
   """A suite of tests against a simple resource with a required field.
 
   For each test, the suite stands-up a list of synthetic resources for
@@ -4145,102 +5190,129 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
             sdefs.build_element_definition(
                 id_='string',
                 type_codes=None,
-                cardinality=sdefs.Cardinality(min=0, max='1'))
-        ])
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            )
+        ],
+    )
     backbone_element = sdefs.build_resource_definition(
         id_='BackboneElement',
         element_definitions=[
             sdefs.build_element_definition(
                 id_='BackboneElement',
                 type_codes=None,
-                cardinality=sdefs.Cardinality(min=0, max='1'))
-        ])
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            )
+        ],
+    )
 
     # Foo resource.
     foo_root = sdefs.build_element_definition(
-        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     foo_id = sdefs.build_element_definition(
         id_='Foo.id',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(1, '1'))
+        cardinality=sdefs.Cardinality(1, '1'),
+    )
     foo = sdefs.build_resource_definition(
-        id_='Foo', element_definitions=[foo_root, foo_id])
+        id_='Foo', element_definitions=[foo_root, foo_id]
+    )
 
     # Deep resource.
     deep_root = sdefs.build_element_definition(
-        id_='Deep', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Deep', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     deep_deeper = sdefs.build_element_definition(
         id_='Deep.deeper',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(1, '1'))
+        cardinality=sdefs.Cardinality(1, '1'),
+    )
     deep = sdefs.build_resource_definition(
-        id_='Deep', element_definitions=[deep_root, deep_deeper])
+        id_='Deep', element_definitions=[deep_root, deep_deeper]
+    )
 
     # Bar resource.
     bar_root = sdefs.build_element_definition(
-        id_='Bar', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Bar', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     bar_deep = sdefs.build_element_definition(
         id_='Bar.deep',
         type_codes=['Deep'],
-        cardinality=sdefs.Cardinality(0, '1'))
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
     bar = sdefs.build_resource_definition(
-        id_='Bar', element_definitions=[bar_root, bar_deep])
+        id_='Bar', element_definitions=[bar_root, bar_deep]
+    )
 
     # Baz resource.
     baz_root = sdefs.build_element_definition(
-        id_='Baz', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Baz', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     inline_element_definition = sdefs.build_element_definition(
         id_='Baz.inline',
         type_codes=['BackboneElement'],
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     inline_value_element_definition = sdefs.build_element_definition(
         id_='Baz.inline.value',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=1, max='1'))
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
     baz = sdefs.build_resource_definition(
         id_='Baz',
         element_definitions=[
-            baz_root, inline_element_definition, inline_value_element_definition
-        ])
+            baz_root,
+            inline_element_definition,
+            inline_value_element_definition,
+        ],
+    )
 
     # Tom resource
     tom_root = sdefs.build_element_definition(
-        id_='Tom', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='Tom', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     tom_jerry = sdefs.build_element_definition(
         id_='Tom.jerry',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(1, '5'))
+        cardinality=sdefs.Cardinality(1, '5'),
+    )
     tom = sdefs.build_resource_definition(
-        id_='Tom', element_definitions=[tom_root, tom_jerry])
+        id_='Tom', element_definitions=[tom_root, tom_jerry]
+    )
 
     # NewFoo resource.
     new_foo_root = sdefs.build_element_definition(
-        id_='NewFoo', type_codes=None, cardinality=sdefs.Cardinality(0, '1'))
+        id_='NewFoo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
     new_foo_some_extension = sdefs.build_element_definition(
         id_='NewFoo.extension:someExtension',
         path='NewFoo.extension',
         cardinality=sdefs.Cardinality(1, '1'),
         type_codes=['Extension'],
-        profiles=['http://hl7.org/fhir/StructureDefinition/CustomExtension'])
+        profiles=['http://hl7.org/fhir/StructureDefinition/CustomExtension'],
+    )
     new_foo = sdefs.build_resource_definition(
-        id_='NewFoo',
-        element_definitions=[new_foo_root, new_foo_some_extension])
+        id_='NewFoo', element_definitions=[new_foo_root, new_foo_some_extension]
+    )
 
     # CustomExtension resource.
     custom_extension_root_element = sdefs.build_element_definition(
         id_='Extension',
         type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     value_element_definition = sdefs.build_element_definition(
         id_='Extension.value',
         type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=1, max='1'))
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
     custom_extension = sdefs.build_resource_definition(
         id_='CustomExtension',
         element_definitions=[
             custom_extension_root_element,
             value_element_definition,
-        ])
+        ],
+    )
 
     all_resources = [
         string_datatype,
@@ -4264,14 +5336,17 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           context_element_path='Foo',
           expected_column_name='foo_id_cardinality_is_valid',
           description='The length of id must be maximum 1 and minimum 1.',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT exists_
           FROM (SELECT id IS NOT NULL AS exists_)
-          WHERE exists_ IS NOT NULL)) AS result_)"""),
+          WHERE exists_ IS NOT NULL)) AS result_)"""
+          ),
           fhir_path_expression='id.exists()',
           fields_referenced_by_expression=['id'],
-          supported_in_v2=True),
+          supported_in_v2=True,
+      ),
       dict(
           testcase_name='_withDeepRequiredField',
           base_id='Bar',
@@ -4279,7 +5354,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           context_element_path='Bar.deep',
           expected_column_name='bar_deep_deeper_cardinality_is_valid',
           description='The length of deeper must be maximum 1 and minimum 1.',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT exists_
           FROM (SELECT deeper IS NOT NULL AS exists_)
@@ -4288,7 +5364,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           FROM UNNEST(ARRAY(SELECT deep
           FROM (SELECT deep)
           WHERE deep IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)"""),
+          UNNEST(subquery_) AS result_)"""
+          ),
           fhir_path_expression='deeper.exists()',
           fields_referenced_by_expression=['deeper'],
       ),
@@ -4299,7 +5376,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           context_element_path='Baz.inline',
           expected_column_name='baz_inline_value_cardinality_is_valid',
           description='The length of value must be maximum 1 and minimum 1.',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT exists_
           FROM (SELECT value IS NOT NULL AS exists_)
@@ -4308,7 +5386,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           FROM UNNEST(ARRAY(SELECT inline
           FROM (SELECT inline)
           WHERE inline IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)"""),
+          UNNEST(subquery_) AS result_)"""
+          ),
           fhir_path_expression='value.exists()',
           fields_referenced_by_expression=['value'],
       ),
@@ -4318,9 +5397,9 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           required_field='jerry',
           context_element_path='Tom',
           expected_column_name='tom_jerry_cardinality_is_valid',
-          description=('The length of jerry must be maximum 5 and minimum'
-                       ' 1.'),
-          expected_sql_expression=textwrap.dedent("""\
+          description='The length of jerry must be maximum 5 and minimum 1.',
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT logic_
           FROM (SELECT (((SELECT COUNT(
@@ -4330,24 +5409,31 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           FROM (SELECT jerry_element_
           FROM UNNEST(jerry) AS jerry_element_ WITH OFFSET AS element_offset)
           WHERE jerry_element_ IS NOT NULL)) AS logic_)
-          WHERE logic_ IS NOT NULL)) AS result_)"""),
+          WHERE logic_ IS NOT NULL)) AS result_)"""
+          ),
           fhir_path_expression='jerry.count() <= 5 and jerry.exists()',
           fields_referenced_by_expression=['jerry'],
-          supported_in_v2=True),
+          supported_in_v2=True,
+      ),
       dict(
           testcase_name='_withSliceOnExtensionThatIsRequired',
           base_id='NewFoo',
           required_field='someExtension',
           context_element_path='NewFoo',
           expected_column_name='newfoo_someextension_cardinality_is_valid',
-          description='The length of someExtension must be maximum 1 and minimum 1.',
-          expected_sql_expression=textwrap.dedent("""\
+          description=(
+              'The length of someExtension must be maximum 1 and minimum 1.'
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM UNNEST(ARRAY(SELECT exists_
           FROM (SELECT someExtension IS NOT NULL AS exists_)
-          WHERE exists_ IS NOT NULL)) AS result_)"""),
+          WHERE exists_ IS NOT NULL)) AS result_)"""
+          ),
           fhir_path_expression='someExtension.exists()',
-          fields_referenced_by_expression=['someExtension']),
+          fields_referenced_by_expression=['someExtension'],
+      ),
   )
   def testEncode_withRequiredField_generatesSql(
       self,
@@ -4360,7 +5446,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
       fhir_path_key: Optional[str] = None,
       fhir_path_expression: Optional[str] = None,
       fields_referenced_by_expression: Optional[List[str]] = None,
-      supported_in_v2: bool = False):
+      supported_in_v2: bool = False,
+  ):
     self.assert_encoder_generates_expression_for_required_field(
         base_id=base_id,
         required_field=required_field,
@@ -4371,7 +5458,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
         fhir_path_key=fhir_path_key,
         fhir_path_expression=fhir_path_expression,
         fields_referenced_by_expression=fields_referenced_by_expression,
-        supported_in_v2=supported_in_v2)
+        supported_in_v2=supported_in_v2,
+    )
 
 
 if __name__ == '__main__':

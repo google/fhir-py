@@ -46,9 +46,10 @@ class _CountFunction(_FhirPathFunctionStandardSqlEncoder):
   """
 
   def __call__(
-      self, function: _evaluation.CountFunction,
+      self,
+      function: _evaluation.CountFunction,
       operand_result: Optional[_sql_data_types.Select],
-      unused_params_result: List[_sql_data_types.StandardSqlExpression]
+      unused_params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
     sql_alias = 'count_'
     sql_data_type = _sql_data_types.Int64
@@ -59,21 +60,29 @@ class _CountFunction(_FhirPathFunctionStandardSqlEncoder):
               _sql_alias=sql_alias,
               _sql_data_type=sql_data_type,
           ),
-          from_part=None)
+          from_part=None,
+      )
     elif operand_result.from_part is None:
       # COUNT is an aggregation and requires a FROM. If there is not one
       # already, build a subquery for the FROM.
       return _sql_data_types.Select(
-          select_part=_sql_data_types.CountCall((_sql_data_types.RawExpression(
-              operand_result.sql_alias,
-              _sql_data_type=operand_result.sql_data_type),)),
+          select_part=_sql_data_types.CountCall(
+              (
+                  _sql_data_types.RawExpression(
+                      operand_result.sql_alias,
+                      _sql_data_type=operand_result.sql_data_type,
+                  ),
+              )
+          ),
           from_part=str(operand_result.to_subquery()),
-          where_part=operand_result.where_part)
+          where_part=operand_result.where_part,
+      )
     else:
       # We don't need a sub-query because we already have a FROM.
       return dataclasses.replace(
           operand_result,
-          select_part=_sql_data_types.CountCall((operand_result.select_part,)))
+          select_part=_sql_data_types.CountCall((operand_result.select_part,)),
+      )
 
 
 class _EmptyFunction(_FhirPathFunctionStandardSqlEncoder):
@@ -98,25 +107,36 @@ class _EmptyFunction(_FhirPathFunctionStandardSqlEncoder):
     if operand_result is None:
       return _sql_data_types.Select(
           select_part=_sql_data_types.RawExpression(
-              'FALSE', _sql_data_type=sql_data_type, _sql_alias=sql_alias),
-          from_part=None)
+              'FALSE', _sql_data_type=sql_data_type, _sql_alias=sql_alias
+          ),
+          from_part=None,
+      )
     elif not _fhir_path_data_types.returns_collection(
-        function.parent_node().return_type()):
+        function.parent_node().return_type()
+    ):
       # We can use a less expensive scalar check.
       return dataclasses.replace(
           operand_result,
-          select_part=operand_result.select_part.is_null(_sql_alias=sql_alias))
+          select_part=operand_result.select_part.is_null(_sql_alias=sql_alias),
+      )
     else:
       # We have to use a more expensive EXISTS check.
       return _sql_data_types.Select(
           select_part=_sql_data_types.FunctionCall(
-              'NOT EXISTS', (_sql_data_types.RawExpression(
-                  f'SELECT {operand_result.sql_alias}\n'
-                  f'FROM {operand_result.to_subquery()}\n'
-                  f'WHERE {operand_result.sql_alias} IS NOT NULL',
-                  _sql_data_type=operand_result.sql_data_type),),
+              'NOT EXISTS',
+              (
+                  _sql_data_types.RawExpression(
+                      (
+                          f'SELECT {operand_result.sql_alias}\n'
+                          f'FROM {operand_result.to_subquery()}\n'
+                          f'WHERE {operand_result.sql_alias} IS NOT NULL'
+                      ),
+                      _sql_data_type=operand_result.sql_data_type,
+                  ),
+              ),
               _sql_data_type=sql_data_type,
-              _sql_alias=sql_alias),
+              _sql_alias=sql_alias,
+          ),
           from_part=None,
       )
 
@@ -142,7 +162,8 @@ class _ExistsFunction(_FhirPathFunctionStandardSqlEncoder):
     if params_result:
       raise ValueError(
           'Unsupported FHIRPath expression: `criteria` parameter for exists() '
-          'is not currently supported.')
+          'is not currently supported.'
+      )
 
     sql_alias = 'exists_'
     sql_data_type = _sql_data_types.Boolean
@@ -153,29 +174,40 @@ class _ExistsFunction(_FhirPathFunctionStandardSqlEncoder):
               _sql_data_type=sql_data_type,
               _sql_alias=sql_alias,
           ),
-          from_part=None)
+          from_part=None,
+      )
     # Check that the operand is not a collection and has no where part.
     # In situations where the `where` function filters out all results,
     # it causes the query to return 'no rows' which we later interpret
     # as 'passing validation' in our `sql_expressions_to_view.py`.
-    elif (not _fhir_path_data_types.returns_collection(
-        function.parent_node().return_type()) and
-          not operand_result.where_part):
+    elif (
+        not _fhir_path_data_types.returns_collection(
+            function.parent_node().return_type()
+        )
+        and not operand_result.where_part
+    ):
       # We can use a less expensive scalar check.
       return dataclasses.replace(
           operand_result,
           select_part=operand_result.select_part.is_not_null(
-              _sql_alias=sql_alias))
+              _sql_alias=sql_alias
+          ),
+      )
     else:
       # We have to use a more expensive EXISTS check.
       return _sql_data_types.Select(
           select_part=_sql_data_types.FunctionCall(
               'EXISTS',
-              (_sql_data_types.RawExpression(
-                  f'SELECT {operand_result.sql_alias}\n'
-                  f'FROM {operand_result.to_subquery()}\n'
-                  f'WHERE {operand_result.sql_alias} IS NOT NULL',
-                  _sql_data_type=operand_result.sql_data_type),),
+              (
+                  _sql_data_types.RawExpression(
+                      (
+                          f'SELECT {operand_result.sql_alias}\n'
+                          f'FROM {operand_result.to_subquery()}\n'
+                          f'WHERE {operand_result.sql_alias} IS NOT NULL'
+                      ),
+                      _sql_data_type=operand_result.sql_data_type,
+                  ),
+              ),
               _sql_data_type=sql_data_type,
               _sql_alias=sql_alias,
           ),
@@ -229,9 +261,12 @@ class _AnyTrueFunction(_FhirPathFunctionStandardSqlEncoder):
       return _sql_data_types.Select(
           select_part=_sql_data_types.FunctionCall(
               'LOGICAL_OR',
-              (_sql_data_types.RawExpression(
-                  operand_result.sql_alias,
-                  _sql_data_type=operand_result.sql_data_type),),
+              (
+                  _sql_data_types.RawExpression(
+                      operand_result.sql_alias,
+                      _sql_data_type=operand_result.sql_data_type,
+                  ),
+              ),
               _sql_data_type=_sql_data_types.Boolean,
               _sql_alias=sql_alias,
           ),
@@ -261,7 +296,8 @@ class _HasValueFunction(_FhirPathFunctionStandardSqlEncoder):
               _sql_data_type=sql_data_type,
               _sql_alias=sql_alias,
           ),
-          from_part=None)
+          from_part=None,
+      )
     else:
       # TODO(b/234476234):
       # The spec says: "Returns true if the input collection contains a single
@@ -274,7 +310,9 @@ class _HasValueFunction(_FhirPathFunctionStandardSqlEncoder):
       return dataclasses.replace(
           operand_result,
           select_part=operand_result.select_part.is_not_null(
-              _sql_alias=sql_alias))
+              _sql_alias=sql_alias
+          ),
+      )
 
 
 class _NotFunction(_FhirPathFunctionStandardSqlEncoder):
@@ -296,8 +334,10 @@ class _NotFunction(_FhirPathFunctionStandardSqlEncoder):
     if operand_result is None:
       return _sql_data_types.Select(
           select_part=_sql_data_types.RawExpression(
-              'FALSE', _sql_alias=sql_alias, _sql_data_type=sql_data_type),
-          from_part=None)
+              'FALSE', _sql_alias=sql_alias, _sql_data_type=sql_data_type
+          ),
+          from_part=None,
+      )
     else:
       # TODO(b/234478081):
       # The spec says: "Returns true if the input collection evaluates to false,
@@ -324,7 +364,8 @@ class _NotFunction(_FhirPathFunctionStandardSqlEncoder):
               (operand_result.select_part,),
               _sql_alias=sql_alias,
               _sql_data_type=sql_data_type,
-          ))
+          ),
+      )
 
 
 class _MatchesFunction(_FhirPathFunctionStandardSqlEncoder):
@@ -359,12 +400,14 @@ class _MatchesFunction(_FhirPathFunctionStandardSqlEncoder):
               _sql_alias=sql_alias,
               _sql_data_type=sql_data_type,
           ),
-          from_part=None)
+          from_part=None,
+      )
     elif operand_result is None:
       return _sql_data_types.Select(
           select_part=_sql_data_types.RegexpContainsCall((
               _sql_data_types.RawExpression(
-                  'NULL', _sql_data_type=_sql_data_types.Undefined),
+                  'NULL', _sql_data_type=_sql_data_types.Undefined
+              ),
               params_result[0],
           )),
           from_part=None,
@@ -373,7 +416,9 @@ class _MatchesFunction(_FhirPathFunctionStandardSqlEncoder):
       return dataclasses.replace(
           operand_result,
           select_part=_sql_data_types.RegexpContainsCall(
-              (operand_result.select_part, params_result[0])))
+              (operand_result.select_part, params_result[0])
+          ),
+      )
 
 
 class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
@@ -407,24 +452,30 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
       function: _evaluation.MemberOfFunction,
       operand_result: _sql_data_types.IdentifierSelect,
       params_result: List[_sql_data_types.StandardSqlExpression],
-      value_set_codes_table: str = 'VALUESET_VIEW') -> _sql_data_types.Select:
+      value_set_codes_table: str = 'VALUESET_VIEW',
+  ) -> _sql_data_types.Select:
     operand_type = function.parent_node().return_type()
     is_collection = _fhir_path_data_types.returns_collection(
-        function.parent_node().return_type())
+        function.parent_node().return_type()
+    )
     is_string_or_code = isinstance(operand_type, _fhir_path_data_types._String)
     is_coding = _fhir_path_data_types.is_coding(operand_type)
     is_codeable_concept = _fhir_path_data_types.is_codeable_concept(
-        operand_type)
+        operand_type
+    )
 
     sql_alias = 'memberof_'
 
     # validate_and_get_error ensures the param is a literal.
     value_set_uri, value_set_version = url_utils.parse_url_version(
-        function.value_set_url)
+        function.value_set_url
+    )
 
     value_set_uri_expr = f"'{value_set_uri}'"
     if value_set_version:
-      value_set_version_predicate = f"AND vs.valuesetversion='{value_set_version}'\n"
+      value_set_version_predicate = (
+          f"AND vs.valuesetversion='{value_set_version}'\n"
+      )
     else:
       value_set_version_predicate = ''
 
@@ -458,18 +509,21 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
     if is_string_or_code and not is_collection:
       return _sql_data_types.Select(
           select_part=_sql_data_types.Identifier(
-              sql_alias, _sql_data_type=_sql_data_types.Boolean),
-          from_part=('UNNEST((SELECT IF('
-                     f'{operand_result.select_part} IS NULL, '
-                     '[], [\n'
-                     'EXISTS(\n'
-                     'SELECT 1\n'
-                     f'FROM `{value_set_codes_table}` vs\n'
-                     'WHERE\n'
-                     f'vs.valueseturi={value_set_uri_expr}\n'
-                     f'{value_set_version_predicate}'
-                     f'AND vs.code={operand_result.select_part}\n'
-                     f')]))) AS {sql_alias}'),
+              sql_alias, _sql_data_type=_sql_data_types.Boolean
+          ),
+          from_part=(
+              'UNNEST((SELECT IF('
+              f'{operand_result.select_part} IS NULL, '
+              '[], [\n'
+              'EXISTS(\n'
+              'SELECT 1\n'
+              f'FROM `{value_set_codes_table}` vs\n'
+              'WHERE\n'
+              f'vs.valueseturi={value_set_uri_expr}\n'
+              f'{value_set_version_predicate}'
+              f'AND vs.code={operand_result.select_part}\n'
+              f')]))) AS {sql_alias}'
+          ),
           where_part=operand_result.where_part,
       )
     elif is_string_or_code and is_collection:
@@ -503,25 +557,29 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
               f'))) AS element_offset\n'
               ') AS matches\n'
               f'ON all_.element_offset=matches.element_offset\n'
-              f'ORDER BY all_.element_offset'),
+              f'ORDER BY all_.element_offset'
+          ),
           where_part=operand_result.where_part,
       )
     elif is_coding and not is_collection:
       return _sql_data_types.Select(
           select_part=_sql_data_types.Identifier(
-              sql_alias, _sql_data_type=_sql_data_types.Boolean),
-          from_part=('UNNEST((SELECT IF('
-                     f'{operand_result.select_part} IS NULL, '
-                     '[], [\n'
-                     'EXISTS(\n'
-                     'SELECT 1\n'
-                     f'FROM `{value_set_codes_table}` vs\n'
-                     'WHERE\n'
-                     f'vs.valueseturi={value_set_uri_expr}\n'
-                     f'{value_set_version_predicate}'
-                     f'AND vs.system={operand_result.select_part}.system\n'
-                     f'AND vs.code={operand_result.select_part}.code\n'
-                     f')]))) AS {sql_alias}'),
+              sql_alias, _sql_data_type=_sql_data_types.Boolean
+          ),
+          from_part=(
+              'UNNEST((SELECT IF('
+              f'{operand_result.select_part} IS NULL, '
+              '[], [\n'
+              'EXISTS(\n'
+              'SELECT 1\n'
+              f'FROM `{value_set_codes_table}` vs\n'
+              'WHERE\n'
+              f'vs.valueseturi={value_set_uri_expr}\n'
+              f'{value_set_version_predicate}'
+              f'AND vs.system={operand_result.select_part}.system\n'
+              f'AND vs.code={operand_result.select_part}.code\n'
+              f')]))) AS {sql_alias}'
+          ),
           where_part=operand_result.where_part,
       )
     elif is_coding and is_collection:
@@ -557,13 +615,15 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
               f'))) AS element_offset\n'
               ') AS matches\n'
               'ON all_.element_offset=matches.element_offset\n'
-              'ORDER BY all_.element_offset'),
+              'ORDER BY all_.element_offset'
+          ),
           where_part=operand_result.where_part,
       )
     elif is_codeable_concept and not is_collection:
       return _sql_data_types.Select(
           select_part=_sql_data_types.Identifier(
-              sql_alias, _sql_data_type=_sql_data_types.Boolean),
+              sql_alias, _sql_data_type=_sql_data_types.Boolean
+          ),
           from_part=(
               'UNNEST((SELECT IF('
               f'{operand_result.select_part} IS NULL, '
@@ -574,9 +634,10 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
               f'INNER JOIN `{value_set_codes_table}` vs ON\n'
               f'vs.valueseturi={value_set_uri_expr}\n'
               f'{value_set_version_predicate}'
-              f'AND vs.system=codings.system\n'
-              f'AND vs.code=codings.code\n'
-              f')]))) AS {sql_alias}'),
+              'AND vs.system=codings.system\n'
+              'AND vs.code=codings.code\n'
+              f')]))) AS {sql_alias}'
+          ),
           where_part=operand_result.where_part,
       )
     elif is_codeable_concept and is_collection:
@@ -615,13 +676,15 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
               '))) AS element_offset\n'
               ') AS matches\n'
               'ON all_.element_offset=matches.element_offset\n'
-              f'ORDER BY all_.element_offset'),
+              f'ORDER BY all_.element_offset'
+          ),
           where_part=operand_result.where_part,
       )
     else:
       raise ValueError(
-          'Unexpected type %s and structure definition %s encountered' %
-          (operand_type, operand_type.url))
+          'Unexpected type %s and structure definition %s encountered'
+          % (operand_type, operand_type.url)
+      )
 
 
 # TODO(b/221322122): Separate custom functions from core FHIRPath functions,
@@ -651,14 +714,17 @@ class _IdForFunction(_FhirPathFunctionStandardSqlEncoder):
           select_part=_sql_data_types.RawExpression(
               sql_expr='NULL',
               _sql_alias=sql_alias,
-              _sql_data_type=_sql_data_types.Undefined),
-          from_part=None)
+              _sql_data_type=_sql_data_types.Undefined,
+          ),
+          from_part=None,
+      )
     else:
       return dataclasses.replace(
           operand_result,
           select_part=operand_result.select_part.dot(
-              f'{resource_type}Id', _sql_data_types.String,
-              sql_alias=sql_alias))
+              f'{resource_type}Id', _sql_data_types.String, sql_alias=sql_alias
+          ),
+      )
 
 
 class _OfTypeFunction(_FhirPathFunctionStandardSqlEncoder):
@@ -681,16 +747,21 @@ class _OfTypeFunction(_FhirPathFunctionStandardSqlEncoder):
           select_part=_sql_data_types.RawExpression(
               sql_expr='NULL',
               _sql_alias=sql_alias,
-              _sql_data_type=_sql_data_types.Undefined),
-          from_part=None)
+              _sql_data_type=_sql_data_types.Undefined,
+          ),
+          from_part=None,
+      )
 
     return_type = _sql_data_types.get_standard_sql_data_type(
-        function.return_type())
+        function.return_type()
+    )
 
     return dataclasses.replace(
         operand_result,
         select_part=operand_result.select_part.dot(
-            attribute, return_type, sql_alias=sql_alias))
+            attribute, return_type, sql_alias=sql_alias
+        ),
+    )
 
 
 # TODO(b/197153378): Add support for $this.
@@ -725,8 +796,11 @@ class _WhereFunction(_FhirPathFunctionStandardSqlEncoder):
       )
 
     criteria = params_result[0]
-    where_part = (f'{operand_result.where_part} AND {criteria.as_operand()}'
-                  if operand_result.where_part else criteria.as_operand())
+    where_part = (
+        f'{operand_result.where_part} AND {criteria.as_operand()}'
+        if operand_result.where_part
+        else criteria.as_operand()
+    )
 
     # Queries without a FROM clause cannot have a WHERE clause. So we create a
     # dummy FROM clause here if needed.
@@ -742,7 +816,8 @@ class _WhereFunction(_FhirPathFunctionStandardSqlEncoder):
     return _sql_data_types.Select(
         select_part=operand_result.select_part,
         from_part=from_part,
-        where_part=where_part)
+        where_part=where_part,
+    )
 
 
 class _AllFunction(_FhirPathFunctionStandardSqlEncoder):
@@ -785,7 +860,8 @@ class _AllFunction(_FhirPathFunctionStandardSqlEncoder):
       context_sql = None
       where_part = None
       if _fhir_path_data_types.is_collection(
-          function.parent_node().return_type()):
+          function.parent_node().return_type()
+      ):
         context_sql = operand_result.from_part
         where_part = operand_result.where_part
       else:
@@ -823,7 +899,8 @@ class _AllFunction(_FhirPathFunctionStandardSqlEncoder):
               _sql_data_type=sql_data_type,
           ),
           from_part=context_sql,
-          where_part=where_part)
+          where_part=where_part,
+      )
 
 
 FUNCTION_MAP: Dict[str, _FhirPathFunctionStandardSqlEncoder] = {
@@ -839,5 +916,5 @@ FUNCTION_MAP: Dict[str, _FhirPathFunctionStandardSqlEncoder] = {
     _evaluation.MemberOfFunction.NAME: _MemberOfFunction(),
     _evaluation.OfTypeFunction.NAME: _OfTypeFunction(),
     _evaluation.WhereFunction.NAME: _WhereFunction(),
-    _evaluation.AllFunction.NAME: _AllFunction()
+    _evaluation.AllFunction.NAME: _AllFunction(),
 }
