@@ -26,6 +26,7 @@ import enum
 
 from typing import Any, Dict, Optional, Set, cast
 from google.protobuf import message
+from google.fhir.core.fhir_path import _utils
 
 # Tokens that are keywords in FHIRPath.
 # If used as identifier tokens in FHIRPath expressions, they must be escaped
@@ -256,7 +257,7 @@ class _Time(FhirPathDataType):
 
 
 class _DateTime(FhirPathDataType):
-  """Represnts date/time and partial date/time values.
+  """Represents date/time and partial date/time values.
 
   Values are within the range @0001-01-01T00:00:00.000 to
   @9999-12-31T23:59:59.999 with a 1 millisecond step size. The `DateTime`
@@ -489,6 +490,10 @@ class StructureDataType(FhirPathDataType):
     return self._base_type
 
   @property
+  def element_type(self) -> str:
+    return self._element_type
+
+  @property
   def structure_definition(self) -> message.Message:
     return self._struct_def
 
@@ -497,27 +502,29 @@ class StructureDataType(FhirPathDataType):
     """Optional path to non-root backbone element to use."""
     return self._backbone_element_path
 
-  def __init__(self,
-               struct_def_proto: message.Message,
-               backbone_element_path: Optional[str] = None,
-               comparable: bool = False) -> None:
+  def __init__(
+      self,
+      struct_def_proto: message.Message,
+      backbone_element_path: Optional[str] = None,
+      comparable: bool = False,
+      element_type: Optional[str] = None,
+  ) -> None:
     super().__init__(comparable=comparable)
     self._struct_def = cast(Any, struct_def_proto)
     self._url = self._struct_def.url.value
     self._base_type = self._struct_def.type.value
+    # For some custom types, the element type differs from the base type.
+    self._element_type = element_type if element_type else self._base_type
     self._backbone_element_path = backbone_element_path
+
+    qualified_path = (
+        f'{self._element_type}.{self._backbone_element_path}'
+        if self._backbone_element_path
+        else self._element_type
+    )
 
     # Store the children elements of the structdef.
     self._children = {}
-    struct_id = self._struct_def.id.value
-    # Some legacy structdefs are called LabObservation but its children start
-    # with Observation.
-    if struct_id == 'LabObservation':
-      struct_id = 'Observation'
-    qualified_path = (
-        struct_id + '.' + self._backbone_element_path
-        if self._backbone_element_path else struct_id)
-
     for elem in self._struct_def.snapshot.element:
       if elem.id.value == qualified_path:
         self._root_element_definition = elem
@@ -527,14 +534,14 @@ class StructureDataType(FhirPathDataType):
       if elem.id.value.startswith(qualified_path + '.'):
         relative_path = elem.id.value[len(qualified_path) + 1:]
         if relative_path and '.' not in relative_path:
-          # Trim choice field annotation if present.
-          if relative_path.endswith('[x]'):
-            relative_path = relative_path[:-3]
-          self._children[relative_path] = elem
+          name = _utils.trim_name(relative_path)
+          self._children[name] = elem
 
     if not self._root_element_definition:
-      raise ValueError(f'StructureDataType {self._url} '
-                       'missing root element definition.')
+      raise ValueError(
+          f'StructureDataType {self._url} searching on {qualified_path} '
+          f' missing root element definition. {self._struct_def}'
+      )
 
   def __eq__(self, o) -> bool:
     if isinstance(o, StructureDataType):

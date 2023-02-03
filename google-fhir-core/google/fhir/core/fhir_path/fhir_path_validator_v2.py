@@ -258,7 +258,7 @@ class FhirProfileStandardSqlEncoder:
   constraints (e.g. constraints defined on types present as fields in the
   FHIRProfile under consideration) are encoded. If a field is un-set in a
   profile, the corresponding transitory constraints are considered vacuously-
-  satsified, and the Standard SQL expression translations will produce `NULL` at
+  satisfied, and the Standard SQL expression translations will produce `NULL` at
   runtime.
 
   All direct and transitory FHIRPath constraint Standard SQL expression
@@ -545,9 +545,13 @@ class FhirProfileStandardSqlEncoder:
     # If this is an extension, we don't want to access its children/fields.
     # TODO(b/200575760): Add support for complex extensions and the fields
     # inside them.
-    if (isinstance(builder.return_type, _fhir_path_data_types.StructureDataType)
-        and cast(_fhir_path_data_types.StructureDataType,
-                 builder.return_type).base_type == 'Extension'):
+    if (
+        isinstance(builder.return_type, _fhir_path_data_types.StructureDataType)
+        and cast(
+            _fhir_path_data_types.StructureDataType, builder.return_type
+        ).element_type
+        == 'Extension'
+    ):
       return []
 
     encoded_requirements: List[validation_pb2.SqlRequirement] = []
@@ -591,7 +595,6 @@ class FhirProfileStandardSqlEncoder:
       if not _SKIP_TYPE_CODES.isdisjoint(type_codes):
         continue
 
-      fhir_expression = fhir_path_builder.fhir_path
       required_sql_expression = self._encode_fhir_path_builder_constraint(
           fhir_path_builder, builder)
       if required_sql_expression is None:
@@ -614,9 +617,72 @@ class FhirProfileStandardSqlEncoder:
           fhir_path_key=constraint_key,
           fhir_path_expression=fhir_path_builder.fhir_path,
           fields_referenced_by_expression=_fields_referenced_by_expression(
-              fhir_expression))
+              fhir_path_builder.fhir_path
+          ),
+      )
       encoded_requirements.append(requirement)
     return encoded_requirements
+
+  def get_type_codes_from_slice_element(
+      self, element_definition: ElementDefinition
+  ) -> List[str]:
+    """Returns the type codes of slice elements."""
+    element_definition_path = _get_analytic_path(element_definition)
+
+    # This function currently only supports getting type codes from slices on
+    # extensions.
+    if not _utils.is_slice_on_extension(element_definition):
+      self._error_reporter.report_conversion_error(
+          element_definition_path,
+          (
+              'Attempted to get type code from slice of non-extension.'
+              ' Which is not supported.'
+          ),
+      )
+      return []
+
+    urls = _utils.slice_element_urls(element_definition)
+    # TODO(b/190679571): Handle choice types.
+    if not urls:
+      raise ValueError(
+          'Unable to get url for slice on extension with id: '
+          f'{_get_analytic_path(element_definition)}'
+      )
+
+    if len(urls) > 1:
+      raise ValueError(
+          'Expected element with only one url but got: '
+          f'{urls}, is this a choice type?'
+      )
+
+    url = urls[0]
+    slice_struct_def = self._context.get_structure_definition(url)
+    if not slice_struct_def:
+      raise ValueError(f'Expected a structure definition for {url}.')
+    slice_builder = expressions.Builder(
+        _evaluation.RootMessageNode(
+            self._context,
+            _fhir_path_data_types.StructureDataType(slice_struct_def),
+        ),
+        self._primitive_handler,
+    )  # maybe memoize this.
+
+    # Get the value element from the slice's children.
+    value_element = slice_builder.return_type.children().get('value')
+
+    if value_element is None or _is_disabled(value_element):
+      # At this point, the current element is a slice on an extension that has
+      # no valid `Extension.value[x]` element, so we assume it is a complex
+      # extension.
+      # TODO(b/200575760): Handle complex extensions.
+      self._error_reporter.report_fhir_path_error(
+          self._abs_path_invocation(slice_builder),
+          str(slice_builder),
+          'Current element is a complex extension not supported yet.',
+      )
+      return []
+    else:
+      return _utils.element_type_codes(value_element)
 
   # TODO(b/207690471): Move important ElementDefinition (and other) functions
   # to their respective utility modules and unit test their public facing apis .
@@ -625,6 +691,9 @@ class FhirProfileStandardSqlEncoder:
     """Returns the regex of this element_definition if available."""
     element_definition = cast(Any, builder.return_type.root_element_definition)
     type_codes = _utils.element_type_codes(element_definition)
+
+    if _utils.is_slice_on_extension(element_definition):
+      type_codes = self.get_type_codes_from_slice_element(element_definition)
 
     if not _is_elem_supported(element_definition):
       return None
@@ -659,8 +728,10 @@ class FhirProfileStandardSqlEncoder:
         current_type_code == 'http://hl7.org/fhirpath/System.String'):
       current_type_code = 'id'
 
-    if (_fhir_path_data_types.is_primitive(builder.return_type) and
-        current_type_code not in _PRIMITIVES_EXCLUDED_FROM_REGEX_ENCODING):
+    if (
+        _fhir_path_data_types.primitive_type_from_type_code(current_type_code)
+        and current_type_code not in _PRIMITIVES_EXCLUDED_FROM_REGEX_ENCODING
+    ):
       primitive_url = _utils.get_absolute_uri_for_structure(current_type_code)
 
       # If we have not memoised it, then extract it from its
@@ -723,8 +794,8 @@ class FhirProfileStandardSqlEncoder:
     encoded_requirements: List[validation_pb2.SqlRequirement] = []
     children = builder.return_type.children()
     for name, child_message in children.items():
-
       child = cast(Any, child_message)
+
       # TODO(b/190679571): Handle choice types, which may have more than one
       # `type.code` value present.
       # If this element is a choice type, a slice (that is not on an extension)
@@ -844,7 +915,7 @@ class FhirProfileStandardSqlEncoder:
       # Ignores the fields inside complex extensions.
       # TODO(b/200575760): Add support for complex extensions and the fields
       # inside them.
-      if struct_type.base_type == 'Extension':
+      if struct_type.element_type == 'Extension':
         return result
 
       for child, elem in struct_type.children().items():

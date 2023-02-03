@@ -668,7 +668,10 @@ class IdForFunction(FunctionNode):
     self.struct_def_url = ('http://hl7.org/fhir/StructureDefinition/'
                            f'{self.base_type_str.capitalize()}')
     return_type = fhir_context.get_fhir_type_from_string(
-        self.struct_def_url, element_definition=None)
+        type_code=self.base_type_str.capitalize(),
+        profile=self.struct_def_url,
+        element_definition=None,
+    )
     super().__init__(fhir_context, operand, params, return_type)
 
 

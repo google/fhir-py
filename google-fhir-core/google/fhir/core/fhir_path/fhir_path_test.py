@@ -5345,7 +5345,6 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           ),
           fhir_path_expression='id.exists()',
           fields_referenced_by_expression=['id'],
-          supported_in_v2=True,
       ),
       dict(
           testcase_name='_withDeepRequiredField',
@@ -5413,7 +5412,6 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           ),
           fhir_path_expression='jerry.count() <= 5 and jerry.exists()',
           fields_referenced_by_expression=['jerry'],
-          supported_in_v2=True,
       ),
       dict(
           testcase_name='_withSliceOnExtensionThatIsRequired',
@@ -5446,7 +5444,6 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
       fhir_path_key: Optional[str] = None,
       fhir_path_expression: Optional[str] = None,
       fields_referenced_by_expression: Optional[List[str]] = None,
-      supported_in_v2: bool = False,
   ):
     self.assert_encoder_generates_expression_for_required_field(
         base_id=base_id,
@@ -5458,7 +5455,7 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
         fhir_path_key=fhir_path_key,
         fhir_path_expression=fhir_path_expression,
         fields_referenced_by_expression=fields_referenced_by_expression,
-        supported_in_v2=supported_in_v2,
+        supported_in_v2=True,
     )
 
 

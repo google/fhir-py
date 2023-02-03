@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Resource and and reference data context for FHIRPath usage."""
+"""Resource and reference data context for FHIRPath usage."""
 
 import abc
 from typing import Any, Dict, Generic, Iterable, List, Optional, Type, TypeVar, cast
@@ -31,7 +31,7 @@ class UnableToLoadResourceError(Exception):
 
 
 # Type variables for FHIR StructureDefinition and ValueSet resources, allowing
-# instances of FhirPathContext to be paramterized with FHIR version-specific
+# instances of FhirPathContext to be parameterized with FHIR version-specific
 # resources.
 _StructDefT = TypeVar('_StructDefT')
 _ValueSetT = TypeVar('_ValueSetT')
@@ -110,7 +110,10 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
     """
 
   def get_fhir_type_from_string(
-      self, type_code: str, element_definition: Optional[ElementDefinition]
+      self,
+      type_code: str,
+      element_definition: Optional[ElementDefinition],
+      profile: Optional[str] = None,
   ) -> _fhir_path_data_types.FhirPathDataType:
     """Returns a FhirPathDataType from a type code string."""
     # If this is a primitive, simply return the corresponding primitive type.
@@ -118,12 +121,15 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
 
     # Load the structure definition for the non-primitive type.
     if return_type is None:
-      child_structdef = self.get_structure_definition(type_code)
+      lookup_type = profile if profile else type_code
+      child_structdef = self.get_structure_definition(lookup_type)
       if child_structdef.url.value == QUANTITY_URL:
         return_type = _fhir_path_data_types.QuantityStructureDataType(
             child_structdef)
       else:
-        return_type = _fhir_path_data_types.StructureDataType(child_structdef)
+        return_type = _fhir_path_data_types.StructureDataType(
+            child_structdef, element_type=type_code
+        )
 
     if not element_definition:
       return return_type
@@ -177,9 +183,15 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       raise ValueError(f'Malformed ElementDefinition in struct {parent.url}')
     else:
       type_code = elem.type[0].code.value
-      return_type = self.get_fhir_type_from_string(type_code, elem)
+      profile = None
+      if elem.type[0].profile:
+        profile = elem.type[0].profile[0].value
+      return_type = self.get_fhir_type_from_string(type_code, elem, profile)
 
-    return self._maybe_return_collection_type(elem, return_type, parent)
+    return_type = self._maybe_return_collection_type(elem, return_type, parent)
+    return return_type.get_fhir_type_with_root_element_definition(
+        element_definition
+    )
 
   def get_child_data_type(
       self, parent: Optional[_fhir_path_data_types.FhirPathDataType],
@@ -250,7 +262,7 @@ class LocalFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
                                                                  Any, Any,
                                                                  _ValueSetT],
                value_sets: Optional[Iterable[_ValueSetT]] = None) -> None:
-    # Lazy load structure defintion since there may be many of them.
+    # Lazy load structure definition since there may be many of them.
     self._package_manager = package_manager
     self._value_sets: Dict[str, _ValueSetT] = {}
     for value_set in value_sets or ():
@@ -286,8 +298,8 @@ class ServerFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
     self._struct_defs: Dict[str, _StructDefT] = {}
     self._value_sets: Dict[str, _ValueSetT] = {}
 
-  def _retreive_structure_definition(self, resource_url: str) -> _StructDefT:
-    """Retreives the structure definition from the FHIR store."""
+  def _retrieve_structure_definition(self, resource_url: str) -> _StructDefT:
+    """Retrieves the structure definition from the FHIR store."""
     response = requests.get(
         f'{self._server_base_url}/StructureDefinition',
         params={'_id': resource_url},
@@ -320,7 +332,7 @@ class ServerFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
     qualified_url = _utils.get_absolute_uri_for_structure(url)
     struct_def = self._struct_defs.get(qualified_url)
     if struct_def is None:
-      struct_def = self._retreive_structure_definition(qualified_url)
+      struct_def = self._retrieve_structure_definition(qualified_url)
       self._struct_defs[qualified_url] = struct_def
     return struct_def
 

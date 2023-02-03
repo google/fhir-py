@@ -26,6 +26,16 @@ ElementDefinition = message.Message
 Constraint = message.Message
 
 
+def trim_name(raw_name: str) -> str:
+  # Trim choice field annotation if present.
+  if raw_name.endswith('[x]'):
+    raw_name = raw_name[:-3]
+  # Trim extension field annotation if present.
+  if raw_name.startswith('extension:'):
+    raw_name = raw_name[10:]
+  return raw_name
+
+
 def is_root_element(element_definition: ElementDefinition) -> bool:
   """Returns `True` if `element_definition` is the root element."""
   path_value: str = cast(Any, element_definition).path.value
