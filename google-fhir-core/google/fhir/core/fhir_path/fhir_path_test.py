@@ -1311,90 +1311,32 @@ class FhirPathStandardSqlEncoderTest(
     )
 
   @parameterized.named_parameters(
+      dict(testcase_name='_withExists', fhir_path_expression='exists()'),
+      dict(testcase_name='_withNot', fhir_path_expression='not()'),
+      dict(testcase_name='_withEmpty', fhir_path_expression='empty()'),
+      dict(testcase_name='_withCount', fhir_path_expression='count()'),
+      dict(testcase_name='_withHasValue', fhir_path_expression='hasValue()'),
       dict(
-          testcase_name='_withExists',
-          fhir_path_expression='exists()',
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT exists_
-          FROM (SELECT TRUE AS exists_)
-          WHERE exists_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withNot',
-          fhir_path_expression='not()',
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT not_
-          FROM (SELECT FALSE AS not_)
-          WHERE not_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withEmpty',
-          fhir_path_expression='empty()',
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT empty_
-          FROM (SELECT FALSE AS empty_)
-          WHERE empty_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withCount',
-          fhir_path_expression='count()',
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT count_
-          FROM (SELECT 0 AS count_)
-          WHERE count_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withHasValue',
-          fhir_path_expression='hasValue()',
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT has_value_
-          FROM (SELECT FALSE AS has_value_)
-          WHERE has_value_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withMatches',
-          fhir_path_expression="matches('')",
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT matches_
-          FROM (SELECT REGEXP_CONTAINS(
-          NULL, '') AS matches_)
-          WHERE matches_ IS NOT NULL)"""
-          ),
+          testcase_name='_withMatches', fhir_path_expression="matches('regex')"
       ),
       dict(
           testcase_name='_withMatchesAndNoParams',
           fhir_path_expression='matches()',
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT matches_
-          FROM (SELECT NULL AS matches_)
-          WHERE matches_ IS NOT NULL)"""
-          ),
       ),
   )
-  def testEncode_withFhirPathFunctionNoOperand_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str
+  def testEncode_withFhirPathFunctionNoOperand_raisesError(
+      self, fhir_path_expression: str
   ):
-    actual_sql_expression = self.fhir_path_encoder.encode(
-        structure_definition=self.foo,
-        element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression,
-    )
-    self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
-        self.foo, fhir_path_expression, expected_sql_expression
-    )
+    with self.assertRaises(ValueError):
+      self.fhir_path_encoder.encode(
+          structure_definition=self.foo,
+          element_definition=self.foo_root,
+          fhir_path_expression=fhir_path_expression,
+      )
+
+    builder = self.create_builder_from_str(self.foo, fhir_path_expression)
+    with self.assertRaises(ValueError):
+      self.bq_interpreter.encode(builder)
 
   @parameterized.named_parameters(
       dict(

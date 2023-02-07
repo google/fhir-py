@@ -51,18 +51,10 @@ class _CountFunction(_FhirPathFunctionStandardSqlEncoder):
       operand_result: Optional[_sql_data_types.Select],
       unused_params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
-    sql_alias = 'count_'
-    sql_data_type = _sql_data_types.Int64
     if operand_result is None:
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.RawExpression(
-              '0',
-              _sql_alias=sql_alias,
-              _sql_data_type=sql_data_type,
-          ),
-          from_part=None,
-      )
-    elif operand_result.from_part is None:
+      raise ValueError('count() cannot be called without an operand.')
+
+    if operand_result.from_part is None:
       # COUNT is an aggregation and requires a FROM. If there is not one
       # already, build a subquery for the FROM.
       return _sql_data_types.Select(
@@ -102,16 +94,13 @@ class _EmptyFunction(_FhirPathFunctionStandardSqlEncoder):
       operand_result: Optional[_sql_data_types.Select],
       params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
+    if operand_result is None:
+      raise ValueError('empty() cannot be called without an operand.')
+
     sql_alias = 'empty_'
     sql_data_type = _sql_data_types.Boolean
-    if operand_result is None:
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.RawExpression(
-              'FALSE', _sql_data_type=sql_data_type, _sql_alias=sql_alias
-          ),
-          from_part=None,
-      )
-    elif not _fhir_path_data_types.returns_collection(
+
+    if not _fhir_path_data_types.returns_collection(
         function.parent_node().return_type()
     ):
       # We can use a less expensive scalar check.
@@ -159,6 +148,9 @@ class _ExistsFunction(_FhirPathFunctionStandardSqlEncoder):
       operand_result: Optional[_sql_data_types.Select],
       params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
+    if operand_result is None:
+      raise ValueError('exists() cannot be called without an operand.')
+
     if params_result:
       raise ValueError(
           'Unsupported FHIRPath expression: `criteria` parameter for exists() '
@@ -167,20 +159,11 @@ class _ExistsFunction(_FhirPathFunctionStandardSqlEncoder):
 
     sql_alias = 'exists_'
     sql_data_type = _sql_data_types.Boolean
-    if operand_result is None:
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.RawExpression(
-              'TRUE',
-              _sql_data_type=sql_data_type,
-              _sql_alias=sql_alias,
-          ),
-          from_part=None,
-      )
     # Check that the operand is not a collection and has no where part.
     # In situations where the `where` function filters out all results,
     # it causes the query to return 'no rows' which we later interpret
     # as 'passing validation' in our `sql_expressions_to_view.py`.
-    elif (
+    if (
         not _fhir_path_data_types.returns_collection(
             function.parent_node().return_type()
         )
@@ -228,19 +211,15 @@ class _FirstFunction(_FhirPathFunctionStandardSqlEncoder):
       params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
     if operand_result is None:
-      # It is not meaningful to call first without an operand, so we return an
-      # error.
-      # TODO(b/232550083): determine if this is disallowed by the grammar, and
-      # if not, move this kind of check to validate_and_get_error.
       raise ValueError('first() cannot be called without an operand.')
-    else:
-      # We append a limit 1 to get the first row in row order.
-      # Note that if an ARRAY was unnested, row order may not match array order,
-      # but for most FHIR this should not matter.
-      result = copy.copy(operand_result)
-      if not result.limit_part:
-        result.limit_part = 1
-      return result
+
+    # We append a limit 1 to get the first row in row order.
+    # Note that if an ARRAY was unnested, row order may not match array order,
+    # but for most FHIR this should not matter.
+    result = copy.copy(operand_result)
+    if not result.limit_part:
+      result.limit_part = 1
+    return result
 
 
 class _AnyTrueFunction(_FhirPathFunctionStandardSqlEncoder):
@@ -253,25 +232,23 @@ class _AnyTrueFunction(_FhirPathFunctionStandardSqlEncoder):
       params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
     if operand_result is None:
-      # It is not meaningful to call anyTrue without an operand, so we return an
-      # error.
       raise ValueError('anyTrue() cannot be called without an operand.')
-    else:
-      sql_alias = '_anyTrue'
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.FunctionCall(
-              'LOGICAL_OR',
-              (
-                  _sql_data_types.RawExpression(
-                      operand_result.sql_alias,
-                      _sql_data_type=operand_result.sql_data_type,
-                  ),
-              ),
-              _sql_data_type=_sql_data_types.Boolean,
-              _sql_alias=sql_alias,
-          ),
-          from_part=str(operand_result.to_subquery()),
-      )
+
+    sql_alias = '_anyTrue'
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.FunctionCall(
+            'LOGICAL_OR',
+            (
+                _sql_data_types.RawExpression(
+                    operand_result.sql_alias,
+                    _sql_data_type=operand_result.sql_data_type,
+                ),
+            ),
+            _sql_data_type=_sql_data_types.Boolean,
+            _sql_alias=sql_alias,
+        ),
+        from_part=str(operand_result.to_subquery()),
+    )
 
 
 class _HasValueFunction(_FhirPathFunctionStandardSqlEncoder):
@@ -287,32 +264,24 @@ class _HasValueFunction(_FhirPathFunctionStandardSqlEncoder):
       operand_result: Optional[_sql_data_types.Select],
       params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
-    sql_alias = 'has_value_'
-    sql_data_type = _sql_data_types.Boolean
     if operand_result is None:
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.RawExpression(
-              'FALSE',
-              _sql_data_type=sql_data_type,
-              _sql_alias=sql_alias,
-          ),
-          from_part=None,
-      )
-    else:
-      # TODO(b/234476234):
-      # The spec says: "Returns true if the input collection contains a single
-      # value which is a FHIR primitive, and it has a primitive value (e.g. as
-      # opposed to not having a value and just having extensions)."
-      # Currently we're just checking if the value is null.
-      # We don't check if it's a primitive or not.
-      # For collections, we're returning one row per collection element rather
-      # than ensuring the collection contains a single value.
-      return dataclasses.replace(
-          operand_result,
-          select_part=operand_result.select_part.is_not_null(
-              _sql_alias=sql_alias
-          ),
-      )
+      raise ValueError('hasValue() cannot be called without an operand.')
+
+    # TODO(b/234476234):
+    # The spec says: "Returns true if the input collection contains a single
+    # value which is a FHIR primitive, and it has a primitive value (e.g. as
+    # opposed to not having a value and just having extensions)."
+    # Currently we're just checking if the value is null.
+    # We don't check if it's a primitive or not.
+    # For collections, we're returning one row per collection element rather
+    # than ensuring the collection contains a single value.
+    sql_alias = 'has_value_'
+    return dataclasses.replace(
+        operand_result,
+        select_part=operand_result.select_part.is_not_null(
+            _sql_alias=sql_alias
+        ),
+    )
 
 
 class _NotFunction(_FhirPathFunctionStandardSqlEncoder):
@@ -329,43 +298,39 @@ class _NotFunction(_FhirPathFunctionStandardSqlEncoder):
       operand_result: Optional[_sql_data_types.Select],
       unused_params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
+    if operand_result is None:
+      raise ValueError('not() cannot be called without an operand.')
+
+    # TODO(b/234478081):
+    # The spec says: "Returns true if the input collection evaluates to false,
+    # and false if it evaluates to true. Otherwise, the result is empty ({ })"
+    # https://hl7.org/fhirpath/#not-boolean
+    #
+    # For collections, we are returning one value per element in the
+    # collection rather than aggregating the collection elements into a single
+    # boolean value.
+    #
+    # The spec describes how to evaluate collections as single boolean values:
+    # "For all boolean operators, the collections passed as operands are first
+    # evaluated as Booleans (as described in Singleton Evaluation of
+    # Collections). The operators then use three-valued logic to propagate
+    # empty operands.
+    # https://hl7.org/fhirpath/#boolean-logic
+    #
+    # More information here:
+    # https://hl7.org/fhirpath/#singleton-evaluation-of-collections
     sql_alias = 'not_'
     sql_data_type = _sql_data_types.Boolean
-    if operand_result is None:
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.RawExpression(
-              'FALSE', _sql_alias=sql_alias, _sql_data_type=sql_data_type
-          ),
-          from_part=None,
-      )
-    else:
-      # TODO(b/234478081):
-      # The spec says: "Returns true if the input collection evaluates to false,
-      # and false if it evaluates to true. Otherwise, the result is empty ({ })"
-      # https://hl7.org/fhirpath/#not-boolean
-      #
-      # For collections, we are returning one value per element in the
-      # collection rather than aggregating the collection elements into a single
-      # boolean value.
-      #
-      # The spec describes how to evaluate collections as single boolean values:
-      # "For all boolean operators, the collections passed as operands are first
-      # evaluated as Booleans (as described in Singleton Evaluation of
-      # Collections). The operators then use three-valued logic to propagate
-      # empty operands.
-      # https://hl7.org/fhirpath/#boolean-logic
-      #
-      # More information here:
-      # https://hl7.org/fhirpath/#singleton-evaluation-of-collections
-      return dataclasses.replace(
-          operand_result,
-          select_part=_sql_data_types.FunctionCall(
-              'NOT',
-              (operand_result.select_part,),
-              _sql_alias=sql_alias,
-              _sql_data_type=sql_data_type,
-          ),
-      )
+
+    return dataclasses.replace(
+        operand_result,
+        select_part=_sql_data_types.FunctionCall(
+            'NOT',
+            (operand_result.select_part,),
+            _sql_alias=sql_alias,
+            _sql_data_type=sql_data_type,
+        ),
+    )
 
 
 class _MatchesFunction(_FhirPathFunctionStandardSqlEncoder):
@@ -389,6 +354,9 @@ class _MatchesFunction(_FhirPathFunctionStandardSqlEncoder):
       operand_result: Optional[_sql_data_types.Select],
       params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
+    if operand_result is None:
+      raise ValueError('matches() cannot be called without an operand.')
+
     sql_alias = 'matches_'
     sql_data_type = _sql_data_types.Boolean
 
@@ -400,16 +368,6 @@ class _MatchesFunction(_FhirPathFunctionStandardSqlEncoder):
               _sql_alias=sql_alias,
               _sql_data_type=sql_data_type,
           ),
-          from_part=None,
-      )
-    elif operand_result is None:
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.RegexpContainsCall((
-              _sql_data_types.RawExpression(
-                  'NULL', _sql_data_type=_sql_data_types.Undefined
-              ),
-              params_result[0],
-          )),
           from_part=None,
       )
     else:
@@ -698,7 +656,9 @@ class _IdForFunction(_FhirPathFunctionStandardSqlEncoder):
       operand_result: Optional[_sql_data_types.IdentifierSelect],
       params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
-    sql_alias = 'idFor_'
+    if operand_result is None:
+      raise ValueError('idFor() cannot be called without an operand.')
+
     if len(params_result) != 1:
       raise ValueError('IdForFunction must have a resource type parameter.')
 
@@ -706,25 +666,15 @@ class _IdForFunction(_FhirPathFunctionStandardSqlEncoder):
     # https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md,
     # this is a special case where the name of the field is based on the desired
     # reference target, e.g. PatientId or OrganizationId.
+    sql_alias = 'idFor_'
     resource_type = function.base_type_str
 
-    # TODO(b/220344555): Determine if this should be an error condition.
-    if operand_result is None:
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.RawExpression(
-              sql_expr='NULL',
-              _sql_alias=sql_alias,
-              _sql_data_type=_sql_data_types.Undefined,
-          ),
-          from_part=None,
-      )
-    else:
-      return dataclasses.replace(
-          operand_result,
-          select_part=operand_result.select_part.dot(
-              f'{resource_type}Id', _sql_data_types.String, sql_alias=sql_alias
-          ),
-      )
+    return dataclasses.replace(
+        operand_result,
+        select_part=operand_result.select_part.dot(
+            f'{resource_type}Id', _sql_data_types.String, sql_alias=sql_alias
+        ),
+    )
 
 
 class _OfTypeFunction(_FhirPathFunctionStandardSqlEncoder):
@@ -736,22 +686,14 @@ class _OfTypeFunction(_FhirPathFunctionStandardSqlEncoder):
       operand_result: Optional[_sql_data_types.IdentifierSelect],
       params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
-    sql_alias = 'ofType_'
-    if len(params_result) != 1:
-      raise ValueError('OfType must have a data type parameter.')
-
-    attribute = function.base_type_str
-    # TODO(b/221322122): Determine if this is an error and handle properly.
     if operand_result is None:
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.RawExpression(
-              sql_expr='NULL',
-              _sql_alias=sql_alias,
-              _sql_data_type=_sql_data_types.Undefined,
-          ),
-          from_part=None,
-      )
+      raise ValueError('ofType() cannot be called without an operand.')
 
+    if len(params_result) != 1:
+      raise ValueError('ofType must have a data type parameter.')
+
+    sql_alias = 'ofType_'
+    attribute = function.base_type_str
     return_type = _sql_data_types.get_standard_sql_data_type(
         function.return_type()
     )
