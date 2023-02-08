@@ -198,6 +198,11 @@ class StandardSqlDataType(metaclass=abc.ABCMeta):
   def supported_coercion(self) -> Set[StandardSqlDataType]:
     pass
 
+  @property
+  @abc.abstractmethod
+  def big_query_type_name(self) -> str:
+    """The name of the type as it appears in BigQuery DDL."""
+
 
 class Array(StandardSqlDataType):
   """An ordered list of zero or more elements of non-`ARRAY` values.
@@ -236,6 +241,13 @@ class Array(StandardSqlDataType):
   def supported_coercion(self) -> Set[StandardSqlDataType]:
     return set()  # No supported coercion
 
+  @property
+  def big_query_type_name(self) -> str:
+    if self.contained_type is None:
+      return 'ARRAY'
+
+    return f'ARRAY<{self.contained_type.big_query_type_name}>'
+
   def __str__(self):
     return f'<ArraySqlDataType(contained_type: {self.contained_type})>'
 
@@ -254,6 +266,10 @@ class _Boolean(StandardSqlDataType):
   @property
   def supported_coercion(self) -> Set[StandardSqlDataType]:
     return set()  # No supported coercion
+
+  @property
+  def big_query_type_name(self) -> str:
+    return 'BOOL'
 
   def __str__(self):
     return '<BooleanSqlDataType>'
@@ -274,6 +290,10 @@ class _Bytes(StandardSqlDataType):
   def supported_coercion(self) -> Set[StandardSqlDataType]:
     return set()  # No supported coercion
 
+  @property
+  def big_query_type_name(self) -> str:
+    return 'BYTES'
+
   def __str__(self):
     return '<BytesSqlDataType>'
 
@@ -292,6 +312,10 @@ class _Date(StandardSqlDataType):
   @property
   def supported_coercion(self) -> Set[StandardSqlDataType]:
     return set([Timestamp])
+
+  @property
+  def big_query_type_name(self) -> str:
+    return 'DATE'
 
   def __str__(self):
     return '<DateSqlDataType>'
@@ -316,6 +340,10 @@ class _Geography(StandardSqlDataType):
   def supported_coercion(self) -> Set[StandardSqlDataType]:
     return set()  # No supported coercion
 
+  @property
+  def big_query_type_name(self) -> str:
+    return 'GEOGRAPHY'
+
   def __str__(self):
     return '<GeographySqlDataType>'
 
@@ -338,6 +366,10 @@ class _Int64(StandardSqlDataType):
         BigNumeric,
         Float64,
     ])
+
+  @property
+  def big_query_type_name(self) -> str:
+    return 'INT64'
 
   def __str__(self):
     return '<Int64SqlDataType>'
@@ -364,6 +396,10 @@ class _Numeric(StandardSqlDataType):
         Float64,
     ])
 
+  @property
+  def big_query_type_name(self) -> str:
+    return 'NUMERIC'
+
   def __str__(self):
     return '<NumericSqlDataType>'
 
@@ -388,6 +424,10 @@ class _BigNumeric(StandardSqlDataType):
         Float64,
     ])
 
+  @property
+  def big_query_type_name(self) -> str:
+    return 'BIGNUMERIC'
+
   def __str__(self):
     return '<BigNumericSqlDataType>'
 
@@ -407,6 +447,10 @@ class _Float64(StandardSqlDataType):
   def supported_coercion(self) -> Set[StandardSqlDataType]:
     return set()  # No supported coercion
 
+  @property
+  def big_query_type_name(self) -> str:
+    return 'FLOAT64'
+
   def __str__(self):
     return '<Float64SqlDataType>'
 
@@ -425,6 +469,10 @@ class _String(StandardSqlDataType):
   @property
   def supported_coercion(self) -> Set[StandardSqlDataType]:
     return set()  # No supported coercion
+
+  @property
+  def big_query_type_name(self) -> str:
+    return 'STRING'
 
   def __str__(self):
     return '<StringSqlDataType>'
@@ -462,6 +510,14 @@ class Struct(StandardSqlDataType):
   def supported_coercion(self) -> Set[StandardSqlDataType]:
     return set()  # No supported coercion
 
+  @property
+  def big_query_type_name(self) -> str:
+    if not self.fields:
+      return 'STRUCT'
+
+    struct_def = ', '.join(field.big_query_type_name for field in self.fields)
+    return f'STRUCT<{struct_def}>'
+
   def __str__(self):
     return f'<StructSqlDataType(fields: {self.fields})>'
 
@@ -483,6 +539,10 @@ class _Time(StandardSqlDataType):
   @property
   def supported_coercion(self) -> Set[StandardSqlDataType]:
     return set()  # No supported coercion
+
+  @property
+  def big_query_type_name(self) -> str:
+    return 'TIME'
 
   def __str__(self):
     return '<TimeSqlDataType>'
@@ -507,6 +567,10 @@ class _Timestamp(StandardSqlDataType):
   def supported_coercion(self) -> Set[StandardSqlDataType]:
     return set()  # No supported coercion
 
+  @property
+  def big_query_type_name(self) -> str:
+    return 'TIMESTAMP'
+
   def __str__(self):
     return '<TimestampSqlDataType>'
 
@@ -529,6 +593,10 @@ class _Undefined(StandardSqlDataType):
   @property
   def supported_coercion(self) -> Set[StandardSqlDataType]:
     return set()  # No supported coercion
+
+  @property
+  def big_query_type_name(self) -> str:
+    raise NotImplementedError('Not defined for Undefined type.')
 
   def __str__(self):
     return '<UndefinedSqlDataType>'
@@ -608,8 +676,7 @@ def wrap_time_types_spark(raw_sql: str, sql_type: StandardSqlDataType) -> str:
 
 
 def wrap_time_types(raw_sql: str, sql_type: StandardSqlDataType) -> str:
-  """If the type is a date/timestamp type, wrap the SQL statement with a PARSE_TIMESTAMP.
-  """
+  """If the type is a date/timestamp type, wrap the SQL statement with a PARSE_TIMESTAMP."""
   if raw_sql.startswith('TO_TIMESTAMP'):
     return raw_sql
 
@@ -750,6 +817,11 @@ class StandardSqlExpression(metaclass=abc.ABCMeta):
   def is_not_null(self, **kwargs) -> StandardSqlExpression:
     """Builds an IS NOT NULL expression from this expression."""
     return IsNotNullOperator(self, **kwargs)
+
+  def cast(self, cast_to: StandardSqlDataType,
+           **kwargs) -> StandardSqlExpression:
+    """Builds a CAST call for this expression as type `cast_to`."""
+    return CastFunction(self, cast_to, **kwargs)
 
   def as_operand(self) -> str:
     """Returns the simplest possible str of this expression.
@@ -931,6 +1003,30 @@ class SubQuery(StandardSqlExpression):
   @property
   def sql_data_type(self) -> StandardSqlDataType:
     return self.sql_expr.sql_data_type
+
+
+@dataclasses.dataclass
+class CastFunction(StandardSqlExpression):
+  """Representation of a SQL cast.
+
+  Attributes:
+    expression: The expression being cast.
+    cast_to: The type the expression is being cast to.
+  """
+  expression: StandardSqlExpression
+  cast_to: StandardSqlDataType
+  _sql_alias: Optional[str] = None
+
+  def __str__(self) -> str:
+    return f'CAST(\n{self.expression} AS {self.cast_to.big_query_type_name})'
+
+  @property
+  def sql_alias(self) -> str:
+    return self._sql_alias or 'cast_'
+
+  @property
+  def sql_data_type(self) -> StandardSqlDataType:
+    return self.cast_to
 
 
 @dataclasses.dataclass

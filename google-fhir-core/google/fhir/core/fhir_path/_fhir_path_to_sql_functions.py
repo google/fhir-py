@@ -1277,6 +1277,82 @@ def _type_of_mapping_over(
     return fhir_type
 
 
+class _ToIntegerFunction(_FhirPathFunctionStandardSqlEncoder):
+  """Casts the given operand to an integer.
+
+  The spec for this function is found here:
+  https://build.fhir.org/ig/HL7/FHIRPath/#integer-conversion-functions
+  """
+
+  def validate_and_get_error(
+      self,
+      function: _ast.Function,
+      operand: _ast.Expression,
+      walker: _navigation.FhirStructureDefinitionWalker,
+      options: Optional[fhir_path_options.SqlValidationOptions] = None,
+  ) -> Optional[str]:
+    del function, walker, options
+
+    # If the input collection contains multiple items, the evaluation
+    # of the expression will end and signal an error to the calling
+    # environment.
+    if isinstance(operand.data_type, _fhir_path_data_types.Collection):
+      return 'toInteger() cannot be called on collections.'
+
+    return None
+
+  def return_type(
+      self, function: _ast.Function, operand: _ast.Expression,
+      walker: _navigation.FhirStructureDefinitionWalker
+  ) -> _fhir_path_data_types.FhirPathDataType:
+    return _fhir_path_data_types.Integer
+
+  def __call__(
+      self,
+      function: _ast.Function,
+      operand_result: Optional[_sql_data_types.Select],
+      params_result: List[_sql_data_types.StandardSqlExpression],
+  ) -> _sql_data_types.Select:
+    if operand_result is None:
+      raise ValueError('toInteger() cannot be called without an operand.')
+
+    if params_result:
+      raise ValueError('toInteger() does not accept any parameters.')
+
+    sql_alias = 'to_integer_'
+    sql_data_type = _sql_data_types.Int64
+
+    # Use the AST to figure out the type of the operand. We don't have
+    # to worry about the type of collections, as we don't support
+    # calling this function against arrays.
+    operand_type = function.parent.children[0].data_type
+
+    # If the input collection contains a single item, this function
+    # will return a single integer if:
+    #
+    # the item is an Integer
+    # the item is a String and is convertible to an integer
+    # the item is a Boolean, where true results in a 1 and false results in a 0.
+    #
+    # If the item is not one the above types, the result is empty.
+    if not isinstance(operand_type, (_fhir_path_data_types.Integer.__class__,
+                                     _fhir_path_data_types.String.__class__,
+                                     _fhir_path_data_types.Boolean.__class__)):
+      return _sql_data_types.Select(
+          select_part=_sql_data_types.RawExpression(
+              'NULL',
+              _sql_alias=sql_alias,
+              _sql_data_type=sql_data_type,
+          ),
+          from_part=None,
+      )
+
+    return dataclasses.replace(
+        operand_result,
+        select_part=operand_result.select_part.cast(
+            sql_data_type, _sql_alias=sql_alias))
+
+
 FUNCTION_MAP: Dict[str, _FhirPathFunctionStandardSqlEncoder] = {
     _ast.Function.Name.COUNT: _CountFunction(),
     _ast.Function.Name.EMPTY: _EmptyFunction(),
@@ -1291,4 +1367,5 @@ FUNCTION_MAP: Dict[str, _FhirPathFunctionStandardSqlEncoder] = {
     _ast.Function.Name.OF_TYPE: _OfTypeFunction(),
     _ast.Function.Name.WHERE: _WhereFunction(),
     _ast.Function.Name.ALL: _AllFunction(),
+    _ast.Function.Name.TO_INTEGER: _ToIntegerFunction(),
 }
