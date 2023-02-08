@@ -1723,6 +1723,17 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT to_integer_
           FROM (SELECT NULL AS to_integer_)
           WHERE to_integer_ IS NOT NULL)""")),
+      dict(
+          testcase_name='_withCallAgainstFieldInCollection_appliesLimit',
+          fhir_path_expression='bar.bats.struct.value.toInteger()',
+          expected_sql_expression=textwrap.dedent("""\
+          ARRAY(SELECT to_integer_
+          FROM (SELECT CAST(
+          bats_element_.struct.value AS INT64) AS to_integer_
+          FROM (SELECT bar),
+          UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
+          LIMIT 1)
+          WHERE to_integer_ IS NOT NULL)""")),
   )
   def testEncode_ToInteger_(self, fhir_path_expression: str,
                             expected_sql_expression: str):
@@ -1732,21 +1743,6 @@ class FhirPathStandardSqlEncoderTest(
         fhir_path_expression=fhir_path_expression)
 
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-
-  @parameterized.named_parameters(
-      dict(
-          testcase_name='_withCallAgainstCollection_raisesError',
-          fhir_path_expression='bar.bats.toInteger()'),
-      dict(
-          testcase_name='_withCallAgainstFieldInCollection_raisesError',
-          fhir_path_expression='bar.bats.struct.value.toInteger()'),
-  )
-  def testEncode_ToIntegerValidation(self, fhir_path_expression: str):
-    with self.assertRaises(TypeError):
-      self.fhir_path_encoder.encode(
-          structure_definition=self.foo,
-          element_definition=self.foo_root,
-          fhir_path_expression=fhir_path_expression)
 
   def testEncode_ToIntegerValidation_withParamsProvided_raisesError(self):
     with self.assertRaises(ValueError):

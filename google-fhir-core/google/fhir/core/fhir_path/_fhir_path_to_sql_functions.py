@@ -1282,6 +1282,10 @@ class _ToIntegerFunction(_FhirPathFunctionStandardSqlEncoder):
 
   The spec for this function is found here:
   https://build.fhir.org/ig/HL7/FHIRPath/#integer-conversion-functions
+
+  We differ from the spec in one respect. We do not return errors when called on
+  collections with more than one element. Instead, we return the first element
+  of the collection as an integer.
   """
 
   def validate_and_get_error(
@@ -1292,14 +1296,12 @@ class _ToIntegerFunction(_FhirPathFunctionStandardSqlEncoder):
       options: Optional[fhir_path_options.SqlValidationOptions] = None,
   ) -> Optional[str]:
     del function, walker, options
-
-    # If the input collection contains multiple items, the evaluation
-    # of the expression will end and signal an error to the calling
-    # environment.
-    if isinstance(operand.data_type, _fhir_path_data_types.Collection):
-      return 'toInteger() cannot be called on collections.'
-
-    return None
+    if isinstance(
+        operand.data_type,
+        _fhir_path_data_types.Collection) and len(operand.data_type.types) > 1:
+      return (
+          'toInteger() can only process Collections with a single data type. '
+          f'Got Collection with {operand.data_type.types} types.')
 
   def return_type(
       self, function: _ast.Function, operand: _ast.Expression,
@@ -1322,10 +1324,12 @@ class _ToIntegerFunction(_FhirPathFunctionStandardSqlEncoder):
     sql_alias = 'to_integer_'
     sql_data_type = _sql_data_types.Int64
 
-    # Use the AST to figure out the type of the operand. We don't have
-    # to worry about the type of collections, as we don't support
-    # calling this function against arrays.
-    operand_type = function.parent.children[0].data_type
+    # Use the AST to figure out the type of the operand.
+    operand_node = function.parent.children[0]
+    if isinstance(operand_node.data_type, _fhir_path_data_types.Collection):
+      operand_type = list(operand_node.data_type.types)[0]
+    else:
+      operand_type = operand_node.data_type
 
     # If the input collection contains a single item, this function
     # will return a single integer if:
@@ -1346,6 +1350,16 @@ class _ToIntegerFunction(_FhirPathFunctionStandardSqlEncoder):
           ),
           from_part=None,
       )
+
+    # The spec says:
+    # "If the input collection contains multiple items, the evaluation
+    # of the expression will end and signal an error to the calling
+    # environment."
+    # This is harder to do in SQL where we can't raise exceptions, so
+    # instead we just apply a limit of 1 on any collections.
+    if isinstance(operand_node.data_type, _fhir_path_data_types.Collection):
+      first = FUNCTION_MAP[_ast.Function.Name.FIRST]
+      operand_result = first(function, operand_result, [])
 
     return dataclasses.replace(
         operand_result,
