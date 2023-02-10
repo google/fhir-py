@@ -46,11 +46,13 @@ Constraint = message.Message
 # `ElementDefinition`s whose `base.path` is present in `_UNSUPPORTED_BASE_PATHS`
 # will be silently skipped during profile traversal, and will raise an exception
 # during FHIRPath-to-Standard-SQL encoding.
-UNSUPPORTED_BASE_PATHS = frozenset([
-    # Contained Resources do not map cleanly to SQL and are not supported by
-    # the SQL-on-FHIR standard.
-    'DomainResource.contained',
-])
+UNSUPPORTED_BASE_PATHS = frozenset(
+    [
+        # Contained Resources do not map cleanly to SQL and are not supported by
+        # the SQL-on-FHIR standard.
+        'DomainResource.contained',
+    ]
+)
 
 # The `ElementDefinition.type.code` is a URL of the datatype or resource used
 # for an element. References are URLs that are relative to:
@@ -62,7 +64,6 @@ _SKIP_TYPE_CODES = frozenset([
     # TODO(b/193251325): Add support for traversing `targetProfile`s of a
     # `Reference` type.
     'Reference',
-
     # Ignore the Resource type. Because it can stand for any resource, it is
     # typed as a string in our protos. Thus we do not need to encode constraints
     # for it.
@@ -109,6 +110,7 @@ _PRIMITIVES_EXCLUDED_FROM_REGEX_ENCODING = frozenset([
 @dataclasses.dataclass
 class _RegexInfo:
   """A named tuple with information needed to make a regex constraint."""
+
   regex: str
   type_code: str
 
@@ -131,7 +133,8 @@ def _get_analytic_path(element_definition: ElementDefinition) -> str:
 
   if not proto_utils.field_is_set(element_definition, 'path'):
     raise ValueError(
-        f'Required field "path" is not set for {element_definition}.')
+        f'Required field "path" is not set for {element_definition}.'
+    )
   return cast(Any, element_definition).path.value
 
 
@@ -183,8 +186,7 @@ def _get_regex_from_element_type(type_: message.Message):
   """Returns regex from ElementDefinition.type if available."""
   for sub_type in cast(Any, type_):
     for extension in sub_type.extension:
-      if (extension.url.value == 'http://hl7.org/fhir/StructureDefinition/regex'
-         ):
+      if extension.url.value == 'http://hl7.org/fhir/StructureDefinition/regex':
         # Escape backslashes from regex.
         primitive_regex = extension.value.string_value.value
         # Make regex a full match in sql.
@@ -195,8 +197,9 @@ def _get_regex_from_element_type(type_: message.Message):
   return None
 
 
-def _get_regex_from_structure(structure_definition: StructureDefinition,
-                              type_code: str) -> Optional[str]:
+def _get_regex_from_structure(
+    structure_definition: StructureDefinition, type_code: str
+) -> Optional[str]:
   """Returns the regex in the given StructureDefinition if it exists."""
   for element in cast(Any, structure_definition).snapshot.element:
     if element.id.value == f'{type_code}.value':
@@ -214,8 +217,9 @@ def _is_elem_supported(element_definition: ElementDefinition) -> bool:
   # filtering out slices on non-extensions.
   # TODO(b/202564733): Properly handle slices that are not slices on
   # extensions.
-  if (_utils.is_slice_element(element_definition) and
-      not _utils.is_slice_on_extension(element_definition)):
+  if _utils.is_slice_element(
+      element_definition
+  ) and not _utils.is_slice_on_extension(element_definition):
     return False
   elem = cast(Any, element_definition)
   # TODO(b/254866189): Skip links.
@@ -237,10 +241,12 @@ class SqlGenerationOptions:
     value_set_codes_table: The name of the database table containing value set
       code definitions. Used when building SQL for memberOf expressions.
   """
+
   skip_keys: Set[str] = dataclasses.field(default_factory=set)
   add_primitive_regexes: bool = False
   expr_replace_list: fhirpath_replacement_list_pb2.FHIRPathReplacementList = (
-      fhirpath_replacement_list_pb2.FHIRPathReplacementList())
+      fhirpath_replacement_list_pb2.FHIRPathReplacementList()
+  )
   add_value_set_bindings: bool = False
   value_set_codes_table: bigquery.TableReference = None
 
@@ -291,7 +297,8 @@ class FhirProfileStandardSqlEncoder:
     self._context = context.MockFhirPathContext(structure_definitions)
     self._primitive_handler = handler
     self._bq_interpreter = _bigquery_interpreter.BigQuerySqlInterpreter(
-        value_set_codes_table=self._options.value_set_codes_table)
+        value_set_codes_table=self._options.value_set_codes_table
+    )
 
     self._error_reporter = error_reporter
     self._options.skip_keys.update(_SKIP_KEYS)
@@ -317,9 +324,11 @@ class FhirProfileStandardSqlEncoder:
     return '.'.join([bottom.fhir_path, builder.fhir_path])
 
   def _encode_fhir_path_constraint(
-      self, struct_def: _fhir_path_data_types.StructureDataType,
+      self,
+      struct_def: _fhir_path_data_types.StructureDataType,
       fhir_path_expression: str,
-      node_context: expressions.Builder) -> Optional[str]:
+      node_context: expressions.Builder,
+  ) -> Optional[str]:
     """Returns a Standard SQL translation of the constraint `fhir_path_expression`.
 
     If an error is encountered during encoding, the associated error reporter
@@ -343,8 +352,12 @@ class FhirProfileStandardSqlEncoder:
 
     try:
       new_builder = expressions.from_fhir_path_expression(
-          fhir_path_expression, self._context, struct_def,
-          self._primitive_handler, node_context)
+          fhir_path_expression,
+          self._context,
+          struct_def,
+          self._primitive_handler,
+          node_context,
+      )
     except Exception as e:  # pylint: disable=broad-except
       self._error_reporter.report_fhir_path_error(
           self._abs_path_invocation(node_context),
@@ -354,8 +367,9 @@ class FhirProfileStandardSqlEncoder:
       return None
     return self._encode_fhir_path_builder_constraint(new_builder, node_context)
 
-  def _encode_fhir_path_builder(self,
-                                builder: expressions.Builder) -> Optional[str]:
+  def _encode_fhir_path_builder(
+      self, builder: expressions.Builder
+  ) -> Optional[str]:
     """Returns a Standard SQL translation of the constraint `fhir_path_expression`.
 
     If an error is encountered during encoding, the associated error reporter
@@ -382,8 +396,10 @@ class FhirProfileStandardSqlEncoder:
     return sql_expression
 
   def _encode_fhir_path_builder_constraint(
-      self, builder: expressions.Builder,
-      top_level_constraint: Optional[expressions.Builder]) -> Optional[str]:
+      self,
+      builder: expressions.Builder,
+      top_level_constraint: Optional[expressions.Builder],
+  ) -> Optional[str]:
     """Returns a Standard SQL translation of the constraint `fhir_path_expression` relative to its top-level constraint.
 
     Args:
@@ -408,34 +424,41 @@ class FhirProfileStandardSqlEncoder:
     # the builder contains additional invocations beyond what the context
     # contains.
 
-    if (not top_level_constraint or isinstance(top_level_constraint.get_node(),
-                                               _evaluation.RootMessageNode)):
+    if not top_level_constraint or isinstance(
+        top_level_constraint.get_node(), _evaluation.RootMessageNode
+    ):
       sql_expression = self._encode_fhir_path_builder(builder)
       if sql_expression:
-        return ('(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
-                f'FROM UNNEST({sql_expression}) AS result_)')
+        return (
+            '(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
+            f'FROM UNNEST({sql_expression}) AS result_)'
+        )
       return None
 
     root_sql_expression = self._encode_fhir_path_builder(top_level_constraint)
     new_builder = builder.replace_operand(
         old_path=top_level_constraint.fhir_path,
         replacement_node=_evaluation.StructureBaseNode(
-            self._context, top_level_constraint.return_type))
+            self._context, top_level_constraint.return_type
+        ),
+    )
 
     sql_expression = self._encode_fhir_path_builder(new_builder)
 
     if not sql_expression or not root_sql_expression:
       return None
     # Bind the two expressions together via a correlated `ARRAY` subquery
-    return ('(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
-            f'FROM (SELECT {sql_expression} AS subquery_\n'
-            'FROM (SELECT AS VALUE ctx_element_\n'
-            f'FROM UNNEST({root_sql_expression}) AS ctx_element_)),\n'
-            'UNNEST(subquery_) AS result_)')
+    return (
+        '(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
+        f'FROM (SELECT {sql_expression} AS subquery_\n'
+        'FROM (SELECT AS VALUE ctx_element_\n'
+        f'FROM UNNEST({root_sql_expression}) AS ctx_element_)),\n'
+        'UNNEST(subquery_) AS result_)'
+    )
 
   def _encode_constraints(
-      self,
-      builder: expressions.Builder) -> List[validation_pb2.SqlRequirement]:
+      self, builder: expressions.Builder
+  ) -> List[validation_pb2.SqlRequirement]:
     """Returns a list of `SqlRequirement`s for FHIRPath constraints.
 
     Args:
@@ -447,7 +470,7 @@ class FhirProfileStandardSqlEncoder:
     """
     result: List[validation_pb2.SqlRequirement] = []
     element_definition = builder.return_type.root_element_definition
-    constraints: List[Constraint] = (cast(Any, element_definition).constraint)
+    constraints: List[Constraint] = cast(Any, element_definition).constraint
     for constraint in constraints:
       constraint_key: str = cast(Any, constraint).key.value
       if constraint_key in self._options.skip_keys:
@@ -466,14 +489,18 @@ class FhirProfileStandardSqlEncoder:
 
       if column_name in self._requirement_column_names:
         self._error_reporter.report_fhir_path_error(
-            element_definition_path, fhir_path_expression,
-            f'Duplicate FHIRPath requirement: {column_name}.')
+            element_definition_path,
+            fhir_path_expression,
+            f'Duplicate FHIRPath requirement: {column_name}.',
+        )
         continue
 
       if cast(Any, constraint).severity.value == 0:
         self._error_reporter.report_fhir_path_error(
-            element_definition_path, fhir_path_expression,
-            'Constraint severity must be set.')
+            element_definition_path,
+            fhir_path_expression,
+            'Constraint severity must be set.',
+        )
         continue  # Malformed constraint
 
       # TODO(b/221470795): Remove this implementation when a better
@@ -483,16 +510,20 @@ class FhirProfileStandardSqlEncoder:
       # we wait for the spec to be updated.
       if self._options.expr_replace_list:
         for replacement in self._options.expr_replace_list.replacement:
-          if ((not replacement.element_path or
-               replacement.element_path == element_definition_path) and
-              replacement.expression_to_replace == fhir_path_expression):
+          if (
+              not replacement.element_path
+              or replacement.element_path == element_definition_path
+          ) and replacement.expression_to_replace == fhir_path_expression:
             fhir_path_expression = replacement.replacement_expression
 
       # Create Standard SQL expression
-      struct_def = cast(_fhir_path_data_types.StructureDataType,
-                        builder.get_root_builder().return_type)
+      struct_def = cast(
+          _fhir_path_data_types.StructureDataType,
+          builder.get_root_builder().return_type,
+      )
       sql_expression = self._encode_fhir_path_constraint(
-          struct_def, fhir_path_expression, builder)
+          struct_def, fhir_path_expression, builder
+      )
       if sql_expression is None:
         continue  # Failure to generate Standard SQL expression
       # Constraint type and severity metadata; default to WARNING
@@ -501,14 +532,18 @@ class FhirProfileStandardSqlEncoder:
       severity = cast(Any, constraint).severity
       severity_value_field = severity.DESCRIPTOR.fields_by_name.get('value')
       severity_str = codes.enum_value_descriptor_to_code_string(
-          severity_value_field.enum_type.values_by_number[severity.value])
+          severity_value_field.enum_type.values_by_number[severity.value]
+      )
       try:
         validation_severity = validation_pb2.ValidationSeverity.Value(
-            f'SEVERITY_{severity_str.upper()}')
+            f'SEVERITY_{severity_str.upper()}'
+        )
       except ValueError:
         self._error_reporter.report_fhir_path_warning(
-            element_definition_path, fhir_path_expression,
-            f'Unknown validation severity conversion: {severity_str}.')
+            element_definition_path,
+            fhir_path_expression,
+            f'Unknown validation severity conversion: {severity_str}.',
+        )
         validation_severity = validation_pb2.ValidationSeverity.SEVERITY_WARNING
 
       requirement = validation_pb2.SqlRequirement(
@@ -521,7 +556,9 @@ class FhirProfileStandardSqlEncoder:
           fhir_path_key=constraint_key,
           fhir_path_expression=fhir_path_expression,
           fields_referenced_by_expression=_fields_referenced_by_expression(
-              fhir_path_expression))
+              fhir_path_expression
+          ),
+      )
 
       self._requirement_column_names.add(column_name)
       result.append(requirement)
@@ -530,8 +567,8 @@ class FhirProfileStandardSqlEncoder:
 
   # TODO(b/222541838): Handle general cardinality requirements.
   def _encode_required_fields(
-      self,
-      builder: expressions.Builder) -> List[validation_pb2.SqlRequirement]:
+      self, builder: expressions.Builder
+  ) -> List[validation_pb2.SqlRequirement]:
     """Returns `SqlRequirement`s for all required fields in `ElementDefinition`.
 
     Args:
@@ -567,8 +604,10 @@ class FhirProfileStandardSqlEncoder:
 
       query_list = []
 
-      if _fhir_path_data_types.is_collection(
-          child_builder.return_type) and max_size.isdigit():
+      if (
+          _fhir_path_data_types.is_collection(child_builder.return_type)
+          and max_size.isdigit()
+      ):
         query_list.append(element_count <= int(max_size))
 
       if min_size == 1:
@@ -580,8 +619,10 @@ class FhirProfileStandardSqlEncoder:
         continue
 
       constraint_key = f'{name}-cardinality-is-valid'
-      description = (f'The length of {name} must be maximum '
-                     f'{max_size} and minimum {min_size}.')
+      description = (
+          f'The length of {name} must be maximum '
+          f'{max_size} and minimum {min_size}.'
+      )
 
       fhir_path_builder = query_list[0]
       for query in query_list[1:]:
@@ -596,14 +637,16 @@ class FhirProfileStandardSqlEncoder:
         continue
 
       required_sql_expression = self._encode_fhir_path_builder_constraint(
-          fhir_path_builder, builder)
+          fhir_path_builder, builder
+      )
       if required_sql_expression is None:
         continue  # Failure to generate Standard SQL expression.
 
       # Create the `SqlRequirement`.
       element_definition_path = self._abs_path_invocation(builder)
       constraint_key_column_name: str = _key_to_sql_column_name(
-          _path_to_sql_column_name(constraint_key))
+          _path_to_sql_column_name(constraint_key)
+      )
       column_name_base: str = _path_to_sql_column_name(element_definition_path)
       column_name = f'{column_name_base}_{constraint_key_column_name}'
 
@@ -687,7 +730,8 @@ class FhirProfileStandardSqlEncoder:
   # TODO(b/207690471): Move important ElementDefinition (and other) functions
   # to their respective utility modules and unit test their public facing apis .
   def _get_regex_from_element(
-      self, builder: expressions.Builder) -> Optional[_RegexInfo]:
+      self, builder: expressions.Builder
+  ) -> Optional[_RegexInfo]:
     """Returns the regex of this element_definition if available."""
     element_definition = cast(Any, builder.return_type.root_element_definition)
     type_codes = _utils.element_type_codes(element_definition)
@@ -701,8 +745,10 @@ class FhirProfileStandardSqlEncoder:
     if not type_codes:
       return None
     if len(type_codes) > 1:
-      raise ValueError('Expected element with only one type code but got: '
-                       f'{type_codes}, is this a choice type?')
+      raise ValueError(
+          'Expected element with only one type code but got: '
+          f'{type_codes}, is this a choice type?'
+      )
     current_type_code = type_codes[0]
 
     element_id: str = element_definition.id.value
@@ -712,8 +758,7 @@ class FhirProfileStandardSqlEncoder:
       return self._element_id_to_regex_map[element_id]
 
     # Ignore regexes on primitive types that are not represented as strings.
-    if (current_type_code == 'positiveInt' or
-        current_type_code == 'unsignedInt'):
+    if current_type_code == 'positiveInt' or current_type_code == 'unsignedInt':
       return _RegexInfo(regex='', type_code=current_type_code)
 
     # TODO(b/207018908): Remove this after we figure out a better way to encode
@@ -724,8 +769,10 @@ class FhirProfileStandardSqlEncoder:
     # E.g. `Foo.id` and not `Foo.bar.id`. These ids will have a base path of
     # `Resource.id`.
     base_path: str = element_definition.base.path.value
-    if (base_path == 'Resource.id' and
-        current_type_code == 'http://hl7.org/fhirpath/System.String'):
+    if (
+        base_path == 'Resource.id'
+        and current_type_code == 'http://hl7.org/fhirpath/System.String'
+    ):
       current_type_code = 'id'
 
     if (
@@ -739,14 +786,18 @@ class FhirProfileStandardSqlEncoder:
       if primitive_url.endswith('String'):
         return None
       type_definition = self._context.get_structure_definition(primitive_url)
-      regex_value = _get_regex_from_structure(type_definition,
-                                              current_type_code)
+      regex_value = _get_regex_from_structure(
+          type_definition, current_type_code
+      )
       if regex_value is None:
         self._error_reporter.report_validation_error(
             self._abs_path_invocation(builder),
-            'Unable to find regex pattern for; '
-            f'type_code:`{current_type_code}` '
-            f'and url:`{primitive_url}` in environment.')
+            (
+                'Unable to find regex pattern for; '
+                f'type_code:`{current_type_code}` '
+                f'and url:`{primitive_url}` in environment.'
+            ),
+        )
       else:
         # Memoise the regex of this element for quick retrieval
         # later.
@@ -757,8 +808,8 @@ class FhirProfileStandardSqlEncoder:
     return None
 
   def _encode_primitive_regexes(
-      self,
-      builder: expressions.Builder) -> List[validation_pb2.SqlRequirement]:
+      self, builder: expressions.Builder
+  ) -> List[validation_pb2.SqlRequirement]:
     """Returns regex `SqlRequirement`s for primitives in `ElementDefinition`.
 
     This function generates regex `SqlRequirement`s specifically for the direct
@@ -778,12 +829,14 @@ class FhirProfileStandardSqlEncoder:
     if 'comparator' in element_definition_path.split('.'):
       return []
 
-    if not isinstance(builder.return_type,
-                      _fhir_path_data_types.StructureDataType):
+    if not isinstance(
+        builder.return_type, _fhir_path_data_types.StructureDataType
+    ):
       return []
 
-    struct_def = cast(_fhir_path_data_types.StructureDataType,
-                      builder.return_type).structure_definition
+    struct_def = cast(
+        _fhir_path_data_types.StructureDataType, builder.return_type
+    ).structure_definition
 
     # If this is an extension, we don't want to access its children/fields.
     # TODO(b/200575760): Add support for complex extensions and the fields
@@ -801,7 +854,7 @@ class FhirProfileStandardSqlEncoder:
       # If this element is a choice type, a slice (that is not on an extension)
       # or is disabled, then don't encode requirements for it.
       # TODO(b/202564733): Properly handle slices on non-simple extensions.
-      if ('[x]' in _get_analytic_path(child) or _is_disabled(child)):
+      if '[x]' in _get_analytic_path(child) or _is_disabled(child):
         continue
 
       if not _is_elem_supported(child):
@@ -849,13 +902,15 @@ class FhirProfileStandardSqlEncoder:
       element_definition_path = self._abs_path_invocation(child_builder)
       fhir_expression = fhir_path_builder.fhir_path
       required_sql_expression = self._encode_fhir_path_builder_constraint(
-          fhir_path_builder, builder)
+          fhir_path_builder, builder
+      )
       if required_sql_expression is None:
         continue  # Failure to generate Standard SQL expression.
 
       # Create the `SqlRequirement`.
       constraint_key_column_name: str = _key_to_sql_column_name(
-          _path_to_sql_column_name(constraint_key))
+          _path_to_sql_column_name(constraint_key)
+      )
       column_name_base: str = _path_to_sql_column_name(element_definition_path)
       column_name = f'{column_name_base}_{constraint_key_column_name}'
       if column_name in self._regex_columns_generated:
@@ -868,19 +923,20 @@ class FhirProfileStandardSqlEncoder:
           severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
           type=validation_pb2.ValidationType.VALIDATION_TYPE_PRIMITIVE_REGEX,
           element_path=self._abs_path_invocation(child_builder),
-          description=(f'{name} needs to match regex of '
-                       f'{regex_type_code}.'),
+          description=f'{name} needs to match regex of {regex_type_code}.',
           fhir_path_key=constraint_key,
           fhir_path_expression=fhir_path_builder.fhir_path,
           fields_referenced_by_expression=_fields_referenced_by_expression(
-              _escape_fhir_path_invocation(fhir_expression)))
+              _escape_fhir_path_invocation(fhir_expression)
+          ),
+      )
       encoded_requirements.append(requirement)
 
     return encoded_requirements
 
   def _encode_element_definition_of_builder(
-      self,
-      builder: expressions.Builder) -> List[validation_pb2.SqlRequirement]:
+      self, builder: expressions.Builder
+  ) -> List[validation_pb2.SqlRequirement]:
     """Returns a list of Standard SQL expressions for an `ElementDefinition`."""
     result: List[validation_pb2.SqlRequirement] = []
 
@@ -910,8 +966,9 @@ class FhirProfileStandardSqlEncoder:
       result += self._encode_value_set_bindings(builder)
 
     if isinstance(builder.return_type, _fhir_path_data_types.StructureDataType):
-      struct_type = cast(_fhir_path_data_types.StructureDataType,
-                         builder.return_type)
+      struct_type = cast(
+          _fhir_path_data_types.StructureDataType, builder.return_type
+      )
       # Ignores the fields inside complex extensions.
       # TODO(b/200575760): Add support for complex extensions and the fields
       # inside them.
@@ -920,8 +977,11 @@ class FhirProfileStandardSqlEncoder:
 
       for child, elem in struct_type.children().items():
         # TODO(b/200575760): Add support for more complicated fields
-        if (child == 'extension' or child == 'link' or
-            '#' in cast(Any, elem).content_reference.value):
+        if (
+            child == 'extension'
+            or child == 'link'
+            or '#' in cast(Any, elem).content_reference.value
+        ):
           continue
 
         new_builder = builder.__getattr__(child)
@@ -929,12 +989,14 @@ class FhirProfileStandardSqlEncoder:
         # TODO(b/200575760): Add support polymorphic choice types
         if not new_builder.return_type.root_element_definition:
           self._error_reporter.report_validation_error(
-              child, 'Root element definition of child is None.')
+              child, 'Root element definition of child is None.'
+          )
           # Early-exit if Root element definition of child is None.
           return result
 
-        if isinstance(new_builder.return_type,
-                      _fhir_path_data_types.StructureDataType):
+        if isinstance(
+            new_builder.return_type, _fhir_path_data_types.StructureDataType
+        ):
           result += self._encode_structure_definition(new_builder)
         else:
           result += self._encode_element_definition_of_builder(new_builder)
@@ -942,8 +1004,8 @@ class FhirProfileStandardSqlEncoder:
     return result
 
   def _encode_value_set_bindings(
-      self,
-      builder: expressions.Builder) -> List[validation_pb2.SqlRequirement]:
+      self, builder: expressions.Builder
+  ) -> List[validation_pb2.SqlRequirement]:
     """Encode .memberOf calls implied by elements bound to value sets."""
     # Ensure the element defines a value set binding.
     element_definition = builder.return_type.root_element_definition
@@ -954,8 +1016,11 @@ class FhirProfileStandardSqlEncoder:
 
     # Ensure the binding is required, see
     # https://build.fhir.org/valueset-binding-strength.html#expansion
-    required_enum_val: int = binding.strength.DESCRIPTOR.fields_by_name[
-        'value'].enum_type.values_by_name['REQUIRED'].number
+    required_enum_val: int = (
+        binding.strength.DESCRIPTOR.fields_by_name['value']
+        .enum_type.values_by_name['REQUIRED']
+        .number
+    )
     if binding.strength.value != required_enum_val:
       return []
 
@@ -969,44 +1034,54 @@ class FhirProfileStandardSqlEncoder:
     # fhir_path_builder produces an absolute path, so for constraint generation
     # sake, we build the equivalent relative path.
     relative_fhir_path = "%s.memberOf('%s')" % (
-        _escape_fhir_path_invocation(relative_path), value_set_uri)
+        _escape_fhir_path_invocation(relative_path),
+        value_set_uri,
+    )
 
     # Since the binding is required, we don't have to check the top-level
     # constraints.
     sql_expression = self._encode_fhir_path_builder_constraint(
-        fhir_path_builder, top_level_constraint=None)
+        fhir_path_builder, top_level_constraint=None
+    )
     if sql_expression is None:
       return []
 
     element_definition_path = self._abs_path_invocation(builder)
     column_name = _key_to_sql_column_name(
-        _path_to_sql_column_name('%s-memberOf' % element_definition_path))
-    description = '%s must be a member of %s' % (fhir_path_builder.fhir_path,
-                                                 value_set_uri)
+        _path_to_sql_column_name('%s-memberOf' % element_definition_path)
+    )
+    description = '%s must be a member of %s' % (
+        fhir_path_builder.fhir_path,
+        value_set_uri,
+    )
     return [
         validation_pb2.SqlRequirement(
             column_name=column_name,
             sql_expression=sql_expression,
             severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
-            type=(validation_pb2.ValidationType
-                  .VALIDATION_TYPE_VALUE_SET_BINDING),
+            type=(
+                validation_pb2.ValidationType.VALIDATION_TYPE_VALUE_SET_BINDING
+            ),
             element_path=element_definition_path,
             description=description,
             fhir_path_key=constraint_key,
             fhir_path_expression=relative_fhir_path,
             fields_referenced_by_expression=_fields_referenced_by_expression(
-                relative_fhir_path))
+                relative_fhir_path
+            ),
+        )
     ]
 
   def _encode_structure_definition(
-      self,
-      builder: expressions.Builder) -> List[validation_pb2.SqlRequirement]:
+      self, builder: expressions.Builder
+  ) -> List[validation_pb2.SqlRequirement]:
     """Recursively encodes the provided resource into Standard SQL."""
 
     if builder.return_type.url in self._in_progress:
       self._error_reporter.report_conversion_error(
           self._abs_path_invocation(builder),
-          f'Cycle detected when encoding: {builder.return_type.url}.')
+          f'Cycle detected when encoding: {builder.return_type.url}.',
+      )
       return []
     self._in_progress.add(builder.return_type.url)
     self._ctx.append(builder)  # save the root.
@@ -1030,16 +1105,20 @@ class FhirProfileStandardSqlEncoder:
       # `StructureDefinition`. Propagate any exceptions that occur, and always
       # cleanup state prior to returning.
       struct_def_type = _fhir_path_data_types.StructureDataType(
-          structure_definition)
+          structure_definition
+      )
 
       builder = expressions.Builder(
           _evaluation.RootMessageNode(self._context, struct_def_type),
-          self._primitive_handler)
+          self._primitive_handler,
+      )
       result = self._encode_structure_definition(builder)
       # Removes duplicates (Same SQL Expression) from our list of requirements.
-      result = list({
-          requirement.sql_expression: requirement for requirement in result
-      }.values())
+      result = list(
+          {
+              requirement.sql_expression: requirement for requirement in result
+          }.values()
+      )
     finally:
       self._ctx.clear()
       self._in_progress.clear()
@@ -1050,7 +1129,8 @@ class FhirProfileStandardSqlEncoder:
 
 
 def _fields_referenced_by_expression(
-    fhir_path_expression: str) -> Collection[str]:
+    fhir_path_expression: str,
+) -> Collection[str]:
   """Finds paths for fields referenced by the given expression.
 
   For example, an expression like 'a.b.where(c > d.e)' references fields
@@ -1067,4 +1147,7 @@ def _fields_referenced_by_expression(
   return sorted(
       _ast.paths_referenced_by(
           _ast.build_fhir_path_ast(
-              _escape_fhir_path_invocation(fhir_path_expression))))
+              _escape_fhir_path_invocation(fhir_path_expression)
+          )
+      )
+  )

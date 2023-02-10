@@ -74,29 +74,35 @@ class _ElementDefinitionTree:
     for element_definition in cast(Any, structure_definition).snapshot.element:
       if _utils.is_root_element(element_definition):
         if self._root_element is not None:
-          raise ValueError('Expected a single root ElementDefinition but got: '
-                           f'{cast(Any, self._root_element).id.value!r} and '
-                           f'{cast(Any, element_definition).id.value!r}.')
+          raise ValueError(
+              'Expected a single root ElementDefinition but got: '
+              f'{cast(Any, self._root_element).id.value!r} and '
+              f'{cast(Any, element_definition).id.value!r}.'
+          )
         self._root_element = element_definition
 
   def _get_descendants(
-      self, element_definition: ElementDefinition) -> List[ElementDefinition]:
+      self, element_definition: ElementDefinition
+  ) -> List[ElementDefinition]:
     """Returns a list of descendants of an `ElementDefinition`."""
     parent_id_prefix = cast(Any, element_definition).id.value + '.'
     return [
-        element for element in self.all_elements
+        element
+        for element in self.all_elements
         if cast(Any, element).id.value.startswith(parent_id_prefix)
     ]
 
   def get_children(
-      self, element_definition: ElementDefinition) -> List[ElementDefinition]:
+      self, element_definition: ElementDefinition
+  ) -> List[ElementDefinition]:
     """Returns a list of direct children of an `ElementDefinition`."""
     id_value: str = cast(Any, element_definition).id.value
     if id_value not in self._child_memos:
       descendants = self._get_descendants(element_definition)
       id_parts_len = len(id_value.split('.'))
       self._child_memos[id_value] = [
-          descendant for descendant in descendants
+          descendant
+          for descendant in descendants
           if len(cast(Any, descendant).id.value.split('.')) == id_parts_len + 1
       ]
     return self._child_memos[id_value]
@@ -124,27 +130,32 @@ class _Environment:
     for sd in structure_definitions:
       url_value: str = cast(Any, sd).url.value
       if url_value in self._structure_definition_map:
-        raise ValueError('Unexpected duplicate `StructureDefinition` URL '
-                         f'value: {url_value!r}.')
+        raise ValueError(
+            'Unexpected duplicate `StructureDefinition` URL '
+            f'value: {url_value!r}.'
+        )
       self._structure_definition_map[url_value] = _ElementDefinitionTree(sd)
 
   def get_structure_definition_for(
-      self, url_value: str) -> Optional[StructureDefinition]:
+      self, url_value: str
+  ) -> Optional[StructureDefinition]:
     """Returns the `StructureDefinition` given a uniquely-identifying URL."""
     map_ = self._structure_definition_map.get(url_value)
     return map_.structure_definition if map_ is not None else None
 
   def get_root_element_for(
-      self,
-      structure_definition: StructureDefinition) -> Optional[ElementDefinition]:
+      self, structure_definition: StructureDefinition
+  ) -> Optional[ElementDefinition]:
     """Returns the root ElementDefinition for a type."""
     url_value = cast(Any, structure_definition).url.value
     map_ = self._structure_definition_map.get(url_value)
     return map_.root_element if map_ is not None else None
 
   def get_children(
-      self, structure_definition: StructureDefinition,
-      element_definition: ElementDefinition) -> List[ElementDefinition]:
+      self,
+      structure_definition: StructureDefinition,
+      element_definition: ElementDefinition,
+  ) -> List[ElementDefinition]:
     """Returns the direct children of `element_definition`."""
     url_value = cast(Any, structure_definition).url.value
     map_ = self._structure_definition_map.get(url_value)
@@ -173,7 +184,8 @@ class FhirStructureDefinitionWalker:
 
     if len(type_codes) == 1:
       return self._env.get_structure_definition_for(
-          _utils.get_absolute_uri_for_structure(type_codes[0]))
+          _utils.get_absolute_uri_for_structure(type_codes[0])
+      )
 
     return None
 
@@ -187,10 +199,12 @@ class FhirStructureDefinitionWalker:
     """Returns the current element."""
     return self._element
 
-  def __init__(self,
-               env: _Environment,
-               initial_type: StructureDefinition,
-               initial_element: Optional[ElementDefinition] = None) -> None:
+  def __init__(
+      self,
+      env: _Environment,
+      initial_type: StructureDefinition,
+      initial_element: Optional[ElementDefinition] = None,
+  ) -> None:
     """Creates a new `FhirStructureDefinitionWalker`.
 
     Args:
@@ -204,7 +218,9 @@ class FhirStructureDefinitionWalker:
     self._containing_type = initial_type
     self._element = (
         self._env.get_root_element_for(initial_type)
-        if initial_element is None else initial_element)
+        if initial_element is None
+        else initial_element
+    )
 
   def __copy__(self) -> 'FhirStructureDefinitionWalker':
     return type(self)(self._env, self.containing_type, self.element)
@@ -232,13 +248,18 @@ class FhirStructureDefinitionWalker:
       # Recursive elements and non-extension slices are not in the SQL
       # representation, so skip those.
       # TODO(b/223622513): Define strategy for recursive element valiation.
-      regular_path_element = not ((_utils.is_slice_element(child) and
-                                   not _utils.is_slice_on_extension(child)) or
-                                  _utils.is_recursive_element(child))
+      regular_path_element = not (
+          (
+              _utils.is_slice_element(child)
+              and not _utils.is_slice_on_extension(child)
+          )
+          or _utils.is_recursive_element(child)
+      )
       path_matches = (
-          child.path.value == inline_path or
-          child.path.value == choice_type_inline_path or
-          child.id.value == extension_inline_id)
+          child.path.value == inline_path
+          or child.path.value == choice_type_inline_path
+          or child.id.value == extension_inline_id
+      )
       if regular_path_element and path_matches:
         self._element = child
         return
@@ -253,8 +274,9 @@ class FhirStructureDefinitionWalker:
         uri_value = self.selected_choice_type
         if not uri_value:
           raise ValueError(
-              'Selected choice type not set for element: '
-              f'{cast(Any, self.element).id.value!r} and identifier: {identifier!r}'
+              'Selected choice type not set for element:'
+              f' {cast(Any, self.element).id.value!r} and identifier:'
+              f' {identifier!r}'
           )
         else:
           self.selected_choice_type = ''
@@ -269,11 +291,14 @@ class FhirStructureDefinitionWalker:
       if _utils.is_slice_on_extension(self.element):
         urls = _utils.slice_element_urls(self.element)
         if not urls:
-          raise ValueError('Unable to get url for slice on extension with id: '
-                           f'{cast(Any, self.element).id.value}')
+          raise ValueError(
+              'Unable to get url for slice on extension with id: '
+              f'{cast(Any, self.element).id.value}'
+          )
         if len(urls) > 1:
           raise ValueError(
-              'TODO(b/190679571): Add support for more than one type.')
+              'TODO(b/190679571): Add support for more than one type.'
+          )
 
         url = urls[0]
 
@@ -292,7 +317,9 @@ class FhirStructureDefinitionWalker:
           self._element = child
           return
 
-    raise ValueError('Unable to find child under containing_type: '
-                     f'{cast(Any, self.containing_type).url.value!r}, '
-                     f'element: {cast(Any, self.element).id.value!r}, '
-                     f'for identifier: {identifier!r}.')
+    raise ValueError(
+        'Unable to find child under containing_type: '
+        f'{cast(Any, self.containing_type).url.value!r}, '
+        f'element: {cast(Any, self.element).id.value!r}, '
+        f'for identifier: {identifier!r}.'
+    )

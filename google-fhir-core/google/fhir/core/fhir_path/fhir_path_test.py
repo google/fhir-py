@@ -1711,36 +1711,47 @@ class FhirPathStandardSqlEncoderTest(
       dict(
           testcase_name='_withStringField_generatesCastSql',
           fhir_path_expression='bat.struct.value.toInteger()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT to_integer_
           FROM (SELECT CAST(
           bat.struct.value AS INT64) AS to_integer_)
-          WHERE to_integer_ IS NOT NULL)""")),
+          WHERE to_integer_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withUnCastableType_generatesEmptySql',
           fhir_path_expression='codeFlavor.coding.toInteger()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT to_integer_
           FROM (SELECT NULL AS to_integer_)
-          WHERE to_integer_ IS NOT NULL)""")),
+          WHERE to_integer_ IS NOT NULL)"""
+          ),
+      ),
       dict(
           testcase_name='_withCallAgainstFieldInCollection_appliesLimit',
           fhir_path_expression='bar.bats.struct.value.toInteger()',
-          expected_sql_expression=textwrap.dedent("""\
+          expected_sql_expression=textwrap.dedent(
+              """\
           ARRAY(SELECT to_integer_
           FROM (SELECT CAST(
           bats_element_.struct.value AS INT64) AS to_integer_
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
           LIMIT 1)
-          WHERE to_integer_ IS NOT NULL)""")),
+          WHERE to_integer_ IS NOT NULL)"""
+          ),
+      ),
   )
-  def testEncode_ToInteger_(self, fhir_path_expression: str,
-                            expected_sql_expression: str):
+  def testEncode_ToInteger_(
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression)
+        fhir_path_expression=fhir_path_expression,
+    )
 
     self.assertEqual(actual_sql_expression, expected_sql_expression)
 
@@ -1749,7 +1760,8 @@ class FhirPathStandardSqlEncoderTest(
       self.fhir_path_encoder.encode(
           structure_definition=self.foo,
           element_definition=self.foo_root,
-          fhir_path_expression='bat.struct.value.toInteger(123)')
+          fhir_path_expression='bat.struct.value.toInteger(123)',
+      )
 
   @parameterized.named_parameters(
       dict(

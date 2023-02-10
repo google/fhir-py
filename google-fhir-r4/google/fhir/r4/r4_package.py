@@ -40,10 +40,13 @@ def load_base_r4() -> fhir_package.FhirPackage:
 
 
 def load(
-    archive_file: fhir_package.PackageSource
+    archive_file: fhir_package.PackageSource,
 ) -> fhir_package.FhirPackage[
-    structure_definition_pb2.StructureDefinition, search_parameter_pb2
-    .SearchParameter, code_system_pb2.CodeSystem, value_set_pb2.ValueSet]:
+    structure_definition_pb2.StructureDefinition,
+    search_parameter_pb2.SearchParameter,
+    code_system_pb2.CodeSystem,
+    value_set_pb2.ValueSet,
+]:
   """Instantiates and returns a new `FhirPackage` for FHIR R4.
 
   Args:
@@ -57,7 +60,10 @@ def load(
     ValueError: In the event that the file or contents are invalid.
   """
   return fhir_package.FhirPackage.load(
-      archive_file, _PRIMITIVE_HANDLER,
+      archive_file,
+      _PRIMITIVE_HANDLER,
       structure_definition_pb2.StructureDefinition,
-      search_parameter_pb2.SearchParameter, code_system_pb2.CodeSystem,
-      value_set_pb2.ValueSet)
+      search_parameter_pb2.SearchParameter,
+      code_system_pb2.CodeSystem,
+      value_set_pb2.ValueSet,
+  )

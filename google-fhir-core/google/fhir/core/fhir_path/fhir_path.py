@@ -101,7 +101,8 @@ def _get_analytic_path(element_definition: ElementDefinition) -> str:
 
   if not proto_utils.field_is_set(element_definition, 'path'):
     raise ValueError(
-        f'Required field "path" is not set for {element_definition}.')
+        f'Required field "path" is not set for {element_definition}.'
+    )
   return cast(Any, element_definition).path.value
 
 
@@ -132,10 +133,12 @@ def _is_type(element_definition: ElementDefinition, type_code: str) -> bool:
 def _is_primitive_typecode(type_code: str) -> bool:
   """Returns True if the given typecode is primitive. False otherwise."""
   return (
-      type_code in _PRIMITIVE_TO_STANDARD_SQL_MAP or
+      type_code in _PRIMITIVE_TO_STANDARD_SQL_MAP
+      or
       # Ids are a special case of primitive that have their type code equal to
       # 'http://hl7.org/fhirpath/System.String'.
-      type_code == 'http://hl7.org/fhirpath/System.String')
+      type_code == 'http://hl7.org/fhirpath/System.String'
+  )
 
 
 @dataclasses.dataclass
@@ -153,10 +156,12 @@ class SqlGenerationOptions:
     value_set_codes_table: The name of the database table containing value set
       code definitions. Used when building SQL for memberOf expressions.
   """
+
   skip_keys: Set[str] = dataclasses.field(default_factory=set)
   add_primitive_regexes: bool = False
   expr_replace_list: fhirpath_replacement_list_pb2.FHIRPathReplacementList = (
-      fhirpath_replacement_list_pb2.FHIRPathReplacementList())
+      fhirpath_replacement_list_pb2.FHIRPathReplacementList()
+  )
   add_value_set_bindings: bool = False
   value_set_codes_table: bigquery.TableReference = None
 
@@ -169,7 +174,8 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
       structure_definitions: List[StructureDefinition],
       options: Optional[SqlGenerationOptions] = None,
       validation_options: Optional[
-          fhir_path_options.SqlValidationOptions] = None,
+          fhir_path_options.SqlValidationOptions
+      ] = None,
   ) -> None:
     """Creates a new instance of `FhirPathStandardSqlEncoder`.
 
@@ -182,7 +188,8 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     self._env = _navigation._Environment(structure_definitions)
     self._options = options or SqlGenerationOptions()
     self._semantic_analyzer = _semant.FhirPathSemanticAnalyzer(
-        self._env, validation_options=validation_options)
+        self._env, validation_options=validation_options
+    )
 
   # TODO(b/194290588): Perform recursive type inference on `STRUCT`s.
   def _get_standard_sql_data_type(
@@ -210,12 +217,14 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
 
     return _sql_data_types.OpaqueStruct  # Empty `STRUCT`
 
-  def encode(self,
-             *,
-             structure_definition: StructureDefinition,
-             fhir_path_expression: str,
-             element_definition: Optional[ElementDefinition] = None,
-             select_scalars_as_array: bool = True) -> str:
+  def encode(
+      self,
+      *,
+      structure_definition: StructureDefinition,
+      fhir_path_expression: str,
+      element_definition: Optional[ElementDefinition] = None,
+      select_scalars_as_array: bool = True,
+  ) -> str:
     """Returns a Standard SQL encoding of a FHIRPath expression.
 
     If select_scalars_as_array is True, the resulting Standard SQL encoding
@@ -247,7 +256,8 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
 
     if element_definition is None:
       element_definition = _utils.get_root_element_definition(
-          structure_definition)
+          structure_definition
+      )
 
     semant_error_reporter = fhir_errors.ListErrorReporter()
     self._semantic_analyzer.add_semantic_annotations(
@@ -258,8 +268,9 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     )
     if semant_error_reporter.errors:
       semantic_errors = '.\n'.join(semant_error_reporter.errors)
-      raise TypeError('Unexpected errors during semantic analysis:\n%s' %
-                      semantic_errors)
+      raise TypeError(
+          'Unexpected errors during semantic analysis:\n%s' % semantic_errors
+      )
 
     walker = _navigation.FhirStructureDefinitionWalker(
         self._env,
@@ -268,18 +279,24 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     )
     result = self.visit(ast, walker=walker)
 
-    if select_scalars_as_array or isinstance(ast.data_type,
-                                             _fhir_path_data_types.Collection):
-      return (f'ARRAY(SELECT {result.sql_alias}\n'
-              f'FROM {result.to_subquery()}\n'
-              f'WHERE {result.sql_alias} IS NOT NULL)')
+    if select_scalars_as_array or isinstance(
+        ast.data_type, _fhir_path_data_types.Collection
+    ):
+      return (
+          f'ARRAY(SELECT {result.sql_alias}\n'
+          f'FROM {result.to_subquery()}\n'
+          f'WHERE {result.sql_alias} IS NOT NULL)'
+      )
     else:
       # Parenthesize raw SELECT so it can plug in anywhere an expression can.
       return f'{result.to_subquery()}'
 
-  def validate(self, structure_definition: StructureDefinition,
-               element_definition: ElementDefinition,
-               fhir_path_expression: str) -> fhir_errors.ListErrorReporter:
+  def validate(
+      self,
+      structure_definition: StructureDefinition,
+      element_definition: ElementDefinition,
+      fhir_path_expression: str,
+  ) -> fhir_errors.ListErrorReporter:
     """Validates the given FHIR path expression.
 
     Validates a given FHIR path expression in the context of a structure
@@ -309,12 +326,14 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
 
     except ValueError as e:
       error_reporter.report_conversion_error(
-          cast(Any, element_definition).path.value, str(e))
+          cast(Any, element_definition).path.value, str(e)
+      )
 
     return error_reporter
 
-  def visit_literal(self, literal: _ast.Literal,
-                    **unused_kwargs: Any) -> _sql_data_types.RawExpression:
+  def visit_literal(
+      self, literal: _ast.Literal, **unused_kwargs: Any
+  ) -> _sql_data_types.RawExpression:
     """Translates a FHIRPath literal to Standard SQL."""
 
     if literal.value is None:
@@ -335,10 +354,8 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
       # Since quantity string literals contain quotes, they are escaped.
       # E.g. '10 \'mg\''.
       quantity_quotes_escaped = str(literal.value).translate(
-          str.maketrans({
-              "'": r"\'",
-              '"': r'\"'
-          }))
+          str.maketrans({"'": r'\'', '"': r'\"'})
+      )
       sql_value = f"'{quantity_quotes_escaped}'"
       sql_data_type = _sql_data_types.String
     elif isinstance(literal.value, int):
@@ -359,8 +376,10 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     )
 
   def visit_identifier(
-      self, identifier: _ast.Identifier, *,
-      walker: _navigation.FhirStructureDefinitionWalker
+      self,
+      identifier: _ast.Identifier,
+      *,
+      walker: _navigation.FhirStructureDefinitionWalker,
   ) -> _sql_data_types.IdentifierSelect:
     """Translates a FHIRPath member identifier to Standard SQL."""
     # TODO(b/244184211): Handle "special" identifiers
@@ -381,7 +400,6 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
 
     identifier_str = _escape_identifier(raw_identifier_str)
     if _utils.is_repeated_element(walker.element):  # Array
-
       # If the identifier is `$this`, we assume that the repeated field has been
       # unnested upstream so we only need to reference it with its alias:
       # `{}_element_`.
@@ -399,8 +417,8 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
         # ignore it.
         return _sql_data_types.IdentifierSelect(
             select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
-            from_part=f'UNNEST({identifier_str}) AS {sql_alias} ' +
-            'WITH OFFSET AS element_offset',
+            from_part=f'UNNEST({identifier_str}) AS {sql_alias} '
+            + 'WITH OFFSET AS element_offset',
         )
     else:  # Scalar
       return _sql_data_types.IdentifierSelect(
@@ -409,8 +427,10 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
       )
 
   def visit_indexer(
-      self, indexer: _ast.Indexer, *,
-      walker: _navigation.FhirStructureDefinitionWalker
+      self,
+      indexer: _ast.Indexer,
+      *,
+      walker: _navigation.FhirStructureDefinitionWalker,
   ) -> _sql_data_types.Select:
     """Translates a FHIRPath indexer expression to Standard SQL.
 
@@ -431,9 +451,11 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     index_result = self.visit(indexer.index, walker=copy.copy(walker))
 
     # Intermediate indexed table subquery.
-    indexed_collection = ('SELECT ROW_NUMBER() OVER() AS row_,\n'
-                          f'{collection_result.sql_alias}\n'
-                          f'FROM {collection_result.to_subquery()}')
+    indexed_collection = (
+        'SELECT ROW_NUMBER() OVER() AS row_,\n'
+        f'{collection_result.sql_alias}\n'
+        f'FROM {collection_result.to_subquery()}'
+    )
 
     # Construct SQL expression; index must be a single integer per the FHIRPath
     # grammar, so we can leverage a scalar subquery.
@@ -449,8 +471,10 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     )
 
   def visit_arithmetic(
-      self, arithmetic: _ast.Arithmetic, *,
-      walker: _navigation.FhirStructureDefinitionWalker
+      self,
+      arithmetic: _ast.Arithmetic,
+      *,
+      walker: _navigation.FhirStructureDefinitionWalker,
   ) -> _sql_data_types.Select:
     """Translates a FHIRPath arithmetic expression to Standard SQL.
 
@@ -472,8 +496,9 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     """
     lhs_result = self.visit(arithmetic.lhs, walker=copy.copy(walker))
     rhs_result = self.visit(arithmetic.rhs, walker=copy.copy(walker))
-    sql_data_type = _sql_data_types.coerce(lhs_result.sql_data_type,
-                                           rhs_result.sql_data_type)
+    sql_data_type = _sql_data_types.coerce(
+        lhs_result.sql_data_type, rhs_result.sql_data_type
+    )
 
     # Extract the values of LHS and RHS to be used as scalar subqueries.
     lhs_subquery = lhs_result.as_operand()
@@ -492,12 +517,16 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     sql_alias = 'arith_'
     return _sql_data_types.Select(
         select_part=_sql_data_types.RawExpression(
-            sql_value, _sql_data_type=sql_data_type, _sql_alias=sql_alias),
-        from_part=None)
+            sql_value, _sql_data_type=sql_data_type, _sql_alias=sql_alias
+        ),
+        from_part=None,
+    )
 
   def visit_type_expression(
-      self, type_expression: _ast.TypeExpression, *,
-      walker: _navigation.FhirStructureDefinitionWalker
+      self,
+      type_expression: _ast.TypeExpression,
+      *,
+      walker: _navigation.FhirStructureDefinitionWalker,
   ) -> _sql_data_types.StandardSqlExpression:
     raise NotImplementedError('`visit_type_expression` is not yet implemented.')
 
@@ -508,8 +537,10 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
   # TODO(b/191895721): Verify equivalence order-dependence (documentation says
   # it is *not* order-dependent, but HL7 JS implementation *is*).
   def visit_equality(
-      self, relation: _ast.EqualityRelation, *,
-      walker: _navigation.FhirStructureDefinitionWalker
+      self,
+      relation: _ast.EqualityRelation,
+      *,
+      walker: _navigation.FhirStructureDefinitionWalker,
   ) -> _sql_data_types.Select:
     """Returns `TRUE` if the left collection is equal/equivalent to the right.
 
@@ -532,8 +563,10 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
 
     # Semantic analysis ensures that the lhs and rhs are either directly
     # comparable or implicitly comparable to each other.
-    if (relation.op == _ast.EqualityRelation.Op.EQUAL or
-        relation.op == _ast.EqualityRelation.Op.EQUIVALENT):
+    if (
+        relation.op == _ast.EqualityRelation.Op.EQUAL
+        or relation.op == _ast.EqualityRelation.Op.EQUIVALENT
+    ):
       collection_check_func_name = 'NOT EXISTS'
       scalar_check_op = '='
     else:  # NOT_*
@@ -544,41 +577,57 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     sql_data_type = _sql_data_types.Boolean
 
     # Both sides are scalars.
-    if (not isinstance(relation.lhs.data_type, _fhir_path_data_types.Collection)
-        and not isinstance(relation.rhs.data_type,
-                           _fhir_path_data_types.Collection)):
+    if not isinstance(
+        relation.lhs.data_type, _fhir_path_data_types.Collection
+    ) and not isinstance(
+        relation.rhs.data_type, _fhir_path_data_types.Collection
+    ):
       # Use the simpler query.
       return _sql_data_types.Select(
           select_part=_sql_data_types.RawExpression(
-              f'({lhs_result.as_operand()} '
-              f'{scalar_check_op} '
-              f'{rhs_result.as_operand()})',
+              (
+                  f'({lhs_result.as_operand()} '
+                  f'{scalar_check_op} '
+                  f'{rhs_result.as_operand()})'
+              ),
               _sql_data_type=sql_data_type,
-              _sql_alias=sql_alias),
-          from_part=None)
+              _sql_alias=sql_alias,
+          ),
+          from_part=None,
+      )
 
     else:
-      sql_expr = ('SELECT lhs_.*\n'
-                  'FROM (SELECT ROW_NUMBER() OVER() AS row_, '
-                  f'{lhs_result.sql_alias}\n'
-                  f'FROM {lhs_result.to_subquery()}) AS lhs_\n'
-                  'EXCEPT DISTINCT\n'
-                  'SELECT rhs_.*\n'
-                  'FROM (SELECT ROW_NUMBER() OVER() AS row_, '
-                  f'{rhs_result.sql_alias}\n'
-                  f'FROM {rhs_result.to_subquery()}) AS rhs_')
+      sql_expr = (
+          'SELECT lhs_.*\n'
+          'FROM (SELECT ROW_NUMBER() OVER() AS row_, '
+          f'{lhs_result.sql_alias}\n'
+          f'FROM {lhs_result.to_subquery()}) AS lhs_\n'
+          'EXCEPT DISTINCT\n'
+          'SELECT rhs_.*\n'
+          'FROM (SELECT ROW_NUMBER() OVER() AS row_, '
+          f'{rhs_result.sql_alias}\n'
+          f'FROM {rhs_result.to_subquery()}) AS rhs_'
+      )
 
       return _sql_data_types.Select(
           select_part=_sql_data_types.FunctionCall(
-              collection_check_func_name, (_sql_data_types.RawExpression(
-                  sql_expr, _sql_data_type=_sql_data_types.Int64),),
+              collection_check_func_name,
+              (
+                  _sql_data_types.RawExpression(
+                      sql_expr, _sql_data_type=_sql_data_types.Int64
+                  ),
+              ),
               _sql_data_type=sql_data_type,
-              _sql_alias=sql_alias),
-          from_part=None)
+              _sql_alias=sql_alias,
+          ),
+          from_part=None,
+      )
 
   def visit_comparison(
-      self, comparison: _ast.Comparison, *,
-      walker: _navigation.FhirStructureDefinitionWalker
+      self,
+      comparison: _ast.Comparison,
+      *,
+      walker: _navigation.FhirStructureDefinitionWalker,
   ) -> _sql_data_types.Select:
     """Translates a FHIRPath comparison to Standard SQL.
 
@@ -604,11 +653,14 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     # TODO(b/196239030): Leverage semantic analysis type information to make
     # more nuanced decision (e.g. if Quantity, certain operations can be
     # supported).
-    type_ = _sql_data_types.coerce(lhs_result.sql_data_type,
-                                   rhs_result.sql_data_type)
+    type_ = _sql_data_types.coerce(
+        lhs_result.sql_data_type, rhs_result.sql_data_type
+    )
     if isinstance(type_, _sql_data_types.Struct):
-      raise TypeError('Unsupported `STRUCT` logical comparison between '
-                      f'{lhs_result} {comparison.op} {rhs_result}.')
+      raise TypeError(
+          'Unsupported `STRUCT` logical comparison between '
+          f'{lhs_result} {comparison.op} {rhs_result}.'
+      )
 
     # Extract the values of LHS and RHS to be used as scalar subqueries.
     lhs_subquery = lhs_result.as_operand()
@@ -622,12 +674,16 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
         select_part=_sql_data_types.RawExpression(
             sql_value,
             _sql_data_type=_sql_data_types.Boolean,
-            _sql_alias=sql_alias),
-        from_part=None)
+            _sql_alias=sql_alias,
+        ),
+        from_part=None,
+    )
 
   def visit_boolean_logic(
-      self, boolean_logic: _ast.BooleanLogic, *,
-      walker: _navigation.FhirStructureDefinitionWalker
+      self,
+      boolean_logic: _ast.BooleanLogic,
+      *,
+      walker: _navigation.FhirStructureDefinitionWalker,
   ) -> _sql_data_types.Select:
     """Translates a FHIRPath Boolean logic operation to Standard SQL.
 
@@ -670,12 +726,16 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
         select_part=_sql_data_types.RawExpression(
             sql_value,
             _sql_data_type=_sql_data_types.Boolean,
-            _sql_alias=sql_alias),
-        from_part=None)
+            _sql_alias=sql_alias,
+        ),
+        from_part=None,
+    )
 
   def visit_membership(
-      self, relation: _ast.MembershipRelation, *,
-      walker: _navigation.FhirStructureDefinitionWalker
+      self,
+      relation: _ast.MembershipRelation,
+      *,
+      walker: _navigation.FhirStructureDefinitionWalker,
   ) -> _sql_data_types.Select:
     """Translates a FHIRPath membership relation to Standard SQL.
 
@@ -698,23 +758,30 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     # Where relation.op \in {IN, CONTAINS}; `CONTAINS` is the converse of `IN`
     in_lhs = (
         lhs_result
-        if relation.op == _ast.MembershipRelation.Op.IN else rhs_result)
+        if relation.op == _ast.MembershipRelation.Op.IN
+        else rhs_result
+    )
     in_rhs = (
         rhs_result
-        if relation.op == _ast.MembershipRelation.Op.IN else lhs_result)
+        if relation.op == _ast.MembershipRelation.Op.IN
+        else lhs_result
+    )
 
-    sql_expr = (f'({in_lhs.as_operand()})\n' f'IN ({in_rhs.as_operand()})')
+    sql_expr = f'({in_lhs.as_operand()})\nIN ({in_rhs.as_operand()})'
     return _sql_data_types.Select(
         select_part=_sql_data_types.RawExpression(
             sql_expr,
             _sql_data_type=_sql_data_types.Boolean,
             _sql_alias='mem_',
         ),
-        from_part=None)
+        from_part=None,
+    )
 
   def visit_union(
-      self, union: _ast.UnionOp, *,
-      walker: _navigation.FhirStructureDefinitionWalker
+      self,
+      union: _ast.UnionOp,
+      *,
+      walker: _navigation.FhirStructureDefinitionWalker,
   ) -> _sql_data_types.UnionExpression:
     """Merge two collections into a single *distinct* collection.
 
@@ -730,30 +797,37 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     rhs_result = self.visit(union.rhs, walker=copy.copy(walker))
 
     # Supported in FHIRPath, but currently generates invalid Standard SQL.
-    if (isinstance(lhs_result.sql_data_type, _sql_data_types.Struct) or
-        isinstance(rhs_result.sql_data_type, _sql_data_types.Struct)):
+    if isinstance(
+        lhs_result.sql_data_type, _sql_data_types.Struct
+    ) or isinstance(rhs_result.sql_data_type, _sql_data_types.Struct):
       raise TypeError(
-          f'Unsupported `STRUCT` union between {lhs_result}, {rhs_result}.')
+          f'Unsupported `STRUCT` union between {lhs_result}, {rhs_result}.'
+      )
 
     sql_alias = 'union_'
     lhs = _sql_data_types.Select(
         select_part=_sql_data_types.Identifier(
             ('lhs_', lhs_result.sql_alias),
             _sql_alias=sql_alias,
-            _sql_data_type=lhs_result.sql_data_type),
-        from_part=f'{lhs_result.to_subquery()} AS lhs_')
+            _sql_data_type=lhs_result.sql_data_type,
+        ),
+        from_part=f'{lhs_result.to_subquery()} AS lhs_',
+    )
     rhs = _sql_data_types.Select(
         select_part=_sql_data_types.Identifier(
             ('rhs_', rhs_result.sql_alias),
             _sql_alias=sql_alias,
-            _sql_data_type=rhs_result.sql_data_type),
+            _sql_data_type=rhs_result.sql_data_type,
+        ),
         from_part=f'{rhs_result.to_subquery()} AS rhs_',
     )
     return lhs.union(rhs, distinct=True)
 
   def visit_polarity(
-      self, polarity: _ast.Polarity, *,
-      walker: _navigation.FhirStructureDefinitionWalker
+      self,
+      polarity: _ast.Polarity,
+      *,
+      walker: _navigation.FhirStructureDefinitionWalker,
   ) -> _sql_data_types.Select:
     """Translates FHIRPath unary polarity (+/-) to Standard SQL."""
     operand_result = self.visit(polarity.operand, walker=walker)
@@ -768,17 +842,21 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
             _sql_data_type=operand_result.sql_data_type,
             _sql_alias=sql_alias,
         ),
-        from_part=None)
+        from_part=None,
+    )
 
   def visit_invocation(
-      self, invocation: _ast.Invocation, *,
-      walker: _navigation.FhirStructureDefinitionWalker
+      self,
+      invocation: _ast.Invocation,
+      *,
+      walker: _navigation.FhirStructureDefinitionWalker,
   ) -> _sql_data_types.StandardSqlExpression:
     """Translates a FHIRPath invocation to Standard SQL."""
     # Function invocation
     if isinstance(invocation.rhs, _ast.Function):
       return self.visit_function(
-          invocation.rhs, operand=invocation.lhs, walker=walker)
+          invocation.rhs, operand=invocation.lhs, walker=walker
+      )
 
     # Member invocation
     # TODO(b/244184211): Most of the RHS encoding is redudant, since we need to
@@ -798,14 +876,16 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
       # BigQuery query optimizer will be able to detect the unused column and
       # ignore it.
       return _sql_data_types.IdentifierSelect(
-          select_part=_sql_data_types.Identifier(rhs_result.sql_alias,
-                                                 rhs_result.sql_data_type),
+          select_part=_sql_data_types.Identifier(
+              rhs_result.sql_alias, rhs_result.sql_data_type
+          ),
           from_part=(
               f'{lhs_result.to_subquery()},\n'
               f'UNNEST({lhs_result.sql_alias}.{rhs_identifier}) '
               f'AS {rhs_result.sql_alias} '
               # As mentioned
-              'WITH OFFSET AS element_offset'),
+              'WITH OFFSET AS element_offset'
+          ),
       )
     else:
       # Append the rhs to the path chain being selected.
@@ -816,18 +896,21 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
               rhs_identifier,
               rhs_result.sql_data_type,
               sql_alias=rhs_result.sql_alias,
-          ))
+          ),
+      )
 
   def visit_function(
       self,
       function: _ast.Function,
       *,
       walker: _navigation.FhirStructureDefinitionWalker,
-      operand: Optional[_ast.Expression] = None) -> _sql_data_types.Select:
+      operand: Optional[_ast.Expression] = None,
+  ) -> _sql_data_types.Select:
     """Translates a FHIRPath function to Standard SQL."""
     # Encode the operand, if present, and potentially mutate the `ctx`
     operand_result = (
-        self.visit(operand, walker=walker) if operand is not None else None)
+        self.visit(operand, walker=walker) if operand is not None else None
+    )
 
     # Encode each parameter with a shallow-copy of `ctx`
     params_result = [
@@ -837,7 +920,8 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
     # Semantic analysis should error out before here if an invalid function is
     # used.
     func = _fhir_path_to_sql_functions.FUNCTION_MAP.get(
-        function.identifier.value)
+        function.identifier.value
+    )
 
     # If the function is ofType, propagate its chosen type to the walker.
     if function.identifier.value == _ast.Function.Name.OF_TYPE:
@@ -847,7 +931,8 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
       kwargs = {}
       if self._options.value_set_codes_table is not None:
         kwargs['value_set_codes_table'] = str(
-            self._options.value_set_codes_table)
+            self._options.value_set_codes_table
+        )
       return func(function, operand_result, params_result, **kwargs)
     else:
       return func(function, operand_result, params_result)
