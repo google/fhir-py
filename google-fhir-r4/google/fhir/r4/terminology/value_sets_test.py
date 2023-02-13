@@ -32,56 +32,76 @@ class ValueSetsTest(absltest.TestCase):
 
   def testValueSetFromUrl_withUsCoreDefinitions_findsValueSet(self):
     value_set = get_resolver().value_set_from_url(
-        'http://hl7.org/fhir/ValueSet/financial-taskcode')
+        'http://hl7.org/fhir/ValueSet/financial-taskcode'
+    )
     self.assertIsNotNone(value_set)
-    self.assertEqual(value_set.url.value,
-                     'http://hl7.org/fhir/ValueSet/financial-taskcode')
+    self.assertEqual(
+        value_set.url.value, 'http://hl7.org/fhir/ValueSet/financial-taskcode'
+    )
 
   def testValueSetFromUrl_withUnknownUrl_raisesError(self):
-    self.assertIsNone(get_resolver().value_set_from_url(
-        'http://hl7.org/fhir/ValueSet/mystery'))
+    self.assertIsNone(
+        get_resolver().value_set_from_url(
+            'http://hl7.org/fhir/ValueSet/mystery'
+        )
+    )
 
   def testValueSetFromUrl_withWrongResourceType_raisesError(self):
     resolver = get_resolver()
-    with unittest.mock.patch.object(resolver.package_manager,
-                                    'get_resource') as m_get_resource:
+    with unittest.mock.patch.object(
+        resolver.package_manager, 'get_resource'
+    ) as m_get_resource:
       m_get_resource.return_value = (
-          structure_definition_pb2.StructureDefinition())
+          structure_definition_pb2.StructureDefinition()
+      )
       with self.assertRaises(ValueError):
         resolver.value_set_from_url('http://hl7.org/fhir/ValueSet/mystery')
 
   def testValueSetFromUrl_withVersionedUrl_findsValueSet(self):
     value_set = get_resolver().value_set_from_url(
-        'http://hl7.org/fhir/ValueSet/financial-taskcode|4.0.1')
+        'http://hl7.org/fhir/ValueSet/financial-taskcode|4.0.1'
+    )
     self.assertIsNotNone(value_set)
-    self.assertEqual(value_set.url.value,
-                     'http://hl7.org/fhir/ValueSet/financial-taskcode')
+    self.assertEqual(
+        value_set.url.value, 'http://hl7.org/fhir/ValueSet/financial-taskcode'
+    )
 
   def testValueSetFromUrl_withBadVersionedUrl_raisesError(self):
-    self.assertIsNone(get_resolver().value_set_from_url(
-        'http://hl7.org/fhir/ValueSet/financial-taskcode|500.0.1'))
+    self.assertIsNone(
+        get_resolver().value_set_from_url(
+            'http://hl7.org/fhir/ValueSet/financial-taskcode|500.0.1'
+        )
+    )
 
   def testValueSetUrlsFromStructureDefinition_withValueSets_succeeds(self):
     definition = structure_definition_pb2.StructureDefinition()
 
     # Add an a element to the snapshot definition.
     element = definition.snapshot.element.add()
-    element.binding.value_set.value = 'http://hl7.org/fhir/ValueSet/financial-taskcode'
+    element.binding.value_set.value = (
+        'http://hl7.org/fhir/ValueSet/financial-taskcode'
+    )
 
     # Add an element without a URL.
     definition.snapshot.element.add()
 
     # Add another element to the snapshot definition.
     another_element = definition.snapshot.element.add()
-    another_element.binding.value_set.value = 'http://hl7.org/fhir/ValueSet/account-status'
+    another_element.binding.value_set.value = (
+        'http://hl7.org/fhir/ValueSet/account-status'
+    )
 
     # Add yet another element to the snapshot definition.
     snapshot_element = definition.snapshot.element.add()
-    snapshot_element.binding.value_set.value = 'http://hl7.org/fhir/ValueSet/action-participant-role'
+    snapshot_element.binding.value_set.value = (
+        'http://hl7.org/fhir/ValueSet/action-participant-role'
+    )
 
     # Add an element with a duplicated url which should be ignored.
     duplicate_element = definition.snapshot.element.add()
-    duplicate_element.binding.value_set.value = 'http://hl7.org/fhir/ValueSet/financial-taskcode'
+    duplicate_element.binding.value_set.value = (
+        'http://hl7.org/fhir/ValueSet/financial-taskcode'
+    )
 
     # Add an element pointing to a type with a structure definition.
     typed_element = definition.snapshot.element.add()
@@ -97,11 +117,13 @@ class ValueSetsTest(absltest.TestCase):
     pixie_dust.binding.value_set.value = 'http://hl7.org/fhir/ValueSet/fey'
 
     package_manager = unittest.mock.MagicMock(
-        spec=fhir_package.FhirPackageManager)
+        spec=fhir_package.FhirPackageManager
+    )
     package_manager.get_resource.side_effect = {magic.url.value: magic}.get
 
-    resolver = value_sets.ValueSetResolver(package_manager,
-                                           unittest.mock.MagicMock())
+    resolver = value_sets.ValueSetResolver(
+        package_manager, unittest.mock.MagicMock()
+    )
 
     result = resolver.value_set_urls_from_structure_definition(definition)
     self.assertCountEqual(
@@ -115,49 +137,61 @@ class ValueSetsTest(absltest.TestCase):
     )
 
   def testValueSetUrlsFromStructureDefinition_withBuggyDefinition_succeeds(
-      self):
+      self,
+  ):
     """Ensures we handle an incorrect binding to a code system.
 
     Addresses the issue https://jira.hl7.org/browse/FHIR-36128.
     """
     definition = structure_definition_pb2.StructureDefinition()
     definition.url.value = (
-        'http://hl7.org/fhir/StructureDefinition/ExplanationOfBenefit')
+        'http://hl7.org/fhir/StructureDefinition/ExplanationOfBenefit'
+    )
 
     element = definition.snapshot.element.add()
     element.binding.value_set.value = (
-        'http://terminology.hl7.org/CodeSystem/processpriority')
+        'http://terminology.hl7.org/CodeSystem/processpriority'
+    )
 
     result = get_resolver().value_set_urls_from_structure_definition(definition)
     self.assertEqual(
-        list(result), ['http://hl7.org/fhir/ValueSet/process-priority'])
+        list(result), ['http://hl7.org/fhir/ValueSet/process-priority']
+    )
 
   def testValueSetUrlsFromStructureDefinition_withNoValueSets_returnsEmpty(
-      self):
+      self,
+  ):
     definition = structure_definition_pb2.StructureDefinition()
     self.assertEqual(
-        list(get_resolver().value_set_urls_from_structure_definition(
-            definition)),
+        list(
+            get_resolver().value_set_urls_from_structure_definition(definition)
+        ),
         [],
     )
 
   def testValueSetUrlsFromStructureDefinition_withDifferentialElements_raisesNotImplemented(
-      self):
+      self,
+  ):
     definition = structure_definition_pb2.StructureDefinition()
     element = definition.differential.element.add()
     element.binding.value_set.value = (
-        'http://terminology.hl7.org/CodeSystem/processpriority')
+        'http://terminology.hl7.org/CodeSystem/processpriority'
+    )
     with self.assertRaises(NotImplementedError):
       list(get_resolver().value_set_urls_from_structure_definition(definition))
 
   def testValueSetUrlsFromFhirPackage_withValueSets_succeeds(self):
     definition = structure_definition_pb2.StructureDefinition()
     element = definition.snapshot.element.add()
-    element.binding.value_set.value = 'http://hl7.org/fhir/ValueSet/financial-taskcode'
+    element.binding.value_set.value = (
+        'http://hl7.org/fhir/ValueSet/financial-taskcode'
+    )
 
     another_definition = structure_definition_pb2.StructureDefinition()
     another_element = another_definition.snapshot.element.add()
-    another_element.binding.value_set.value = 'http://hl7.org/fhir/ValueSet/action-participant-role'
+    another_element.binding.value_set.value = (
+        'http://hl7.org/fhir/ValueSet/action-participant-role'
+    )
 
     value_set = value_set_pb2.ValueSet()
     value_set.url.value = 'a-url'
@@ -166,7 +200,9 @@ class ValueSetsTest(absltest.TestCase):
     another_value_set.url.value = 'another-url'
 
     duplicate_value_set = value_set_pb2.ValueSet()
-    duplicate_value_set.url.value = 'http://hl7.org/fhir/ValueSet/action-participant-role'
+    duplicate_value_set.url.value = (
+        'http://hl7.org/fhir/ValueSet/action-participant-role'
+    )
 
     package = fhir_package.FhirPackage(
         structure_definitions=[definition, another_definition],
@@ -195,7 +231,8 @@ class ValueSetsTest(absltest.TestCase):
         value_sets=[],
     )
     self.assertEqual(
-        list(get_resolver().value_set_urls_from_fhir_package(package)), [])
+        list(get_resolver().value_set_urls_from_fhir_package(package)), []
+    )
 
   def testExpandValueSetLocally_withExtensionalSet_expandsCodes(self):
     value_set = value_set_pb2.ValueSet()
@@ -230,8 +267,8 @@ class ValueSetsTest(absltest.TestCase):
     exclude_code.code.value = 'code-1-3'
 
     result = value_sets.ValueSetResolver(
-        unittest.mock.MagicMock(),
-        unittest.mock.MagicMock())._expand_value_set_locally(value_set)
+        unittest.mock.MagicMock(), unittest.mock.MagicMock()
+    )._expand_value_set_locally(value_set)
     expected = [
         value_set_pb2.ValueSet.Expansion.Contains(
             system=datatypes_pb2.Uri(value='include-system-1'),
@@ -272,8 +309,9 @@ class ValueSetsTest(absltest.TestCase):
     # Return the definition for the above code system.
     package_manager = unittest.mock.MagicMock()
     package_manager.get_resource.return_value = code_system
-    resolver = value_sets.ValueSetResolver(package_manager,
-                                           unittest.mock.MagicMock())
+    resolver = value_sets.ValueSetResolver(
+        package_manager, unittest.mock.MagicMock()
+    )
 
     result = resolver._expand_value_set_locally(value_set)
 
@@ -306,8 +344,9 @@ class ValueSetsTest(absltest.TestCase):
     # However do not provide a definition for the code system.
     package_manager = unittest.mock.MagicMock()
     package_manager.get_resource.return_value = None
-    resolver = value_sets.ValueSetResolver(package_manager,
-                                           unittest.mock.MagicMock())
+    resolver = value_sets.ValueSetResolver(
+        package_manager, unittest.mock.MagicMock()
+    )
 
     result = resolver._expand_value_set_locally(value_set)
 
@@ -323,8 +362,9 @@ class ValueSetsTest(absltest.TestCase):
     filter_.value.value = 'medicine'
     self.assertIsNone(
         value_sets.ValueSetResolver(
-            unittest.mock.MagicMock(),
-            unittest.mock.MagicMock())._expand_value_set_locally(value_set))
+            unittest.mock.MagicMock(), unittest.mock.MagicMock()
+        )._expand_value_set_locally(value_set)
+    )
 
   def testConceptSetToExpansion_wtihConceptSet_buildsExpansion(self):
     concept_set = value_set_pb2.ValueSet.Compose.ConceptSet()
@@ -341,9 +381,8 @@ class ValueSetsTest(absltest.TestCase):
     code_2.code.value = 'code_2'
 
     result = value_sets.ValueSetResolver(
-        unittest.mock.MagicMock(),
-        unittest.mock.MagicMock())._concept_set_to_expansion(
-            value_set_pb2.ValueSet(), concept_set)
+        unittest.mock.MagicMock(), unittest.mock.MagicMock()
+    )._concept_set_to_expansion(value_set_pb2.ValueSet(), concept_set)
 
     expected = [
         value_set_pb2.ValueSet.Expansion.Contains(),
@@ -370,8 +409,9 @@ class ValueSetsTest(absltest.TestCase):
     # ...but find a non-code system resource for the URL.
     package_manager = unittest.mock.MagicMock()
     package_manager.get_resource.return_value = value_set_pb2.ValueSet()
-    resolver = value_sets.ValueSetResolver(package_manager,
-                                           unittest.mock.MagicMock())
+    resolver = value_sets.ValueSetResolver(
+        package_manager, unittest.mock.MagicMock()
+    )
 
     with self.assertRaises(ValueError):
       resolver._concept_set_to_expansion(value_set_pb2.ValueSet(), concept_set)
@@ -381,48 +421,58 @@ class ValueSetsTest(absltest.TestCase):
     mock_package_manager.get_resource.return_value = None
 
     mock_client = unittest.mock.MagicMock(
-        spec=terminology_service_client.TerminologyServiceClient)
+        spec=terminology_service_client.TerminologyServiceClient
+    )
 
     resolver = value_sets.ValueSetResolver(mock_package_manager, mock_client)
 
     result = resolver.expand_value_set_url('http://some-url')
-    self.assertEqual(result,
-                     mock_client.expand_value_set_url('http://some-url'))
+    self.assertEqual(
+        result, mock_client.expand_value_set_url('http://some-url')
+    )
 
   def testExpandValueSet_withUnExpandableResource_callsTerminologyService(self):
     mock_package_manager = unittest.mock.MagicMock()
     mock_package_manager.get_resource.return_value = value_set_pb2.ValueSet()
 
     mock_client = unittest.mock.MagicMock(
-        spec=terminology_service_client.TerminologyServiceClient)
+        spec=terminology_service_client.TerminologyServiceClient
+    )
 
     resolver = value_sets.ValueSetResolver(mock_package_manager, mock_client)
     resolver._expand_value_set_locally = unittest.mock.MagicMock(
-        spec=resolver._expand_value_set_locally, return_value=None)
+        spec=resolver._expand_value_set_locally, return_value=None
+    )
 
     result = resolver.expand_value_set_url('http://some-url')
-    self.assertEqual(result,
-                     mock_client.expand_value_set_url('http://some-url'))
+    self.assertEqual(
+        result, mock_client.expand_value_set_url('http://some-url')
+    )
 
   def testExpandValueSet_withExpandableResource_doesNotcallTerminologyService(
-      self):
+      self,
+  ):
     mock_package_manager = unittest.mock.MagicMock()
     mock_package_manager.get_resource.return_value = value_set_pb2.ValueSet()
 
     mock_client = unittest.mock.MagicMock(
-        spec=terminology_service_client.TerminologyServiceClient)
+        spec=terminology_service_client.TerminologyServiceClient
+    )
 
     resolver = value_sets.ValueSetResolver(mock_package_manager, mock_client)
     resolver._expand_value_set_locally = unittest.mock.MagicMock(
-        spec=resolver._expand_value_set_locally)
+        spec=resolver._expand_value_set_locally
+    )
 
     result = resolver.expand_value_set_url('http://some-url')
     self.assertEqual(
-        result, resolver._expand_value_set_locally(value_set_pb2.ValueSet()))
+        result, resolver._expand_value_set_locally(value_set_pb2.ValueSet())
+    )
     mock_client.expand_value_set_url.assert_not_called()
 
   def testGetStructureDefinitionsForElementsOf_withElements_findsDefinitionsForElements(
-      self):
+      self,
+  ):
     definition = structure_definition_pb2.StructureDefinition()
     text_format.Parse(
         """
@@ -430,7 +480,6 @@ class ValueSetsTest(absltest.TestCase):
           value: "http://hl7.org/fhir/StructureDefinition/definition"
         }
         snapshot {"""
-
         # Ensure we handle both type names and URLs.
         """
           element {
@@ -452,7 +501,6 @@ class ValueSetsTest(absltest.TestCase):
               }
             }
           }"""
-
         # Ensure repeated types are only returned once.
         """
           element {
@@ -462,7 +510,6 @@ class ValueSetsTest(absltest.TestCase):
               }
             }
           }"""
-
         # Ensure types we don't have definitions for are skipped.
         """
           element {
@@ -472,7 +519,6 @@ class ValueSetsTest(absltest.TestCase):
               }
             }
           }"""
-
         # Ensure recursive types don't recurse forever.
         """
           element {
@@ -482,7 +528,6 @@ class ValueSetsTest(absltest.TestCase):
               }
             }
           }"""
-
         # Ensure we don't bother with primitive types.
         """
           element {
@@ -494,7 +539,8 @@ class ValueSetsTest(absltest.TestCase):
           }
         }
         """,
-        definition)
+        definition,
+    )
 
     # A type that isn't referenced by anything.
     lonely = structure_definition_pb2.StructureDefinition()
@@ -503,7 +549,9 @@ class ValueSetsTest(absltest.TestCase):
       url {
         value: "http://hl7.org/fhir/StructureDefinition/Lonely"
       }
-    """, lonely)
+    """,
+        lonely,
+    )
 
     # We should recursive find the snake's element as well
     snake = structure_definition_pb2.StructureDefinition()
@@ -521,7 +569,9 @@ class ValueSetsTest(absltest.TestCase):
           }
         }
       }
-    """, snake)
+    """,
+        snake,
+    )
 
     # And recurse even further.
     hiss = structure_definition_pb2.StructureDefinition()
@@ -539,7 +589,9 @@ class ValueSetsTest(absltest.TestCase):
           }
         }
       }
-    """, hiss)
+    """,
+        hiss,
+    )
 
     hisssssss = structure_definition_pb2.StructureDefinition()
     text_format.Parse(
@@ -547,7 +599,9 @@ class ValueSetsTest(absltest.TestCase):
       url {
         value: "http://hl7.org/fhir/StructureDefinition/Hisssssss"
       }
-    """, hisssssss)
+    """,
+        hisssssss,
+    )
 
     # Fill out some definitions for other referenced types.
     ladder = structure_definition_pb2.StructureDefinition()
@@ -556,7 +610,9 @@ class ValueSetsTest(absltest.TestCase):
       url {
         value: "http://hl7.org/fhir/StructureDefinition/Ladder"
       }
-    """, ladder)
+    """,
+        ladder,
+    )
 
     chute = structure_definition_pb2.StructureDefinition()
     text_format.Parse(
@@ -564,7 +620,9 @@ class ValueSetsTest(absltest.TestCase):
       url {
         value: "http://hl7.org/fhir/StructureDefinition/Chute"
       }
-    """, chute)
+    """,
+        chute,
+    )
 
     definitions = {
         sd.url.value: sd
@@ -572,15 +630,19 @@ class ValueSetsTest(absltest.TestCase):
     }
 
     package_manager = unittest.mock.MagicMock(
-        spec=fhir_package.FhirPackageManager)
+        spec=fhir_package.FhirPackageManager
+    )
     package_manager.get_resource.side_effect = definitions.get
 
-    resolver = value_sets.ValueSetResolver(package_manager,
-                                           unittest.mock.MagicMock())
+    resolver = value_sets.ValueSetResolver(
+        package_manager, unittest.mock.MagicMock()
+    )
     result = list(
-        resolver._get_structure_defintions_for_elements_of(definition))
-    self.assertCountEqual(result,
-                          [definition, snake, hiss, hisssssss, ladder, chute])
+        resolver._get_structure_defintions_for_elements_of(definition)
+    )
+    self.assertCountEqual(
+        result, [definition, snake, hiss, hisssssss, ladder, chute]
+    )
 
 
 def get_resolver() -> value_sets.ValueSetResolver:

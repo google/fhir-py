@@ -58,14 +58,16 @@ class ValueSetResolver:
   """
 
   def __init__(
-      self, package_manager: fhir_package.FhirPackageManager,
-      terminology_client: terminology_service_client.TerminologyServiceClient
+      self,
+      package_manager: fhir_package.FhirPackageManager,
+      terminology_client: terminology_service_client.TerminologyServiceClient,
   ) -> None:
     self.package_manager = package_manager
     self.terminology_client = terminology_client
 
   def value_set_urls_from_fhir_package(
-      self, package: fhir_package.FhirPackage) -> Iterable[str]:
+      self, package: fhir_package.FhirPackage
+  ) -> Iterable[str]:
     """Retrieves URLs for all value sets referenced by the given FHIR package.
 
     Finds all value set resources in the package as well as any value sets
@@ -79,9 +81,11 @@ class ValueSetResolver:
     """
     value_set_urls_from_structure_definitions = itertools.chain.from_iterable(
         self.value_set_urls_from_structure_definition(structure_definition)
-        for structure_definition in package.structure_definitions)
+        for structure_definition in package.structure_definitions
+    )
     value_set_urls_from_value_sets = (
-        value_set.url.value for value_set in package.value_sets)
+        value_set.url.value for value_set in package.value_sets
+    )
     all_value_set_urls = itertools.chain(
         value_set_urls_from_value_sets,
         value_set_urls_from_structure_definitions,
@@ -109,13 +113,16 @@ class ValueSetResolver:
       NotImplementedError: If the structure definition does not provide a
       snapshot element definition.
     """
-    element_structure_definitions = self._get_structure_defintions_for_elements_of(
-        structure_definition)
-    all_definitions = itertools.chain((structure_definition,),
-                                      element_structure_definitions)
+    element_structure_definitions = (
+        self._get_structure_defintions_for_elements_of(structure_definition)
+    )
+    all_definitions = itertools.chain(
+        (structure_definition,), element_structure_definitions
+    )
     all_value_set_urls = itertools.chain.from_iterable(
         self._value_set_urls_bound_to_elements_of(definition)
-        for definition in all_definitions)
+        for definition in all_definitions
+    )
 
     yield from _unique_urls(all_value_set_urls)
 
@@ -124,16 +131,21 @@ class ValueSetResolver:
   ) -> Iterable[str]:
     """Gets URLs for value sets bound to the definition's snapshot elements."""
     # The FHIR spec requires at least one of these be present.
-    if (structure_definition.differential.element and
-        not structure_definition.snapshot.element):
+    if (
+        structure_definition.differential.element
+        and not structure_definition.snapshot.element
+    ):
       raise NotImplementedError(
-          'Structure definition %s with differential elements not yet supported.'
-          % structure_definition.url.value)
+          'Structure definition %s with differential elements not yet'
+          ' supported.'
+          % structure_definition.url.value
+      )
 
     value_set_urls = (
         element.binding.value_set.value
         for element in structure_definition.snapshot.element
-        if element.binding.value_set.value)
+        if element.binding.value_set.value
+    )
 
     if structure_definition.url.value in (
         'http://hl7.org/fhir/StructureDefinition/ExplanationOfBenefit',
@@ -143,18 +155,21 @@ class ValueSetResolver:
       # system by mistake. It should be bound to a value set instead. We swap
       # the URLs until the bug is addressed.
       # https://jira.hl7.org/browse/FHIR-36128
-      bad_code_system_url = 'http://terminology.hl7.org/CodeSystem/processpriority'
+      bad_code_system_url = (
+          'http://terminology.hl7.org/CodeSystem/processpriority'
+      )
       correct_value_set_url = 'http://hl7.org/fhir/ValueSet/process-priority'
       value_set_urls = (
           correct_value_set_url if url == bad_code_system_url else url
-          for url in value_set_urls)
+          for url in value_set_urls
+      )
 
     return value_set_urls
 
   def _get_structure_defintions_for_elements_of(
       self,
       structure_definition: structure_definition_pb2.StructureDefinition,
-      already_retrieved: Optional[Set[str]] = None
+      already_retrieved: Optional[Set[str]] = None,
   ) -> Iterable[structure_definition_pb2.StructureDefinition]:
     """Retrieves structure definitions for `structure_definition`'s elements.
 
@@ -177,25 +192,34 @@ class ValueSetResolver:
     """
     already_retrieved = already_retrieved or set()
     for url in _get_structure_defintion_urls_for_elements_of(
-        structure_definition):
-      if (url in _PRIMITIVE_STRUCTURE_DEFINITION_URLS or
-          url in already_retrieved):
+        structure_definition
+    ):
+      if (
+          url in _PRIMITIVE_STRUCTURE_DEFINITION_URLS
+          or url in already_retrieved
+      ):
         continue
 
       definition_for_element = cast(
           structure_definition_pb2.StructureDefinition,
-          self.package_manager.get_resource(url))
+          self.package_manager.get_resource(url),
+      )
       if definition_for_element is None:
         logging.warning(
-            'Unable to look up structure definition %s '
-            'for element of structure definition %s', url,
-            structure_definition.url.value)
+            (
+                'Unable to look up structure definition %s '
+                'for element of structure definition %s'
+            ),
+            url,
+            structure_definition.url.value,
+        )
         continue
 
       already_retrieved.add(url)
       yield definition_for_element
       yield from self._get_structure_defintions_for_elements_of(
-          definition_for_element, already_retrieved)
+          definition_for_element, already_retrieved
+      )
 
   def expand_value_set_url(self, url: str) -> value_set_pb2.ValueSet:
     """Retrieves the expanded value set definition for the given URL.
@@ -241,22 +265,31 @@ class ValueSetResolver:
     if value_set is None:
       logging.info(
           'Unable to find value set for url: %s in given resolver packages.',
-          url)
+          url,
+      )
       return None
     elif not isinstance(value_set, value_set_pb2.ValueSet):
-      raise ValueError('URL: %s does not refer to a value set, found: %s' %
-                       (url, value_set.DESCRIPTOR.name))
+      raise ValueError(
+          'URL: %s does not refer to a value set, found: %s'
+          % (url, value_set.DESCRIPTOR.name)
+      )
     elif version is not None and version != value_set.version.value:
       logging.warning(
-          'Found incompatible version for value set with url: %s. Requested: %s, found: %s',
-          url, version, value_set.version.value)
+          (
+              'Found incompatible version for value set with url: %s.'
+              ' Requested: %s, found: %s'
+          ),
+          url,
+          version,
+          value_set.version.value,
+      )
       return None
     else:
       return value_set
 
   def _expand_value_set_locally(
-      self,
-      value_set: value_set_pb2.ValueSet) -> Optional[value_set_pb2.ValueSet]:
+      self, value_set: value_set_pb2.ValueSet
+  ) -> Optional[value_set_pb2.ValueSet]:
     """Attempts to expand value sets without contacting a terminology service.
 
     For value sets with an extensional set of codes, collect all codes
@@ -284,8 +317,9 @@ class ValueSetResolver:
       The expanded value set or None if a terminology service should be
       consulted instead.
     """
-    concept_sets = itertools.chain(value_set.compose.include,
-                                   value_set.compose.exclude)
+    concept_sets = itertools.chain(
+        value_set.compose.include, value_set.compose.exclude
+    )
     if any(concept_set.filter for concept_set in concept_sets):
       # The value set requires intensional filtering rules we do not implement.
       # We may wish to reduce the frequency with which we need to defer to
@@ -306,8 +340,11 @@ class ValueSetResolver:
       # The value set references code system definitions unavailable locally.
       return None
 
-    logging.info('Expanding value set url: %s version: %s locally',
-                 value_set.url.value, value_set.version.value)
+    logging.info(
+        'Expanding value set url: %s version: %s locally',
+        value_set.url.value,
+        value_set.version.value,
+    )
     includes = itertools.chain.from_iterable(includes)
     excludes = itertools.chain.from_iterable(excludes)
 
@@ -315,12 +352,14 @@ class ValueSetResolver:
     # include is also in exclude.
     codes_to_remove = set(
         (concept.version.value, concept.system.value, concept.code.value)
-        for concept in excludes)
+        for concept in excludes
+    )
     # Use tuples of the same form to filter excluded codes.
     codes = [
-        concept for concept in includes
-        if (concept.version.value, concept.system.value,
-            concept.code.value) not in codes_to_remove
+        concept
+        for concept in includes
+        if (concept.version.value, concept.system.value, concept.code.value)
+        not in codes_to_remove
     ]
 
     expanded_value_set = copy.deepcopy(value_set)
@@ -328,8 +367,9 @@ class ValueSetResolver:
     return expanded_value_set
 
   def _concept_set_to_expansion(
-      self, value_set: value_set_pb2.ValueSet,
-      concept_set: value_set_pb2.ValueSet.Compose.ConceptSet
+      self,
+      value_set: value_set_pb2.ValueSet,
+      concept_set: value_set_pb2.ValueSet.Compose.ConceptSet,
   ) -> Optional[Sequence[value_set_pb2.ValueSet.Expansion.Contains]]:
     """Expands the ConceptSet into a collection of Expansion.Contains objects.
 
@@ -349,22 +389,29 @@ class ValueSetResolver:
       # the entire code system.
       logging.info(
           'Expanding value set: %s version: %s to entire code system: %s',
-          value_set.url.value, value_set.version.value,
-          concept_set.system.value)
+          value_set.url.value,
+          value_set.version.value,
+          concept_set.system.value,
+      )
       code_system = self.package_manager.get_resource(concept_set.system.value)
 
       if code_system is None:
         logging.warning(
-            'Expansion of code system: %s for value set: %s version: %s '
-            'requires code system definition not available locally. Deferring '
-            'expansion to external terminology service.',
-            concept_set.system.value, value_set.url.value,
-            value_set.version.value)
+            (
+                'Expansion of code system: %s for value set: %s version: %s'
+                ' requires code system definition not available locally.'
+                ' Deferring expansion to external terminology service.'
+            ),
+            concept_set.system.value,
+            value_set.url.value,
+            value_set.version.value,
+        )
         return None
       elif not isinstance(code_system, code_system_pb2.CodeSystem):
         raise ValueError(
-            'system: %s does not refer to a code system, found: %s' %
-            (concept_set.system.value, code_system.DESCRIPTOR.name))
+            'system: %s does not refer to a code system, found: %s'
+            % (concept_set.system.value, code_system.DESCRIPTOR.name)
+        )
       else:
         concepts = code_system.concept
 
@@ -381,8 +428,14 @@ class ValueSetResolver:
 
       for designation in concept.designation:
         designation_copy = contains.designation.add()
-        for field in ('id', 'extension', 'modifier_extension', 'language',
-                      'use', 'value'):
+        for field in (
+            'id',
+            'extension',
+            'modifier_extension',
+            'language',
+            'use',
+            'value',
+        ):
           proto_utils.copy_common_field(designation, designation_copy, field)
 
       expansion.append(contains)
@@ -407,16 +460,19 @@ def _unique_urls(urls: Iterable[str]) -> Iterable[str]:
 
 
 def _get_structure_defintion_urls_for_elements_of(
-    structure_definition: structure_definition_pb2.StructureDefinition
+    structure_definition: structure_definition_pb2.StructureDefinition,
 ) -> Iterable[str]:
   """Finds the URLs of all types referenced by the definition's elements."""
   types = itertools.chain.from_iterable(
-      element.type for element in structure_definition.snapshot.element)
+      element.type for element in structure_definition.snapshot.element
+  )
   type_codes = (type_.code.value for type_ in types)
   # If not already a URL, create a URL for the type name.
   as_urls = (
-      type_code if urllib.parse.urlparse(type_code).scheme else
-      'http://hl7.org/fhir/StructureDefinition/%s' % type_code
-      for type_code in type_codes)
+      type_code
+      if urllib.parse.urlparse(type_code).scheme
+      else 'http://hl7.org/fhir/StructureDefinition/%s' % type_code
+      for type_code in type_codes
+  )
 
   return as_urls
