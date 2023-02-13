@@ -29,6 +29,7 @@ from google.fhir.core.fhir_path import _sql_data_types
 from google.fhir.core.fhir_path import _utils
 from google.fhir.core.fhir_path import fhir_path
 from google.fhir.core.fhir_path import fhir_path_options
+from google.fhir.core.utils import fhir_package
 from google.fhir.core.utils import proto_utils
 
 # TODO(b/201107372): Update FHIR-agnostic types to a protocol.
@@ -285,7 +286,7 @@ class FhirProfileStandardSqlEncoder:
 
   def __init__(
       self,
-      structure_definitions: List[StructureDefinition],
+      package_manager: fhir_package.FhirPackageManager,
       error_reporter: fhir_errors.ErrorReporter,
       *,
       options: Optional[fhir_path.SqlGenerationOptions] = None,
@@ -296,8 +297,8 @@ class FhirProfileStandardSqlEncoder:
     """Creates a new instance of `FhirProfileStandardSqlEncoder`.
 
     Args:
-      structure_definitions: The list of `StructureDefinition`s comprising the
-        FHIR resource "graph" for traversal and encoding of constraints.
+      package_manager: The FHIR resources needed to build a "graph" for
+        traversal and encoding of constraints.
       error_reporter: A `fhir_errors.ErrorReporter` delegate for error-handling.
       options: Defines a list of optional settings that can be used to customize
         the behaviour of FhirProfileStandardSqlEncoder.
@@ -305,11 +306,13 @@ class FhirProfileStandardSqlEncoder:
     """
     # Persistent state provided during initialization that the profile encoder
     # uses for navigation, error reporting, configuration, etc.
-    self._env = _navigation._Environment(structure_definitions)
+    self._env = _navigation._Environment(
+        package_manager.iter_structure_definitions()
+    )
     self._error_reporter = error_reporter
     self._options = options or fhir_path.SqlGenerationOptions()
     self._fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(
-        structure_definitions,
+        package_manager.iter_structure_definitions(),
         options=self._options,
         validation_options=validation_options,
     )

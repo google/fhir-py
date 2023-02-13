@@ -19,7 +19,7 @@ structure definitions in along with their fields. It also shows us what
 element definitions and types those fields are.
 """
 
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, Iterable, List, Optional, cast
 
 from google.protobuf import message
 from google.fhir.core.fhir_path import _utils
@@ -111,7 +111,9 @@ class _ElementDefinitionTree:
 class _Environment:
   """Provides methods for navigating a FHIR resource graph."""
 
-  def __init__(self, structure_definitions: List[StructureDefinition]) -> None:
+  def __init__(
+      self, structure_definitions: Iterable[StructureDefinition]
+  ) -> None:
     """Creates a new `Environment` from `structure_definitions`.
 
     Args:

@@ -17,7 +17,7 @@
 import copy
 import dataclasses
 import decimal
-from typing import Any, List, Optional, Set, cast
+from typing import Any, Iterable, Optional, Set, cast
 
 from google.cloud import bigquery
 
@@ -171,7 +171,7 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
 
   def __init__(
       self,
-      structure_definitions: List[StructureDefinition],
+      structure_definitions: Iterable[StructureDefinition],
       options: Optional[SqlGenerationOptions] = None,
       validation_options: Optional[
           fhir_path_options.SqlValidationOptions

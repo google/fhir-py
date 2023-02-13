@@ -32,6 +32,7 @@ from google.fhir.core.fhir_path import _utils
 from google.fhir.core.fhir_path import context
 from google.fhir.core.fhir_path import expressions
 from google.fhir.core.internal import primitive_handler
+from google.fhir.core.utils import fhir_package
 from google.fhir.core.utils import proto_utils
 
 # TODO(b/201107372): Update FHIR-agnostic types to a protocol.
@@ -275,7 +276,7 @@ class FhirProfileStandardSqlEncoder:
 
   def __init__(
       self,
-      structure_definitions: List[StructureDefinition],
+      definitions: fhir_package.FhirPackageManager,
       handler: primitive_handler.PrimitiveHandler,
       error_reporter: fhir_errors.ErrorReporter,
       options: Optional[SqlGenerationOptions] = None,
@@ -283,8 +284,8 @@ class FhirProfileStandardSqlEncoder:
     """Creates a new instance of `FhirProfileStandardSqlEncoder`.
 
     Args:
-      structure_definitions: The list of `StructureDefinition`s comprising the
-        FHIR resource "graph" for traversal and encoding of constraints.
+      definitions: The FHIR resource "graph" for traversal and encoding of
+        constraints.
       handler: Computes primitives with respect to the specification.
       error_reporter: A `fhir_errors.ErrorReporter` delegate for error-handling.
       options: Defines a list of optional settings that can be used to customize
@@ -294,7 +295,9 @@ class FhirProfileStandardSqlEncoder:
     self._options = options or SqlGenerationOptions()
     # TODO(b/254866189): Determine whether the mock context is enough for
     # validation.
-    self._context = context.MockFhirPathContext(structure_definitions)
+    self._context = context.MockFhirPathContext(
+        definitions.iter_structure_definitions()
+    )
     self._primitive_handler = handler
     self._bq_interpreter = _bigquery_interpreter.BigQuerySqlInterpreter(
         value_set_codes_table=self._options.value_set_codes_table
