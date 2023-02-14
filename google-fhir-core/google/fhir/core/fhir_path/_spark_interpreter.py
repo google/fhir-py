@@ -14,6 +14,7 @@
 # limitations under the License.
 """Functionality to output Spark SQL expressions from FHIRPath expressions."""
 
+import dataclasses
 from typing import Any, Optional
 
 from google.fhir.core.fhir_path import _ast
@@ -22,6 +23,14 @@ from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _sql_data_types
 from google.fhir.core.fhir_path import expressions
 from google.fhir.core.internal import _primitive_time_utils
+
+
+def _escape_identifier(identifier_value: str) -> str:
+  """Returns the value surrounded by backticks if it is a keyword."""
+  # Keywords are case-insensitive
+  if identifier_value.upper() in _sql_data_types.STANDARD_SQL_KEYWORDS:
+    return f'`{identifier_value}`'
+  return identifier_value  # No-op
 
 
 class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
@@ -116,8 +125,77 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     )
 
   def visit_invoke_expression(
-      self, identifier: _evaluation.InvokeExpressionNode) -> Any:
-    """Translates a FHIRPath member identifier to Standard SQL."""
+      self, identifier: _evaluation.InvokeExpressionNode
+  ) -> _sql_data_types.IdentifierSelect:
+    """Translates a FHIRPath member identifier to Spark SQL."""
+
+    if identifier.identifier == '$this':
+      return self.visit_reference(identifier.operand_node)
+
+    raw_identifier_str = identifier.identifier
+    parent_result = self.visit(identifier.operand_node)
+
+    # Map to Standard SQL type. Note that we never map to a type of `ARRAY`,
+    # as the member encoding flattens any `ARRAY` members.
+    sql_data_type = _sql_data_types.get_standard_sql_data_type(
+        identifier.return_type())
+    sql_alias = f'{raw_identifier_str}'
+    identifier_str = f'{raw_identifier_str}'
+    if _fhir_path_data_types.is_collection(identifier.return_type()):  # Array
+      # If the identifier is `$this`, we assume that the repeated field has been
+      # unnested upstream so we only need to reference it with its alias:
+      # `{}_element_`.
+      if identifier.identifier == '$this':
+        sql_alias = f'{sql_alias}_element_'
+        return _sql_data_types.IdentifierSelect(
+            select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
+            from_part=parent_result,
+        )
+      else:
+        sql_alias = f'{sql_alias}_element_'
+        if parent_result:
+          parent_identifier_str = parent_result.sql_alias
+          identifier_str = f'{parent_identifier_str}.{raw_identifier_str}'
+        else:
+          # Identifiers need to be escaped if they are referenced directly.
+          identifier_str = f'{_escape_identifier(raw_identifier_str)}'
+          return _sql_data_types.IdentifierSelect(
+              select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
+              from_part=(
+                  f'(SELECT ({identifier_str}) '
+                  f'LATERAL VIEW POSEXPLODE({identifier_str}) '
+                  f'AS index_{sql_alias}, {sql_alias}'
+              ),
+          )
+
+        from_part = (f'LATERAL VIEW POSEXPLODE({identifier_str}) '
+                     f'AS index_{sql_alias}, {sql_alias}'
+                     )
+
+        if parent_result:
+          from_part = f'({parent_result}) {from_part}'
+
+        return _sql_data_types.IdentifierSelect(
+            select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
+            from_part=from_part,
+        )
+    else:  # Scalar
+      # Append the current identifier to the path chain being selected if there
+      # is a parent. Includes the from & where clauses of the parent.
+      if parent_result:
+        return dataclasses.replace(
+            parent_result,
+            select_part=parent_result.select_part.dot(
+                raw_identifier_str,
+                sql_data_type,
+                sql_alias=_escape_identifier(sql_alias),
+            ))
+      else:
+        return _sql_data_types.IdentifierSelect(
+            select_part=_sql_data_types.Identifier(
+                _escape_identifier(identifier_str), sql_data_type),
+            from_part=parent_result,
+        )
 
   def visit_indexer(self,
                     indexer: _evaluation.IndexerNode) -> _sql_data_types.Select:

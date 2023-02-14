@@ -490,6 +490,94 @@ _WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
 ]
 
 
+_WITH_FHIRPATH_V2_FHIRPATH_MEMBER_SUCCEEDS_CASES = [
+    {
+        'testcase_name': '_withSingleMemberAccess',
+        'fhir_path_expression': 'bar',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(bar) '
+            'FROM (SELECT bar) '
+            'WHERE bar IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withInlineMemberAccess',
+        'fhir_path_expression': 'inline',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(inline) '
+            'FROM (SELECT inline) '
+            'WHERE inline IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withNestedMemberAccess',
+        'fhir_path_expression': 'bar.bats',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(bats_element_) '
+            'FROM (SELECT bats_element_ '
+            'FROM (SELECT bar) '
+            'LATERAL VIEW POSEXPLODE(bar.bats) AS index_bats_element_, '
+            'bats_element_) '
+            'WHERE bats_element_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withInlineNestedMemberAccess',
+        'fhir_path_expression': 'inline.value',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(value) '
+            'FROM (SELECT inline.value) '
+            'WHERE value IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDeepestNestedMemberSqlKeywordAccess',
+        'fhir_path_expression': 'bar.bats.struct',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(`struct`) '
+            'FROM (SELECT bats_element_.struct '
+            'FROM (SELECT bar) '
+            'LATERAL VIEW POSEXPLODE(bar.bats) AS index_bats_element_, '
+            'bats_element_) '
+            'WHERE `struct` IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDeepestNestedMemberFhirPathKeywordAccess',
+        'fhir_path_expression': 'bar.bats.`div`',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(div) '
+            'FROM (SELECT bats_element_.div '
+            'FROM (SELECT bar) '
+            'LATERAL VIEW POSEXPLODE(bar.bats) AS index_bats_element_, '
+            'bats_element_) '
+            'WHERE div IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDeepestNestedScalarMemberFhirPathAccess',
+        'fhir_path_expression': 'bat.struct.anotherStruct.anotherValue',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(anotherValue) '
+            'FROM (SELECT bat.struct.anotherStruct.anotherValue) '
+            'WHERE anotherValue IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withFirstElementBeingRepeatedMemberFhirPathAccess',
+        'fhir_path_expression': 'boolList',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(boolList_element_) '
+            'FROM (SELECT boolList_element_ '
+            'FROM (SELECT (boolList) '
+            'LATERAL VIEW POSEXPLODE(boolList) AS index_boolList_element_, '
+            'boolList_element_) '
+            'WHERE boolList_element_ IS NOT NULL)'
+        ),
+    },
+]
+
+
 class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
                                   parameterized.TestCase):
   """Unit tests for `fhir_path.FhirPathSparkSqlEncoder`."""
@@ -546,6 +634,18 @@ class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
       self, fhir_path_expression: str, expected_sql_expression: str):
     self.assertEvaluationNodeSqlCorrect(
         structdef=None,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=True)
+
+  @parameterized.named_parameters(
+      _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_SUCCEEDS_CASES
+  )
+  def testEncode_withFhirPathMemberInvocation_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
+    self.assertEvaluationNodeSqlCorrect(
+        structdef=self.foo,
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True)
