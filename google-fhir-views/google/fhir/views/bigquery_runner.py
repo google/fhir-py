@@ -139,6 +139,10 @@ class BigQueryRunner:
 
   def _create_valueset_expression(self, view: views.View) -> str:
     """Returns the expression for valuesets, if needed."""
+    # TODO(b/269329295): This is a very similar to the behavior of
+    # FhirPathStandardSqlEncoder when passing it a package manager with
+    # value sets to use for backing memberOf expressions. We should
+    # reconcile the two approaches.
     fhir_context = view.get_fhir_path_context()
     memberof_nodes = _memberof_nodes_from_view(view)
     value_set_rows = []
@@ -302,7 +306,12 @@ class BigQueryRunner:
 
     deps = fhir_context.get_dependency_definitions(url)
     deps.append(struct_def)
-    encoder = fhir_path.FhirPathStandardSqlEncoder(deps)
+    encoder = fhir_path.FhirPathStandardSqlEncoder(
+        deps,
+        options=fhir_path.SqlGenerationOptions(
+            value_set_codes_table='VALUESET_VIEW'
+        ),
+    )
 
     inner_sql_statements = []
 
