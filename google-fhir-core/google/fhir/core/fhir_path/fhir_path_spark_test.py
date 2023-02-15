@@ -489,6 +489,99 @@ _WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
     # }
 ]
 
+_WITH_FHIRPATH_V2_FHIRPATH_POLARITY_SUCCEEDS_CASES = [
+    {
+        'testcase_name': '_withIntegerPositivePolarity',
+        'fhir_path_expression': '+5',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(literal_) '
+            'FROM (SELECT +5 AS literal_) '
+            'WHERE literal_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDecimalPositivePolarity',
+        'fhir_path_expression': '+5.72',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(literal_) '
+            'FROM (SELECT +5.72 AS literal_) '
+            'WHERE literal_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withIntegerNegativePolarity',
+        'fhir_path_expression': '-5',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(literal_) '
+            'FROM (SELECT -5 AS literal_) '
+            'WHERE literal_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDecimalNegativePolarity',
+        'fhir_path_expression': '-5.1349',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(literal_) '
+            'FROM (SELECT -5.1349 AS literal_) '
+            'WHERE literal_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withIntegerPositivePolarityAndAddition',
+        'fhir_path_expression': '+5 + 10',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(arith_) '
+            'FROM (SELECT (+5 + 10) AS arith_) '
+            'WHERE arith_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withIntegerNegativePolarityAndAddition',
+        'fhir_path_expression': '-5 + 10',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(arith_) '
+            'FROM (SELECT (-5 + 10) AS arith_) '
+            'WHERE arith_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withIntegerNegativePolarityAndModularArithmetic',
+        'fhir_path_expression': '-5 mod 6',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(arith_) '
+            'FROM (SELECT MOD(-5, 6) AS arith_) '
+            'WHERE arith_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withIntegerPositivePolarityAndModularArithmetic',
+        'fhir_path_expression': '+(7 mod 6)',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(pol_) '
+            'FROM (SELECT +MOD(7, 6) AS pol_) '
+            'WHERE pol_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDecimalNegativePolarityAndMultiplication',
+        'fhir_path_expression': '-(3.79 * 2.124)',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(pol_) '
+            'FROM (SELECT -(3.79 * 2.124) AS pol_) '
+            'WHERE pol_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDecimalNegativePolarityAndDivision',
+        'fhir_path_expression': '-3.79 / 2.124',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(arith_) '
+            'FROM (SELECT (-3.79 / 2.124) AS arith_) '
+            'WHERE arith_ IS NOT NULL)'
+        ),
+    },
+]
+
 
 _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_SUCCEEDS_CASES = [
     {
@@ -634,6 +727,24 @@ class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
       self, fhir_path_expression: str, expected_sql_expression: str):
     self.assertEvaluationNodeSqlCorrect(
         structdef=None,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=True)
+
+  @parameterized.named_parameters(
+      _WITH_FHIRPATH_V2_FHIRPATH_POLARITY_SUCCEEDS_CASES
+  )
+  def testEncode_withFhirPathV2LiteralPolarity_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
+    self.assertEvaluationNodeSqlCorrect(
+        structdef=None,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=True,
+    )
+    self.assertEvaluationNodeSqlCorrect(
+        structdef=self.foo,
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True)

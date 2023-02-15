@@ -256,10 +256,9 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     else:  # +, -, *, /
       sql_value = f'({lhs_subquery} {arithmetic.op} {rhs_subquery})'
 
-    sql_alias = 'arith_'
     return _sql_data_types.Select(
         select_part=_sql_data_types.RawExpression(
-            sql_value, _sql_data_type=sql_data_type, _sql_alias=sql_alias),
+            sql_value, _sql_data_type=sql_data_type, _sql_alias='arith_'),
         from_part=None)
 
   def visit_equality(self, equality: _evaluation.EqualityNode):
@@ -296,12 +295,11 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     rhs_subquery = rhs_result.as_operand()
 
     sql_value = f'{lhs_subquery} {comparison.op} {rhs_subquery}'
-    sql_alias = 'comparison_'
     return _sql_data_types.Select(
         select_part=_sql_data_types.RawExpression(
             sql_value,
             _sql_data_type=_sql_data_types.Boolean,
-            _sql_alias=sql_alias),
+            _sql_alias='comparison_'),
         from_part=None)
 
   def visit_boolean_op(
@@ -338,12 +336,11 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     else:  # AND, OR
       sql_value = f'{lhs_subquery} {boolean_logic.op.upper()} {rhs_subquery}'
 
-    sql_alias = 'logic_'
     return _sql_data_types.Select(
         select_part=_sql_data_types.RawExpression(
             sql_value,
             _sql_data_type=_sql_data_types.Boolean,
-            _sql_alias=sql_alias),
+            _sql_alias='logic_'),
         from_part=None)
 
   def visit_membership(self,
@@ -365,7 +362,16 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """Translates a FHIRPath union to Standard SQL."""
 
   def visit_polarity(self, polarity: _evaluation.NumericPolarityNode):
-    """Translates FHIRPath unary polarity (+/-) to Standard SQL."""
+    """Translates FHIRPath unary polarity (+/-) to Spark SQL."""
+    operand_result = self.visit(polarity.operand)
+    sql_expr = f'{polarity.op}{operand_result.as_operand()}'
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            sql_expr,
+            _sql_data_type=operand_result.sql_data_type,
+            _sql_alias='pol_',
+        ),
+        from_part=None)
 
   def visit_function(self, function: _evaluation.FunctionNode) -> Any:
     """Translates a FHIRPath function to Standard SQL."""
