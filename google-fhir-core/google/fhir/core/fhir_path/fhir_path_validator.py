@@ -310,7 +310,10 @@ class FhirProfileStandardSqlEncoder:
         package_manager.iter_structure_definitions()
     )
     self._error_reporter = error_reporter
+
     self._options = options or fhir_path.SqlGenerationOptions()
+    self._options.value_set_codes_definitions = package_manager
+
     self._fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(
         package_manager.iter_structure_definitions(),
         options=self._options,
