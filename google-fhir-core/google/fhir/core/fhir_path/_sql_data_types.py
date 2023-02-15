@@ -28,7 +28,7 @@ from typing import Any, List, Optional, Sequence, Set, Union, cast
 from google.fhir.core.fhir_path import _fhir_path_data_types
 
 # Timestamp format to convert ISO strings into Spark Timestamp types.
-_TIMESTAMP_FORMAT_SPARK = 'yyyy-MM-dd\'T\'HH:mm:ss.SSSZ'
+_TIMESTAMP_FORMAT_SPARK = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
 
 # ISO format of dates used by FHIR.
 _DATE_FORMAT_SPARK = 'yyyy-MM-dd'
@@ -216,8 +216,9 @@ class Array(StandardSqlDataType):
       about the contained type is unknown.
   """
 
-  def __init__(self,
-               contained_type: Optional[StandardSqlDataType] = None) -> None:
+  def __init__(
+      self, contained_type: Optional[StandardSqlDataType] = None
+  ) -> None:
     super(Array, self).__init__(
         nullable=False,
         orderable=False,
@@ -491,8 +492,9 @@ class Struct(StandardSqlDataType):
       information about its members is unknown.
   """
 
-  def __init__(self,
-               fields: Optional[List[StandardSqlDataType]] = None) -> None:
+  def __init__(
+      self, fields: Optional[List[StandardSqlDataType]] = None
+  ) -> None:
     super(Struct, self).__init__(
         nullable=True,
         orderable=False,
@@ -643,7 +645,8 @@ _FHIR_PATH_URL_TO_STANDARD_SQL_TYPE = {
 
 
 def get_standard_sql_data_type(
-    fhir_type: _fhir_path_data_types.FhirPathDataType) -> StandardSqlDataType:
+    fhir_type: _fhir_path_data_types.FhirPathDataType,
+) -> StandardSqlDataType:
   """Gets the equivalent StandardSQL type for a fhir type."""
   if not fhir_type:
     return Undefined
@@ -726,8 +729,9 @@ def is_coercible(lhs: StandardSqlDataType, rhs: StandardSqlDataType) -> bool:
   return rhs in lhs.supported_coercion or lhs in rhs.supported_coercion
 
 
-def coerce(lhs: StandardSqlDataType,
-           rhs: StandardSqlDataType) -> StandardSqlDataType:
+def coerce(
+    lhs: StandardSqlDataType, rhs: StandardSqlDataType
+) -> StandardSqlDataType:
   """Performs implicit Standard SQL coercion between two datatypes.
 
   See more at:
@@ -746,7 +750,8 @@ def coerce(lhs: StandardSqlDataType,
   """
   if not is_coercible(lhs, rhs):
     raise TypeError(
-        f'Unsupported Standard SQL coercion between {lhs} and {rhs}.')
+        f'Unsupported Standard SQL coercion between {lhs} and {rhs}.'
+    )
 
   if rhs in lhs.supported_coercion:
     return rhs
@@ -818,8 +823,9 @@ class StandardSqlExpression(metaclass=abc.ABCMeta):
     """Builds an IS NOT NULL expression from this expression."""
     return IsNotNullOperator(self, **kwargs)
 
-  def cast(self, cast_to: StandardSqlDataType,
-           **kwargs) -> StandardSqlExpression:
+  def cast(
+      self, cast_to: StandardSqlDataType, **kwargs
+  ) -> StandardSqlExpression:
     """Builds a CAST call for this expression as type `cast_to`."""
     return CastFunction(self, cast_to, **kwargs)
 
@@ -838,6 +844,7 @@ class RawExpression(StandardSqlExpression):
   Attributes:
     sql_expr: The raw Standard SQL expression string.
   """
+
   sql_expr: str
   _sql_data_type: StandardSqlDataType
   _sql_alias: str = 'f0_'
@@ -861,14 +868,17 @@ class Identifier(StandardSqlExpression):
     dotted_path: Successive identifier names representing a dotted path. A
       sequence like ('a', 'b') will result in SQL like 'SELECT a.b'.
   """
+
   dotted_path: Sequence[str]
   _sql_data_type: StandardSqlDataType
   _sql_alias: Optional[str] = None
 
-  def __init__(self,
-               name: Union[str, Sequence[str]],
-               _sql_data_type: StandardSqlDataType,
-               _sql_alias: Optional[str] = None) -> None:
+  def __init__(
+      self,
+      name: Union[str, Sequence[str]],
+      _sql_data_type: StandardSqlDataType,  # pylint:disable=invalid-name matches names on other classes
+      _sql_alias: Optional[str] = None,  # pylint:disable=invalid-name matches names on other classes
+  ) -> None:
     """Builds an identifier.
 
     Args:
@@ -894,10 +904,12 @@ class Identifier(StandardSqlExpression):
   def sql_data_type(self) -> StandardSqlDataType:
     return self._sql_data_type
 
-  def dot(self,
-          attribute: str,
-          sql_data_type: StandardSqlDataType,
-          sql_alias: Optional[str] = None) -> Identifier:
+  def dot(
+      self,
+      attribute: str,
+      sql_data_type: StandardSqlDataType,
+      sql_alias: Optional[str] = None,
+  ) -> Identifier:
     """Builds an identifier for the attribute of this identifier.
 
     For example, Identifier('a').dot('b') renders SQL like 'SELECT a.b'.
@@ -910,9 +922,9 @@ class Identifier(StandardSqlExpression):
     Returns:
       A new identifier representing the given path.
     """
-    return Identifier((*self.dotted_path, attribute),
-                      sql_data_type,
-                      _sql_alias=sql_alias)
+    return Identifier(
+        (*self.dotted_path, attribute), sql_data_type, _sql_alias=sql_alias
+    )
 
   def matches_alias(self, alias: str) -> bool:
     """Indicates whether an alias matches the identifier."""
@@ -932,6 +944,7 @@ class IsNullOperator(StandardSqlExpression):
   Attributes:
     operand: The expression being IS NULL'd.
   """
+
   operand: StandardSqlExpression
   _sql_alias: str = 'empty_'
 
@@ -960,6 +973,7 @@ class IsNotNullOperator(StandardSqlExpression):
   Attributes:
     operand: The expression being IS NOT NULL'd.
   """
+
   operand: StandardSqlExpression
   _sql_alias: str = 'has_value_'
 
@@ -991,6 +1005,7 @@ class SubQuery(StandardSqlExpression):
   Attributes:
     sql_expr: The expression being treated as a subquery.
   """
+
   sql_expr: StandardSqlExpression
 
   def __str__(self) -> str:
@@ -1013,6 +1028,7 @@ class CastFunction(StandardSqlExpression):
     expression: The expression being cast.
     cast_to: The type the expression is being cast to.
   """
+
   expression: StandardSqlExpression
   cast_to: StandardSqlDataType
   _sql_alias: Optional[str] = None
@@ -1037,6 +1053,7 @@ class FunctionCall(StandardSqlExpression):
     name: The name of the function to call.
     params: The arguments to pass to the function.
   """
+
   name: str
   params: Sequence[StandardSqlExpression]
   _sql_data_type: StandardSqlDataType
@@ -1060,7 +1077,8 @@ class CountCall(FunctionCall):
 
   def __init__(self, params: Sequence[StandardSqlExpression]) -> None:
     super().__init__(
-        name='COUNT', params=params, _sql_alias='count_', _sql_data_type=Int64)
+        name='COUNT', params=params, _sql_alias='count_', _sql_data_type=Int64
+    )
 
 
 class RegexpContainsCall(FunctionCall):
@@ -1071,12 +1089,14 @@ class RegexpContainsCall(FunctionCall):
         name='REGEXP_CONTAINS',
         params=params,
         _sql_alias='matches_',
-        _sql_data_type=Boolean)
+        _sql_data_type=Boolean,
+    )
 
 
 @dataclasses.dataclass
 class UnionExpression(StandardSqlExpression):
   """Represents a UNION Of two SELECT statements."""
+
   lhs: Select
   rhs: Select
   distinct: bool
@@ -1095,8 +1115,9 @@ class UnionExpression(StandardSqlExpression):
     return SubQuery(self)
 
   def __str__(self):
-    return (f'{self.lhs}\nUNION {"DISTINCT" if self.distinct else ""}\n'
-            f'{self.rhs}')
+    return (
+        f'{self.lhs}\nUNION {"DISTINCT" if self.distinct else ""}\n{self.rhs}'
+    )
 
   def as_operand(self) -> str:
     """Returns the simplest possible str of this expression.
@@ -1117,6 +1138,7 @@ class Select(StandardSqlExpression):
     where_part: The body of the WHERE clause.
     limit_part: The body of the LIMIT clause.
   """
+
   select_part: StandardSqlExpression
   from_part: Optional[str]
   where_part: Optional[str] = None
@@ -1145,8 +1167,9 @@ class Select(StandardSqlExpression):
     select_part = wrap_time_types(str(self.select_part), self.sql_data_type)
     query_parts.append(select_part)
     # Add an AS statement to match sql_alias if necessary.
-    if (select_part != str(self.select_part) or
-        not self.select_part.matches_alias(self.sql_alias)):
+    if select_part != str(
+        self.select_part
+    ) or not self.select_part.matches_alias(self.sql_alias):
       query_parts.extend((' AS ', str(self.sql_alias)))
 
     if self.from_part:
@@ -1183,4 +1206,5 @@ class IdentifierSelect(Select):
   identifiers rather than arbitrary expressions. This allows callers to access
   Identifier-specific behavior on the `select_part`.
   """
+
   select_part: Identifier

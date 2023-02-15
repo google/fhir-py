@@ -108,14 +108,12 @@ class _CountFunction(_FhirPathFunctionStandardSqlEncoder):
       # COUNT is an aggregation and requires a FROM. If there is not one
       # already, build a subquery for the FROM.
       return _sql_data_types.Select(
-          select_part=_sql_data_types.CountCall(
-              (
-                  _sql_data_types.RawExpression(
-                      operand_result.sql_alias,
-                      _sql_data_type=operand_result.sql_data_type,
-                  ),
-              )
-          ),
+          select_part=_sql_data_types.CountCall((
+              _sql_data_types.RawExpression(
+                  operand_result.sql_alias,
+                  _sql_data_type=operand_result.sql_data_type,
+              ),
+          )),
           from_part=str(operand_result.to_subquery()),
           where_part=operand_result.where_part,
       )
@@ -1296,16 +1294,20 @@ class _ToIntegerFunction(_FhirPathFunctionStandardSqlEncoder):
       options: Optional[fhir_path_options.SqlValidationOptions] = None,
   ) -> Optional[str]:
     del function, walker, options
-    if isinstance(
-        operand.data_type,
-        _fhir_path_data_types.Collection) and len(operand.data_type.types) > 1:
+    if (
+        isinstance(operand.data_type, _fhir_path_data_types.Collection)
+        and len(operand.data_type.types) > 1
+    ):
       return (
           'toInteger() can only process Collections with a single data type. '
-          f'Got Collection with {operand.data_type.types} types.')
+          f'Got Collection with {operand.data_type.types} types.'
+      )
 
   def return_type(
-      self, function: _ast.Function, operand: _ast.Expression,
-      walker: _navigation.FhirStructureDefinitionWalker
+      self,
+      function: _ast.Function,
+      operand: _ast.Expression,
+      walker: _navigation.FhirStructureDefinitionWalker,
   ) -> _fhir_path_data_types.FhirPathDataType:
     return _fhir_path_data_types.Integer
 
@@ -1339,9 +1341,14 @@ class _ToIntegerFunction(_FhirPathFunctionStandardSqlEncoder):
     # the item is a Boolean, where true results in a 1 and false results in a 0.
     #
     # If the item is not one the above types, the result is empty.
-    if not isinstance(operand_type, (_fhir_path_data_types.Integer.__class__,
-                                     _fhir_path_data_types.String.__class__,
-                                     _fhir_path_data_types.Boolean.__class__)):
+    if not isinstance(
+        operand_type,
+        (
+            _fhir_path_data_types.Integer.__class__,
+            _fhir_path_data_types.String.__class__,
+            _fhir_path_data_types.Boolean.__class__,
+        ),
+    ):
       return _sql_data_types.Select(
           select_part=_sql_data_types.RawExpression(
               'NULL',
@@ -1364,7 +1371,9 @@ class _ToIntegerFunction(_FhirPathFunctionStandardSqlEncoder):
     return dataclasses.replace(
         operand_result,
         select_part=operand_result.select_part.cast(
-            sql_data_type, _sql_alias=sql_alias))
+            sql_data_type, _sql_alias=sql_alias
+        ),
+    )
 
 
 FUNCTION_MAP: Dict[str, _FhirPathFunctionStandardSqlEncoder] = {

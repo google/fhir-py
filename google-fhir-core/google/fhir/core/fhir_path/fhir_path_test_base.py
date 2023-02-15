@@ -103,56 +103,70 @@ class FhirPathTestBase:
           sdefs.build_element_definition(
               id_='string',
               type_codes=None,
-              cardinality=sdefs.Cardinality(min=0, max='1'))
-      ])
+              cardinality=sdefs.Cardinality(min=0, max='1'),
+          )
+      ],
+  )
 
   # Foo resource
   foo_root_element_definition = sdefs.build_element_definition(
-      id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(min=0, max='1'))
+      id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(min=0, max='1')
+  )
   bar_element_definition = sdefs.build_element_definition(
       id_='Foo.bar',
       type_codes=['Bar'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   bat_element_definition = sdefs.build_element_definition(
       id_='Foo.bat',
       type_codes=['Bats'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   inline_element_definition = sdefs.build_element_definition(
       id_='Foo.inline',
       type_codes=['BackboneElement'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   inline_value_element_definition = sdefs.build_element_definition(
       id_='Foo.inline.value',
       type_codes=['string'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   inline_numbers_element_definition = sdefs.build_element_definition(
       id_='Foo.inline.numbers',
       type_codes=['integer'],
-      cardinality=sdefs.Cardinality(min=0, max='*'))
+      cardinality=sdefs.Cardinality(min=0, max='*'),
+  )
   choice_value_element_definition = sdefs.build_element_definition(
       id_='Foo.choiceExample[x]',
       type_codes=['string', 'integer', 'CodeableConcept'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   multiple_choice_value_element_definition = sdefs.build_element_definition(
       id_='Foo.multipleChoiceExample[x]',
       type_codes=['string', 'integer', 'CodeableConcept'],
-      cardinality=sdefs.Cardinality(min=0, max='*'))
+      cardinality=sdefs.Cardinality(min=0, max='*'),
+  )
   date_value_element_definition = sdefs.build_element_definition(
       id_='Foo.dateField',
       type_codes=['date'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   code_flavor_element_definition = sdefs.build_element_definition(
       id_='Foo.codeFlavor',
       type_codes=['CodeFlavor'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   code_flavors_element_definition = sdefs.build_element_definition(
       id_='Foo.codeFlavors',
       type_codes=['CodeFlavor'],
-      cardinality=sdefs.Cardinality(min=0, max='*'))
+      cardinality=sdefs.Cardinality(min=0, max='*'),
+  )
   bool_list_definition = sdefs.build_element_definition(
       id_='Foo.boolList',
       type_codes=['boolean'],
-      cardinality=sdefs.Cardinality(min=0, max='*'))
+      cardinality=sdefs.Cardinality(min=0, max='*'),
+  )
   foo = sdefs.build_resource_definition(
       id_='Foo',
       element_definitions=[
@@ -168,60 +182,70 @@ class FhirPathTestBase:
           code_flavor_element_definition,
           code_flavors_element_definition,
           bool_list_definition,
-      ])
+      ],
+  )
 
   # Bar resource
   bar_root_element_definition = sdefs.build_element_definition(
-      id_='Bar', type_codes=None, cardinality=sdefs.Cardinality(min=0, max='1'))
+      id_='Bar', type_codes=None, cardinality=sdefs.Cardinality(min=0, max='1')
+  )
   bats_element_definition = sdefs.build_element_definition(
       id_='Bar.bats',
       type_codes=['Bats'],
-      cardinality=sdefs.Cardinality(min=0, max='*'))
+      cardinality=sdefs.Cardinality(min=0, max='*'),
+  )
   bar = sdefs.build_resource_definition(
       id_='Bar',
       element_definitions=[
           bar_root_element_definition,
           bats_element_definition,
-      ])
+      ],
+  )
 
   # Bats resource
   bats_root_element_definition = sdefs.build_element_definition(
-      id_='Bats',
-      type_codes=None,
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      id_='Bats', type_codes=None, cardinality=sdefs.Cardinality(min=0, max='1')
+  )
   struct_element_definition = sdefs.build_element_definition(
       id_='Bats.struct',
       type_codes=['Struct'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   div_element_definition = sdefs.build_element_definition(
       id_='Bats.div',
       type_codes=['Div'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   bats = sdefs.build_resource_definition(
       id_='Bats',
       element_definitions=[
           bats_root_element_definition,
           struct_element_definition,
           div_element_definition,
-      ])
+      ],
+  )
 
   # Struct resource; Standard SQL keyword
   struct_root_element_definition = sdefs.build_element_definition(
       id_='Struct',
       type_codes=None,
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   value_element_definition = sdefs.build_element_definition(
       id_='Struct.value',
       type_codes=['string'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   another_value_element_definition = sdefs.build_element_definition(
       id_='Struct.anotherValue',
       type_codes=['string'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   another_struct_element_definition = sdefs.build_element_definition(
       id_='Struct.anotherStruct',
       type_codes=['AnotherStruct'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   struct = sdefs.build_resource_definition(
       id_='Struct',
       element_definitions=[
@@ -229,55 +253,66 @@ class FhirPathTestBase:
           value_element_definition,
           another_value_element_definition,
           another_struct_element_definition,
-      ])
+      ],
+  )
 
   # AnotherStruct resource
   another_struct_root_element_definition = sdefs.build_element_definition(
       id_='AnotherStruct',
       type_codes=None,
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   another_value_element_definition = sdefs.build_element_definition(
       id_='AnotherStruct.anotherValue',
       type_codes=['string'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   another_struct = sdefs.build_resource_definition(
       id_='AnotherStruct',
       element_definitions=[
           another_struct_root_element_definition,
           another_value_element_definition,
-      ])
+      ],
+  )
 
   # Div resource; FHIRPath keyword
   div_root_element_definition = sdefs.build_element_definition(
-      id_='Div', type_codes=None, cardinality=sdefs.Cardinality(min=1, max='1'))
+      id_='Div', type_codes=None, cardinality=sdefs.Cardinality(min=1, max='1')
+  )
   text_element_definition = sdefs.build_element_definition(
       id_='Div.text',
       type_codes=['string'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   div = sdefs.build_resource_definition(
       id_='Div',
       element_definitions=[
           div_root_element_definition,
           text_element_definition,
-      ])
+      ],
+  )
 
   # CodeFlavor resource
   code_flavor_root_element_definition = sdefs.build_element_definition(
       id_='CodeFlavor',
       type_codes=None,
-      cardinality=sdefs.Cardinality(min=1, max='1'))
+      cardinality=sdefs.Cardinality(min=1, max='1'),
+  )
   code_element_definition = sdefs.build_element_definition(
       id_='CodeFlavor.code',
       type_codes=['string'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   coding_element_definition = sdefs.build_element_definition(
       id_='CodeFlavor.coding',
       type_codes=['Coding'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   codeable_concept_element_definition = sdefs.build_element_definition(
       id_='CodeFlavor.codeableConcept',
       type_codes=['CodeableConcept'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   code_flavor = sdefs.build_resource_definition(
       id_='CodeFlavor',
       element_definitions=[
@@ -285,44 +320,54 @@ class FhirPathTestBase:
           code_element_definition,
           coding_element_definition,
           codeable_concept_element_definition,
-      ])
+      ],
+  )
 
   # Coding resource
   coding_root_element_definition = sdefs.build_element_definition(
       id_='Coding',
       type_codes=None,
-      cardinality=sdefs.Cardinality(min=1, max='1'))
+      cardinality=sdefs.Cardinality(min=1, max='1'),
+  )
   coding_system_element_definition = sdefs.build_element_definition(
       id_='Coding.system',
       type_codes=['string'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   coding_code_element_definition = sdefs.build_element_definition(
       id_='Coding.code',
       type_codes=['string'],
-      cardinality=sdefs.Cardinality(min=0, max='1'))
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
   coding = sdefs.build_resource_definition(
       id_='Coding',
       element_definitions=[
           coding_root_element_definition,
           coding_system_element_definition,
           coding_code_element_definition,
-      ])
+      ],
+  )
 
   # CodeableConcept resource
   codeable_concept_root_element_definition = sdefs.build_element_definition(
       id_='CodeableConcept',
       type_codes=None,
-      cardinality=sdefs.Cardinality(min=1, max='1'))
-  codeable_concept_coding_system_element_definition = sdefs.build_element_definition(
-      id_='CodeableConcept.coding',
-      type_codes=['Coding'],
-      cardinality=sdefs.Cardinality(min=0, max='*'))
+      cardinality=sdefs.Cardinality(min=1, max='1'),
+  )
+  codeable_concept_coding_system_element_definition = (
+      sdefs.build_element_definition(
+          id_='CodeableConcept.coding',
+          type_codes=['Coding'],
+          cardinality=sdefs.Cardinality(min=0, max='*'),
+      )
+  )
   codeable_concept = sdefs.build_resource_definition(
       id_='CodeableConcept',
       element_definitions=[
           codeable_concept_root_element_definition,
           codeable_concept_coding_system_element_definition,
-      ])
+      ],
+  )
 
   # Set resources for test
   resources = [
@@ -350,24 +395,26 @@ class FhirPathTestBase:
   div = div
   div_root = div_root_element_definition
 
-  def create_builder_from_str(self, structdef: message.Message,
-                              fhir_path_expression: str) -> expressions.Builder:
-
+  def create_builder_from_str(
+      self, structdef: message.Message, fhir_path_expression: str
+  ) -> expressions.Builder:
     structdef_type = None
     if structdef:
       structdef_type = _fhir_path_data_types.StructureDataType(structdef)
 
     return expressions.from_fhir_path_expression(
-        fhir_path_expression, self.context, structdef_type,
-        primitive_handler.PrimitiveHandler())
+        fhir_path_expression,
+        self.context,
+        structdef_type,
+        primitive_handler.PrimitiveHandler(),
+    )
 
   @classmethod
   def build_constraint(
       cls,
       fhir_path_expression: str,
       key: str = 'key-1',
-      severity: codes_pb2.ConstraintSeverityCode.Value = codes_pb2
-      .ConstraintSeverityCode.ERROR
+      severity: codes_pb2.ConstraintSeverityCode.Value = codes_pb2.ConstraintSeverityCode.ERROR,
   ) -> datatypes_pb2.ElementDefinition.Constraint:
     """Returns an `ElementDefinition.Constraint` for a FHIRPath expression.
 
@@ -384,7 +431,9 @@ class FhirPathTestBase:
         key=datatypes_pb2.Id(value=key),
         expression=datatypes_pb2.String(value=fhir_path_expression),
         severity=datatypes_pb2.ElementDefinition.Constraint.SeverityCode(
-            value=severity))
+            value=severity
+        ),
+    )
 
   @classmethod
   def build_profile(

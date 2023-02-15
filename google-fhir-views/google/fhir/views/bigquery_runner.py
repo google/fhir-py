@@ -58,27 +58,31 @@ class BigQueryRunner:
 
   @classmethod
   def _to_dataset_ref(
-      cls, client: bigquery.client.Client,
-      dataset: Union[str, bigquery.dataset.DatasetReference]
+      cls,
+      client: bigquery.client.Client,
+      dataset: Union[str, bigquery.dataset.DatasetReference],
   ) -> bigquery.dataset.DatasetReference:
     """Converts the dataset to a DatasetReference object, if necessary."""
     if isinstance(dataset, bigquery.dataset.DatasetReference):
       return dataset
     return bigquery.dataset.DatasetReference.from_string(
-        dataset, client.project)
+        dataset, client.project
+    )
 
   def __init__(
       self,
       client: bigquery.client.Client,
       fhir_dataset: Union[str, bigquery.dataset.DatasetReference],
-      view_dataset: Optional[Union[str,
-                                   bigquery.dataset.DatasetReference]] = None,
+      view_dataset: Optional[
+          Union[str, bigquery.dataset.DatasetReference]
+      ] = None,
       as_of: Optional[str] = None,
-      value_set_codes_table: Optional[Union[bigquery.table.Table,
-                                            bigquery.table.TableReference,
-                                            str]] = None,
+      value_set_codes_table: Optional[
+          Union[bigquery.table.Table, bigquery.table.TableReference, str]
+      ] = None,
       snake_case_resource_tables: bool = False,
-      internal_default_to_v2_runner: bool = False) -> None:
+      internal_default_to_v2_runner: bool = False,
+  ) -> None:
     """Initializer.
 
     Initializes the BigQueryRunner with user provided BigQuery Client, Dataset,
@@ -115,17 +119,21 @@ class BigQueryRunner:
     self._fhir_dataset = self._to_dataset_ref(client, fhir_dataset)
     self._view_dataset = (
         self._to_dataset_ref(client, view_dataset)
-        if view_dataset is not None else self._fhir_dataset)
+        if view_dataset is not None
+        else self._fhir_dataset
+    )
     self._as_of = as_of
     self._snake_case_resource_tables = snake_case_resource_tables
     self._internal_default_to_v2_runner = internal_default_to_v2_runner
 
     if value_set_codes_table is None:
       self._value_set_codes_table = bigquery.table.TableReference(
-          self._view_dataset, 'value_set_codes')
+          self._view_dataset, 'value_set_codes'
+      )
     elif isinstance(value_set_codes_table, str):
       self._value_set_codes_table = bigquery.table.TableReference.from_string(
-          value_set_codes_table, default_project=client.project)
+          value_set_codes_table, default_project=client.project
+      )
     else:
       self._value_set_codes_table = value_set_codes_table
 
@@ -149,20 +157,25 @@ class BigQueryRunner:
         version_sql = 'NULL'
       # Sort the code values for more readable and consistent queries.
       for code_value in sorted(value_set_codes.codes):
-        row = (f'SELECT "{value_set_codes.url}" as valueseturi, '
-               f'{version_sql} as valuesetversion, '
-               f'"{code_value.system}" as system, '
-               f'"{code_value.value}" as code')
+        row = (
+            f'SELECT "{value_set_codes.url}" as valueseturi, '
+            f'{version_sql} as valuesetversion, '
+            f'"{code_value.system}" as system, '
+            f'"{code_value.value}" as code'
+        )
         value_set_rows.append(row)
 
     # Include the entire value_set_codes_table_name in addition to any other
     # custom value set definitions provided by callers.
     if include_value_set_codes_table:
-      table_name = (f'{self._value_set_codes_table.project}'
-                    f'.{self._value_set_codes_table.dataset_id}'
-                    f'.{self._value_set_codes_table.table_id}')
-      value_set_rows.append('SELECT valueseturi, valuesetversion, system, code '
-                            f'FROM {table_name}')
+      table_name = (
+          f'{self._value_set_codes_table.project}'
+          f'.{self._value_set_codes_table.dataset_id}'
+          f'.{self._value_set_codes_table.table_id}'
+      )
+      value_set_rows.append(
+          f'SELECT valueseturi, valuesetversion, system, code FROM {table_name}'
+      )
     if value_set_rows:
       rows_expression = '\nUNION ALL '.join(value_set_rows)
       return f'WITH VALUESET_VIEW AS ({rows_expression})\n'
@@ -176,10 +189,15 @@ class BigQueryRunner:
       last_slash_index = structdef_url.rfind('/')
       name = (
           structdef_url
-          if last_slash_index == -1 else structdef_url[last_slash_index + 1:])
+          if last_slash_index == -1
+          else structdef_url[last_slash_index + 1 :]
+      )
       if self._snake_case_resource_tables:
-        name = re.sub(
-            pattern=r'([A-Z]+)', repl=r'_\1', string=name).lower().lstrip('_')
+        name = (
+            re.sub(pattern=r'([A-Z]+)', repl=r'_\1', string=name)
+            .lower()
+            .lstrip('_')
+        )
       names[structdef_url] = name
     return names
 
@@ -206,29 +224,36 @@ class BigQueryRunner:
     if len(sql_statements) > 2:
       raise NotImplementedError(
           'Cross resource join for more than two resources '
-          'is not currently supported.')
+          'is not currently supported.'
+      )
 
     if len(sql_statements) == 1:
       return sql_statements[0]
 
-    return (f'SELECT * , __patientId__ FROM\n(({sql_statements[0]})'
-            f'\nINNER JOIN\n({self._join_sql_statements(sql_statements[1:])})'
-            f'\nUSING(__patientId__))')
+    return (
+        f'SELECT * , __patientId__ FROM\n(({sql_statements[0]})'
+        f'\nINNER JOIN\n({self._join_sql_statements(sql_statements[1:])})'
+        '\nUSING(__patientId__))'
+    )
 
-  def _encode(self,
-              expr: expressions.Builder,
-              select_scalars_as_array: bool,
-              structure_definition: message.Message,
-              element_definition: message.Message,
-              internal_v2: bool,
-              encoder: fhir_path.FhirPathStandardSqlEncoder,
-              use_resource_alias: bool = False) -> str:
+  def _encode(
+      self,
+      expr: expressions.Builder,
+      select_scalars_as_array: bool,
+      structure_definition: message.Message,
+      element_definition: message.Message,
+      internal_v2: bool,
+      encoder: fhir_path.FhirPathStandardSqlEncoder,
+      use_resource_alias: bool = False,
+  ) -> str:
     """Encodes the expression in googleSQL."""
     if internal_v2:
       interpreter = _bigquery_interpreter.BigQuerySqlInterpreter(
-          use_resource_alias=use_resource_alias)
+          use_resource_alias=use_resource_alias
+      )
       return interpreter.encode(
-          expr, select_scalars_as_array=select_scalars_as_array)
+          expr, select_scalars_as_array=select_scalars_as_array
+      )
     else:
       return encoder.encode(
           structure_definition=structure_definition,
@@ -237,11 +262,13 @@ class BigQueryRunner:
           select_scalars_as_array=select_scalars_as_array,
       )
 
-  def to_sql(self,
-             view: views.View,
-             limit: Optional[int] = None,
-             include_patient_id_col: bool = True,
-             internal_v2: Optional[bool] = None) -> str:
+  def to_sql(
+      self,
+      view: views.View,
+      limit: Optional[int] = None,
+      include_patient_id_col: bool = True,
+      internal_v2: Optional[bool] = None,
+  ) -> str:
     """Returns the SQL used to run the given view in BigQuery.
 
     Args:
@@ -259,14 +286,19 @@ class BigQueryRunner:
       internal_v2 = self._internal_default_to_v2_runner
 
     if len(view.get_structdef_urls()) > 1 and not internal_v2:
-      raise ValueError(f'Cross Resource views are only allowed in '
-                       f'v2. {view.get_structdef_urls()}')
+      raise ValueError(
+          'Cross Resource views are only allowed in '
+          f'v2. {view.get_structdef_urls()}'
+      )
 
     fhir_context = view.get_fhir_path_context()
     url = list(view.get_structdef_urls())[0]
     struct_def = fhir_context.get_structure_definition(url)
-    elem_def = next(elem for elem in struct_def.snapshot.element
-                    if elem.path.value == struct_def.name.value)
+    elem_def = next(
+        elem
+        for elem in struct_def.snapshot.element
+        if elem.path.value == struct_def.name.value
+    )
 
     deps = fhir_context.get_dependency_definitions(url)
     deps.append(struct_def)
@@ -306,11 +338,13 @@ class BigQueryRunner:
               structure_definition=struct_def,
               element_definition=elem_def,
               encoder=encoder,
-              internal_v2=internal_v2)
+              internal_v2=internal_v2,
+          )
           if not internal_v2:
             select_expression = self._datetime_sql(expr, select_expression)
           inner_select_expressions.append(
-              f'{select_expression} AS {field_name}')
+              f'{select_expression} AS {field_name}'
+          )
 
       if include_patient_id_col or len(view.get_structdef_urls()) > 1:
         # Auto generate the __patientId__ field for the view if it exists for
@@ -323,7 +357,8 @@ class BigQueryRunner:
               structure_definition=struct_def,
               element_definition=elem_def,
               encoder=encoder,
-              internal_v2=internal_v2)
+              internal_v2=internal_v2,
+          )
 
           inner_select_expressions.append(f'{expression} AS __patientId__')
 
@@ -337,22 +372,25 @@ class BigQueryRunner:
               structure_definition=struct_def,
               element_definition=elem_def,
               encoder=encoder,
-              internal_v2=internal_v2)
+              internal_v2=internal_v2,
+          )
 
           # TODO(b/208900793): Remove LOGICAL_AND(UNNEST) when the SQL generator
           # can return single values and it's safe to do so for non-repeated
           # fields.
           inner_where_expressions.append(
               '(SELECT LOGICAL_AND(logic_)\n'
-              f'FROM UNNEST({where_expression}) AS logic_)')
+              f'FROM UNNEST({where_expression}) AS logic_)'
+          )
 
       # Build statement for the resource.
       table_alias = ''
 
       # Check if the view has builders that reference multiple resources.
       has_mixed_resource_builders = (
-          len(view.get_multiresource_field_names()) +
-          len(view.get_multiresource_constraint_indexes())) != 0
+          len(view.get_multiresource_field_names())
+          + len(view.get_multiresource_constraint_indexes())
+      ) != 0
 
       if has_mixed_resource_builders:
         # For views with mixed resource builders, * and table_names[url] will
@@ -364,7 +402,8 @@ class BigQueryRunner:
 
       inner_select_clause = (
           f'SELECT {",".join(inner_select_expressions)} '
-          f'FROM `{dataset}`.{table_names[url]}{table_alias}')
+          f'FROM `{dataset}`.{table_names[url]}{table_alias}'
+      )
       inner_where_clause = ''
       if inner_where_expressions:
         inner_where_clause = f'\nWHERE {" AND ".join(inner_where_expressions)}'
@@ -385,9 +424,11 @@ class BigQueryRunner:
           element_definition=elem_def,
           encoder=encoder,
           internal_v2=internal_v2,
-          use_resource_alias=True)
+          use_resource_alias=True,
+      )
       multiresource_select_expressions.append(
-          f'{select_expression} AS {field_name}')
+          f'{select_expression} AS {field_name}'
+      )
 
     multiresource_where_expressions = []
     for index in view.get_multiresource_constraint_indexes():
@@ -399,23 +440,29 @@ class BigQueryRunner:
           element_definition=elem_def,
           encoder=encoder,
           internal_v2=internal_v2,
-          use_resource_alias=True)
+          use_resource_alias=True,
+      )
 
       # TODO(b/208900793): Remove LOGICAL_AND(UNNEST) when the SQL generator
       # can return single values and it's safe to do so for non-repeated
       # fields.
       multiresource_where_expressions.append(
           '(SELECT LOGICAL_AND(logic_)\n'
-          f'FROM UNNEST({where_expression}) AS logic_)')
+          f'FROM UNNEST({where_expression}) AS logic_)'
+      )
 
     if multiresource_select_expressions:
-      sql_statement = ('SELECT *, '
-                       f'{",".join(multiresource_select_expressions)} '
-                       f'FROM ({sql_statement})')
+      sql_statement = (
+          'SELECT *, '
+          f'{",".join(multiresource_select_expressions)} '
+          f'FROM ({sql_statement})'
+      )
     if multiresource_where_expressions:
-      sql_statement = (f'{sql_statement}'
-                       '\nWHERE '
-                       f'{" AND ".join(multiresource_where_expressions)}')
+      sql_statement = (
+          f'{sql_statement}'
+          '\nWHERE '
+          f'{" AND ".join(multiresource_where_expressions)}'
+      )
 
     # Build the expression containing valueset content, which may be empty.
     valuesets_clause = self._create_valueset_expression(view)
@@ -426,9 +473,9 @@ class BigQueryRunner:
 
     return f'{valuesets_clause}{sql_statement}{limit_clause}'
 
-  def to_dataframe(self,
-                   view: views.View,
-                   limit: Optional[int] = None) -> pandas.DataFrame:
+  def to_dataframe(
+      self, view: views.View, limit: Optional[int] = None
+  ) -> pandas.DataFrame:
     """Returns a Pandas dataframe of the results, if Pandas is installed.
 
     Args:
@@ -451,7 +498,8 @@ class BigQueryRunner:
 
     if select_columns:
       non_scalar_cols = [
-          col for (col, expr) in view.get_select_expressions().items()
+          col
+          for (col, expr) in view.get_select_expressions().items()
           if expr.return_type.returns_collection() or expr.return_type.fields()
       ]
     else:
@@ -469,7 +517,7 @@ class BigQueryRunner:
 
       if isinstance(item, dict):
         result = {}
-        for (key, value) in item.items():
+        for key, value in item.items():
           trimmed_value = trim_structs(value)
           if trimmed_value is not None:
             result[key] = trimmed_value
@@ -493,13 +541,15 @@ class BigQueryRunner:
       google.cloud.exceptions.GoogleAPICallError if the job failed.
     """
     dataset = f'{self._view_dataset.project}.{self._view_dataset.dataset_id}'
-    view_sql = (f'CREATE OR REPLACE VIEW `{dataset}.{view_name}` AS\n'
-                f'{self.to_sql(view, include_patient_id_col=False)}')
+    view_sql = (
+        f'CREATE OR REPLACE VIEW `{dataset}.{view_name}` AS\n'
+        f'{self.to_sql(view, include_patient_id_col=False)}'
+    )
     self._client.query(view_sql).result()
 
-  def run_query(self,
-                view: views.View,
-                limit: Optional[int] = None) -> bigquery.QueryJob:
+  def run_query(
+      self, view: views.View, limit: Optional[int] = None
+  ) -> bigquery.QueryJob:
     """Runs query for the view and returns the corresponding BigQuery job.
 
     Args:
@@ -510,10 +560,12 @@ class BigQueryRunner:
       bigquery.QueryJob: the job for the running query.
     """
     return self._client.query(
-        self.to_sql(view, limit=limit, include_patient_id_col=False))
+        self.to_sql(view, limit=limit, include_patient_id_col=False)
+    )
 
-  def summarize_codes(self, view: views.View,
-                      code_expr: expressions.Builder) -> pandas.DataFrame:
+  def summarize_codes(
+      self, view: views.View, code_expr: expressions.Builder
+  ) -> pandas.DataFrame:
     """Returns a summary count of distinct code values for the given expression.
 
     This method is primarily intended for exploratory data analysis, so users
@@ -545,25 +597,31 @@ class BigQueryRunner:
     """
     node_type = code_expr.get_node().return_type()
     if node_type and isinstance(node_type, _fhir_path_data_types.Collection):
-      node_type = list(cast(_fhir_path_data_types.Collection,
-                            node_type).types)[0]
+      node_type = list(cast(_fhir_path_data_types.Collection, node_type).types)[
+          0
+      ]
 
     # TODO(b/239733067): Add constraint filtering to code summarization.
     if view.get_constraint_expressions():
       raise NotImplementedError(
-          'Summarization of codes with view constraints not yet implemented.')
+          'Summarization of codes with view constraints not yet implemented.'
+      )
 
     fhir_context = view.get_fhir_path_context()
     # Workaround for v1 until it gets deprecated.
     if len(view.get_structdef_urls()) > 1:
       raise NotImplementedError(
-          'Summarization of codes with multiple resource views not yet implemented.'
+          'Summarization of codes with multiple resource views not yet'
+          ' implemented.'
       )
 
     url = list(view.get_structdef_urls())[0]
     struct_def = fhir_context.get_structure_definition(url)
-    elem_def = next(elem for elem in struct_def.snapshot.element
-                    if elem.path.value == struct_def.name.value)
+    elem_def = next(
+        elem
+        for elem in struct_def.snapshot.element
+        if elem.path.value == struct_def.name.value
+    )
 
     deps = fhir_context.get_dependency_definitions(url)
     deps.append(struct_def)
@@ -582,37 +640,45 @@ class BigQueryRunner:
 
     if len(table_names.keys()) == 1:
       # Query to get the array of code-like fields we will aggregate by.
-      expr_array_query = (f'SELECT {select_expression} as target '
-                          f'FROM `{dataset}`.{table_names[url]}')
+      expr_array_query = (
+          f'SELECT {select_expression} as target '
+          f'FROM `{dataset}`.{table_names[url]}'
+      )
 
     # Create a counting aggregation for the appropriate code-like structure.
     if node_type.url == _CODEABLE_CONCEPT:
       count_query = (
           f'WITH c AS ({expr_array_query}) '
-          f'SELECT codings.system, codings.code, '
-          f'codings.display, COUNT(*) count '
-          f'FROM c, '
-          f'UNNEST(c.target) concepts, UNNEST(concepts.coding) as codings '
-          f'GROUP BY 1, 2, 3 ORDER BY count DESC')
+          'SELECT codings.system, codings.code, '
+          'codings.display, COUNT(*) count '
+          'FROM c, '
+          'UNNEST(c.target) concepts, UNNEST(concepts.coding) as codings '
+          'GROUP BY 1, 2, 3 ORDER BY count DESC'
+      )
     elif node_type.url == _CODING:
-      count_query = (f'WITH c AS ({expr_array_query}) '
-                     f'SELECT codings.system, codings.code, '
-                     f'codings.display, COUNT(*) count '
-                     f'FROM c, '
-                     f'UNNEST(c.target) codings '
-                     f'GROUP BY 1, 2, 3 ORDER BY count DESC')
+      count_query = (
+          f'WITH c AS ({expr_array_query}) '
+          'SELECT codings.system, codings.code, '
+          'codings.display, COUNT(*) count '
+          'FROM c, '
+          'UNNEST(c.target) codings '
+          'GROUP BY 1, 2, 3 ORDER BY count DESC'
+      )
     elif node_type.url == _CODE or node_type.url == _STRING:
       # Assume simple strings are just code values. Since code is a type of
       # string, the current expression typing analysis may produce a string
       # type here so we accept both string and code.
-      count_query = (f'WITH c AS ({expr_array_query}) '
-                     f'SELECT code, COUNT(*) count '
-                     f'FROM c, UNNEST(c.target) as code '
-                     f'GROUP BY 1 ORDER BY count DESC')
+      count_query = (
+          f'WITH c AS ({expr_array_query}) '
+          'SELECT code, COUNT(*) count '
+          'FROM c, UNNEST(c.target) as code '
+          'GROUP BY 1 ORDER BY count DESC'
+      )
     else:
       raise ValueError(
-          f'Field must be a FHIR CodeableConcept, Coding, or Code; '
-          f'got {node_type.url}.')
+          'Field must be a FHIR CodeableConcept, Coding, or Code; '
+          f'got {node_type.url}.'
+      )
 
     return self._client.query(count_query).result().to_dataframe()
 
@@ -639,9 +705,11 @@ class BigQueryRunner:
     return self._client.create_table(table, exists_ok=True)
 
   # TODO(b/201107372): Update FHIR-agnostic types to a protocol.
-  def materialize_value_sets(self,
-                             value_set_protos: Iterable[value_set_pb2.ValueSet],
-                             batch_size: int = 500) -> None:
+  def materialize_value_sets(
+      self,
+      value_set_protos: Iterable[value_set_pb2.ValueSet],
+      batch_size: int = 500,
+  ) -> None:
     """Materialize the given value sets into the value_set_codes_table.
 
     Then writes these expanded codes into the database
@@ -668,21 +736,26 @@ class BigQueryRunner:
 
     sa_table = _bq_table_to_sqlalchemy_table(bq_table)
     queries = value_set_tables.valueset_codes_insert_statement_for(
-        value_set_protos, sa_table, batch_size=batch_size)
+        value_set_protos, sa_table, batch_size=batch_size
+    )
 
     # Render the query objects as strings and use the client to execute them.
     for query in queries:
       query_string = str(
           query.compile(
               dialect=(sqlalchemy_bigquery.BigQueryDialect()),
-              compile_kwargs={'literal_binds': True}))
+              compile_kwargs={'literal_binds': True},
+          )
+      )
       self._client.query(query_string).result()
 
   def materialize_value_set_expansion(
       self,
       urls: Iterable[str],
-      expander: Union[terminology_service_client.TerminologyServiceClient,
-                      value_sets.ValueSetResolver],
+      expander: Union[
+          terminology_service_client.TerminologyServiceClient,
+          value_sets.ValueSetResolver,
+      ],
       terminology_service_url: Optional[str] = None,
       batch_size: int = 500,
   ) -> None:
@@ -724,17 +797,22 @@ class BigQueryRunner:
       TerminologyServiceClient.
     """
     if terminology_service_url is not None and not isinstance(
-        expander, terminology_service_client.TerminologyServiceClient):
+        expander, terminology_service_client.TerminologyServiceClient
+    ):
       raise TypeError(
           '`terminology_service_url` can only be given if `expander` is a '
-          'TerminologyServiceClient')
+          'TerminologyServiceClient'
+      )
 
     if terminology_service_url is not None and isinstance(
-        expander, terminology_service_client.TerminologyServiceClient):
+        expander, terminology_service_client.TerminologyServiceClient
+    ):
       expanded_value_sets = (
-          expander.expand_value_set_url_using_service(url,
-                                                      terminology_service_url)
-          for url in urls)
+          expander.expand_value_set_url_using_service(
+              url, terminology_service_url
+          )
+          for url in urls
+      )
     else:
       expanded_value_sets = (expander.expand_value_set_url(url) for url in urls)
 
@@ -742,11 +820,13 @@ class BigQueryRunner:
 
 
 def _memberof_nodes_from_view(
-    view: views.View) -> Collection[_evaluation.MemberOfFunction]:
+    view: views.View,
+) -> Collection[_evaluation.MemberOfFunction]:
   """Retrieves all MemberOfFunction in the given `view`."""
   nodes = []
-  for builder in itertools.chain(view.get_select_expressions().values(),
-                                 view.get_constraint_expressions()):
+  for builder in itertools.chain(
+      view.get_select_expressions().values(), view.get_constraint_expressions()
+  ):
     # pylint: disable=protected-access
     nodes.extend(_memberof_nodes_from_node(builder._node))
 
@@ -754,7 +834,7 @@ def _memberof_nodes_from_view(
 
 
 def _memberof_nodes_from_node(
-    node: _evaluation.ExpressionNode
+    node: _evaluation.ExpressionNode,
 ) -> Collection[_evaluation.MemberOfFunction]:
   """Retrieves MemberOfFunction nodes among the given `node` and its operands."""
   nodes = []
@@ -770,7 +850,8 @@ def _memberof_nodes_from_node(
 
 
 def _bq_table_to_sqlalchemy_table(
-    bq_table: bigquery.table.Table) -> sqlalchemy.sql.selectable.TableClause:
+    bq_table: bigquery.table.Table,
+) -> sqlalchemy.sql.selectable.TableClause:
   """Converts a BigQuery client Table to an sqlalchemy Table."""
   table_name = f'{bq_table.project}.{bq_table.dataset_id}.{bq_table.table_id}'
   columns = [sqlalchemy.column(column.name) for column in bq_table.schema]
