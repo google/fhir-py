@@ -42,6 +42,8 @@ QUANTITY_URL = 'http://hl7.org/fhir/StructureDefinition/Quantity'
 ElementDefinition = message.Message
 
 
+# TODO(b/269329295): This is a very similar interface to the FhirPackageManager
+# interface. We should reconcile the two.
 class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
   """Resource and reference data context for FHIRPath usage.
 

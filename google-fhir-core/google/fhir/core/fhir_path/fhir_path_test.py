@@ -29,6 +29,7 @@ from google.fhir.core.proto import validation_pb2
 from google.fhir.r4.proto.core import codes_pb2
 from google.fhir.r4.proto.core import datatypes_pb2
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
+from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core import fhir_errors
 from google.fhir.core.fhir_path import _structure_definitions as sdefs
 from google.fhir.core.fhir_path import fhir_path
@@ -2327,9 +2328,18 @@ class FhirPathStandardSqlEncoderTest(
       ),
   )
   def testEncode_withFhirPathMemberFunctionInvocation_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str
+      self,
+      fhir_path_expression: str,
+      expected_sql_expression: str,
   ):
-    actual_sql_expression = self.fhir_path_encoder.encode(
+    fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(
+        self.resources,
+        options=fhir_path.SqlGenerationOptions(
+            value_set_codes_table='VALUESET_VIEW'
+        ),
+    )
+
+    actual_sql_expression = fhir_path_encoder.encode(
         structure_definition=self.foo,
         element_definition=self.foo_root,
         fhir_path_expression=fhir_path_expression,
@@ -2338,6 +2348,82 @@ class FhirPathStandardSqlEncoderTest(
     self.assertEvaluationNodeSqlCorrect(
         self.foo, fhir_path_expression, expected_sql_expression
     )
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='_withScalarCodeMemberOf',
+          fhir_path_expression="codeFlavor.code.memberOf('http://value.set/1')",
+          expected_sql_expression=textwrap.dedent(
+              """\
+              ARRAY(SELECT memberof_
+              FROM (SELECT (codeFlavor.code IS NULL) OR (codeFlavor.code IN ("code_1", "code_2")) AS memberof_)
+              WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
+      dict(
+          testcase_name='_withScalarCodeMemberOfAnotherValueSet',
+          fhir_path_expression="codeFlavor.code.memberOf('http://value.set/2')",
+          expected_sql_expression=textwrap.dedent(
+              """\
+              ARRAY(SELECT memberof_
+              FROM (SELECT (codeFlavor.code IS NULL) OR (codeFlavor.code IN ("code_3", "code_4")) AS memberof_)
+              WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
+      dict(
+          testcase_name='_withVectorCodeMemberOf',
+          fhir_path_expression=(
+              "codeFlavors.code.memberOf('http://value.set/1')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
+              ARRAY(SELECT memberof_
+              FROM (SELECT (codeFlavors_element_.code IS NULL) OR (codeFlavors_element_.code IN ("code_1", "code_2")) AS memberof_
+              FROM UNNEST(codeFlavors) AS codeFlavors_element_ WITH OFFSET AS element_offset)
+              WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
+  )
+  def testEncode_withFhirPathMemberFunctionAgainstLocalValueSetDefinitions_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
+    expanded_value_set_1 = value_set_pb2.ValueSet()
+    expanded_value_set_1.url.value = 'http://value.set/1'
+
+    code_1 = expanded_value_set_1.expansion.contains.add()
+    code_1.code.value = 'code_1'
+
+    code_2 = expanded_value_set_1.expansion.contains.add()
+    code_2.code.value = 'code_2'
+
+    expanded_value_set_2 = value_set_pb2.ValueSet()
+    expanded_value_set_2.url.value = 'http://value.set/2'
+
+    code_3 = expanded_value_set_2.expansion.contains.add()
+    code_3.code.value = 'code_3'
+
+    code_4 = expanded_value_set_2.expansion.contains.add()
+    code_4.code.value = 'code_4'
+
+    fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(
+        self.resources,
+        options=fhir_path.SqlGenerationOptions(
+            # Build a mock package manager which returns resources for the value
+            # sets above.
+            value_set_codes_definitions=unittest.mock.Mock(
+                get_resource={
+                    expanded_value_set_1.url.value: expanded_value_set_1,
+                    expanded_value_set_2.url.value: expanded_value_set_2,
+                }.get
+            )
+        ),
+    )
+    actual_sql_expression = fhir_path_encoder.encode(
+        structure_definition=self.foo,
+        element_definition=self.foo_root,
+        fhir_path_expression=fhir_path_expression,
+    )
+    self.assertEqual(actual_sql_expression, expected_sql_expression)
 
   @parameterized.named_parameters(
       dict(
@@ -3078,7 +3164,8 @@ class FhirPathStandardSqlEncoderTest(
       options: Optional[fhir_path_options.SqlValidationOptions] = None,
   ):
     fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(
-        self.resources, validation_options=options
+        self.resources,
+        validation_options=options,
     )
     with self.assertRaisesRegex(
         TypeError, 'FHIR Path Error: Semantic Analysis;'
@@ -3125,7 +3212,11 @@ class FhirPathStandardSqlEncoderTest(
       options: Optional[fhir_path_options.SqlValidationOptions] = None,
   ):
     fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(
-        self.resources, validation_options=options
+        self.resources,
+        options=fhir_path.SqlGenerationOptions(
+            value_set_codes_table='VALUESET_VIEW'
+        ),
+        validation_options=options,
     )
     result = fhir_path_encoder.encode(
         structure_definition=self.foo,
@@ -3273,9 +3364,7 @@ class FhirPathStandardSqlEncoderTest(
     resource = sdefs.build_resource_definition(
         id_='Foo', element_definitions=[root, soft_delete_slice]
     )
-    fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(
-        structure_definitions=[resource]
-    )
+    fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder([resource])
     with self.assertRaises(ValueError) as ve:
       _ = fhir_path_encoder.encode(
           structure_definition=resource,
@@ -3342,7 +3431,7 @@ class FhirPathStandardSqlEncoderTest(
     )
 
     fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(
-        structure_definitions=[string_datatype, foo, bar]
+        [string_datatype, foo, bar]
     )
     actual_sql_expression = fhir_path_encoder.encode(
         structure_definition=foo,
@@ -3664,7 +3753,10 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
   @parameterized.named_parameters(
       dict(
           testcase_name='_withAddValueSetBindingsOption',
-          options=fhir_path.SqlGenerationOptions(add_value_set_bindings=True),
+          options=fhir_path.SqlGenerationOptions(
+              add_value_set_bindings=True,
+              value_set_codes_table='VALUESET_VIEW',
+          ),
           expected_sql=textwrap.dedent(
               """\
       (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
@@ -3737,7 +3829,14 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
     error_reporter = fhir_errors.ListErrorReporter()
     encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
-        unittest.mock.Mock(iter_structure_definitions=lambda: [foo, bar]),
+        unittest.mock.Mock(
+            iter_structure_definitions=unittest.mock.Mock(
+                return_value=[foo, bar]
+            ),
+            # When asked for value sets, return None to force joins against a
+            # value sets table.
+            get_resource=unittest.mock.Mock(return_value=None),
+        ),
         error_reporter,
         options=options,
     )

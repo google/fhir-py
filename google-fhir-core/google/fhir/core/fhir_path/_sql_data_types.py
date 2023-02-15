@@ -823,6 +823,16 @@ class StandardSqlExpression(metaclass=abc.ABCMeta):
     """Builds an IS NOT NULL expression from this expression."""
     return IsNotNullOperator(self, **kwargs)
 
+  def or_(self, rhs: StandardSqlExpression, **kwargs) -> OrExpression:
+    """Builds an OR expression for `self` OR `rhs`."""
+    return OrExpression(self, rhs, **kwargs)
+
+  def in_(
+      self, params: Sequence[StandardSqlExpression], **kwargs
+  ) -> InOperator:
+    """Builds an IN expression for `self` IN `params`."""
+    return InOperator(self, params, **kwargs)
+
   def cast(
       self, cast_to: StandardSqlDataType, **kwargs
   ) -> StandardSqlExpression:
@@ -990,6 +1000,69 @@ class IsNotNullOperator(StandardSqlExpression):
   @property
   def sql_data_type(self) -> StandardSqlDataType:
     del self  # Needed to match StandardSqlExpression interface.
+    return Boolean
+
+  def as_operand(self) -> str:
+    return f'({self})'
+
+
+@dataclasses.dataclass
+class InOperator(StandardSqlExpression):
+  """Representation of an IN statement.
+
+  Renders SQL like 'SELECT `operand` IN (x, y...)'.
+
+  Attributes:
+    operand: The expression on the left hand side of the IN.
+    parameters: The set of expressions on the right hand side of the IN.
+  """
+
+  operand: StandardSqlExpression
+  parameters: Sequence[StandardSqlExpression]
+  _sql_alias: str = 'in_'
+
+  def __str__(self) -> str:
+    param_str = ', '.join(str(param) for param in self.parameters)
+    return f'{self.operand} IN ({param_str})'
+
+  @property
+  def sql_alias(self) -> str:
+    return self._sql_alias
+
+  @property
+  def sql_data_type(self) -> StandardSqlDataType:
+    del self
+    return Boolean
+
+  def as_operand(self) -> str:
+    return f'({self})'
+
+
+@dataclasses.dataclass
+class OrExpression(StandardSqlExpression):
+  """Representation of an OR expression.
+
+  Renders SQL like x OR y.
+
+  Attributes:
+    lhs: The expression on the left hand side of the OR.
+    rhs: The expression on the right hand side of the OR.
+  """
+
+  lhs: StandardSqlExpression
+  rhs: StandardSqlExpression
+  _sql_alias: str = 'or_'
+
+  def __str__(self) -> str:
+    return f'{self.lhs.as_operand()} OR {self.rhs.as_operand()}'
+
+  @property
+  def sql_alias(self) -> str:
+    return self._sql_alias
+
+  @property
+  def sql_data_type(self) -> StandardSqlDataType:
+    del self
     return Boolean
 
   def as_operand(self) -> str:

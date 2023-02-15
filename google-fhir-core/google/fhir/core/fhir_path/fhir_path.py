@@ -32,7 +32,9 @@ from google.fhir.core.fhir_path import _semant
 from google.fhir.core.fhir_path import _sql_data_types
 from google.fhir.core.fhir_path import _utils
 from google.fhir.core.fhir_path import fhir_path_options
+from google.fhir.core.utils import fhir_package
 from google.fhir.core.utils import proto_utils
+from google.fhir.r4.terminology import local_value_set_resolver
 
 # TODO(b/201107372): Update FHIR-agnostic types to a protocol.
 StructureDefinition = message.Message
@@ -155,6 +157,10 @@ class SqlGenerationOptions:
       replaced. It also specifies what they should be replaced with.
     value_set_codes_table: The name of the database table containing value set
       code definitions. Used when building SQL for memberOf expressions.
+    value_set_codes_definitions: A package manager containing value set
+      definitions which can be used to build SQL for memberOf expressions. These
+      value set definitions can be consulted in favor of using an external
+      `value_set_codes_table`.
   """
 
   skip_keys: Set[str] = dataclasses.field(default_factory=set)
@@ -163,7 +169,11 @@ class SqlGenerationOptions:
       fhirpath_replacement_list_pb2.FHIRPathReplacementList()
   )
   add_value_set_bindings: bool = False
-  value_set_codes_table: bigquery.TableReference = None
+  value_set_codes_table: Optional[bigquery.TableReference] = None
+  # TODO(b/269329295): collapse these definitions with the
+  # structure_definitions passed to
+  # FhirPathStandardSqlEncoder.__init__ in a single package manager.
+  value_set_codes_definitions: Optional[fhir_package.FhirPackageManager] = None
 
 
 class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
@@ -933,6 +943,11 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
         kwargs['value_set_codes_table'] = str(
             self._options.value_set_codes_table
         )
+      if self._options.value_set_codes_definitions is not None:
+        kwargs['value_set_resolver'] = local_value_set_resolver.LocalResolver(
+            self._options.value_set_codes_definitions
+        )
+
       return func(function, operand_result, params_result, **kwargs)
     else:
       return func(function, operand_result, params_result)
