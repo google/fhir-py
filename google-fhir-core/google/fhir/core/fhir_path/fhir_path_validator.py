@@ -89,9 +89,10 @@ _SKIP_KEYS = frozenset([
     # TODO(b/203253155): This constraint produces a regex that escapes
     # our string quotes.
     'eld-19',
-    # TODO(b/206986228): Remove this key after we start taking profiles into
+    # TODO(b/206986228): Remove these keys after we start taking profiles into
     # account when encoding constraints for fields.
     'comparator-matches-code-regex',
+    'comparator-memberOf',
     # Ignore this constraint because it is only directed towards primitive
     # fields.
     'ele-1',

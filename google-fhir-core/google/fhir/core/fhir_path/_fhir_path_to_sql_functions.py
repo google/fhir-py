@@ -714,10 +714,17 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
           value_set_codes_table,
       )
 
+    if _is_string_or_code(operand_type):
+      raise ValueError(
+          'Unable to expand value set %s locally and no value set'
+          ' definitions table provided. Unable to generate memberOf SQL.'
+          % value_set_uri,
+      )
+
     raise ValueError(
-        'Unable to expand value set %s locally and no value set'
-        ' definitions table provided. Unable to generate memberOf SQL.'
-        % value_set_uri,
+        'Non-code bound to value set %s and no value set definitions table'
+        ' provided. Currently, only value sets bound to codes are expanded'
+        ' locally. Unable to generate memberOf SQL.' % value_set_uri,
     )
 
   def _member_of_sql_against_inline_value_sets(
