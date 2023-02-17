@@ -1114,9 +1114,13 @@ class FhirProfileStandardSqlEncoder:
     if sql_expression is None:
       return []
 
-    element_definition_path = self._abs_path_invocation()
+    # _abs_path_invocation() is the path to the bound code field.
+    # Remove the final path item to get the relative path for this bound code.
+    element_definition_path = '.'.join(
+        self._abs_path_invocation().split('.')[:-1]
+    )
     column_name = _key_to_sql_column_name(
-        _path_to_sql_column_name('%s-memberOf' % element_definition_path)
+        _path_to_sql_column_name('%s-memberOf' % self._abs_path_invocation())
     )
     description = '%s must be a member of %s' % (relative_path, value_set_uri)
     return [

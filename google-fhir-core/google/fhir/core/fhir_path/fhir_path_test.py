@@ -3844,7 +3844,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(error_reporter.warnings)
     self.assertEmpty(error_reporter.errors)
     self.assertLen(actual_bindings, 1)
-    self.assertEqual(actual_bindings[0].element_path, 'Foo.bar.code')
+    self.assertEqual(actual_bindings[0].element_path, 'Foo.bar')
     self.assertEqual(
         actual_bindings[0].fhir_path_expression,
         "code.memberOf('http://value.set/id')",
