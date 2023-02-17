@@ -20,7 +20,6 @@ from google.protobuf import message
 from google.fhir.r4.proto.core import codes_pb2
 from google.fhir.r4.proto.core import datatypes_pb2
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
-from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _spark_interpreter
 from google.fhir.core.fhir_path import _structure_definitions as sdefs
@@ -389,7 +388,6 @@ class FhirPathTestBase:
   foo_root = foo_root_element_definition
   struct_element_def = struct_element_definition
   fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(resources)
-  bq_interpreter = _bigquery_interpreter.BigQuerySqlInterpreter()
   spark_interpreter = _spark_interpreter.SparkSqlInterpreter()
 
   div = div

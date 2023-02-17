@@ -19,10 +19,12 @@ import copy
 import dataclasses
 from typing import Any, Dict, List, Optional
 
+from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _sql_data_types
 from google.fhir.core.utils import url_utils
+from google.fhir.r4.terminology import local_value_set_resolver
 
 
 class _FhirPathFunctionStandardSqlEncoder(abc.ABC):
@@ -408,23 +410,105 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
       function: _evaluation.MemberOfFunction,
       operand_result: _sql_data_types.IdentifierSelect,
       params_result: List[_sql_data_types.StandardSqlExpression],
-      value_set_codes_table: str = 'VALUESET_VIEW',
+      value_set_codes_table: Optional[str] = None,
+      value_set_resolver: Optional[
+          local_value_set_resolver.LocalResolver
+      ] = None,
   ) -> _sql_data_types.Select:
-    operand_type = function.parent_node().return_type()
-    is_collection = _fhir_path_data_types.returns_collection(
-        function.parent_node().return_type()
+    operand_node = function.parent_node()
+    operand_type = operand_node.return_type()
+
+    is_string_or_code = isinstance(
+        operand_type, _fhir_path_data_types.String.__class__
     )
-    is_string_or_code = isinstance(operand_type, _fhir_path_data_types._String)
+
+    sql_alias = 'memberof_'
+
+    # See if the value set has a simple definition we can expand
+    # ourselves. If so, expand the value set and generate an IN
+    # expression validating if the codes in the column are members of
+    # the value set.
+    if value_set_resolver is not None and is_string_or_code:
+      expanded_value_set = value_set_resolver.expand_value_set_url(
+          function.value_set_url
+      )
+      if expanded_value_set is not None:
+        return self._member_of_sql_against_inline_value_sets(
+            sql_alias,
+            operand_result,
+            expanded_value_set,
+        )
+
+    # If we can't expand the value set ourselves, we fall back to
+    # JOIN-ing against an external value sets table.
+    if value_set_codes_table is not None:
+      return self._member_of_sql_against_remote_value_set_table(
+          sql_alias,
+          operand_result,
+          operand_node,
+          operand_type,
+          function.value_set_url,
+          value_set_codes_table,
+      )
+
+    if is_string_or_code:
+      raise ValueError(
+          'Unable to expand value set %s locally and no value set'
+          ' definitions table provided. Unable to generate memberOf SQL.'
+          % function.value_set_url,
+      )
+
+    raise ValueError(
+        'Non-code bound to value set %s and no value set definitions table'
+        ' provided. Currently, only value sets bound to codes are expanded'
+        ' locally. Unable to generate memberOf SQL.'
+        % function.value_set_url,
+    )
+
+  def _member_of_sql_against_inline_value_sets(
+      self,
+      sql_alias: str,
+      operand_result: _sql_data_types.IdentifierSelect,
+      expanded_value_set: value_set_pb2.ValueSet,
+  ) -> _sql_data_types.Select:
+    """Generates memberOf SQL using an IN statement."""
+    params = [
+        _sql_data_types.RawExpression(
+            '"%s"' % concept.code.value, _sql_data_types.String
+        )
+        for concept in expanded_value_set.expansion.contains
+    ]
+
+    return dataclasses.replace(
+        operand_result,
+        select_part=operand_result.select_part.is_null().or_(
+            operand_result.select_part.in_(params), _sql_alias=sql_alias
+        ),
+    )
+
+  def _member_of_sql_against_remote_value_set_table(
+      self,
+      sql_alias: str,
+      operand_result: _sql_data_types.IdentifierSelect,
+      operand_node: _evaluation.ExpressionNode,
+      operand_type: _fhir_path_data_types.FhirPathDataType,
+      value_set_param: str,
+      value_set_codes_table: str,
+  ) -> _sql_data_types.Select:
+    """Generates memberOf SQL using a JOIN against a terminology table.."""
+    is_collection = _fhir_path_data_types.returns_collection(
+        operand_node.return_type()
+    )
+    is_string_or_code = isinstance(
+        operand_type, _fhir_path_data_types.String.__class__
+    )
     is_coding = _fhir_path_data_types.is_coding(operand_type)
     is_codeable_concept = _fhir_path_data_types.is_codeable_concept(
         operand_type
     )
 
-    sql_alias = 'memberof_'
-
-    # validate_and_get_error ensures the param is a literal.
     value_set_uri, value_set_version = url_utils.parse_url_version(
-        function.value_set_url
+        value_set_param
     )
 
     value_set_uri_expr = f"'{value_set_uri}'"

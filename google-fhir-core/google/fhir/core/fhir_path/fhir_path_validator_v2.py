@@ -74,9 +74,10 @@ _SKIP_KEYS = frozenset([
     # TODO(b/203253155): This constraint produces a regex that escapes
     # our string quotes.
     'eld-19',
-    # TODO(b/206986228): Remove this key after we start taking profiles into
+    # TODO(b/206986228): Remove these keys after we start taking profiles into
     # account when encoding constraints for fields.
     'comparator-matches-code-regex',
+    'comparator-memberOf',
     # Ignore this constraint because it is only directed towards primitive
     # fields.
     'ele-1',
@@ -239,6 +240,10 @@ class SqlGenerationOptions:
       replaced. It also specifies what they should be replaced with.
     value_set_codes_table: The name of the database table containing value set
       code definitions. Used when building SQL for memberOf expressions.
+    value_set_codes_definitions: A package manager containing value set
+      definitions which can be used to build SQL for memberOf expressions. These
+      value set definitions can be consulted in favor of using an external
+      `value_set_codes_table`.
   """
 
   skip_keys: Set[str] = dataclasses.field(default_factory=set)
@@ -247,7 +252,11 @@ class SqlGenerationOptions:
       fhirpath_replacement_list_pb2.FHIRPathReplacementList()
   )
   add_value_set_bindings: bool = False
-  value_set_codes_table: bigquery.TableReference = None
+  value_set_codes_table: Optional[bigquery.TableReference] = None
+  # TODO(b/269329295): collapse these definitions with the definitions
+  # passed to FhirPathStandardSqlEncoder.__init__ in a single package
+  # manager.
+  value_set_codes_definitions: Optional[fhir_package.FhirPackageManager] = None
 
 
 class FhirProfileStandardSqlEncoder:
@@ -298,7 +307,10 @@ class FhirProfileStandardSqlEncoder:
     )
     self._primitive_handler = handler
     self._bq_interpreter = _bigquery_interpreter.BigQuerySqlInterpreter(
-        value_set_codes_table=self._options.value_set_codes_table
+        value_set_codes_table=self._options.value_set_codes_table,
+        value_set_codes_definitions=(
+            self._options.value_set_codes_definitions or definitions
+        ),
     )
 
     self._error_reporter = error_reporter

@@ -253,7 +253,8 @@ class BigQueryRunner:
     """Encodes the expression in googleSQL."""
     if internal_v2:
       interpreter = _bigquery_interpreter.BigQuerySqlInterpreter(
-          use_resource_alias=use_resource_alias
+          use_resource_alias=use_resource_alias,
+          value_set_codes_table='VALUESET_VIEW',
       )
       return interpreter.encode(
           expr, select_scalars_as_array=select_scalars_as_array

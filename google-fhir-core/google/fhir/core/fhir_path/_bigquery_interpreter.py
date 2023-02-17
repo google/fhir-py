@@ -26,6 +26,8 @@ from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _sql_data_types
 from google.fhir.core.fhir_path import expressions
 from google.fhir.core.internal import _primitive_time_utils
+from google.fhir.core.utils import fhir_package
+from google.fhir.r4.terminology import local_value_set_resolver
 
 
 def _escape_identifier(identifier_value: str) -> str:
@@ -43,17 +45,32 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       self,
       use_resource_alias: bool = False,
       value_set_codes_table: Optional[bigquery.TableReference] = None,
+      value_set_codes_definitions: Optional[
+          fhir_package.FhirPackageManager
+      ] = None,
   ) -> None:
     """Creates a BigQuerySqlInterpreter.
 
     Args:
       use_resource_alias: Determines whether it is necessary to call the
         resource table directly through an alias.
-      value_set_codes_table: An optional argument to specify whether or not to
-        use a BigQuery table to look up value sets.
+      value_set_codes_table: The name of the database table containing value set
+        code definitions. Used when building SQL for memberOf expressions. If
+        given, value set definitions needed for memberOf expressions will be
+        retrieved from this table if they can not be found in
+        `value_set_codes_definitions`. If neither this nor
+        `value_set_codes_definitions` is given, no memberOf SQL will be
+        generated.
+      value_set_codes_definitions: A package manager containing value set
+        definitions which can be used to build SQL for memberOf expressions.
+        These value set definitions can be consulted in favor of using an
+        external `value_set_codes_table`. If neither this nor
+        `value_set_codes_definitions` is given, no memberOf SQL will be
+        generated.
     """
     self._use_resource_alias = use_resource_alias
     self._value_set_codes_table = value_set_codes_table
+    self._value_set_codes_definitions = value_set_codes_definitions
 
   def encode(
       self, builder: expressions.Builder, select_scalars_as_array: bool = True
@@ -566,15 +583,17 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """Translates a FHIRPath function to Standard SQL."""
     parent_result = self.visit(function.parent_node())
     params_result = [self.visit(p) for p in function.params()]
-    if (
-        isinstance(function, _evaluation.MemberOfFunction)
-        and self._value_set_codes_table
-    ):
+    if isinstance(function, _evaluation.MemberOfFunction):
+      kwargs = {}
+      if self._value_set_codes_table is not None:
+        kwargs['value_set_codes_table'] = str(self._value_set_codes_table)
+      if self._value_set_codes_definitions is not None:
+        kwargs['value_set_resolver'] = local_value_set_resolver.LocalResolver(
+            self._value_set_codes_definitions
+        )
+
       return _bigquery_sql_functions.FUNCTION_MAP[function.NAME](
-          function,
-          parent_result,
-          params_result,
-          value_set_codes_table=str(self._value_set_codes_table),
+          function, parent_result, params_result, **kwargs
       )
     func = _bigquery_sql_functions.FUNCTION_MAP.get(function.NAME)
     return func(function, parent_result, params_result)

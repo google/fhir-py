@@ -31,6 +31,7 @@ from google.fhir.r4.proto.core import datatypes_pb2
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
 from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core import fhir_errors
+from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _structure_definitions as sdefs
 from google.fhir.core.fhir_path import fhir_path
 from google.fhir.core.fhir_path import fhir_path_options
@@ -56,12 +57,13 @@ class FhirPathStandardSqlEncoderTest(
       fhir_path_expression: str,
       expected_sql_expression: str,
       select_scalars_as_array: bool = True,
+      **bq_interpreter_args,
   ) -> None:
     builder = self.create_builder_from_str(structdef, fhir_path_expression)
 
-    actual_sql_expression = self.bq_interpreter.encode(
-        builder, select_scalars_as_array=select_scalars_as_array
-    )
+    actual_sql_expression = _bigquery_interpreter.BigQuerySqlInterpreter(
+        **bq_interpreter_args
+    ).encode(builder, select_scalars_as_array=select_scalars_as_array)
 
     self.assertEqual(actual_sql_expression, expected_sql_expression)
 
@@ -1338,7 +1340,7 @@ class FhirPathStandardSqlEncoderTest(
 
     builder = self.create_builder_from_str(self.foo, fhir_path_expression)
     with self.assertRaises(ValueError):
-      self.bq_interpreter.encode(builder)
+      _bigquery_interpreter.BigQuerySqlInterpreter().encode(builder)
 
   @parameterized.named_parameters(
       dict(
@@ -1786,7 +1788,9 @@ class FhirPathStandardSqlEncoderTest(
         self.foo, 'bar.bats.struct.exists(true)'
     )
     with self.assertRaisesRegex(ValueError, 'Unsupported FHIRPath expression'):
-      self.bq_interpreter.encode(builder, select_scalars_as_array=True)
+      _bigquery_interpreter.BigQuerySqlInterpreter().encode(
+          builder, select_scalars_as_array=True
+      )
 
   @parameterized.named_parameters(
       dict(
@@ -2346,7 +2350,10 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.foo, fhir_path_expression, expected_sql_expression
+        self.foo,
+        fhir_path_expression,
+        expected_sql_expression,
+        value_set_codes_table='VALUESET_VIEW',
     )
 
   @parameterized.named_parameters(
@@ -2424,6 +2431,20 @@ class FhirPathStandardSqlEncoderTest(
         fhir_path_expression=fhir_path_expression,
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
+
+    self.assertEvaluationNodeSqlCorrect(
+        self.foo,
+        fhir_path_expression,
+        expected_sql_expression,
+        # Build a mock package manager which returns resources for the value
+        # sets above.
+        value_set_codes_definitions=unittest.mock.Mock(
+            get_resource={
+                expanded_value_set_1.url.value: expanded_value_set_1,
+                expanded_value_set_2.url.value: expanded_value_set_2,
+            }.get
+        ),
+    )
 
   @parameterized.named_parameters(
       dict(
