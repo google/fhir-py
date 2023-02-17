@@ -58,14 +58,12 @@ class _CountFunction(_FhirPathFunctionStandardSqlEncoder):
       # COUNT is an aggregation and requires a FROM. If there is not one
       # already, build a subquery for the FROM.
       return _sql_data_types.Select(
-          select_part=_sql_data_types.CountCall(
-              (
-                  _sql_data_types.RawExpression(
-                      operand_result.sql_alias,
-                      _sql_data_type=operand_result.sql_data_type,
-                  ),
-              )
-          ),
+          select_part=_sql_data_types.CountCall((
+              _sql_data_types.RawExpression(
+                  operand_result.sql_alias,
+                  _sql_data_type=operand_result.sql_data_type,
+              ),
+          )),
           from_part=str(operand_result.to_subquery()),
           where_part=operand_result.where_part,
       )

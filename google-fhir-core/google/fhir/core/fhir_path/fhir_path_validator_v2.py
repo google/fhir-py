@@ -47,13 +47,11 @@ Constraint = message.Message
 # `ElementDefinition`s whose `base.path` is present in `_UNSUPPORTED_BASE_PATHS`
 # will be silently skipped during profile traversal, and will raise an exception
 # during FHIRPath-to-Standard-SQL encoding.
-UNSUPPORTED_BASE_PATHS = frozenset(
-    [
-        # Contained Resources do not map cleanly to SQL and are not supported by
-        # the SQL-on-FHIR standard.
-        'DomainResource.contained',
-    ]
-)
+UNSUPPORTED_BASE_PATHS = frozenset([
+    # Contained Resources do not map cleanly to SQL and are not supported by
+    # the SQL-on-FHIR standard.
+    'DomainResource.contained',
+])
 
 # The `ElementDefinition.type.code` is a URL of the datatype or resource used
 # for an element. References are URLs that are relative to:

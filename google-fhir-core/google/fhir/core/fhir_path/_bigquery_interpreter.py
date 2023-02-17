@@ -12,8 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Functionality to output BigQuery SQL expressions from FHIRPath expressions.
-"""
+"""Functionality to output BigQuery SQL expressions from FHIRPath expressions."""
 
 import dataclasses
 from typing import Any, Optional
@@ -38,13 +37,13 @@ def _escape_identifier(identifier_value: str) -> str:
 
 
 class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
-  """Traverses the ExpressionNode tree and generates BigQuery SQL recursively.
-  """
+  """Traverses the ExpressionNode tree and generates BigQuery SQL recursively."""
 
   def __init__(
       self,
       use_resource_alias: bool = False,
-      value_set_codes_table: Optional[bigquery.TableReference] = None) -> None:
+      value_set_codes_table: Optional[bigquery.TableReference] = None,
+  ) -> None:
     """Creates a BigQuerySqlInterpreter.
 
     Args:
@@ -56,9 +55,9 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     self._use_resource_alias = use_resource_alias
     self._value_set_codes_table = value_set_codes_table
 
-  def encode(self,
-             builder: expressions.Builder,
-             select_scalars_as_array: bool = True) -> str:
+  def encode(
+      self, builder: expressions.Builder, select_scalars_as_array: bool = True
+  ) -> str:
     """Returns a Standard SQL encoding of a FHIRPath expression.
 
     If select_scalars_as_array is True, the resulting Standard SQL encoding
@@ -78,10 +77,13 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
     result = self.visit(builder.get_node())
     if select_scalars_as_array or _fhir_path_data_types.returns_collection(
-        builder.get_node().return_type()):
-      return (f'ARRAY(SELECT {result.sql_alias}\n'
-              f'FROM {result.to_subquery()}\n'
-              f'WHERE {result.sql_alias} IS NOT NULL)')
+        builder.get_node().return_type()
+    ):
+      return (
+          f'ARRAY(SELECT {result.sql_alias}\n'
+          f'FROM {result.to_subquery()}\n'
+          f'WHERE {result.sql_alias} IS NOT NULL)'
+      )
     else:
       # Parenthesize raw SELECT so it can plug in anywhere an expression can.
       return f'{result.to_subquery()}'
@@ -93,8 +95,10 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       return _sql_data_types.IdentifierSelect(
           _sql_data_types.Identifier(
               _escape_identifier(root.to_fhir_path()),
-              _sql_data_types.OpaqueStruct),
-          from_part=None)
+              _sql_data_types.OpaqueStruct,
+          ),
+          from_part=None,
+      )
     return None
 
   def visit_reference(
@@ -109,18 +113,23 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       sql_alias = f'{sql_alias}_element_'
 
     sql_data_type = _sql_data_types.get_standard_sql_data_type(
-        reference.return_type())
+        reference.return_type()
+    )
     return _sql_data_types.IdentifierSelect(
         select_part=_sql_data_types.Identifier(
-            _escape_identifier(sql_alias), sql_data_type),
-        from_part=None)
+            _escape_identifier(sql_alias), sql_data_type
+        ),
+        from_part=None,
+    )
 
   def visit_literal(
-      self, literal: _evaluation.LiteralNode) -> _sql_data_types.RawExpression:
+      self, literal: _evaluation.LiteralNode
+  ) -> _sql_data_types.RawExpression:
     """Translates a FHIRPath literal to Standard SQL."""
 
-    if (literal.return_type() is None or
-        isinstance(literal.return_type(), _fhir_path_data_types._Empty)):  # pylint: disable=protected-access
+    if literal.return_type() is None or isinstance(
+        literal.return_type(), _fhir_path_data_types.Empty.__class__
+    ):  # pylint: disable=protected-access
       sql_value = 'NULL'
       sql_data_type = _sql_data_types.Undefined
     # TODO(b/244184211): Make _fhir_path_data_types.FhirPathDataType classes
@@ -132,10 +141,8 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       # Since quantity string literals contain quotes, they are escaped.
       # E.g. '10 \'mg\''.
       quantity_quotes_escaped = str(literal).translate(
-          str.maketrans({
-              "'": r"\'",
-              '"': r'\"'
-          }))
+          str.maketrans({"'": r'\'', '"': r'\"'})
+      )
       sql_value = f"'{quantity_quotes_escaped}'"
       sql_data_type = _sql_data_types.String
     elif isinstance(literal.return_type(), _fhir_path_data_types._Integer):  # pylint: disable=protected-access
@@ -160,7 +167,8 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       # LiteralNode constructor ensures that literal has to be one of the above
       # cases. But we error out here in case we enter an illegal state.
       raise ValueError(
-          f'Unsupported literal value: {literal} {literal.return_type()}.')
+          f'Unsupported literal value: {literal} {literal.return_type()}.'
+      )
 
     return _sql_data_types.RawExpression(
         _sql_data_types.wrap_time_types(sql_value, sql_data_type),
@@ -182,7 +190,8 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     # Map to Standard SQL type. Note that we never map to a type of `ARRAY`,
     # as the member encoding flattens any `ARRAY` members.
     sql_data_type = _sql_data_types.get_standard_sql_data_type(
-        identifier.return_type())
+        identifier.return_type()
+    )
     sql_alias = f'{raw_identifier_str}'
     identifier_str = f'{raw_identifier_str}'
     if _fhir_path_data_types.is_collection(identifier.return_type()):  # Array
@@ -204,8 +213,10 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
           # Identifiers need to be escaped if they are referenced directly.
           identifier_str = f'{_escape_identifier(raw_identifier_str)}'
 
-        from_part = (f'UNNEST({identifier_str}) AS {sql_alias} '
-                     f'WITH OFFSET AS element_offset')
+        from_part = (
+            f'UNNEST({identifier_str}) AS {sql_alias} '
+            'WITH OFFSET AS element_offset'
+        )
         if parent_result:
           from_part = f'({parent_result}),\n{from_part}'
         # When UNNEST-ing a repeated field, we always generate an offset column
@@ -214,7 +225,8 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         # ignore it.
         return _sql_data_types.IdentifierSelect(
             select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
-            from_part=from_part)
+            from_part=from_part,
+        )
     else:  # Scalar
       # Append the current identifier to the path chain being selected if there
       # is a parent. Includes the from & where clauses of the parent.
@@ -225,16 +237,19 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
                 raw_identifier_str,
                 sql_data_type,
                 sql_alias=_escape_identifier(sql_alias),
-            ))
+            ),
+        )
       else:
         return _sql_data_types.IdentifierSelect(
             select_part=_sql_data_types.Identifier(
-                _escape_identifier(identifier_str), sql_data_type),
+                _escape_identifier(identifier_str), sql_data_type
+            ),
             from_part=parent_result,
         )
 
-  def visit_indexer(self,
-                    indexer: _evaluation.IndexerNode) -> _sql_data_types.Select:
+  def visit_indexer(
+      self, indexer: _evaluation.IndexerNode
+  ) -> _sql_data_types.Select:
     """Translates a FHIRPath indexer expression to Standard SQL.
 
     Args:
@@ -247,9 +262,11 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     index_result = self.visit(indexer.index)
 
     # Intermediate indexed table subquery.
-    indexed_collection = ('SELECT ROW_NUMBER() OVER() AS row_,\n'
-                          f'{collection_result.sql_alias}\n'
-                          f'FROM {collection_result.to_subquery()}')
+    indexed_collection = (
+        'SELECT ROW_NUMBER() OVER() AS row_,\n'
+        f'{collection_result.sql_alias}\n'
+        f'FROM {collection_result.to_subquery()}'
+    )
 
     # Construct SQL expression; index must be a single integer per the FHIRPath
     # grammar, so we can leverage a scalar subquery.
@@ -265,7 +282,8 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     )
 
   def visit_arithmetic(
-      self, arithmetic: _evaluation.ArithmeticNode) -> _sql_data_types.Select:
+      self, arithmetic: _evaluation.ArithmeticNode
+  ) -> _sql_data_types.Select:
     """Translates a FHIRPath arithmetic expression to Standard SQL.
 
     Each operand is expected to be a collection of a single element. Both
@@ -280,8 +298,9 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """
     lhs_result = self.visit(arithmetic.left)
     rhs_result = self.visit(arithmetic.right)
-    sql_data_type = _sql_data_types.coerce(lhs_result.sql_data_type,
-                                           rhs_result.sql_data_type)
+    sql_data_type = _sql_data_types.coerce(
+        lhs_result.sql_data_type, rhs_result.sql_data_type
+    )
 
     # Extract the values of LHS and RHS to be used as scalar subqueries.
     lhs_subquery = lhs_result.as_operand()
@@ -301,11 +320,14 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     sql_alias = 'arith_'
     return _sql_data_types.Select(
         select_part=_sql_data_types.RawExpression(
-            sql_value, _sql_data_type=sql_data_type, _sql_alias=sql_alias),
-        from_part=None)
+            sql_value, _sql_data_type=sql_data_type, _sql_alias=sql_alias
+        ),
+        from_part=None,
+    )
 
   def visit_equality(
-      self, equality: _evaluation.EqualityNode) -> _sql_data_types.Select:
+      self, equality: _evaluation.EqualityNode
+  ) -> _sql_data_types.Select:
     """Returns `TRUE` if the left collection is equal/equivalent to the right.
 
     See more at: http://hl7.org/fhirpath/#equality.
@@ -319,8 +341,10 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     lhs_result = self.visit(equality.left)
     rhs_result = self.visit(equality.right)
 
-    if (equality.op == _ast.EqualityRelation.Op.EQUAL or
-        equality.op == _ast.EqualityRelation.Op.EQUIVALENT):
+    if (
+        equality.op == _ast.EqualityRelation.Op.EQUAL
+        or equality.op == _ast.EqualityRelation.Op.EQUIVALENT
+    ):
       collection_check_func_name = 'NOT EXISTS'
       scalar_check_op = '='
     else:  # NOT_*
@@ -331,39 +355,53 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     sql_data_type = _sql_data_types.Boolean
 
     # Both sides are scalars.
-    if (_fhir_path_data_types.is_scalar(equality.left.return_type()) and
-        _fhir_path_data_types.is_scalar(equality.right.return_type())):
+    if _fhir_path_data_types.is_scalar(
+        equality.left.return_type()
+    ) and _fhir_path_data_types.is_scalar(equality.right.return_type()):
       # Use the simpler query.
       return _sql_data_types.Select(
           select_part=_sql_data_types.RawExpression(
-              f'({lhs_result.as_operand()} '
-              f'{scalar_check_op} '
-              f'{rhs_result.as_operand()})',
+              (
+                  f'({lhs_result.as_operand()} '
+                  f'{scalar_check_op} '
+                  f'{rhs_result.as_operand()})'
+              ),
               _sql_data_type=sql_data_type,
-              _sql_alias=sql_alias),
-          from_part=None)
+              _sql_alias=sql_alias,
+          ),
+          from_part=None,
+      )
 
     else:
-      sql_expr = ('SELECT lhs_.*\n'
-                  'FROM (SELECT ROW_NUMBER() OVER() AS row_, '
-                  f'{lhs_result.sql_alias}\n'
-                  f'FROM {lhs_result.to_subquery()}) AS lhs_\n'
-                  'EXCEPT DISTINCT\n'
-                  'SELECT rhs_.*\n'
-                  'FROM (SELECT ROW_NUMBER() OVER() AS row_, '
-                  f'{rhs_result.sql_alias}\n'
-                  f'FROM {rhs_result.to_subquery()}) AS rhs_')
+      sql_expr = (
+          'SELECT lhs_.*\n'
+          'FROM (SELECT ROW_NUMBER() OVER() AS row_, '
+          f'{lhs_result.sql_alias}\n'
+          f'FROM {lhs_result.to_subquery()}) AS lhs_\n'
+          'EXCEPT DISTINCT\n'
+          'SELECT rhs_.*\n'
+          'FROM (SELECT ROW_NUMBER() OVER() AS row_, '
+          f'{rhs_result.sql_alias}\n'
+          f'FROM {rhs_result.to_subquery()}) AS rhs_'
+      )
 
       return _sql_data_types.Select(
           select_part=_sql_data_types.FunctionCall(
-              collection_check_func_name, (_sql_data_types.RawExpression(
-                  sql_expr, _sql_data_type=_sql_data_types.Int64),),
+              collection_check_func_name,
+              (
+                  _sql_data_types.RawExpression(
+                      sql_expr, _sql_data_type=_sql_data_types.Int64
+                  ),
+              ),
               _sql_data_type=sql_data_type,
-              _sql_alias=sql_alias),
-          from_part=None)
+              _sql_alias=sql_alias,
+          ),
+          from_part=None,
+      )
 
   def visit_comparison(
-      self, comparison: _evaluation.ComparisonNode) -> _sql_data_types.Select:
+      self, comparison: _evaluation.ComparisonNode
+  ) -> _sql_data_types.Select:
     """Translates a FHIRPath comparison to Standard SQL.
 
     Each operand is expected to be a collection of a single element. Operands
@@ -389,12 +427,14 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         select_part=_sql_data_types.RawExpression(
             sql_value,
             _sql_data_type=_sql_data_types.Boolean,
-            _sql_alias=sql_alias),
-        from_part=None)
+            _sql_alias=sql_alias,
+        ),
+        from_part=None,
+    )
 
   def visit_boolean_op(
-      self,
-      boolean_logic: _evaluation.BooleanOperatorNode) -> _sql_data_types.Select:
+      self, boolean_logic: _evaluation.BooleanOperatorNode
+  ) -> _sql_data_types.Select:
     """Translates a FHIRPath Boolean logic operation to Standard SQL.
 
     Note that evaluation for Boolean logic is only supported for Boolean
@@ -431,11 +471,14 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         select_part=_sql_data_types.RawExpression(
             sql_value,
             _sql_data_type=_sql_data_types.Boolean,
-            _sql_alias=sql_alias),
-        from_part=None)
+            _sql_alias=sql_alias,
+        ),
+        from_part=None,
+    )
 
-  def visit_membership(self,
-                       relation: _evaluation.MembershipRelationNode) -> Any:
+  def visit_membership(
+      self, relation: _evaluation.MembershipRelationNode
+  ) -> Any:
     """Translates a FHIRPath membership relation to Standard SQL.
 
     For the `IN` relation, the LHS operand is assumed to be a collection of a
@@ -454,49 +497,58 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     # SELECT (<lhs>) IN(<rhs>) AS mem_
     # Where relation.op \in {IN, CONTAINS}; `CONTAINS` is the converse of `IN`
     in_lhs = (
-        lhs_result if isinstance(relation, _evaluation.InNode) else rhs_result)
+        lhs_result if isinstance(relation, _evaluation.InNode) else rhs_result
+    )
     in_rhs = (
-        rhs_result if isinstance(relation, _evaluation.InNode) else lhs_result)
+        rhs_result if isinstance(relation, _evaluation.InNode) else lhs_result
+    )
 
-    sql_expr = (f'({in_lhs.as_operand()})\n' f'IN ({in_rhs.as_operand()})')
+    sql_expr = f'({in_lhs.as_operand()})\nIN ({in_rhs.as_operand()})'
     return _sql_data_types.Select(
         select_part=_sql_data_types.RawExpression(
             sql_expr,
             _sql_data_type=_sql_data_types.Boolean,
             _sql_alias='mem_',
         ),
-        from_part=None)
+        from_part=None,
+    )
 
   def visit_union(
-      self, union: _evaluation.UnionNode) -> _sql_data_types.UnionExpression:
+      self, union: _evaluation.UnionNode
+  ) -> _sql_data_types.UnionExpression:
     lhs_result = self.visit(union.left)
     rhs_result = self.visit(union.right)
 
     # Supported in FHIRPath, but currently generates invalid Standard SQL.
-    if (isinstance(lhs_result.sql_data_type, _sql_data_types.Struct) or
-        isinstance(rhs_result.sql_data_type, _sql_data_types.Struct)):
+    if isinstance(
+        lhs_result.sql_data_type, _sql_data_types.Struct
+    ) or isinstance(rhs_result.sql_data_type, _sql_data_types.Struct):
       raise TypeError(
-          f'Unsupported `STRUCT` union between {lhs_result}, {rhs_result}.')
+          f'Unsupported `STRUCT` union between {lhs_result}, {rhs_result}.'
+      )
 
     sql_alias = 'union_'
     lhs = _sql_data_types.Select(
         select_part=_sql_data_types.Identifier(
             ('lhs_', lhs_result.sql_alias),
             _sql_alias=sql_alias,
-            _sql_data_type=lhs_result.sql_data_type),
-        from_part=f'{lhs_result.to_subquery()} AS lhs_')
+            _sql_data_type=lhs_result.sql_data_type,
+        ),
+        from_part=f'{lhs_result.to_subquery()} AS lhs_',
+    )
     rhs = _sql_data_types.Select(
         select_part=_sql_data_types.Identifier(
             ('rhs_', rhs_result.sql_alias),
             _sql_alias=sql_alias,
-            _sql_data_type=rhs_result.sql_data_type),
+            _sql_data_type=rhs_result.sql_data_type,
+        ),
         from_part=f'{rhs_result.to_subquery()} AS rhs_',
     )
     return lhs.union(rhs, distinct=True)
 
   def visit_polarity(
-      self,
-      polarity: _evaluation.NumericPolarityNode) -> _sql_data_types.Select:
+      self, polarity: _evaluation.NumericPolarityNode
+  ) -> _sql_data_types.Select:
     """Translates FHIRPath unary polarity (+/-) to Standard SQL."""
     operand_result = self.visit(polarity.operand)
     sql_expr = f'{polarity.op}{operand_result.as_operand()}'
@@ -507,18 +559,22 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             _sql_data_type=operand_result.sql_data_type,
             _sql_alias=sql_alias,
         ),
-        from_part=None)
+        from_part=None,
+    )
 
   def visit_function(self, function: _evaluation.FunctionNode) -> Any:
     """Translates a FHIRPath function to Standard SQL."""
     parent_result = self.visit(function.parent_node())
     params_result = [self.visit(p) for p in function.params()]
-    if (isinstance(function, _evaluation.MemberOfFunction) and
-        self._value_set_codes_table):
+    if (
+        isinstance(function, _evaluation.MemberOfFunction)
+        and self._value_set_codes_table
+    ):
       return _bigquery_sql_functions.FUNCTION_MAP[function.NAME](
           function,
           parent_result,
           params_result,
-          value_set_codes_table=str(self._value_set_codes_table))
+          value_set_codes_table=str(self._value_set_codes_table),
+      )
     func = _bigquery_sql_functions.FUNCTION_MAP.get(function.NAME)
     return func(function, parent_result, params_result)
