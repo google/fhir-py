@@ -5316,6 +5316,10 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
   NewFoo {
     string someExtension; # This is a required field.
   }
+
+  Foob {
+    Bar boof; # The deep field is required for Foo.
+  }
   """
 
   @classmethod
@@ -5343,6 +5347,26 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
                 cardinality=sdefs.Cardinality(min=0, max='1'),
             )
         ],
+    )
+
+    # Foob resource.
+    foob_root = sdefs.build_element_definition(
+        id_='Foob', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
+
+    foob_boof = sdefs.build_element_definition(
+        id_='Foob.boof',
+        type_codes=['Bar'],
+        cardinality=sdefs.Cardinality(1, '1'),
+    )
+
+    foob_boof_deep = sdefs.build_element_definition(
+        id_='Foob.boof.deep',
+        type_codes=['Deep'],
+        cardinality=sdefs.Cardinality(1, '1'),
+    )
+    foob = sdefs.build_resource_definition(
+        id_='Foob', element_definitions=[foob_root, foob_boof, foob_boof_deep]
     )
 
     # Foo resource.
@@ -5458,6 +5482,7 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
         string_datatype,
         backbone_element,
         foo,
+        foob,
         deep,
         bar,
         baz,
@@ -5596,6 +5621,73 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
         fhir_path_expression=fhir_path_expression,
         fields_referenced_by_expression=fields_referenced_by_expression,
         supported_in_v2=True,
+    )
+
+  def testEncode_withOverriddenFieldInNestedStruct_generatesSql(self):
+    """Tests that a Resource that overrides the cardinality of another field generates sql."""
+    resource = self.resources['http://hl7.org/fhir/StructureDefinition/Foob']
+
+    # Encode as Standard SQL expression.
+    all_resources = list(self.resources.values())
+    error_reporter = fhir_errors.ListErrorReporter()
+    profile_std_sql_encoder_v2 = (
+        fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+            unittest.mock.Mock(
+                iter_structure_definitions=lambda: all_resources
+            ),
+            primitive_handler.PrimitiveHandler(),
+            error_reporter,
+        )
+    )
+    actual_bindings = profile_std_sql_encoder_v2.encode(resource)
+
+    self.assertEmpty(error_reporter.errors)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertLen(actual_bindings, 3)
+
+    expected_binding_0 = validation_pb2.SqlRequirement(
+        column_name='foob_boof_cardinality_is_valid',
+        sql_expression=textwrap.dedent(
+            """\
+        (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
+        FROM UNNEST(ARRAY(SELECT exists_
+        FROM (SELECT boof IS NOT NULL AS exists_)
+        WHERE exists_ IS NOT NULL)) AS result_)"""
+        ),
+        severity=codes_pb2.ConstraintSeverityCode.ERROR,
+        type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
+        element_path='Foob',
+        description='The length of boof must be maximum 1 and minimum 1.',
+        fhir_path_key='boof-cardinality-is-valid',
+        fhir_path_expression='boof.exists()',
+        fields_referenced_by_expression=['boof'],
+    )
+    expected_binding_1 = validation_pb2.SqlRequirement(
+        column_name='foob_boof_deep_cardinality_is_valid',
+        sql_expression=textwrap.dedent(
+            """\
+        (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
+        FROM (SELECT ARRAY(SELECT exists_
+        FROM (SELECT deep IS NOT NULL AS exists_)
+        WHERE exists_ IS NOT NULL) AS subquery_
+        FROM (SELECT AS VALUE ctx_element_
+        FROM UNNEST(ARRAY(SELECT boof
+        FROM (SELECT boof)
+        WHERE boof IS NOT NULL)) AS ctx_element_)),
+        UNNEST(subquery_) AS result_)"""
+        ),
+        severity=codes_pb2.ConstraintSeverityCode.ERROR,
+        type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
+        element_path='Foob.boof',
+        description='The length of deep must be maximum 1 and minimum 1.',
+        fhir_path_key='deep-cardinality-is-valid',
+        fhir_path_expression='deep.exists()',
+        fields_referenced_by_expression=['deep'],
+    )
+    self.assertEqual(actual_bindings[0], expected_binding_0)
+    self.assertEqual(actual_bindings[1], expected_binding_1)
+    self.assertEqual(
+        actual_bindings[2].fhir_path_key, 'deeper-cardinality-is-valid'
     )
 
 

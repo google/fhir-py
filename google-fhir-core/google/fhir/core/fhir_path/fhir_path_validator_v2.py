@@ -592,92 +592,156 @@ class FhirProfileStandardSqlEncoder:
       required fields on the element.
     """
 
+    if not isinstance(
+        builder.return_type, _fhir_path_data_types.StructureDataType
+    ):
+      return []
+
     # If this is an extension, we don't want to access its children/fields.
     # TODO(b/200575760): Add support for complex extensions and the fields
     # inside them.
-    if (
-        isinstance(builder.return_type, _fhir_path_data_types.StructureDataType)
-        and cast(
-            _fhir_path_data_types.StructureDataType, builder.return_type
-        ).element_type
-        == 'Extension'
-    ):
+    if builder.return_type.element_type == 'Extension':
       return []
 
     encoded_requirements: List[validation_pb2.SqlRequirement] = []
     children = builder.return_type.children()
     for name, child_message in children.items():
-      child = cast(Any, child_message)
-      if not _is_elem_supported(child):
+      try:
+        child_builder = builder.__getattr__(name)
+      except (AttributeError, ValueError) as e:
+        self._error_reporter.report_fhir_path_error(
+            self._abs_path_invocation(builder),
+            f'{builder}.{name}',
+            str(e),
+        )
+
+      requirement = self._encode_required_field(
+          name, builder, child_builder, child_message
+      )
+      if requirement:
+        encoded_requirements.append(requirement)
+
+    # Sometimes a struct_def can specify requirements for their descendants.
+    # Encode them as a part of its children.
+    required_descendants = builder.return_type.required_descendants
+    for name, desc_message in required_descendants.items():
+      containing_type_builder = builder
+      child_builder = containing_type_builder
+      paths = name.split('.')
+      try:
+        for path in paths:
+          if isinstance(
+              child_builder.return_type,
+              _fhir_path_data_types.StructureDataType,
+          ):
+            containing_type_builder = child_builder
+          child_builder = child_builder.__getattr__(path)
+        name = paths[-1]
+      except (AttributeError, ValueError) as e:
+        self._error_reporter.report_fhir_path_error(
+            self._abs_path_invocation(builder),
+            f'{containing_type_builder}.{name}',
+            str(e),
+        )
         continue
-      child_builder = builder.__getattr__(name)
-      min_size = cast(Any, child).min.value
-      max_size = cast(Any, child).max.value
-      element_count = child_builder.count()
-
-      query_list = []
-
-      if (
-          _fhir_path_data_types.is_collection(child_builder.return_type)
-          and max_size.isdigit()
-      ):
-        query_list.append(element_count <= int(max_size))
-
-      if min_size == 1:
-        query_list.append(child_builder.exists())
-      elif min_size > 0:
-        query_list.append(element_count >= min_size)
-
-      if not query_list:
-        continue
-
-      constraint_key = f'{name}-cardinality-is-valid'
-      description = (
-          f'The length of {name} must be maximum '
-          f'{max_size} and minimum {min_size}.'
+      requirement = self._encode_required_field(
+          name, containing_type_builder, child_builder, desc_message
       )
+      if requirement:
+        encoded_requirements.append(requirement)
 
-      fhir_path_builder = query_list[0]
-      for query in query_list[1:]:
-        fhir_path_builder = fhir_path_builder & query
-
-      if constraint_key in self._options.skip_keys:
-        continue  # Allows users to skip required field constraints.
-
-      # Early-exit if any types overlap with `_SKIP_TYPE_CODES`.
-      type_codes = _utils.element_type_codes(child)
-      if not _SKIP_TYPE_CODES.isdisjoint(type_codes):
-        continue
-
-      required_sql_expression = self._encode_fhir_path_builder_constraint(
-          fhir_path_builder, builder
-      )
-      if required_sql_expression is None:
-        continue  # Failure to generate Standard SQL expression.
-
-      # Create the `SqlRequirement`.
-      element_definition_path = self._abs_path_invocation(builder)
-      constraint_key_column_name: str = _key_to_sql_column_name(
-          _path_to_sql_column_name(constraint_key)
-      )
-      column_name_base: str = _path_to_sql_column_name(element_definition_path)
-      column_name = f'{column_name_base}_{constraint_key_column_name}'
-
-      requirement = validation_pb2.SqlRequirement(
-          column_name=column_name,
-          sql_expression=required_sql_expression,
-          severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
-          type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
-          element_path=element_definition_path,
-          description=description,
-          fhir_path_key=constraint_key,
-          fhir_path_expression=fhir_path_builder.fhir_path,
-          fields_referenced_by_expression=_fields_referenced_by_expression(
-              fhir_path_builder.fhir_path
-          ),
-      )
-      encoded_requirements.append(requirement)
     return encoded_requirements
+
+  def _encode_required_field(
+      self,
+      name: str,
+      containing_type_builder: expressions.Builder,
+      builder: expressions.Builder,
+      element_definition: message.Message,
+  ) -> Optional[validation_pb2.SqlRequirement]:
+    """Returns `SqlRequirement` for the required field passed.
+
+    Args:
+      name: name of the constraint key.
+      containing_type_builder: The builder of the Structure definition for the
+        required field.
+      builder: The builder containing the element to encode required field for.
+      element_definition: Element definition of the builder.
+
+    Returns:
+      A `SqlRequirement` representing the requirement generated from
+      the element.
+    """
+
+    element = cast(Any, element_definition)
+    if not _is_elem_supported(element):
+      return None
+    min_size = element.min.value
+    max_size = element.max.value
+    element_count = builder.count()
+
+    query_list = []
+
+    if (
+        _fhir_path_data_types.is_collection(builder.return_type)
+        and max_size.isdigit()
+    ):
+      query_list.append(element_count <= int(max_size))
+
+    if min_size == 1:
+      query_list.append(builder.exists())
+    elif min_size > 0:
+      query_list.append(element_count >= min_size)
+
+    if not query_list:
+      return None
+
+    constraint_key = f'{name}-cardinality-is-valid'
+    description = (
+        f'The length of {name} must be maximum '
+        f'{max_size} and minimum {min_size}.'
+    )
+
+    fhir_path_builder = query_list[0]
+    for query in query_list[1:]:
+      fhir_path_builder = fhir_path_builder & query
+
+    if constraint_key in self._options.skip_keys:
+      return None  # Allows users to skip required field constraints.
+
+    # Early-exit if any types overlap with `_SKIP_TYPE_CODES`.
+    type_codes = _utils.element_type_codes(element)
+    if not _SKIP_TYPE_CODES.isdisjoint(type_codes):
+      return None
+
+    required_sql_expression = self._encode_fhir_path_builder_constraint(
+        fhir_path_builder, containing_type_builder
+    )
+    if required_sql_expression is None:
+      return None  # Failure to generate Standard SQL expression.
+
+    # Create the `SqlRequirement`.
+    element_definition_path = self._abs_path_invocation(containing_type_builder)
+    constraint_key_column_name: str = _key_to_sql_column_name(
+        _path_to_sql_column_name(constraint_key)
+    )
+    column_name_base: str = _path_to_sql_column_name(element_definition_path)
+    column_name = f'{column_name_base}_{constraint_key_column_name}'
+
+    requirement = validation_pb2.SqlRequirement(
+        column_name=column_name,
+        sql_expression=required_sql_expression,
+        severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
+        type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
+        element_path=element_definition_path,
+        description=description,
+        fhir_path_key=constraint_key,
+        fhir_path_expression=fhir_path_builder.fhir_path,
+        fields_referenced_by_expression=_fields_referenced_by_expression(
+            fhir_path_builder.fhir_path
+        ),
+    )
+    return requirement
 
   def get_type_codes_from_slice_element(
       self, element_definition: ElementDefinition

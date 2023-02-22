@@ -525,6 +525,9 @@ class StructureDataType(FhirPathDataType):
 
     # Store the children elements of the structdef.
     self._children = {}
+    # If there are specified descendants of the structdef then save them as
+    # well.
+    self._required_descendants = {}
     for elem in self._struct_def.snapshot.element:
       if elem.id.value == qualified_path:
         self._root_element_definition = elem
@@ -533,9 +536,14 @@ class StructureDataType(FhirPathDataType):
       # misidentified as being a child of a.elem
       if elem.id.value.startswith(qualified_path + '.'):
         relative_path = elem.id.value[len(qualified_path) + 1:]
-        if relative_path and '.' not in relative_path:
+        if not relative_path:
+          continue
+        if '.' not in relative_path:
           name = _utils.trim_name(relative_path)
           self._children[name] = elem
+        else:
+          names = [_utils.trim_name(n) for n in relative_path.split('.')]
+          self._required_descendants['.'.join(names)] = elem
 
     if not self._root_element_definition:
       raise ValueError(
@@ -559,6 +567,10 @@ class StructureDataType(FhirPathDataType):
 
   def children(self) -> Dict[str, message.Message]:
     return self._children
+
+  @property
+  def required_descendants(self) -> Dict[str, message.Message]:
+    return self._required_descendants
 
 
 class QuantityStructureDataType(StructureDataType, _Quantity):
