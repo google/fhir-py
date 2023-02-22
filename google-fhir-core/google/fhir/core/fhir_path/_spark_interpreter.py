@@ -343,20 +343,39 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             _sql_alias='logic_'),
         from_part=None)
 
-  def visit_membership(self,
-                       relation: _evaluation.MembershipRelationNode) -> Any:
-    """Translates a FHIRPath membership relation to Standard SQL.
+  def visit_membership(
+      self, relation: _evaluation.MembershipRelationNode
+  ) -> _sql_data_types.Select:
+    """Translates a FHIRPath membership relation to Spark SQL.
 
     For the `IN` relation, the LHS operand is assumed to be a collection of a
     single value. For 'CONTAINS', the RHS operand is assumed to be a collection
-    of a single value.
+    of a single value. Equality is handled in the visit_equality function.
 
     Args:
       relation: The FHIRPath AST `MembershipRelation` node.
 
     Returns:
-      A compiled Standard SQL expression.
+      A compiled Spark SQL expression.
     """
+    lhs_result = self.visit(relation.left)
+    rhs_result = self.visit(relation.right)
+
+    # SELECT (<lhs>) IN(<rhs>) AS mem_
+    # Where relation.op \in {IN, CONTAINS}; `CONTAINS` is the converse of `IN`
+    in_lhs = (
+        lhs_result if isinstance(relation, _evaluation.InNode) else rhs_result)
+    in_rhs = (
+        rhs_result if isinstance(relation, _evaluation.InNode) else lhs_result)
+
+    sql_expr = f'({in_lhs.as_operand()}) IN ({in_rhs.as_operand()})'
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            sql_expr,
+            _sql_data_type=_sql_data_types.Boolean,
+            _sql_alias='mem_',
+        ),
+        from_part=None)
 
   def visit_union(self, union: _evaluation.UnionNode):
     """Translates a FHIRPath union to Standard SQL."""

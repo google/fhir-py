@@ -582,6 +582,26 @@ _WITH_FHIRPATH_V2_FHIRPATH_POLARITY_SUCCEEDS_CASES = [
     },
 ]
 
+_WITH_FHIRPATH_V2_MEMBERSHIP_SUCCEEDS_CASES = [
+    {
+        'testcase_name': '_withIntegerIn',
+        'fhir_path_expression': '3 in 4',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(mem_) '
+            'FROM (SELECT (3) IN (4) AS mem_) '
+            'WHERE mem_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withIntegerContains',
+        'fhir_path_expression': '3 contains 4',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(mem_) '
+            'FROM (SELECT (4) IN (3) AS mem_) '
+            'WHERE mem_ IS NOT NULL)'
+        ),
+    },
+]
 
 _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_SUCCEEDS_CASES = [
     {
@@ -745,6 +765,15 @@ class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
     )
     self.assertEvaluationNodeSqlCorrect(
         structdef=self.foo,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=True)
+
+  @parameterized.named_parameters(_WITH_FHIRPATH_V2_MEMBERSHIP_SUCCEEDS_CASES)
+  def testEncode_withFhirPathLiteralMembershipRelation_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str):
+    self.assertEvaluationNodeSqlCorrect(
+        structdef=None,
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True)
