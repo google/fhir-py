@@ -35,13 +35,15 @@ from google.fhir.core.utils import proto_utils
 _UNIX_EPOCH = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
 
 
-class _ParameterizedABCMetaclass(parameterized.TestGeneratorMetaclass,
-                                 abc.ABCMeta):
+class _ParameterizedABCMetaclass(
+    parameterized.TestGeneratorMetaclass, abc.ABCMeta
+):
   """A workaround class to resolve metaclass conflicts."""
 
 
 class FhirPathExpressionsTest(
-    parameterized.TestCase, metaclass=_ParameterizedABCMetaclass):
+    parameterized.TestCase, metaclass=_ParameterizedABCMetaclass
+):
   """A suite of tests to ensure proper validation for FHIRPath evaluation."""
 
   @abc.abstractmethod
@@ -71,7 +73,8 @@ class FhirPathExpressionsTest(
 
   def _new_observation(self):
     return symbol_database.Default().GetPrototype(
-        self.observation_descriptor())()
+        self.observation_descriptor()
+    )()
 
   @abc.abstractmethod
   def value_set_builder(self, url: str):
@@ -122,8 +125,10 @@ class FhirPathExpressionsTest(
     if isinstance(builder_type, _fhir_path_data_types.PolymorphicDataType):
       self.assertIn(
           expected_type,
-          cast(_fhir_path_data_types.PolymorphicDataType,
-               builder_type).types().values())
+          cast(_fhir_path_data_types.PolymorphicDataType, builder_type)
+          .types()
+          .values(),
+      )
     else:
       if _fhir_path_data_types.is_numeric(expected_type):
         self.assertTrue(_fhir_path_data_types.is_numeric(builder_type))
@@ -133,11 +138,15 @@ class FhirPathExpressionsTest(
   # Exclude parameter type info to work with multiple FHIR versions.
   def _set_fhir_enum_by_name(self, enum_wrapper, enum_value_name) -> None:
     """Helper method to set an enum value by string."""
-    enum_field = next(field for field in enum_wrapper.DESCRIPTOR.fields
-                      if field.name == 'value')
+    enum_field = next(
+        field
+        for field in enum_wrapper.DESCRIPTOR.fields
+        if field.name == 'value'
+    )
     if not enum_field:
       raise ValueError(
-          f'{enum_wrapper.DESCRIPTOR.name} is not a valid FHIR enum. ')
+          f'{enum_wrapper.DESCRIPTOR.name} is not a valid FHIR enum. '
+      )
     value_descrip = enum_field.enum_type.values_by_name[enum_value_name]
     if not value_descrip:
       raise ValueError(f'No such enum value {enum_value_name}.')
@@ -149,7 +158,10 @@ class FhirPathExpressionsTest(
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'active'),
-        self.builder('Patient').active, patient, True)
+        self.builder('Patient').active,
+        patient,
+        True,
+    )
 
   def testMissingFieldRaisesError(self):
     pat = self.builder('Patient')
@@ -175,7 +187,10 @@ class FhirPathExpressionsTest(
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'address.city'),
-        self.builder('Patient').address.city, patient, 'Seattle')
+        self.builder('Patient').address.city,
+        patient,
+        'Seattle',
+    )
 
   def testExistsFunction_forResource_succeeds(self):
     patient = self._new_patient()
@@ -184,18 +199,27 @@ class FhirPathExpressionsTest(
     # not exist.
     self.assert_expression_result(
         self.compile_expression('Patient', 'active.exists()'),
-        self.builder('Patient').active.exists(), patient, False)
+        self.builder('Patient').active.exists(),
+        patient,
+        False,
+    )
 
     # Check builder and expression return correct results when the field exists.
     patient.active.value = True
     self.assert_expression_result(
         self.compile_expression('Patient', 'active.exists()'),
-        self.builder('Patient').active.exists(), patient, True)
+        self.builder('Patient').active.exists(),
+        patient,
+        True,
+    )
 
     # Tests edge case that function at the root node should still work.
     self.assert_expression_result(
         self.compile_expression('Patient', 'exists()'),
-        self.builder('Patient').exists(), patient, True)
+        self.builder('Patient').exists(),
+        patient,
+        True,
+    )
 
   def testFirstFunction_forResource_succeeds(self):
     """Tests the behavior of the first() function."""
@@ -209,7 +233,10 @@ class FhirPathExpressionsTest(
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'name.first().given.first()'),
-        self.builder('Patient').name.first().given.first(), patient, None)
+        self.builder('Patient').name.first().given.first(),
+        patient,
+        None,
+    )
 
     first_name = patient.name.add()
     first_name.given.add().value = 'Bob'  # First given name
@@ -217,13 +244,19 @@ class FhirPathExpressionsTest(
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'name.first().given.first()'),
-        self.builder('Patient').name.first().given.first(), patient, 'Bob')
+        self.builder('Patient').name.first().given.first(),
+        patient,
+        'Bob',
+    )
 
     # When called on a non-repeated field, first() is a no-op.
     patient.active.value = True
     self.assert_expression_result(
         self.compile_expression('Patient', 'active.first()'),
-        self.builder('Patient').active.first(), patient, True)
+        self.builder('Patient').active.first(),
+        patient,
+        True,
+    )
 
   def testAnyTrueFunction_forResource_succeeds(self):
     """Tests the behavior of the anyTrue() function."""
@@ -241,15 +274,22 @@ class FhirPathExpressionsTest(
     # Create a valueset and add it to the context so it is resolved
     # in memberOf evaluation.
     category_1_valueset = 'url:test:valueset'
-    value_set = self.value_set_builder(category_1_valueset).with_codes(
-        'mysystem', ['category_1']).build()
+    value_set = (
+        self.value_set_builder(category_1_valueset)
+        .with_codes('mysystem', ['category_1'])
+        .build()
+    )
 
     self.context().add_local_value_set(value_set)
 
     parsed_expr = self.compile_expression(
-        'Observation', f"category.memberOf('{category_1_valueset}').anyTrue()")
-    built_expr = self.builder('Observation').category.memberOf(
-        category_1_valueset).anyTrue()
+        'Observation', f"category.memberOf('{category_1_valueset}').anyTrue()"
+    )
+    built_expr = (
+        self.builder('Observation')
+        .category.memberOf(category_1_valueset)
+        .anyTrue()
+    )
 
     self.assert_expression_result(parsed_expr, built_expr, observation, True)
     category_1_coding.code.value = 'something_else'
@@ -267,7 +307,10 @@ class FhirPathExpressionsTest(
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'name[0].given[0]'),
-        self.builder('Patient').name[0].given[0], patient, None)
+        self.builder('Patient').name[0].given[0],
+        patient,
+        None,
+    )
 
     first_name = patient.name.add()
     first_name.given.add().value = 'Bob'  # First given name
@@ -275,25 +318,37 @@ class FhirPathExpressionsTest(
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'name[0].given[1]'),
-        self.builder('Patient').name[0].given[1], patient, 'Smith')
+        self.builder('Patient').name[0].given[1],
+        patient,
+        'Smith',
+    )
 
     # Index out of bounds should result in an empty array.
     self.assert_expression_result(
         self.compile_expression('Patient', 'name[0].given[2]'),
-        self.builder('Patient').name[0].given[2], patient, None)
+        self.builder('Patient').name[0].given[2],
+        patient,
+        None,
+    )
 
     # When called on a non-repeated field with 0 index, indexer is a no-op.
     patient.active.value = True
     self.assert_expression_result(
         self.compile_expression('Patient', 'active[0]'),
-        self.builder('Patient').active[0], patient, True)
+        self.builder('Patient').active[0],
+        patient,
+        True,
+    )
 
   def testCountFunction_forResource_succeeds(self):
     """Tests the behavior of the count() function."""
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'name.first().given.count()'),
-        self.builder('Patient').name.first().given.count(), patient, 0)
+        self.builder('Patient').name.first().given.count(),
+        patient,
+        0,
+    )
 
     first_name = patient.name.add()
     first_name.given.add().value = 'Bob'  # First given name
@@ -301,13 +356,19 @@ class FhirPathExpressionsTest(
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'name.first().given.count()'),
-        self.builder('Patient').name.first().given.count(), patient, 2)
+        self.builder('Patient').name.first().given.count(),
+        patient,
+        2,
+    )
 
     # When called on a non-repeated field, count() returns 1.
     patient.active.value = True
     self.assert_expression_result(
         self.compile_expression('Patient', 'active.count()'),
-        self.builder('Patient').active.count(), patient, 1)
+        self.builder('Patient').active.count(),
+        patient,
+        1,
+    )
 
   def testBuilderHasAllFunctions(self):
     """Ensures the builder has all functions visible to the FHIRPath parser."""
@@ -318,8 +379,9 @@ class FhirPathExpressionsTest(
         expected_fhirpath_functions.append(function_name + '_')
       else:
         expected_fhirpath_functions.append(function_name)
-    self.assertContainsSubset(expected_fhirpath_functions,
-                              dir(self.builder('Patient')))
+    self.assertContainsSubset(
+        expected_fhirpath_functions, dir(self.builder('Patient'))
+    )
     # pylint: enable=protected-access
 
   def testEmptyFunction_forResource_succeeds(self):
@@ -327,7 +389,10 @@ class FhirPathExpressionsTest(
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'name.first().given.empty()'),
-        self.builder('Patient').name.first().given.empty(), patient, True)
+        self.builder('Patient').name.first().given.empty(),
+        patient,
+        True,
+    )
 
     first_name = patient.name.add()
     first_name.given.add().value = 'Bob'  # First given name
@@ -335,35 +400,53 @@ class FhirPathExpressionsTest(
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'name.first().given.empty()'),
-        self.builder('Patient').name.first().given.empty(), patient, False)
+        self.builder('Patient').name.first().given.empty(),
+        patient,
+        False,
+    )
 
     # When called on a non-repeated field, empty() returns False.
     patient.active.value = True
     self.assert_expression_result(
         self.compile_expression('Patient', 'active.empty()'),
-        self.builder('Patient').active.empty(), patient, False)
+        self.builder('Patient').active.empty(),
+        patient,
+        False,
+    )
 
   def testMatchesFunction_forResource_succeeds(self):
     """Tests the behavior of the matches() function."""
     patient = self._new_patient()
     self.assert_expression_result(
-        self.compile_expression('Patient', 'name.first().given.matches(\'B\')'),
-        self.builder('Patient').name.first().given.matches('B'), patient, None)
+        self.compile_expression('Patient', "name.first().given.matches('B')"),
+        self.builder('Patient').name.first().given.matches('B'),
+        patient,
+        None,
+    )
 
     first_name = patient.name.add()
     first_name.given.add().value = 'Bob'
 
     self.assert_expression_result(
-        self.compile_expression('Patient', 'name.first().given.matches(\'B\')'),
-        self.builder('Patient').name.first().given.matches('B'), patient, True)
+        self.compile_expression('Patient', "name.first().given.matches('B')"),
+        self.builder('Patient').name.first().given.matches('B'),
+        patient,
+        True,
+    )
     self.assert_expression_result(
-        self.compile_expression('Patient', 'name.first().given.matches(\'F\')'),
-        self.builder('Patient').name.first().given.matches('F'), patient, False)
+        self.compile_expression('Patient', "name.first().given.matches('F')"),
+        self.builder('Patient').name.first().given.matches('F'),
+        patient,
+        False,
+    )
     self.assert_expression_result(
         self.compile_expression(
-            'Patient', 'name.first().given.matches(\'^[a-zA-Z0-9_]*$\')'),
+            'Patient', "name.first().given.matches('^[a-zA-Z0-9_]*$')"
+        ),
         self.builder('Patient').name.first().given.matches('^[a-zA-Z0-9_]*$'),
-        patient, True)
+        patient,
+        True,
+    )
 
   def testHasValueFunction_forResource_succeeds(self):
     patient = self._new_patient()
@@ -371,19 +454,28 @@ class FhirPathExpressionsTest(
     # hasValue is false when there is no value
     self.assert_expression_result(
         self.compile_expression('Patient', 'active.hasValue()'),
-        self.builder('Patient').active.hasValue(), patient, False)
+        self.builder('Patient').active.hasValue(),
+        patient,
+        False,
+    )
 
     # hasValue is true when there is exactly one primitive.
     patient.active.value = True
     self.assert_expression_result(
         self.compile_expression('Patient', 'active.hasValue()'),
-        self.builder('Patient').active.hasValue(), patient, True)
+        self.builder('Patient').active.hasValue(),
+        patient,
+        True,
+    )
 
     # hasValue is false for struct values.
     patient.address.add().city.value = 'Seattle'
     self.assert_expression_result(
         self.compile_expression('Patient', 'address.hasValue()'),
-        self.builder('Patient').address.hasValue(), patient, False)
+        self.builder('Patient').address.hasValue(),
+        patient,
+        False,
+    )
 
   def testValue_fromPrimitive_succeeds(self):
     # Placeholder resource to call expression valuation.
@@ -397,8 +489,9 @@ class FhirPathExpressionsTest(
       return expression.evaluate(patient)
 
     self.assertEqual('foo', eval_literal("'foo'").as_string())
-    self.assertEqual('Complex string!?!@',
-                     eval_literal("'Complex string!?!@'").as_string())
+    self.assertEqual(
+        'Complex string!?!@', eval_literal("'Complex string!?!@'").as_string()
+    )
 
     self.assertTrue(eval_literal('true').as_bool())
     self.assertFalse(eval_literal('false').as_bool())
@@ -407,36 +500,43 @@ class FhirPathExpressionsTest(
     self.assertEqual(-9999, eval_literal('-9999').as_int())
     self.assertEqual(decimal.Decimal('3.14'), eval_literal('3.14').as_decimal())
     self.assertEqual(
-        decimal.Decimal('-1.2345'),
-        eval_literal('-1.2345').as_decimal())
+        decimal.Decimal('-1.2345'), eval_literal('-1.2345').as_decimal()
+    )
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_equal', left='Seattle', right='Seattle', result=True),
+          testcase_name='_equal', left='Seattle', right='Seattle', result=True
+      ),
       dict(
           testcase_name='_notEqual',
           left='Seattle',
           right='Vancouver',
-          result=False),
+          result=False,
+      ),
       dict(
-          testcase_name='_leftNone', left=None, right='Vancouver', result=None),
+          testcase_name='_leftNone', left=None, right='Vancouver', result=None
+      ),
       dict(testcase_name='_rightNone', left='Seattle', right=None, result=None),
-      dict(testcase_name='_bothNone', left=None, right=None, result=None))
-  def testBuilderEquality_forResource_succeeds(self, left: str, right: str,
-                                               result: bool):
+      dict(testcase_name='_bothNone', left=None, right=None, result=None),
+  )
+  def testBuilderEquality_forResource_succeeds(
+      self, left: str, right: str, result: bool
+  ):
     """Tests equality operator with two builder operands."""
     patient = self._new_patient()
     builder = self.builder('Patient')
     equality_expr = self.compile_expression(
-        'Patient', 'address.city = contact.address.city')
+        'Patient', 'address.city = contact.address.city'
+    )
     equality_builder = builder.address.city == builder.contact.address.city
 
     if left is not None:
       patient.address.add().city.value = left
     if right is not None:
       patient.contact.add().address.city.value = right
-    self.assert_expression_result(equality_expr, equality_builder, patient,
-                                  result)
+    self.assert_expression_result(
+        equality_expr, equality_builder, patient, result
+    )
 
   def testPrimitiveEquality_forResource_succeeds(self):
     """Tests FHIRPath and builder '=' operator on primitives."""
@@ -448,10 +548,16 @@ class FhirPathExpressionsTest(
     # String equality.
     self.assert_expression_result(
         self.compile_expression('Patient', "address.city = 'Seattle'"),
-        self.builder('Patient').address.city == 'Seattle', patient, True)
+        self.builder('Patient').address.city == 'Seattle',
+        patient,
+        True,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', "address.city = 'Vancouver'"),
-        self.builder('Patient').address.city == 'Vancouver', patient, False)
+        self.builder('Patient').address.city == 'Vancouver',
+        patient,
+        False,
+    )
 
     # Boolean equality. Disable some pylint checks because the builder triggers
     # some false positives for extraneous comparisons in this test case, since
@@ -459,19 +565,31 @@ class FhirPathExpressionsTest(
     # pylint:disable=g-explicit-bool-comparison, singleton-comparison
     self.assert_expression_result(
         self.compile_expression('Patient', 'active = true'),
-        self.builder('Patient').active == True, patient, True)
+        self.builder('Patient').active == True,
+        patient,
+        True,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'active = false'),
-        self.builder('Patient').active == False, patient, False)
+        self.builder('Patient').active == False,
+        patient,
+        False,
+    )
     # pylint:enable=g-explicit-bool-comparison, singleton-comparison
 
     # Integer equality.
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank = 1'),
-        self.builder('Patient').telecom.rank == 1, patient, True)
+        self.builder('Patient').telecom.rank == 1,
+        patient,
+        True,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank = 2'),
-        self.builder('Patient').telecom.rank == 2, patient, False)
+        self.builder('Patient').telecom.rank == 2,
+        patient,
+        False,
+    )
 
   def testPrimitiveEquality_withEmpty_returnsEmpty(self):
     """Tests FHIRPath and builder '=' operator on null."""
@@ -492,10 +610,16 @@ class FhirPathExpressionsTest(
     # String inequality.
     self.assert_expression_result(
         self.compile_expression('Patient', "address.city != 'Seattle'"),
-        self.builder('Patient').address.city != 'Seattle', patient, False)
+        self.builder('Patient').address.city != 'Seattle',
+        patient,
+        False,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', "address.city != 'Vancouver'"),
-        self.builder('Patient').address.city != 'Vancouver', patient, True)
+        self.builder('Patient').address.city != 'Vancouver',
+        patient,
+        True,
+    )
 
     # Boolean inequality. Disable some pylint checks because this triggers
     # some false positives for extraneous comparisons in this test case, since
@@ -503,19 +627,31 @@ class FhirPathExpressionsTest(
     # pylint:disable=g-explicit-bool-comparison, singleton-comparison
     self.assert_expression_result(
         self.compile_expression('Patient', 'active != true'),
-        self.builder('Patient').active != True, patient, False)
+        self.builder('Patient').active != True,
+        patient,
+        False,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'active != false'),
-        self.builder('Patient').active != False, patient, True)
+        self.builder('Patient').active != False,
+        patient,
+        True,
+    )
     # pylint:enable=g-explicit-bool-comparison, singleton-comparison
 
     # Integer inequality.
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank != 1'),
-        self.builder('Patient').telecom.rank != 1, patient, False)
+        self.builder('Patient').telecom.rank != 1,
+        patient,
+        False,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank != 2'),
-        self.builder('Patient').telecom.rank != 2, patient, True)
+        self.builder('Patient').telecom.rank != 2,
+        patient,
+        True,
+    )
 
   def testPrimitiveInequality_withEmpty_returnsEmpty(self):
     """Tests FHIRPath and builder '!=' operator on null."""
@@ -532,23 +668,28 @@ class FhirPathExpressionsTest(
       dict(testcase_name='_rightLarger', left=2, right=3),
       dict(testcase_name='_leftNone', left=None, right=3),
       dict(testcase_name='_rightNone', left=2, right=None),
-      dict(testcase_name='_bothNone', left=None, right=None))
+      dict(testcase_name='_bothNone', left=None, right=None),
+  )
   def testBuilderComparison_forResource_succeeds(self, left: int, right: int):
     """Tests comparison operators with two builder operands."""
     patient = self._new_patient()
     builder = self.builder('Patient')
-    gt_expr = self.compile_expression('Patient',
-                                      'telecom.rank > contact.telecom.rank')
+    gt_expr = self.compile_expression(
+        'Patient', 'telecom.rank > contact.telecom.rank'
+    )
     gt_builder = builder.telecom.rank > builder.contact.telecom.rank
-    lt_expr = self.compile_expression('Patient',
-                                      'telecom.rank < contact.telecom.rank')
+    lt_expr = self.compile_expression(
+        'Patient', 'telecom.rank < contact.telecom.rank'
+    )
     lt_builder = builder.telecom.rank < builder.contact.telecom.rank
 
-    ge_expr = self.compile_expression('Patient',
-                                      'telecom.rank >= contact.telecom.rank')
+    ge_expr = self.compile_expression(
+        'Patient', 'telecom.rank >= contact.telecom.rank'
+    )
     ge_builder = builder.telecom.rank >= builder.contact.telecom.rank
-    le_expr = self.compile_expression('Patient',
-                                      'telecom.rank <= contact.telecom.rank')
+    le_expr = self.compile_expression(
+        'Patient', 'telecom.rank <= contact.telecom.rank'
+    )
     le_builder = builder.telecom.rank <= builder.contact.telecom.rank
 
     if left is not None:
@@ -574,66 +715,103 @@ class FhirPathExpressionsTest(
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank > 1'),
-        self.builder('Patient').telecom.rank > 1, patient, True)
+        self.builder('Patient').telecom.rank > 1,
+        patient,
+        True,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank > 3'),
-        self.builder('Patient').telecom.rank > 3, patient, False)
+        self.builder('Patient').telecom.rank > 3,
+        patient,
+        False,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank > 10'),
-        self.builder('Patient').telecom.rank > 10, patient, False)
+        self.builder('Patient').telecom.rank > 10,
+        patient,
+        False,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank < 1'),
-        self.builder('Patient').telecom.rank < 1, patient, False)
+        self.builder('Patient').telecom.rank < 1,
+        patient,
+        False,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank < 3'),
-        self.builder('Patient').telecom.rank < 3, patient, True)
+        self.builder('Patient').telecom.rank < 3,
+        patient,
+        True,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank >= 1'),
-        self.builder('Patient').telecom.rank >= 1, patient, True)
+        self.builder('Patient').telecom.rank >= 1,
+        patient,
+        True,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank >= 3'),
-        self.builder('Patient').telecom.rank >= 3, patient, False)
+        self.builder('Patient').telecom.rank >= 3,
+        patient,
+        False,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank >= 2'),
-        self.builder('Patient').telecom.rank >= 2, patient, True)
+        self.builder('Patient').telecom.rank >= 2,
+        patient,
+        True,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank <= 1'),
-        self.builder('Patient').telecom.rank <= 1, patient, False)
+        self.builder('Patient').telecom.rank <= 1,
+        patient,
+        False,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank <= 3'),
-        self.builder('Patient').telecom.rank <= 3, patient, True)
+        self.builder('Patient').telecom.rank <= 3,
+        patient,
+        True,
+    )
 
   @parameterized.named_parameters(
       dict(testcase_name='_Normal', left=3, right=2),
       dict(testcase_name='_rightZero', left=3, right=0),
       dict(testcase_name='_leftNone', left=None, right=3),
       dict(testcase_name='_rightNone', left=2, right=None),
-      dict(testcase_name='_bothNone', left=None, right=None))
+      dict(testcase_name='_bothNone', left=None, right=None),
+  )
   def testBuilderArithmetic_forResource_succeeds(self, left: int, right: int):
     """Tests arithmetic operators with two builder operands."""
     patient = self._new_patient()
     builder = self.builder('Patient')
 
-    add_expr = self.compile_expression('Patient',
-                                       'telecom.rank + contact.telecom.rank')
+    add_expr = self.compile_expression(
+        'Patient', 'telecom.rank + contact.telecom.rank'
+    )
     add_builder = builder.telecom.rank + builder.contact.telecom.rank
-    sub_expr = self.compile_expression('Patient',
-                                       'telecom.rank - contact.telecom.rank')
+    sub_expr = self.compile_expression(
+        'Patient', 'telecom.rank - contact.telecom.rank'
+    )
     sub_builder = builder.telecom.rank - builder.contact.telecom.rank
-    mult_expr = self.compile_expression('Patient',
-                                        'telecom.rank * contact.telecom.rank')
+    mult_expr = self.compile_expression(
+        'Patient', 'telecom.rank * contact.telecom.rank'
+    )
     mult_builder = builder.telecom.rank * builder.contact.telecom.rank
-    div_expr = self.compile_expression('Patient',
-                                       'telecom.rank / contact.telecom.rank')
+    div_expr = self.compile_expression(
+        'Patient', 'telecom.rank / contact.telecom.rank'
+    )
     div_builder = builder.telecom.rank / builder.contact.telecom.rank
     trunc_div_expr = self.compile_expression(
-        'Patient', 'telecom.rank div contact.telecom.rank')
+        'Patient', 'telecom.rank div contact.telecom.rank'
+    )
     trunc_div_builder = builder.telecom.rank // builder.contact.telecom.rank
-    mod_expr = self.compile_expression('Patient',
-                                       'telecom.rank mod contact.telecom.rank')
+    mod_expr = self.compile_expression(
+        'Patient', 'telecom.rank mod contact.telecom.rank'
+    )
     mod_builder = builder.telecom.rank % builder.contact.telecom.rank
 
     if left is not None:
@@ -647,29 +825,37 @@ class FhirPathExpressionsTest(
       self.assert_expression_result(mult_expr, mult_builder, patient, None)
       self.assert_expression_result(div_expr, div_builder, patient, None)
       self.assert_expression_result(mod_expr, mod_builder, patient, None)
-      self.assert_expression_result(trunc_div_expr, trunc_div_builder, patient,
-                                    None)
+      self.assert_expression_result(
+          trunc_div_expr, trunc_div_builder, patient, None
+      )
       return
 
     if right == 0:
       self.assert_expression_result(div_expr, div_builder, patient, None)
       self.assert_expression_result(mod_expr, mod_builder, patient, None)
-      self.assert_expression_result(trunc_div_expr, trunc_div_builder, patient,
-                                    None)
+      self.assert_expression_result(
+          trunc_div_expr, trunc_div_builder, patient, None
+      )
     else:
-      self.assert_expression_result(div_expr, div_builder, patient,
-                                    float(left / right))
-      self.assert_expression_result(mod_expr, mod_builder, patient,
-                                    float(left % right))
-      self.assert_expression_result(trunc_div_expr, trunc_div_builder, patient,
-                                    float(left // right))
+      self.assert_expression_result(
+          div_expr, div_builder, patient, float(left / right)
+      )
+      self.assert_expression_result(
+          mod_expr, mod_builder, patient, float(left % right)
+      )
+      self.assert_expression_result(
+          trunc_div_expr, trunc_div_builder, patient, float(left // right)
+      )
 
-    self.assert_expression_result(add_expr, add_builder, patient,
-                                  float(left + right))
-    self.assert_expression_result(sub_expr, sub_builder, patient,
-                                  float(left - right))
-    self.assert_expression_result(mult_expr, mult_builder, patient,
-                                  float(left * right))
+    self.assert_expression_result(
+        add_expr, add_builder, patient, float(left + right)
+    )
+    self.assert_expression_result(
+        sub_expr, sub_builder, patient, float(left - right)
+    )
+    self.assert_expression_result(
+        mult_expr, mult_builder, patient, float(left * right)
+    )
 
   def testBuilder_withNone_handlesEmptyCollection(self):
     """Ensures builders can use None to represent FHIRPath {}."""
@@ -684,94 +870,137 @@ class FhirPathExpressionsTest(
     self.assertFalse(compiled.evaluate(patient).has_value())  # pytype: disable=attribute-error
 
   def testNumericAdditionArithmetic(self):
-    """Tests addition logic for numeric values defined at https://hl7.org/fhirpath/#math-2.
-    """
+    """Tests addition logic for numeric values defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank + 1'),
-        self.builder('Patient').telecom.rank + 1, patient, None)
+        self.builder('Patient').telecom.rank + 1,
+        patient,
+        None,
+    )
     patient.telecom.add().rank.value = 2
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank + 1'),
-        self.builder('Patient').telecom.rank + 1, patient, 3.0)
+        self.builder('Patient').telecom.rank + 1,
+        patient,
+        3.0,
+    )
 
   def testNumericSubtractionArithmetic(self):
-    """Tests subtraction logic for numeric values defined at https://hl7.org/fhirpath/#math-2.
-    """
+    """Tests subtraction logic for numeric values defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank - 1'),
-        self.builder('Patient').telecom.rank - 1, patient, None)
+        self.builder('Patient').telecom.rank - 1,
+        patient,
+        None,
+    )
     patient.telecom.add().rank.value = 2
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank - 1'),
-        self.builder('Patient').telecom.rank - 1, patient, 1.0)
+        self.builder('Patient').telecom.rank - 1,
+        patient,
+        1.0,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank - 4'),
-        self.builder('Patient').telecom.rank - 4, patient, -2.0)
+        self.builder('Patient').telecom.rank - 4,
+        patient,
+        -2.0,
+    )
 
   def testNumericDivisionArithmetic(self):
-    """Tests division logic on numeric values defined at https://hl7.org/fhirpath/#math-2.
-    """
+    """Tests division logic on numeric values defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank / 1'),
-        self.builder('Patient').telecom.rank / 1, patient, None)
+        self.builder('Patient').telecom.rank / 1,
+        patient,
+        None,
+    )
     patient.telecom.add().rank.value = 26
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank / 8'),
-        self.builder('Patient').telecom.rank / 8, patient, 3.25)
+        self.builder('Patient').telecom.rank / 8,
+        patient,
+        3.25,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank / 0'),
-        self.builder('Patient').telecom.rank / 0, patient, None)
+        self.builder('Patient').telecom.rank / 0,
+        patient,
+        None,
+    )
 
   def testNumericModularArithmetic(self):
-    """Tests modulo logic on numeric values defined at https://hl7.org/fhirpath/#math-2.
-    """
+    """Tests modulo logic on numeric values defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank mod 1'),
-        self.builder('Patient').telecom.rank % 1, patient, None)
+        self.builder('Patient').telecom.rank % 1,
+        patient,
+        None,
+    )
     patient.telecom.add().rank.value = 23
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank mod 8'),
-        self.builder('Patient').telecom.rank % 8, patient, 7.0)
+        self.builder('Patient').telecom.rank % 8,
+        patient,
+        7.0,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank mod 0'),
-        self.builder('Patient').telecom.rank % 0, patient, None)
+        self.builder('Patient').telecom.rank % 0,
+        patient,
+        None,
+    )
 
   def testNumericTruncDivArithmetic(self):
-    """Tests truncated division logic defined at https://hl7.org/fhirpath/#math-2.
-    """
+    """Tests truncated division logic defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank div 1'),
-        self.builder('Patient').telecom.rank // 1, patient, None)
+        self.builder('Patient').telecom.rank // 1,
+        patient,
+        None,
+    )
     patient.telecom.add().rank.value = 23
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank div 8'),
-        self.builder('Patient').telecom.rank // 8, patient, 2.0)
+        self.builder('Patient').telecom.rank // 8,
+        patient,
+        2.0,
+    )
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank div 0'),
-        self.builder('Patient').telecom.rank // 0, patient, None)
+        self.builder('Patient').telecom.rank // 0,
+        patient,
+        None,
+    )
 
   def testNumericMultiplicationArithmetic(self):
-    """Tests multiplication logic on numeric values defined at https://hl7.org/fhirpath/#math-2.
-    """
+    """Tests multiplication logic on numeric values defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank * 1'),
-        self.builder('Patient').telecom.rank * 1, patient, None)
+        self.builder('Patient').telecom.rank * 1,
+        patient,
+        None,
+    )
     patient.telecom.add().rank.value = 8
     self.assert_expression_result(
         self.compile_expression('Patient', 'telecom.rank * 2.4'),
-        self.builder('Patient').telecom.rank * 2.4, patient, 19.2)
+        self.builder('Patient').telecom.rank * 2.4,
+        patient,
+        19.2,
+    )
 
   def testNonLiteralNegativePolarity(self):
     """Tests FHIRPath expressions with negative polarity on non-literals."""
     patient = self._new_patient()
-    expr = self.compile_expression('Patient',
-                                   "-multipleBirth.ofType('Integer')")
+    expr = self.compile_expression(
+        'Patient', "-multipleBirth.ofType('Integer')"
+    )
     self.assertEqual(expr.fhir_path, "-multipleBirth.ofType('Integer')")
     self.assertFalse(expr.evaluate(patient).has_value())
     patient.multiple_birth.integer.value = 2
@@ -782,8 +1011,9 @@ class FhirPathExpressionsTest(
   def testNonLiteralPositivePolarity(self):
     """Tests FHIRPath expressions with positive polarity on non-literals."""
     patient = self._new_patient()
-    expr = self.compile_expression('Patient',
-                                   "+multipleBirth.ofType('Integer')")
+    expr = self.compile_expression(
+        'Patient', "+multipleBirth.ofType('Integer')"
+    )
     self.assertEqual(expr.fhir_path, "+multipleBirth.ofType('Integer')")
     self.assertFalse(expr.evaluate(patient).has_value())
     patient.multiple_birth.integer.value = 2
@@ -792,30 +1022,42 @@ class FhirPathExpressionsTest(
     self.assertEqual(expr.evaluate(patient).as_decimal(), -47)
 
   def testStringArithmetic(self):
-    """Tests string addition and concatenation logic defined at https://hl7.org/fhirpath/#math-2.
-    """
+    """Tests string addition and concatenation logic defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
     self.assert_expression_result(
-        self.compile_expression('Patient', 'address.city + \'1\''),
-        self.builder('Patient').address.city + '1', patient, None)
+        self.compile_expression('Patient', "address.city + '1'"),
+        self.builder('Patient').address.city + '1',
+        patient,
+        None,
+    )
     self.assert_expression_result(
-        self.compile_expression('Patient', 'address.city & \'1\''),
-        self.builder('Patient').address.city & '1', patient, '1')
+        self.compile_expression('Patient', "address.city & '1'"),
+        self.builder('Patient').address.city & '1',
+        patient,
+        '1',
+    )
 
     patient.address.add().city.value = 'Seattle'
     self.assert_expression_result(
-        self.compile_expression('Patient', 'address.city + \'1\''),
-        self.builder('Patient').address.city + '1', patient, 'Seattle1')
+        self.compile_expression('Patient', "address.city + '1'"),
+        self.builder('Patient').address.city + '1',
+        patient,
+        'Seattle1',
+    )
     self.assert_expression_result(
-        self.compile_expression('Patient', 'address.city & \'1\''),
-        self.builder('Patient').address.city & '1', patient, 'Seattle1')
+        self.compile_expression('Patient', "address.city & '1'"),
+        self.builder('Patient').address.city & '1',
+        patient,
+        'Seattle1',
+    )
 
   @parameterized.named_parameters(
       dict(testcase_name='_trueOrTrue', left=True, right=True, result=True),
       dict(testcase_name='_trueOrFalse', left=True, right=False, result=True),
       dict(testcase_name='_falseOrTrue', left=False, right=True, result=True),
       dict(
-          testcase_name='_falseOrFalse', left=False, right=False, result=False),
+          testcase_name='_falseOrFalse', left=False, right=False, result=False
+      ),
       dict(testcase_name='_trueOrNone', left=True, right=None, result=True),
       dict(testcase_name='_noneOrTrue', left=None, right=True, result=True),
       dict(testcase_name='_noneOrNone', left=None, right=None, result=None),
@@ -825,24 +1067,27 @@ class FhirPathExpressionsTest(
     patient = self._new_patient()
     builder = self.builder('Patient')
     active_or_deceased_expr = self.compile_expression(
-        'Patient', "active or deceased.ofType('FHIR.boolean')")
+        'Patient', "active or deceased.ofType('FHIR.boolean')"
+    )
     active_or_deceased_builder = builder.active | builder.deceased.ofType(
-        'FHIR.boolean')
+        'FHIR.boolean'
+    )
 
     if left is not None:
       patient.active.value = left
     if right is not None:
       patient.deceased.boolean.value = right
-    self.assert_expression_result(active_or_deceased_expr,
-                                  active_or_deceased_builder, patient, result)
+    self.assert_expression_result(
+        active_or_deceased_expr, active_or_deceased_builder, patient, result
+    )
 
   @parameterized.named_parameters(
       dict(testcase_name='_trueAndTrue', left=True, right=True, result=True),
       dict(testcase_name='_trueAndFalse', left=True, right=False, result=False),
       dict(testcase_name='_falseAndTrue', left=False, right=True, result=False),
       dict(
-          testcase_name='_falseAndFalse', left=False, right=False,
-          result=False),
+          testcase_name='_falseAndFalse', left=False, right=False, result=False
+      ),
       dict(testcase_name='_trueAndNone', left=True, right=None, result=None),
       dict(testcase_name='_noneAndTrue', left=None, right=True, result=None),
       dict(testcase_name='_noneAndFalse', left=None, right=False, result=False),
@@ -853,24 +1098,27 @@ class FhirPathExpressionsTest(
     patient = self._new_patient()
     builder = self.builder('Patient')
     active_or_deceased_expr = self.compile_expression(
-        'Patient', "active and deceased.ofType('FHIR.boolean')")
+        'Patient', "active and deceased.ofType('FHIR.boolean')"
+    )
     active_or_deceased_builder = builder.active & builder.deceased.ofType(
-        'FHIR.boolean')
+        'FHIR.boolean'
+    )
 
     if left is not None:
       patient.active.value = left
     if right is not None:
       patient.deceased.boolean.value = right
-    self.assert_expression_result(active_or_deceased_expr,
-                                  active_or_deceased_builder, patient, result)
+    self.assert_expression_result(
+        active_or_deceased_expr, active_or_deceased_builder, patient, result
+    )
 
   @parameterized.named_parameters(
       dict(testcase_name='_trueXorTrue', left=True, right=True, result=False),
       dict(testcase_name='_trueXorFalse', left=True, right=False, result=True),
       dict(testcase_name='_falseXorTrue', left=False, right=True, result=True),
       dict(
-          testcase_name='_falseXorFalse', left=False, right=False,
-          result=False),
+          testcase_name='_falseXorFalse', left=False, right=False, result=False
+      ),
       dict(testcase_name='_trueXorNone', left=True, right=None, result=None),
       dict(testcase_name='_noneXorTrue', left=None, right=True, result=None),
       dict(testcase_name='_noneXorNone', left=None, right=None, result=None),
@@ -880,62 +1128,70 @@ class FhirPathExpressionsTest(
     patient = self._new_patient()
     builder = self.builder('Patient')
     active_or_deceased_expr = self.compile_expression(
-        'Patient', "active xor deceased.ofType('FHIR.boolean')")
+        'Patient', "active xor deceased.ofType('FHIR.boolean')"
+    )
     active_or_deceased_builder = builder.active ^ builder.deceased.ofType(
-        'FHIR.boolean')
+        'FHIR.boolean'
+    )
 
     if left is not None:
       patient.active.value = left
     if right is not None:
       patient.deceased.boolean.value = right
-    self.assert_expression_result(active_or_deceased_expr,
-                                  active_or_deceased_builder, patient, result)
+    self.assert_expression_result(
+        active_or_deceased_expr, active_or_deceased_builder, patient, result
+    )
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_trueImpliesTrue', left=True, right=True, result=True),
+          testcase_name='_trueImpliesTrue', left=True, right=True, result=True
+      ),
       dict(
           testcase_name='_trueImpliesFalse',
           left=True,
           right=False,
-          result=False),
+          result=False,
+      ),
       dict(
-          testcase_name='_falseImpliesTrue',
-          left=False,
-          right=True,
-          result=True),
+          testcase_name='_falseImpliesTrue', left=False, right=True, result=True
+      ),
       dict(
           testcase_name='_falseImpliesFalse',
           left=False,
           right=False,
-          result=True),
+          result=True,
+      ),
       dict(
-          testcase_name='_trueImpliesNone', left=True, right=None, result=None),
+          testcase_name='_trueImpliesNone', left=True, right=None, result=None
+      ),
       dict(
-          testcase_name='_noneImpliesTrue', left=None, right=True, result=True),
+          testcase_name='_noneImpliesTrue', left=None, right=True, result=True
+      ),
       dict(
-          testcase_name='_noneImpliesNone', left=None, right=None, result=None),
+          testcase_name='_noneImpliesNone', left=None, right=None, result=None
+      ),
       dict(
-          testcase_name='_noneImpliesFalse',
-          left=None,
-          right=False,
-          result=None),
+          testcase_name='_noneImpliesFalse', left=None, right=False, result=None
+      ),
   )
   def testBooleanImplies(self, left: bool, right: bool, result: bool):
     """Tests logic defined at https://hl7.org/fhirpath/#boolean-logic."""
     patient = self._new_patient()
     builder = self.builder('Patient')
     active_or_deceased_expr = self.compile_expression(
-        'Patient', "active implies deceased.ofType('FHIR.boolean')")
+        'Patient', "active implies deceased.ofType('FHIR.boolean')"
+    )
     active_or_deceased_builder = builder.active.implies(
-        builder.deceased.ofType('FHIR.boolean'))
+        builder.deceased.ofType('FHIR.boolean')
+    )
 
     if left is not None:
       patient.active.value = left
     if right is not None:
       patient.deceased.boolean.value = right
-    self.assert_expression_result(active_or_deceased_expr,
-                                  active_or_deceased_builder, patient, result)
+    self.assert_expression_result(
+        active_or_deceased_expr, active_or_deceased_builder, patient, result
+    )
 
   def testStringComparison_forResource_succeeds(self):
     patient = self._new_patient()
@@ -943,83 +1199,128 @@ class FhirPathExpressionsTest(
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.state > 'CA'"),
-        self.builder('Patient').address.state > 'CA', patient, True)
+        self.builder('Patient').address.state > 'CA',
+        patient,
+        True,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.state > 'WA'"),
-        self.builder('Patient').address.state > 'WA', patient, False)
+        self.builder('Patient').address.state > 'WA',
+        patient,
+        False,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.state < 'CA'"),
-        self.builder('Patient').address.state < 'CA', patient, False)
+        self.builder('Patient').address.state < 'CA',
+        patient,
+        False,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.state < 'WA'"),
-        self.builder('Patient').address.state < 'WA', patient, True)
+        self.builder('Patient').address.state < 'WA',
+        patient,
+        True,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.state >= 'CA'"),
-        self.builder('Patient').address.state >= 'CA', patient, True)
+        self.builder('Patient').address.state >= 'CA',
+        patient,
+        True,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.state >= 'NY'"),
-        self.builder('Patient').address.state >= 'NY', patient, True)
+        self.builder('Patient').address.state >= 'NY',
+        patient,
+        True,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.state >= 'WA'"),
-        self.builder('Patient').address.state >= 'WA', patient, False)
+        self.builder('Patient').address.state >= 'WA',
+        patient,
+        False,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.state <= 'CA'"),
-        self.builder('Patient').address.state <= 'CA', patient, False)
+        self.builder('Patient').address.state <= 'CA',
+        patient,
+        False,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.state <= 'WA'"),
-        self.builder('Patient').address.state <= 'WA', patient, True)
+        self.builder('Patient').address.state <= 'WA',
+        patient,
+        True,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.state <= 'NY'"),
-        self.builder('Patient').address.state <= 'NY', patient, True)
+        self.builder('Patient').address.state <= 'NY',
+        patient,
+        True,
+    )
 
   def _to_value_us(self, dt: datetime.datetime) -> int:
-    delta = (dt - _UNIX_EPOCH)
+    delta = dt - _UNIX_EPOCH
     return int(delta.total_seconds() * 1e6)
 
   def testDateComparison_forResource_succeeds(self):
     patient = self._new_patient()
     patient.birth_date.value_us = self._to_value_us(
-        datetime.datetime(1949, 5, 27, tzinfo=datetime.timezone.utc))
+        datetime.datetime(1949, 5, 27, tzinfo=datetime.timezone.utc)
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'birthDate < @1950-01-01'),
-        self.builder('Patient').birthDate < datetime.date(1950, 1, 1), patient,
-        True)
+        self.builder('Patient').birthDate < datetime.date(1950, 1, 1),
+        patient,
+        True,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'birthDate < @1940-01-01'),
-        self.builder('Patient').birthDate < datetime.date(1940, 1, 1), patient,
-        False)
+        self.builder('Patient').birthDate < datetime.date(1940, 1, 1),
+        patient,
+        False,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'birthDate > @1950-01-01'),
-        self.builder('Patient').birthDate > datetime.date(1950, 1, 1), patient,
-        False)
+        self.builder('Patient').birthDate > datetime.date(1950, 1, 1),
+        patient,
+        False,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'birthDate > @1940-01-01'),
-        self.builder('Patient').birthDate > datetime.date(1940, 1, 1), patient,
-        True)
+        self.builder('Patient').birthDate > datetime.date(1940, 1, 1),
+        patient,
+        True,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'birthDate < @1950-01-01T00:00:00'),
         self.builder('Patient').birthDate < datetime.datetime(1950, 1, 1),
-        patient, True)
+        patient,
+        True,
+    )
 
     self.assert_expression_result(
-        self.compile_expression('Patient',
-                                'birthDate < @1950-01-01T00:00:00+00:00'),
-        self.builder('Patient').birthDate < datetime.datetime(
-            1950, 1, 1, tzinfo=datetime.timezone.utc), patient, True)
+        self.compile_expression(
+            'Patient', 'birthDate < @1950-01-01T00:00:00+00:00'
+        ),
+        self.builder('Patient').birthDate
+        < datetime.datetime(1950, 1, 1, tzinfo=datetime.timezone.utc),
+        patient,
+        True,
+    )
 
   def testQuantityComparison_forResource_succeeds(self):
     """Tests quantity comparisons against a resource."""
@@ -1030,64 +1331,104 @@ class FhirPathExpressionsTest(
     observation_quantity = self.builder('Observation').value.ofType('Quantity')
 
     self.assert_expression_result(
-        self.compile_expression('Observation',
-                                "value.ofType('Quantity') < 0 'g'"),
-        observation_quantity < quantity.Quantity(
-            value=decimal.Decimal(0), unit='g'), observation, False)
+        self.compile_expression(
+            'Observation', "value.ofType('Quantity') < 0 'g'"
+        ),
+        observation_quantity
+        < quantity.Quantity(value=decimal.Decimal(0), unit='g'),
+        observation,
+        False,
+    )
 
     self.assert_expression_result(
-        self.compile_expression('Observation',
-                                "value.ofType('Quantity') < 2 'g'"),
-        observation_quantity < quantity.Quantity(
-            value=decimal.Decimal(2), unit='g'), observation, True)
+        self.compile_expression(
+            'Observation', "value.ofType('Quantity') < 2 'g'"
+        ),
+        observation_quantity
+        < quantity.Quantity(value=decimal.Decimal(2), unit='g'),
+        observation,
+        True,
+    )
 
     self.assert_expression_result(
-        self.compile_expression('Observation',
-                                "value.ofType('Quantity') <= 2 'g'"),
-        observation_quantity <= quantity.Quantity(
-            value=decimal.Decimal(2), unit='g'), observation, True)
+        self.compile_expression(
+            'Observation', "value.ofType('Quantity') <= 2 'g'"
+        ),
+        observation_quantity
+        <= quantity.Quantity(value=decimal.Decimal(2), unit='g'),
+        observation,
+        True,
+    )
 
     self.assert_expression_result(
-        self.compile_expression('Observation',
-                                "value.ofType('Quantity') <= 0 'g'"),
-        observation_quantity <= quantity.Quantity(
-            value=decimal.Decimal(0), unit='g'), observation, False)
+        self.compile_expression(
+            'Observation', "value.ofType('Quantity') <= 0 'g'"
+        ),
+        observation_quantity
+        <= quantity.Quantity(value=decimal.Decimal(0), unit='g'),
+        observation,
+        False,
+    )
 
     self.assert_expression_result(
-        self.compile_expression('Observation',
-                                "value.ofType('Quantity') > 0 'g'"),
-        observation_quantity > quantity.Quantity(
-            value=decimal.Decimal(0), unit='g'), observation, True)
+        self.compile_expression(
+            'Observation', "value.ofType('Quantity') > 0 'g'"
+        ),
+        observation_quantity
+        > quantity.Quantity(value=decimal.Decimal(0), unit='g'),
+        observation,
+        True,
+    )
 
     self.assert_expression_result(
-        self.compile_expression('Observation',
-                                "value.ofType('Quantity') > 2 'g'"),
-        observation_quantity > quantity.Quantity(
-            value=decimal.Decimal(2), unit='g'), observation, False)
+        self.compile_expression(
+            'Observation', "value.ofType('Quantity') > 2 'g'"
+        ),
+        observation_quantity
+        > quantity.Quantity(value=decimal.Decimal(2), unit='g'),
+        observation,
+        False,
+    )
 
     self.assert_expression_result(
-        self.compile_expression('Observation',
-                                "value.ofType('Quantity') >= 2 'g'"),
-        observation_quantity >= quantity.Quantity(
-            value=decimal.Decimal(2), unit='g'), observation, False)
+        self.compile_expression(
+            'Observation', "value.ofType('Quantity') >= 2 'g'"
+        ),
+        observation_quantity
+        >= quantity.Quantity(value=decimal.Decimal(2), unit='g'),
+        observation,
+        False,
+    )
 
     self.assert_expression_result(
-        self.compile_expression('Observation',
-                                "value.ofType('Quantity') >= 0 'g'"),
-        observation_quantity >= quantity.Quantity(
-            value=decimal.Decimal(0), unit='g'), observation, True)
+        self.compile_expression(
+            'Observation', "value.ofType('Quantity') >= 0 'g'"
+        ),
+        observation_quantity
+        >= quantity.Quantity(value=decimal.Decimal(0), unit='g'),
+        observation,
+        True,
+    )
 
     self.assert_expression_result(
-        self.compile_expression('Observation',
-                                "value.ofType('Quantity') = 2 'g'"),
-        observation_quantity == quantity.Quantity(
-            value=decimal.Decimal(2), unit='g'), observation, False)
+        self.compile_expression(
+            'Observation', "value.ofType('Quantity') = 2 'g'"
+        ),
+        observation_quantity
+        == quantity.Quantity(value=decimal.Decimal(2), unit='g'),
+        observation,
+        False,
+    )
 
     self.assert_expression_result(
-        self.compile_expression('Observation',
-                                "value.ofType('Quantity') = 1 'g'"),
-        observation_quantity == quantity.Quantity(
-            value=decimal.Decimal(1.0), unit='g'), observation, True)
+        self.compile_expression(
+            'Observation', "value.ofType('Quantity') = 1 'g'"
+        ),
+        observation_quantity
+        == quantity.Quantity(value=decimal.Decimal(1.0), unit='g'),
+        observation,
+        True,
+    )
 
   def testNoneComparison_forResource_hasNoValue(self):
     patient = self._new_patient()
@@ -1128,13 +1469,17 @@ class FhirPathExpressionsTest(
     # Create a valueset and add it to the context so it is resolved
     # in memberOf evaluation.
     hba1c_valueset_uri = 'url:test:valueset'
-    value_set = self.value_set_builder(hba1c_valueset_uri).with_codes(
-        'http://loinc.org', ['10346-5', '10486-9']).build()
+    value_set = (
+        self.value_set_builder(hba1c_valueset_uri)
+        .with_codes('http://loinc.org', ['10346-5', '10486-9'])
+        .build()
+    )
 
     self.context().add_local_value_set(value_set)
 
     parsed_expr = self.compile_expression(
-        'Observation', f"code.memberOf('{hba1c_valueset_uri}')")
+        'Observation', f"code.memberOf('{hba1c_valueset_uri}')"
+    )
     built_expr = self.builder('Observation').code.memberOf(hba1c_valueset_uri)
 
     self.assert_expression_result(parsed_expr, built_expr, observation, True)
@@ -1152,8 +1497,11 @@ class FhirPathExpressionsTest(
     coding.system.value = 'http://loinc.org'
     coding.code.value = '10346-5'
 
-    value_set = self.value_set_builder('url:test:valueset').with_codes(
-        'http://loinc.org', ['10346-5', '10486-9']).build()
+    value_set = (
+        self.value_set_builder('url:test:valueset')
+        .with_codes('http://loinc.org', ['10346-5', '10486-9'])
+        .build()
+    )
 
     expr = python_compiled_expressions.PythonCompiledExpression.from_builder(
         self.builder('Observation').code.memberOf(value_set)
@@ -1185,15 +1533,18 @@ class FhirPathExpressionsTest(
   def testChoiceType_withoutOfType_fails(self) -> None:
     # Choice types should only be accessed directly or with ofType.
     with self.assertRaisesRegex(
-        AttributeError, r'Cannot directly access polymorphic fields. '
-        r"Please use ofType\['quantity'\] instead."):
+        AttributeError,
+        r'Cannot directly access polymorphic fields. '
+        r"Please use ofType\['quantity'\] instead.",
+    ):
       _ = self.builder('Observation').value.quantity  # pylint: disable=pointless-statement
 
   def testChoiceType_withOfType_succeeds(self) -> None:
     """Tests ofType access of choice types succeeds."""
     observation = self._new_observation()
-    compiled_expr = self.compile_expression('Observation',
-                                            "value.ofType('FHIR.string')")
+    compiled_expr = self.compile_expression(
+        'Observation', "value.ofType('FHIR.string')"
+    )
     built_expr = self.builder('Observation').value.ofType('FHIR.string')
 
     self.assertFalse(compiled_expr.evaluate(observation).has_value())
@@ -1209,44 +1560,54 @@ class FhirPathExpressionsTest(
     """Tests shorthand for ofType use of choice types succeeds."""
     observation = self._new_observation()
     observation.value.string_value.value = 'foo'
-    compiled_expr = self.compile_expression('Observation',
-                                            "value.ofType('string')")
+    compiled_expr = self.compile_expression(
+        'Observation', "value.ofType('string')"
+    )
     built_expr = self.builder('Observation').valueString
     self.assert_expression_result(compiled_expr, built_expr, observation, 'foo')
 
   def testChoiceType_withInvalidShorthand_fails(self) -> None:
     """Tests incorrect shorthand throws an exception with the right fields."""
-    with self.assertRaisesRegex(AttributeError,
-                                r'.*valueCodable.*valueCodeable.*'):
+    with self.assertRaisesRegex(
+        AttributeError, r'.*valueCodable.*valueCodeable.*'
+    ):
       _ = self.builder('Observation').valueCodable  # pylint: disable=pointless-statement
 
   def testChoiceType_withOftype_returnsExpectedFields(self) -> None:
     """Ensure ofType operations return expected child node type."""
     self.assertContainsSubset(
         ['value', 'unit', 'system', 'code'],
-        dir(self.builder('Observation').value.ofType('Quantity')))
+        dir(self.builder('Observation').value.ofType('Quantity')),
+    )
     self.assertNoCommonElements(
         ['coding', 'text'],
-        dir(self.builder('Observation').value.ofType('Quantity')))
+        dir(self.builder('Observation').value.ofType('Quantity')),
+    )
 
     self.assertContainsSubset(
         ['coding', 'text'],
-        dir(self.builder('Observation').value.ofType('CodeableConcept')))
+        dir(self.builder('Observation').value.ofType('CodeableConcept')),
+    )
     self.assertNoCommonElements(
         ['value', 'unit', 'system', 'code'],
-        dir(self.builder('Observation').value.ofType('CodeableConcept')))
+        dir(self.builder('Observation').value.ofType('CodeableConcept')),
+    )
 
     self.assertNoCommonElements(
         ['coding', 'text', 'value', 'unit', 'system', 'code'],
-        dir(self.builder('Observation').value.ofType('string')))
+        dir(self.builder('Observation').value.ofType('string')),
+    )
 
   def testChoiceType_withShorthand_returnsExpectedFields(self) -> None:
     """Ensure ofType operations return expected child node type."""
-    self.assertContainsSubset(['value', 'unit', 'system', 'code'],
-                              dir(self.builder('Observation').valueQuantity))
+    self.assertContainsSubset(
+        ['value', 'unit', 'system', 'code'],
+        dir(self.builder('Observation').valueQuantity),
+    )
     self.assertContainsSubset(
         ['coding', 'text'],
-        dir(self.builder('Observation').valueCodeableConcept))
+        dir(self.builder('Observation').valueCodeableConcept),
+    )
 
   def testNotFunction_succeeds(self) -> None:
     """Tests not_()."""
@@ -1255,18 +1616,27 @@ class FhirPathExpressionsTest(
     # not exist.
     self.assert_expression_result(
         self.compile_expression('Patient', 'active.exists().not()'),
-        self.builder('Patient').active.exists().not_(), patient, True)
+        self.builder('Patient').active.exists().not_(),
+        patient,
+        True,
+    )
 
     # Check builder and expression return correct results when the field exists.
     patient.active.value = True
     self.assert_expression_result(
         self.compile_expression('Patient', 'active.exists().not()'),
-        self.builder('Patient').active.exists().not_(), patient, False)
+        self.builder('Patient').active.exists().not_(),
+        patient,
+        False,
+    )
 
     # Tests edge case that function at the root node should still work.
     self.assert_expression_result(
         self.compile_expression('Patient', 'exists().not()'),
-        self.builder('Patient').exists().not_(), patient, False)
+        self.builder('Patient').exists().not_(),
+        patient,
+        False,
+    )
 
   def testFhirPathEnumValue_convertsToString(self):
     """Tests enum-based code values converts to expected FHIR strings."""
@@ -1277,15 +1647,24 @@ class FhirPathExpressionsTest(
 
     self.assert_expression_result(
         self.compile_expression('Patient', 'address.use'),
-        self.builder('Patient').address.use, patient, 'home')
+        self.builder('Patient').address.use,
+        patient,
+        'home',
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.use = 'home'"),
-        self.builder('Patient').address.use == 'home', patient, True)
+        self.builder('Patient').address.use == 'home',
+        patient,
+        True,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.use = 'work'"),
-        self.builder('Patient').address.use == 'work', patient, False)
+        self.builder('Patient').address.use == 'work',
+        patient,
+        False,
+    )
 
   # TODO(b/226131331): Expand tests to nested $this when that is added.
   def testWhereExpression_succeeds(self):
@@ -1307,41 +1686,62 @@ class FhirPathExpressionsTest(
     pat = self.builder('Patient')
     self.assert_expression_result(
         self.compile_expression('Patient', "address.where(use = 'home').city"),
-        pat.address.where(pat.address.use == 'home').city, patient, 'Home City')
+        pat.address.where(pat.address.use == 'home').city,
+        patient,
+        'Home City',
+    )
 
     # Function within where filter.
     pat = self.builder('Patient')
     self.assert_expression_result(
-        self.compile_expression('Patient',
-                                'address.where(use.exists()).count()'),
-        pat.address.where(pat.address.use.exists()).count(), patient, 3)
+        self.compile_expression(
+            'Patient', 'address.where(use.exists()).count()'
+        ),
+        pat.address.where(pat.address.use.exists()).count(),
+        patient,
+        3,
+    )
 
     # Expression within the where filter.
     self.assert_expression_result(
         self.compile_expression(
-            'Patient', "address.where(use = 'home' or use = 'work').count()"),
-        pat.address.where((pat.address.use == 'home')
-                          | (pat.address.use == 'work')).count(), patient, 2)
+            'Patient', "address.where(use = 'home' or use = 'work').count()"
+        ),
+        pat.address.where(
+            (pat.address.use == 'home') | (pat.address.use == 'work')
+        ).count(),
+        patient,
+        2,
+    )
 
     # Where filter with no results.
     self.assert_expression_result(
-        self.compile_expression('Patient',
-                                "address.where(use = 'temp').exists()"),
-        pat.address.where(pat.address.use == 'temp').exists(), patient, False)
+        self.compile_expression(
+            'Patient', "address.where(use = 'temp').exists()"
+        ),
+        pat.address.where(pat.address.use == 'temp').exists(),
+        patient,
+        False,
+    )
 
     # Nested where expression.
     period = pat.address.period
     self.assert_expression_result(
         self.compile_expression(
             'Patient',
-            'address.where(period.where(start.exists()).exists()).count()'),
+            'address.where(period.where(start.exists()).exists()).count()',
+        ),
         pat.address.where(period.where(period.start.exists()).exists()).count(),
-        patient, 0)
+        patient,
+        0,
+    )
 
   def testWhereFunctionBuilder_preservesFields(self):
     pat = self.builder('Patient')
-    self.assertContainsSubset(['use', 'line', 'city', 'state', 'postalCode'],
-                              dir(pat.address.where(pat.address.use == 'home')))
+    self.assertContainsSubset(
+        ['use', 'line', 'city', 'state', 'postalCode'],
+        dir(pat.address.where(pat.address.use == 'home')),
+    )
 
   def testWhereFunctionBuilder_rejectsNonBooleanPredicate(self):
     pat = self.builder('Patient')
@@ -1367,19 +1767,28 @@ class FhirPathExpressionsTest(
     pat = self.builder('Patient')
     self.assert_expression_result(
         self.compile_expression('Patient', "address.all(use = 'home')"),
-        pat.address.all(pat.address.use == 'home'), patient, False)
+        pat.address.all(pat.address.use == 'home'),
+        patient,
+        False,
+    )
 
     # All items match.
     pat = self.builder('Patient')
     self.assert_expression_result(
         self.compile_expression('Patient', 'address.all(use.exists())'),
-        pat.address.all(pat.address.use.exists()), patient, True)
+        pat.address.all(pat.address.use.exists()),
+        patient,
+        True,
+    )
 
     # There are no items to match, so all(...) should be true.
     empty_patient = self._new_patient()
     self.assert_expression_result(
         self.compile_expression('Patient', 'address.all(use.exists())'),
-        pat.address.all(pat.address.use.exists()), empty_patient, True)
+        pat.address.all(pat.address.use.exists()),
+        empty_patient,
+        True,
+    )
 
   def testAllFunctionBuilder_rejectsNonBooleanPredicate(self):
     pat = self.builder('Patient')
@@ -1400,16 +1809,26 @@ class FhirPathExpressionsTest(
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.city contains 'city1'"),
-        pat.address.city.contains('city1'), patient, True)
+        pat.address.city.contains('city1'),
+        patient,
+        True,
+    )
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.city contains 'city2'"),
-        pat.address.city.contains('city2'), patient, True)
+        pat.address.city.contains('city2'),
+        patient,
+        True,
+    )
 
     self.assert_expression_result(
-        self.compile_expression('Patient',
-                                "address.city contains 'mystery_city'"),
-        pat.address.city.contains('mystery_city'), patient, False)
+        self.compile_expression(
+            'Patient', "address.city contains 'mystery_city'"
+        ),
+        pat.address.city.contains('mystery_city'),
+        patient,
+        False,
+    )
 
   def testContainsOperator_withEmptyCollection_returnsFalse(self):
     """Ensures contains returns False when called against empty collections."""
@@ -1418,7 +1837,10 @@ class FhirPathExpressionsTest(
 
     self.assert_expression_result(
         self.compile_expression('Patient', "address.city contains 'city1'"),
-        pat.address.city.contains('city1'), patient, False)
+        pat.address.city.contains('city1'),
+        patient,
+        False,
+    )
 
   def testContainsOperator_withEmptyElement_returnsEmpty(self):
     """Ensures contains returns empty when the rhs is empty."""
@@ -1460,10 +1882,12 @@ class FhirPathExpressionsTest(
     pat = self.builder('Patient')
     self.assert_expression_result(
         self.compile_expression(
-            'Patient',
-            "where(address.city contains 'city1').name.first().given"),
+            'Patient', "where(address.city contains 'city1').name.first().given"
+        ),
         pat.where(pat.address.city.contains('city1')).name.first().given,
-        patient, 'namey')
+        patient,
+        'namey',
+    )
 
   def testInOperator_succeeds(self):
     """Ensures "in" indicates an elements presence in a collection.
@@ -1484,12 +1908,15 @@ class FhirPathExpressionsTest(
     self.assertEqual(expr.fhir_path, "'city1' in address.city")
 
     self.assertTrue(
-        self.compile_expression(
-            'Patient', "'city2' in address.city").evaluate(patient).as_bool())
+        self.compile_expression('Patient', "'city2' in address.city")
+        .evaluate(patient)
+        .as_bool()
+    )
     self.assertFalse(
-        self.compile_expression(
-            'Patient',
-            "'mystery_city' in address.city").evaluate(patient).as_bool())
+        self.compile_expression('Patient', "'mystery_city' in address.city")
+        .evaluate(patient)
+        .as_bool()
+    )
 
   def testInOperator_withEmptyCollection_returnsFalse(self):
     """Ensures "in" returns False when called against empty collections.
@@ -1500,8 +1927,10 @@ class FhirPathExpressionsTest(
     patient = self._new_patient()
 
     self.assertFalse(
-        self.compile_expression(
-            'Patient', "'city1' in address.city").evaluate(patient).as_bool())
+        self.compile_expression('Patient', "'city1' in address.city")
+        .evaluate(patient)
+        .as_bool()
+    )
 
   def testInOperator_withEmptyElement_returnsEmpty(self):
     """Ensures "in" returns empty when the lhs is empty.
@@ -1515,8 +1944,10 @@ class FhirPathExpressionsTest(
     address1.city.value = 'city1'
 
     self.assertFalse(
-        self.compile_expression(
-            'Patient', '{} in address.city').evaluate(patient).has_value())
+        self.compile_expression('Patient', '{} in address.city')
+        .evaluate(patient)
+        .has_value()
+    )
 
   def testInOperator_withNonElementOperand_raisesError(self):
     """Ensures "in" raises an error when the lhs is not a single value.
@@ -1533,8 +1964,9 @@ class FhirPathExpressionsTest(
     address2.city.value = 'city2'
 
     with self.assertRaises(ValueError):
-      self.compile_expression('Patient',
-                              'address.city in address.city').evaluate(patient)
+      self.compile_expression(
+          'Patient', 'address.city in address.city'
+      ).evaluate(patient)
 
   def testUnionOperator_withHomogeneousCollections_succeeds(self):
     """Ensures "union" works with collections of the same type."""
@@ -1552,8 +1984,9 @@ class FhirPathExpressionsTest(
 
     pat = self.builder('Patient')
     builder = pat.address.city.union(pat.name.given)
-    fhir_path_expr = self.compile_expression('Patient',
-                                             'address.city | name.given)')
+    fhir_path_expr = self.compile_expression(
+        'Patient', 'address.city | name.given)'
+    )
 
     self.assertEqual(builder.fhir_path, 'address.city | name.given')
     self.assertEqual(
@@ -1569,10 +2002,13 @@ class FhirPathExpressionsTest(
         builder_expr.evaluate(patient),
         fhir_path_expr.evaluate(patient),
     ):
-      self.assertCountEqual([
-          proto_utils.get_value_at_field(message, 'value')
-          for message in result.messages
-      ], ['a', 'b', 'c'])
+      self.assertCountEqual(
+          [
+              proto_utils.get_value_at_field(message, 'value')
+              for message in result.messages
+          ],
+          ['a', 'b', 'c'],
+      )
 
   def testUnionOperator_withHeterogeneousCollections_succeeds(self):
     """Ensures "union" works with collections of different types."""
@@ -1587,8 +2023,9 @@ class FhirPathExpressionsTest(
 
     pat = self.builder('Patient')
     builder = pat.telecom.rank.union(pat.name.given)
-    fhir_path_expr = self.compile_expression('Patient',
-                                             'telecom.rank | name.given')
+    fhir_path_expr = self.compile_expression(
+        'Patient', 'telecom.rank | name.given'
+    )
 
     self.assertEqual(builder.fhir_path, 'telecom.rank | name.given')
     self.assertEqual(
@@ -1608,22 +2045,27 @@ class FhirPathExpressionsTest(
         builder_expr.evaluate(patient),
         fhir_path_expr.evaluate(patient),
     ):
-      self.assertCountEqual([
-          proto_utils.get_value_at_field(message, 'value')
-          for message in result.messages
-      ], ['a', 'b', 1, 2])
+      self.assertCountEqual(
+          [
+              proto_utils.get_value_at_field(message, 'value')
+              for message in result.messages
+          ],
+          ['a', 'b', 1, 2],
+      )
 
   def testGetParentBuilder_succeeds(self):
     """Tests getting the parent builder."""
     pat = self.builder('Patient')
     builder_expr = pat.name.given
 
-    self.assertEqual(builder_expr.get_parent_builder().fhir_path,
-                     pat.name.fhir_path)
+    self.assertEqual(
+        builder_expr.get_parent_builder().fhir_path, pat.name.fhir_path
+    )
 
     builder_expr = pat.name.given.exists()
-    self.assertEqual(builder_expr.get_parent_builder().fhir_path,
-                     pat.name.given.fhir_path)
+    self.assertEqual(
+        builder_expr.get_parent_builder().fhir_path, pat.name.given.fhir_path
+    )
 
   def testGetRootBuilderOfFunction_succeeds(self):
     """Tests getting a root builder for a builder."""
@@ -1658,10 +2100,13 @@ class FhirPathExpressionsTest(
         builder_expr.evaluate(patient),
         fhir_path_expr.evaluate(patient),
     ):
-      self.assertCountEqual([
-          proto_utils.get_value_at_field(message, 'value')
-          for message in result.messages
-      ], ['a', 'b'])
+      self.assertCountEqual(
+          [
+              proto_utils.get_value_at_field(message, 'value')
+              for message in result.messages
+          ],
+          ['a', 'b'],
+      )
 
   def testUnionOperator_withBothEmptyCollections_succeeds(self):
     """Ensures "union" returns empty when given two empties."""
@@ -1671,73 +2116,94 @@ class FhirPathExpressionsTest(
 
   def testMultipleResourceBuilder(self):
     """Test multiple resources in one builder."""
-    multi_resource = self.builder(
-        'Patient').name.first().family == self.builder('Encounter').status
+    multi_resource = (
+        self.builder('Patient').name.first().family
+        == self.builder('Encounter').status
+    )
     self.assertMultiLineEqual(
-        textwrap.dedent("""\
+        textwrap.dedent(
+            """\
           + name.first().family = status <EqualityNode> (
           | + name.first().family <InvokeExpressionNode> (
           | | + name.first() <FirstFunction> (
           | | | + name <InvokeExpressionNode> (
           | | | | + Patient <RootMessageNode> ())))
           | + status <InvokeExpressionNode> (
-          | | + Encounter <RootMessageNode> ()))"""),
-        multi_resource.debug_string())
+          | | + Encounter <RootMessageNode> ()))"""
+        ),
+        multi_resource.debug_string(),
+    )
 
     self.assertSameElements(
         ['Patient', 'Encounter'],
-        [p.fhir_path for p in multi_resource.get_resource_builders()])
+        [p.fhir_path for p in multi_resource.get_resource_builders()],
+    )
 
   def testNodeDebugString(self):
     """Tests debug_string print functionality."""
     # Basic FHIRView
     self.assertMultiLineEqual(
-        textwrap.dedent("""\
+        textwrap.dedent(
+            """\
         + active.exists() <ExistsFunction> (
         | + active <InvokeExpressionNode> (
-        | | + Patient <RootMessageNode> ()))"""),
-        self.builder('Patient').active.exists().debug_string())
+        | | + Patient <RootMessageNode> ()))"""
+        ),
+        self.builder('Patient').active.exists().debug_string(),
+    )
 
     # Multiple arguments
     self.assertMultiLineEqual(
-        textwrap.dedent("""\
+        textwrap.dedent(
+            """\
         + subject.idFor('patient') <IdForFunction> (
         | + subject <InvokeExpressionNode> (
         | | + Encounter <RootMessageNode> ())
-        | + 'patient' <LiteralNode> ())"""),
-        self.builder('Encounter').subject.idFor('patient').debug_string())
+        | + 'patient' <LiteralNode> ())"""
+        ),
+        self.builder('Encounter').subject.idFor('patient').debug_string(),
+    )
 
     # Complicated FHIRView
     self.assertMultiLineEqual(
-        textwrap.dedent("""\
+        textwrap.dedent(
+            """\
         + address.all(use = 'home') <AllFunction> (
         | + address <InvokeExpressionNode> (
         | | + Patient <RootMessageNode> ())
         | + use = 'home' <EqualityNode> (
         | | + use <InvokeExpressionNode> (
         | | | + <ReferenceNode> (&address))
-        | | + 'home' <LiteralNode> ()))"""),
-        self.builder('Patient').address.all(
-            self.builder('Patient').address.use == 'home').debug_string())
+        | | + 'home' <LiteralNode> ()))"""
+        ),
+        self.builder('Patient')
+        .address.all(self.builder('Patient').address.use == 'home')
+        .debug_string(),
+    )
 
     # Complicated FHIRView with type printing
     self.assertMultiLineEqual(
-        textwrap.dedent("""\
+        textwrap.dedent(
+            """\
         + address.all(use = 'home') <AllFunction type=<BooleanFhirPathDataType>> (
         | + address <InvokeExpressionNode type=[<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (
         | | + Patient <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Patient)>> ())
         | + use = 'home' <EqualityNode type=<BooleanFhirPathDataType>> (
         | | + use <InvokeExpressionNode type=[<StringFhirPathDataType>]> (
         | | | + <ReferenceNode type=[<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (&address))
-        | | + 'home' <LiteralNode type=<StringFhirPathDataType>> ()))"""),
-        self.builder('Patient').address.all(
-            self.builder('Patient').address.use == 'home').debug_string(
-                with_typing=True))
+        | | + 'home' <LiteralNode type=<StringFhirPathDataType>> ()))"""
+        ),
+        self.builder('Patient')
+        .address.all(self.builder('Patient').address.use == 'home')
+        .debug_string(with_typing=True),
+    )
 
     # Polymorphic choice type printing.
     self.assertMultiLineEqual(
-        textwrap.dedent("""\
+        textwrap.dedent(
+            """\
       + value <InvokeExpressionNode type=<PolymorphicDataType(types=['quantity: http://hl7.org/fhirpath/System.Quantity', 'codeableconcept: http://hl7.org/fhir/StructureDefinition/CodeableConcept', 'string: http://hl7.org/fhirpath/System.String', 'boolean: http://hl7.org/fhirpath/System.Boolean', 'integer: http://hl7.org/fhirpath/System.Integer', 'range: http://hl7.org/fhir/StructureDefinition/Range', 'ratio: http://hl7.org/fhir/StructureDefinition/Ratio', 'sampleddata: http://hl7.org/fhir/StructureDefinition/SampledData', 'time: http://hl7.org/fhirpath/System.DateTime', 'datetime: http://hl7.org/fhirpath/System.DateTime', 'period: http://hl7.org/fhir/StructureDefinition/Period'])>> (
       | + Observation <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Observation)>> ())"""
-                       ),
-        self.builder('Observation').value.debug_string(with_typing=True))
+        ),
+        self.builder('Observation').value.debug_string(with_typing=True),
+    )
