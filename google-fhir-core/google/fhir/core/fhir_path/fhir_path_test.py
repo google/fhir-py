@@ -3879,14 +3879,14 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     encoder_v2 = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(iter_structure_definitions=lambda: [foo, bar]),
         primitive_handler.PrimitiveHandler(),
-        error_reporter,
+        error_reporter_v2,
         options=options,
     )
     actual_bindings_v2 = encoder_v2.encode(foo)
     self.assertEmpty(error_reporter_v2.warnings)
     self.assertEmpty(error_reporter_v2.errors)
     self.assertLen(actual_bindings_v2, 1)
-    self.assertEqual(actual_bindings_v2[0].element_path, 'Foo.bar.code')
+    self.assertEqual(actual_bindings_v2[0].element_path, 'Foo.bar')
     self.assertEqual(
         actual_bindings_v2[0].fhir_path_expression,
         "code.memberOf('http://value.set/id')",

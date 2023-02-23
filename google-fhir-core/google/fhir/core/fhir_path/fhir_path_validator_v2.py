@@ -1123,7 +1123,9 @@ class FhirProfileStandardSqlEncoder:
     if sql_expression is None:
       return []
 
-    element_definition_path = self._abs_path_invocation(builder)
+    element_definition_path = self._abs_path_invocation(
+        builder.get_parent_builder()
+    )
     column_name = _key_to_sql_column_name(
         _path_to_sql_column_name('%s-memberOf' % element_definition_path)
     )
