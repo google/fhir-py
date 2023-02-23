@@ -927,6 +927,74 @@ class _AllFunction(_FhirPathFunctionStandardSqlEncoder):
       )
 
 
+class _ToIntegerFunction(_FhirPathFunctionStandardSqlEncoder):
+  """Casts the given operand to an integer.
+
+  The spec for this function is found here:
+  https://build.fhir.org/ig/HL7/FHIRPath/#integer-conversion-functions
+  """
+
+  def __call__(
+      self,
+      function: _evaluation.ToIntegerFunction,
+      operand_result: Optional[_sql_data_types.Select],
+      params_result: List[_sql_data_types.StandardSqlExpression],
+  ) -> _sql_data_types.Select:
+    if operand_result is None:
+      raise ValueError('toInteger() cannot be called without an operand.')
+
+    if params_result:
+      raise ValueError('toInteger() does not accept any parameters.')
+
+    sql_alias = 'to_integer_'
+    sql_data_type = _sql_data_types.Int64
+
+    # Use the AST to figure out the type of the operand.
+    operand_type = function.parent_node().return_type()
+
+    # If the input collection contains a single item, this function
+    # will return a single integer if:
+    #
+    # the item is an Integer
+    # the item is a String and is convertible to an integer
+    # the item is a Boolean, where true results in a 1 and false results in a 0.
+    #
+    # If the item is not one the above types, the result is empty.
+    if not isinstance(
+        operand_type,
+        (
+            _fhir_path_data_types.Integer.__class__,
+            _fhir_path_data_types.String.__class__,
+            _fhir_path_data_types.Boolean.__class__,
+        ),
+    ):
+      return _sql_data_types.Select(
+          select_part=_sql_data_types.RawExpression(
+              'NULL',
+              _sql_alias=sql_alias,
+              _sql_data_type=sql_data_type,
+          ),
+          from_part=None,
+      )
+
+    # The spec says:
+    # "If the input collection contains multiple items, the evaluation
+    # of the expression will end and signal an error to the calling
+    # environment."
+    # This is harder to do in SQL where we can't raise exceptions, so
+    # instead we just apply a limit of 1 on any collections.
+    if _fhir_path_data_types.returns_collection(operand_type):
+      first = FUNCTION_MAP[_evaluation.FirstFunction.NAME]
+      operand_result = first(function, operand_result, [])
+
+    return dataclasses.replace(
+        operand_result,
+        select_part=operand_result.select_part.cast(
+            sql_data_type, _sql_alias=sql_alias
+        ),
+    )
+
+
 FUNCTION_MAP: Dict[str, _FhirPathFunctionStandardSqlEncoder] = {
     _evaluation.CountFunction.NAME: _CountFunction(),
     _evaluation.EmptyFunction.NAME: _EmptyFunction(),
@@ -941,4 +1009,5 @@ FUNCTION_MAP: Dict[str, _FhirPathFunctionStandardSqlEncoder] = {
     _evaluation.OfTypeFunction.NAME: _OfTypeFunction(),
     _evaluation.WhereFunction.NAME: _WhereFunction(),
     _evaluation.AllFunction.NAME: _AllFunction(),
+    _evaluation.ToIntegerFunction.NAME: _ToIntegerFunction(),
 }

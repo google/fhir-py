@@ -883,3 +883,54 @@ class PythonInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             message=self._primitive_handler.new_boolean(result), parent=None
         )
     ]
+
+  def _visit_toInteger(
+      self,
+      function: _evaluation.ToIntegerFunction,
+      operand_result: List[WorkSpaceMessage],
+  ) -> List[WorkSpaceMessage]:
+    if not operand_result:
+      return []
+
+    # If the input collection contains multiple items, the evaluation
+    # of the expression will end and signal an error to the calling
+    # environment.
+    if len(operand_result) > 1:
+      raise ValueError(
+          'toInteger() cannot be called on collections containing '
+          'multiple items.'
+      )
+
+    # If the input collection contains a single item, this function
+    # will return a single integer if:
+    #
+    # the item is an Integer
+    # the item is a String and is convertible to an integer
+    # the item is a Boolean, where true results in a 1 and false results in a 0.
+    #
+    # If the item is not one the above types, the result is empty.
+    operand = operand_result[0].message
+
+    is_integer = (
+        fhir_types.is_integer(operand)
+        or fhir_types.is_positive_integer(operand)
+        or fhir_types.is_unsigned_integer(operand)
+    )
+    if not (
+        is_integer
+        or fhir_types.is_string(operand)
+        or fhir_types.is_boolean(operand)
+    ):
+      return []
+
+    operand_value = proto_utils.get_value_at_field(operand, 'value')
+    try:
+      as_int = int(operand_value)
+    except ValueError:
+      return []
+
+    return [
+        WorkSpaceMessage(
+            message=self._primitive_handler.new_integer(as_int), parent=None
+        )
+    ]

@@ -1609,6 +1609,89 @@ class FhirPathExpressionsTest(
         dir(self.builder('Observation').valueCodeableConcept),
     )
 
+  def testToInteger_withCoercibleString_returnsInteger(self) -> None:
+    patient = self._new_patient()
+    address = patient.address.add()
+    address.state.value = '123'
+
+    self.assert_expression_result(
+        self.compile_expression('Patient', 'address.state.toInteger()'),
+        self.builder('Patient').address.state.toInteger(),
+        patient,
+        123,
+    )
+
+  def testToInteger_withNonCoercibleString_returnsEmpty(self) -> None:
+    patient = self._new_patient()
+    address = patient.address.add()
+    address.state.value = 'abc'
+
+    self.assert_expression_result(
+        self.compile_expression('Patient', 'address.state.toInteger()'),
+        self.builder('Patient').address.state.toInteger(),
+        patient,
+        None,
+    )
+
+  def testToInteger_withTrueBoolean_returnsOne(self) -> None:
+    patient = self._new_patient()
+    patient.active.value = True
+
+    self.assert_expression_result(
+        self.compile_expression('Patient', 'active.toInteger()'),
+        self.builder('Patient').active.toInteger(),
+        patient,
+        1,
+    )
+
+  def testToInteger_withFalseBoolean_returns0(self) -> None:
+    patient = self._new_patient()
+    patient.active.value = False
+
+    self.assert_expression_result(
+        self.compile_expression('Patient', 'active.toInteger()'),
+        self.builder('Patient').active.toInteger(),
+        patient,
+        0,
+    )
+
+  def testToInteger_withInteger_returnsInteger(self) -> None:
+    patient = self._new_patient()
+    patient.telecom.add().rank.value = 3
+
+    self.assert_expression_result(
+        self.compile_expression('Patient', 'telecom.rank.toInteger()'),
+        self.builder('Patient').telecom.rank.toInteger(),
+        patient,
+        3,
+    )
+
+  def testToInteger_withNonCoercibleType_returnsEmepty(self) -> None:
+    patient = self._new_patient()
+    patient.gender.value = 1
+
+    self.assert_expression_result(
+        self.compile_expression('Patient', 'gender.toInteger()'),
+        self.builder('Patient').gender.toInteger(),
+        patient,
+        None,
+    )
+
+  def testToInteger_withCollectionMoreThanOneElement_raisesError(self) -> None:
+    """Ensures an error is raised for collections with more than one element."""
+    patient = self._new_patient()
+    address1 = patient.address.add()
+    address1.state.value = '123'
+
+    address2 = patient.address.add()
+    address2.state.value = '456'
+
+    builder = self.builder('Patient').address.state.toInteger()
+    with self.assertRaises(ValueError):
+      python_compiled_expressions.PythonCompiledExpression.from_builder(
+          builder
+      ).evaluate(patient)
+
   def testNotFunction_succeeds(self) -> None:
     """Tests not_()."""
     patient = self._new_patient()

@@ -457,6 +457,21 @@ class Builder:
         _evaluation.AnyTrueFunction(self._node.context, self._node, [])
     )
 
+  def toInteger(self) -> 'Builder':  # pylint: disable=invalid-name
+    """The FHIRPath toInteger() function.
+
+    Casts its operand to an integer.
+    Returns an empty collection if the operand can not be coerced to an integer.
+    Raises a ValueError if the operand collection contains more than one
+    element.
+
+    Returns:
+      An integer representation of its operand.
+    """
+    return self._builder(
+        _evaluation.ToIntegerFunction(self._node.context, self._node, [])
+    )
+
   def replace_operand(
       self, old_path: str, replacement_node: _evaluation.ExpressionNode
   ) -> 'Builder':

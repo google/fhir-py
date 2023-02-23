@@ -1758,6 +1758,9 @@ class FhirPathStandardSqlEncoderTest(
     )
 
     self.assertEqual(actual_sql_expression, expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(
+        self.foo, fhir_path_expression, expected_sql_expression
+    )
 
   def testEncode_ToIntegerValidation_withParamsProvided_raisesError(self):
     with self.assertRaises(ValueError):
@@ -1766,6 +1769,9 @@ class FhirPathStandardSqlEncoderTest(
           element_definition=self.foo_root,
           fhir_path_expression='bat.struct.value.toInteger(123)',
       )
+
+    with self.assertRaises(ValueError):
+      self.create_builder_from_str(self.foo, 'bat.struct.value.toInteger(123)')
 
   @parameterized.named_parameters(
       dict(

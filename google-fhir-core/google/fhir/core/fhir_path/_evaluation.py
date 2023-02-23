@@ -284,7 +284,13 @@ class StructureBaseNode(ExpressionNode):
   def to_path_token(self) -> str:
     # The FHIRPath of a root structure is simply the base type name,
     # so return that if it exists.
-    return self._struct_type.base_type if self._struct_type else ''  # pytype: disable=attribute-error
+    if not self._struct_type:
+      return ''
+
+    if not hasattr(self._struct_type, 'base_type'):
+      return str(self._struct_type)
+
+    return self._struct_type.base_type
 
   def to_fhir_path(self) -> str:
     return self.to_path_token()
@@ -1026,6 +1032,29 @@ class MatchesFunction(FunctionNode):
     )
 
 
+class ToIntegerFunction(FunctionNode):
+  """Implementation of the toInteger() function.
+
+  The spec for this function is found here:
+  https://build.fhir.org/ig/HL7/FHIRPath/#integer-conversion-functions
+  """
+
+  NAME = 'toInteger'
+
+  def __init__(
+      self,
+      fhir_context: context.FhirPathContext,
+      operand: ExpressionNode,
+      params: List[ExpressionNode],
+  ) -> None:
+    if params:
+      raise ValueError('toInteger() does not accept any parameters.')
+
+    super().__init__(
+        fhir_context, operand, params, _fhir_path_data_types.Integer
+    )
+
+
 class EqualityNode(CoercibleBinaryExpressionNode):
   """Implementation of FHIRPath equality and equivalence operators."""
 
@@ -1292,6 +1321,7 @@ _FUNCTION_NODE_MAP: Dict[str, Any] = {
     'ofType': OfTypeFunction,
     'where': WhereFunction,
     'anyTrue': AnyTrueFunction,
+    'toInteger': ToIntegerFunction,
 }
 
 
