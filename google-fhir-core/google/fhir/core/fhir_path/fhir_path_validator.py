@@ -750,8 +750,9 @@ class FhirProfileStandardSqlEncoder:
       self._error_reporter.report_validation_error(
           self._abs_path_invocation(),
           (
-              'Expected element with only one type code but got: '
-              f'{type_codes}, is this a choice type?'
+              f'Element `{_get_analytic_path(element_definition)}` with type'
+              f' codes: {type_codes}, is a choice type which is not currently'
+              ' supported.'
           ),
       )
       return None
@@ -853,13 +854,6 @@ class FhirProfileStandardSqlEncoder:
       # If this element is a choice type, a slice (that is not on an extension)
       # or is disabled, then don't encode requirements for it.
       # TODO(b/202564733): Properly handle slices on non-simple extensions.
-      #
-      # TODO(b/265161986): We also need to properly guard against
-      # choice types on slice extensions. Failing to catch them here
-      # results in us reporting an error about unexpected choice types
-      # ('Expected element with only one type code but got:
-      # {type_codes}, is this a choice type?') in the _get_regex_from_element
-      # method.
       if ('[x]' in _get_analytic_path(child) or _is_disabled(child)) or (
           _utils.is_slice_element(child)
           and not _utils.is_slice_on_extension(child)

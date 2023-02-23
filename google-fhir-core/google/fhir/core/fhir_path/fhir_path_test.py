@@ -3777,6 +3777,19 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 ):
   """Tests various configurations and behaviors of the profile encoder."""
 
+  def add_regex_to_structure_definition(
+      self,
+      structure_definition: structure_definition_pb2.StructureDefinition,
+      regex_value: str,
+  ):
+    """Adds regex `regex_value` to `structure_definition`."""
+    snapshot_element = structure_definition.snapshot.element.add()
+    snapshot_element.id.value = 'string.value'
+    sub_type = snapshot_element.type.add()
+    extension = sub_type.extension.add()
+    extension.url.value = 'http://hl7.org/fhir/StructureDefinition/regex'
+    extension.value.string_value.value = regex_value
+
   @parameterized.named_parameters(
       dict(
           testcase_name='_withAddValueSetBindingsOption',
@@ -4042,6 +4055,150 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(error_reporter.warnings)
     self.assertEmpty(error_reporter.errors)
     self.assertLen(actual_bindings, 1)
+
+  def testChoiceType_thatIsAlso_sliceOnExtension_skipsRegexValidation(self):
+    # Set up resource.
+    foo_root = sdefs.build_element_definition(
+        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
+    extension_slice = sdefs.build_element_definition(
+        id_='Foo.extension:softDelete',
+        path='Foo.extension',
+        type_codes=['Extension'],
+        profiles=['http://hl7.org/fhir/StructureDefinition/CustomExtension'],
+        cardinality=sdefs.Cardinality(0, '*'),
+    )
+    foo = sdefs.build_resource_definition(
+        id_='Foo', element_definitions=[foo_root, extension_slice]
+    )
+
+    # CustomExtension resource.
+    custom_extension_root_element = sdefs.build_element_definition(
+        id_='Extension',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    value_element_definition = sdefs.build_element_definition(
+        id_='Extension.value[x]',
+        type_codes=['string', 'int'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    custom_extension = sdefs.build_resource_definition(
+        id_='CustomExtension',
+        element_definitions=[
+            custom_extension_root_element,
+            value_element_definition,
+        ],
+    )
+
+    # Primitive string structure definition.
+    value_element_definition = sdefs.build_element_definition(
+        id_='string.value',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    string_struct = sdefs.build_resource_definition(
+        id_='string', element_definitions=[value_element_definition]
+    )
+    self.add_regex_to_structure_definition(string_struct, 'some regex')
+
+    # Stand up encoder
+    error_reporter = fhir_errors.ListErrorReporter()
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(
+            iter_structure_definitions=lambda: [  # pylint: disable=g-long-lambda
+                foo,
+                custom_extension,
+                string_struct,
+            ]
+        ),
+        error_reporter,
+        options=fhir_path.SqlGenerationOptions(add_primitive_regexes=True),
+    )
+
+    actual_bindings = encoder.encode(foo)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertEqual(
+        error_reporter.errors,
+        [
+            # Adding `+` to get rid of `implicit-str-concat` inside list
+            # warning.
+            'Validation Error: Foo; Element `Foo.softDelete` with type codes: '
+            + "['string', 'int'], is a choice type which is not currently "
+            + 'supported.'
+        ],
+    )
+    self.assertEmpty(actual_bindings)
+
+  def testNonChoiceType_thatIsAlso_sliceOnExtension_makesRegexValidation(self):
+    # Set up resource.
+    foo_root = sdefs.build_element_definition(
+        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
+    extension_slice = sdefs.build_element_definition(
+        id_='Foo.extension:softDelete',
+        path='Foo.extension',
+        type_codes=['Extension'],
+        profiles=['http://hl7.org/fhir/StructureDefinition/CustomExtension'],
+        cardinality=sdefs.Cardinality(0, '*'),
+    )
+    foo = sdefs.build_resource_definition(
+        id_='Foo', element_definitions=[foo_root, extension_slice]
+    )
+
+    # CustomExtension resource.
+    custom_extension_root_element = sdefs.build_element_definition(
+        id_='Extension',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    value_element_definition = sdefs.build_element_definition(
+        id_='Extension.value[x]',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+
+    custom_extension = sdefs.build_resource_definition(
+        id_='CustomExtension',
+        element_definitions=[
+            custom_extension_root_element,
+            value_element_definition,
+        ],
+    )
+
+    # Primitive string structure definition.
+    value_element_definition = sdefs.build_element_definition(
+        id_='string.value',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    string_struct = sdefs.build_resource_definition(
+        id_='string', element_definitions=[value_element_definition]
+    )
+    self.add_regex_to_structure_definition(string_struct, 'some regex')
+
+    # Stand up encoder
+    error_reporter = fhir_errors.ListErrorReporter()
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(
+            iter_structure_definitions=lambda: [  # pylint: disable=g-long-lambda
+                foo,
+                custom_extension,
+                string_struct,
+            ]
+        ),
+        error_reporter,
+        options=fhir_path.SqlGenerationOptions(add_primitive_regexes=True),
+    )
+
+    actual_bindings = encoder.encode(foo)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertEmpty(error_reporter.errors)
+    self.assertLen(actual_bindings, 1)
+    self.assertEqual(
+        actual_bindings[0].fhir_path_expression,
+        "softDelete.all( $this.matches('^(some regex)$') )",
+    )
 
   def testEncode_withDuplicateSqlRequirement_createsConstraintAndLogsError(
       self,
