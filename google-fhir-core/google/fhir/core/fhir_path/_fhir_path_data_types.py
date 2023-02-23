@@ -127,8 +127,9 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
   def cardinality(self) -> Cardinality:
     return self._cardinality
 
-  def get_new_cardinality_type(self,
-                               cardinality: Cardinality) -> 'FhirPathDataType':
+  def get_new_cardinality_type(
+      self, cardinality: Cardinality
+  ) -> 'FhirPathDataType':
     obj_copy = copy.deepcopy(self)
     # pylint: disable=protected-access
     obj_copy._cardinality = cardinality
@@ -136,7 +137,8 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
     return obj_copy
 
   def get_fhir_type_with_root_element_definition(
-      self, root_element_definition: message.Message) -> 'FhirPathDataType':
+      self, root_element_definition: message.Message
+  ) -> 'FhirPathDataType':
     obj_copy = copy.deepcopy(self)
     # pylint: disable=protected-access
     obj_copy._root_element_definition = root_element_definition
@@ -144,8 +146,10 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
     return obj_copy
 
   def returns_collection(self) -> bool:
-    return (self._cardinality == Cardinality.COLLECTION or
-            self._cardinality == Cardinality.CHILD_OF_COLLECTION)
+    return (
+        self._cardinality == Cardinality.COLLECTION
+        or self._cardinality == Cardinality.CHILD_OF_COLLECTION
+    )
 
   def fields(self) -> Set[str]:
     return set()
@@ -465,8 +469,10 @@ class Collection(FhirPathDataType):
     return set(result)
 
   def _class_name(self) -> str:
-    return ('<CollectionFhirPathDataType(types='
-            f'{[str(types) for types in self._types]})>')
+    return (
+        '<CollectionFhirPathDataType(types='
+        f'{[str(types) for types in self._types]})>'
+    )
 
 
 class StructureDataType(FhirPathDataType):
@@ -482,8 +488,11 @@ class StructureDataType(FhirPathDataType):
 
   @property
   def url(self) -> str:
-    return '.'.join([self._url, self.backbone_element_path
-                    ]) if self.backbone_element_path else self._url
+    return (
+        '.'.join([self._url, self.backbone_element_path])
+        if self.backbone_element_path
+        else self._url
+    )
 
   @property
   def base_type(self) -> str:
@@ -535,7 +544,7 @@ class StructureDataType(FhirPathDataType):
       # Paths that look like a.elemValue when qualified_path=a.elem get
       # misidentified as being a child of a.elem
       if elem.id.value.startswith(qualified_path + '.'):
-        relative_path = elem.id.value[len(qualified_path) + 1:]
+        relative_path = elem.id.value[len(qualified_path) + 1 :]
         if not relative_path:
           continue
         if '.' not in relative_path:
@@ -586,13 +595,16 @@ class QuantityStructureDataType(StructureDataType, _Quantity):
   def url(self) -> str:
     return self._URL
 
-  def __init__(self,
-               struct_def_proto: message.Message,
-               backbone_element_path: Optional[str] = None) -> None:
+  def __init__(
+      self,
+      struct_def_proto: message.Message,
+      backbone_element_path: Optional[str] = None,
+  ) -> None:
     super().__init__(
         struct_def_proto=struct_def_proto,
         backbone_element_path=backbone_element_path,
-        comparable=True)
+        comparable=True,
+    )
 
   def _class_name(self) -> str:
     return f'<QuantityStructureFhirPathDataType(url={self.url})>'
@@ -723,13 +735,15 @@ def primitive_type_from_type_code(type_code: str) -> Optional[FhirPathDataType]:
 
 
 def is_numeric(fhir_type: FhirPathDataType) -> bool:
-  return (isinstance(fhir_type, _Integer) or
-          isinstance(fhir_type, _Decimal)) or isinstance(fhir_type, _Empty)
+  return (
+      isinstance(fhir_type, _Integer) or isinstance(fhir_type, _Decimal)
+  ) or isinstance(fhir_type, _Empty)
 
 
 def is_primitive(fhir_type: FhirPathDataType) -> bool:
-  return (not isinstance(fhir_type, StructureDataType) and
-          not isinstance(fhir_type, PolymorphicDataType))
+  return not isinstance(fhir_type, StructureDataType) and not isinstance(
+      fhir_type, PolymorphicDataType
+  )
 
 
 def is_coercible(lhs: FhirPathDataType, rhs: FhirPathDataType) -> bool:
@@ -788,7 +802,8 @@ def coerce(lhs: FhirPathDataType, rhs: FhirPathDataType) -> FhirPathDataType:
   """
   if not is_coercible(lhs, rhs):
     raise TypeError(
-        f'Unsupported Standard SQL coercion between {lhs} and {rhs}.')
+        f'Unsupported Standard SQL coercion between {lhs} and {rhs}.'
+    )
 
   if isinstance(rhs, _Any) or isinstance(lhs, _Any):
     return _Any
@@ -806,7 +821,9 @@ def is_coding(fhir_type: FhirPathDataType) -> bool:
 
 def is_codeable_concept(fhir_type: FhirPathDataType) -> bool:
   """Indicates if the type is a Codeable Concept."""
-  return fhir_type.url == 'http://hl7.org/fhir/StructureDefinition/CodeableConcept'
+  return (
+      fhir_type.url == 'http://hl7.org/fhir/StructureDefinition/CodeableConcept'
+  )
 
 
 def is_scalar(fhir_type: Optional[FhirPathDataType]) -> bool:
