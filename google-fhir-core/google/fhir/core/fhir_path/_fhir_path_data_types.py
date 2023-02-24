@@ -151,6 +151,10 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
         or self._cardinality == Cardinality.CHILD_OF_COLLECTION
     )
 
+  def returns_polymorphic(self) -> bool:
+    """Indicates if the type returns a polymorphic choice type."""
+    return False
+
   def fields(self) -> Set[str]:
     return set()
 
@@ -646,6 +650,9 @@ class PolymorphicDataType(FhirPathDataType):
 
   See more at: https://hl7.org/fhirpath/#paths-and-polymorphic-items.
   """
+
+  def returns_polymorphic(self) -> bool:
+    return True
 
   @property
   def supported_coercion(self) -> Set['FhirPathDataType']:

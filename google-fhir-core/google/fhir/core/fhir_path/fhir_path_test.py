@@ -3915,6 +3915,66 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     )
     self.assertEqual(actual_bindings_v2[0].sql_expression, expected_sql)
 
+  def testEncode_withChoiceTypes_producesChoiceTypeExclusivityConstraint(self):
+    """Ensures we enforce an exclusivity constraint among choice type options."""
+    foo_root = sdefs.build_element_definition(
+        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
+    # Should generate SQL ensuring only one of string or integer is set.
+    foo_bar_element_definition = sdefs.build_element_definition(
+        id_='Foo.bar[x]',
+        type_codes=['string', 'integer'],
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    # Should not generate any SQL because there is only one choice.
+    foo_baz_element_definition = sdefs.build_element_definition(
+        id_='Foo.baz[x]',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    foo = sdefs.build_resource_definition(
+        id_='Foo',
+        element_definitions=[
+            foo_root,
+            foo_bar_element_definition,
+            foo_baz_element_definition,
+        ],
+    )
+
+    error_reporter_v2 = fhir_errors.ListErrorReporter()
+    encoder_v2 = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(iter_structure_definitions=lambda: [foo]),
+        primitive_handler.PrimitiveHandler(),
+        error_reporter_v2,
+    )
+    actual_bindings_v2 = encoder_v2.encode(foo)
+    self.assertEmpty(error_reporter_v2.warnings)
+    self.assertEmpty(error_reporter_v2.errors)
+    self.assertLen(actual_bindings_v2, 1)
+    self.assertEqual(actual_bindings_v2[0].element_path, 'Foo')
+    self.assertEqual(
+        actual_bindings_v2[0].fhir_path_expression,
+        (
+            "bar.ofType('string').exists().toInteger() +"
+            " bar.ofType('integer').exists().toInteger() <= 1"
+        ),
+    )
+    self.assertEqual(
+        actual_bindings_v2[0].fields_referenced_by_expression, ['bar']
+    )
+    self.assertEqual(
+        actual_bindings_v2[0].sql_expression,
+        textwrap.dedent(
+            """\
+            (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
+            FROM UNNEST(ARRAY(SELECT comparison_
+            FROM (SELECT ((CAST(
+            bar.string IS NOT NULL AS INT64) + CAST(
+            bar.integer IS NOT NULL AS INT64)) <= 1) AS comparison_)
+            WHERE comparison_ IS NOT NULL)) AS result_)"""
+        ),
+    )
+
   def testSkipKeys_withValidResource_producesNoConstraints(self):
     # Setup resource with a defined constraint
     constraint = self.build_constraint(

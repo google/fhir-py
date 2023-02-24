@@ -15,6 +15,8 @@
 """Functionality for validating FHIRPath resources using SQL."""
 
 import dataclasses
+import functools
+import operator
 from typing import Any, Collection, List, Optional, Set, cast, Dict
 
 from google.cloud import bigquery
@@ -743,6 +745,79 @@ class FhirProfileStandardSqlEncoder:
     )
     return requirement
 
+  def _encode_choice_type_exclusivity(
+      self, builder: expressions.Builder
+  ) -> List[validation_pb2.SqlRequirement]:
+    """Encodes a constraint ensuring the choice type has only one value set.
+
+    If `builder` represents a choice type, encodes SQL ensuring that at most one
+    of the columns representing that choice type's possible data types is not
+    null.
+
+    Args:
+      builder: The builder representing a path to a choice type.
+
+    Returns:
+      An empty sequence if `builder` is not a path to a choice type or the
+      constraint can not be encoded for other reasons. Otherwise, a sequence
+      containing a single `SqlRequirement` for the choice type.
+    """
+    # Ensure this is a choice type.
+    if not builder.return_type.returns_polymorphic():
+      return []
+
+    field_name = _last_path_token(builder)
+    constraint_key = f'{field_name}-choice-type-exclusivity'
+    if constraint_key in self._options.skip_keys:
+      return []
+
+    # A choice type should have at least one choice, but if it doesn't
+    # there's no constraint to impose.
+    type_codes = _utils.element_type_codes(
+        builder.return_type.root_element_definition
+    )
+    if len(type_codes) <= 1:
+      return []
+
+    # Ensure only one of the choice types exist.
+    num_choices_exist: expressions.Builder = functools.reduce(
+        operator.add,
+        (
+            builder.ofType(choice_field).exists().toInteger()
+            for choice_field in type_codes
+        ),
+    )
+    exclusivity_constraint: expressions.Builder = num_choices_exist <= 1
+
+    exclusivity_constraint_sql = self._encode_fhir_path_builder_constraint(
+        exclusivity_constraint, builder.get_parent_builder()
+    )
+    if exclusivity_constraint_sql is None:
+      return []
+
+    choice_type_path = self._abs_path_invocation(builder)
+    column_name = _path_to_sql_column_name(choice_type_path)
+    parent_path = self._abs_path_invocation(builder.get_parent_builder())
+    description = (
+        f'Choice type {choice_type_path} has more than one of'
+        ' its possible choice data types set.'
+    )
+    return [
+        validation_pb2.SqlRequirement(
+            column_name=column_name,
+            sql_expression=exclusivity_constraint_sql,
+            severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
+            type=validation_pb2.ValidationType.VALIDATION_TYPE_CHOICE_TYPE,
+            element_path=parent_path,
+            description=description,
+            fhir_path_key=constraint_key,
+            fhir_path_expression=exclusivity_constraint.fhir_path,
+            fields_referenced_by_expression=_fields_referenced_by_expression(
+                exclusivity_constraint.fhir_path
+            ),
+        )
+    ]
+
   def get_type_codes_from_slice_element(
       self, element_definition: ElementDefinition
   ) -> List[str]:
@@ -1035,6 +1110,7 @@ class FhirProfileStandardSqlEncoder:
 
     result += self._encode_constraints(builder)
     result += self._encode_required_fields(builder)
+    result += self._encode_choice_type_exclusivity(builder)
 
     if self._options.add_primitive_regexes:
       result += self._encode_primitive_regexes(builder)
