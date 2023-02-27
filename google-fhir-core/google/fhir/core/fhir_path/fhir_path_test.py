@@ -2379,7 +2379,7 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent(
               """\
               ARRAY(SELECT memberof_
-              FROM (SELECT (codeFlavor.code IS NULL) OR (codeFlavor.code IN ("code_3", "code_4")) AS memberof_)
+              FROM (SELECT (codeFlavor.code IS NULL) OR (codeFlavor.code IN ("code_3", "code_4", "code_5")) AS memberof_)
               WHERE memberof_ IS NOT NULL)"""
           ),
       ),
@@ -2396,6 +2396,18 @@ class FhirPathStandardSqlEncoderTest(
               WHERE memberof_ IS NOT NULL)"""
           ),
       ),
+      dict(
+          testcase_name='_withScalarCodingMemberOf',
+          fhir_path_expression=(
+              "codeFlavor.coding.memberOf('http://value.set/2')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
+              ARRAY(SELECT memberof_
+              FROM (SELECT (codeFlavor.coding IS NULL) OR (((codeFlavor.coding.system = "system_3") AND (codeFlavor.coding.code IN ("code_3", "code_4"))) OR ((codeFlavor.coding.system = "system_5") AND (codeFlavor.coding.code IN ("code_5")))) AS memberof_)
+              WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withFhirPathMemberFunctionAgainstLocalValueSetDefinitions_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
@@ -2405,18 +2417,27 @@ class FhirPathStandardSqlEncoderTest(
 
     code_1 = expanded_value_set_1.expansion.contains.add()
     code_1.code.value = 'code_1'
+    code_1.system.value = 'system_1'
 
     code_2 = expanded_value_set_1.expansion.contains.add()
     code_2.code.value = 'code_2'
+    code_2.system.value = 'system_2'
 
     expanded_value_set_2 = value_set_pb2.ValueSet()
     expanded_value_set_2.url.value = 'http://value.set/2'
 
+    # The following two codes are in the same code system.
     code_3 = expanded_value_set_2.expansion.contains.add()
     code_3.code.value = 'code_3'
+    code_3.system.value = 'system_3'
 
     code_4 = expanded_value_set_2.expansion.contains.add()
     code_4.code.value = 'code_4'
+    code_4.system.value = 'system_3'
+
+    code_4 = expanded_value_set_2.expansion.contains.add()
+    code_4.code.value = 'code_5'
+    code_4.system.value = 'system_5'
 
     fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(
         self.resources,

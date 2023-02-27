@@ -827,6 +827,14 @@ class StandardSqlExpression(metaclass=abc.ABCMeta):
     """Builds an OR expression for `self` OR `rhs`."""
     return OrExpression(self, rhs, **kwargs)
 
+  def and_(self, rhs: StandardSqlExpression, **kwargs) -> AndExpression:
+    """Builds an AND expression for `self` AND `rhs`."""
+    return AndExpression(self, rhs, **kwargs)
+
+  def eq_(self, rhs: StandardSqlExpression, **kwargs) -> EqualsExpression:
+    """Builds an equals expression for `self` = `rhs`."""
+    return EqualsExpression(self, rhs, **kwargs)
+
   def in_(
       self, params: Sequence[StandardSqlExpression], **kwargs
   ) -> InOperator:
@@ -1039,22 +1047,23 @@ class InOperator(StandardSqlExpression):
 
 
 @dataclasses.dataclass
-class OrExpression(StandardSqlExpression):
-  """Representation of an OR expression.
-
-  Renders SQL like x OR y.
+class BindaryBooleanExpression(StandardSqlExpression):
+  """Base class for OR, =, AND, etc expressions.
 
   Attributes:
-    lhs: The expression on the left hand side of the OR.
-    rhs: The expression on the right hand side of the OR.
+    lhs: The expression on the left hand side of the expression.
+    rhs: The expression on the right hand side of the expression.
   """
 
   lhs: StandardSqlExpression
   rhs: StandardSqlExpression
-  _sql_alias: str = 'or_'
+  _operator_name: str
+  _sql_alias: str
 
   def __str__(self) -> str:
-    return f'{self.lhs.as_operand()} OR {self.rhs.as_operand()}'
+    return (
+        f'{self.lhs.as_operand()} {self._operator_name} {self.rhs.as_operand()}'
+    )
 
   @property
   def sql_alias(self) -> str:
@@ -1067,6 +1076,44 @@ class OrExpression(StandardSqlExpression):
 
   def as_operand(self) -> str:
     return f'({self})'
+
+
+class OrExpression(BindaryBooleanExpression):
+  """Representation of an OR expression."""
+
+  def __init__(
+      self,
+      lhs: StandardSqlExpression,
+      rhs: StandardSqlExpression,
+      _sql_alias: str = 'or_',
+  ):
+    super().__init__(lhs, rhs, 'OR', _sql_alias)
+
+
+@dataclasses.dataclass
+class AndExpression(BindaryBooleanExpression):
+  """Representation of an AND expression."""
+
+  def __init__(
+      self,
+      lhs: StandardSqlExpression,
+      rhs: StandardSqlExpression,
+      _sql_alias: str = 'and_',
+  ):
+    super().__init__(lhs, rhs, 'AND', _sql_alias)
+
+
+@dataclasses.dataclass
+class EqualsExpression(BindaryBooleanExpression):
+  """Representation of an equals expression."""
+
+  def __init__(
+      self,
+      lhs: StandardSqlExpression,
+      rhs: StandardSqlExpression,
+      _sql_alias: str = 'eq_',
+  ):
+    super().__init__(lhs, rhs, '=', _sql_alias)
 
 
 @dataclasses.dataclass

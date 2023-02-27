@@ -17,6 +17,8 @@
 import abc
 import copy
 import dataclasses
+import functools
+import operator
 from typing import Dict, List, Optional, cast
 import urllib.parse
 
@@ -691,7 +693,9 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
     # ourselves. If so, expand the value set and generate an IN
     # expression validating if the codes in the column are members of
     # the value set.
-    if value_set_resolver is not None and _is_string_or_code(operand_type):
+    if value_set_resolver is not None and (
+        _is_string_or_code(operand_type) or _is_coding(operand_type)
+    ):
       expanded_value_set = value_set_resolver.expand_value_set_url(
           value_set_uri
       )
@@ -699,6 +703,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
         return self._member_of_sql_against_inline_value_sets(
             sql_alias,
             operand_result,
+            operand_type,
             expanded_value_set,
         )
 
@@ -723,29 +728,87 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
 
     raise ValueError(
         'Non-code bound to value set %s and no value set definitions table'
-        ' provided. Currently, only value sets bound to codes are expanded'
-        ' locally. Unable to generate memberOf SQL.' % value_set_uri,
+        ' provided. Currently, only value sets bound to codes or codings are'
+        ' expanded locally. Unable to generate memberOf SQL.' % value_set_uri,
     )
 
   def _member_of_sql_against_inline_value_sets(
       self,
       sql_alias: str,
       operand_result: _sql_data_types.IdentifierSelect,
+      operand_type: _fhir_path_data_types.FhirPathDataType,
       expanded_value_set: value_set_pb2.ValueSet,
   ) -> _sql_data_types.Select:
     """Generates memberOf SQL using an IN statement."""
-    params = [
-        _sql_data_types.RawExpression(
-            '"%s"' % concept.code.value, _sql_data_types.String
-        )
-        for concept in expanded_value_set.expansion.contains
-    ]
+    if _is_string_or_code(operand_type):
+      # For strings and codes, we can just generate SQL like
+      # SELECT code IN (code1, code2...)
+      params = [
+          _sql_data_types.RawExpression(
+              '"%s"' % concept.code.value, _sql_data_types.String
+          )
+          for concept in expanded_value_set.expansion.contains
+      ]
 
-    return dataclasses.replace(
-        operand_result,
-        select_part=operand_result.select_part.is_null().or_(
-            operand_result.select_part.in_(params), _sql_alias=sql_alias
-        ),
+      return dataclasses.replace(
+          operand_result,
+          select_part=operand_result.select_part.is_null().or_(
+              operand_result.select_part.in_(params), _sql_alias=sql_alias
+          ),
+      )
+
+    if _is_coding(operand_type):
+      # Codings include a code system in addition to the code value,
+      # so we have to generate more complex SQL like:
+      # SELECT (system = system1 AND code IN (code1, code2)) OR
+      #        (system = system2 AND code IN (code3, code4))
+
+      # Group codes per code system using.
+      codes_per_system = {}
+      for concept in expanded_value_set.expansion.contains:
+        codes_per_system.setdefault(concept.system.value, []).append(
+            concept.code.value
+        )
+
+      # Sort the code system entries to ensure we build stable SQL.
+      codes_per_system = list(codes_per_system.items())
+      codes_per_system.sort(key=operator.itemgetter(0))
+      for _, codes in codes_per_system:
+        codes.sort()
+
+      # Build a 'system = system AND code IN (codes)' expression per code system
+      code_system_predicates = []
+      code_col = operand_result.select_part.dot('code', _sql_data_types.String)
+      system_col = operand_result.select_part.dot(
+          'system', _sql_data_types.String
+      )
+      for system, codes in codes_per_system:
+        system = _sql_data_types.RawExpression(
+            '"%s"' % system, _sql_data_types.String
+        )
+        codes = [
+            _sql_data_types.RawExpression('"%s"' % code, _sql_data_types.String)
+            for code in codes
+        ]
+        code_system_predicates.append(
+            system_col.eq_(system).and_(code_col.in_(codes))
+        )
+
+      # OR each of the above predicates.
+      combined_predicates = functools.reduce(
+          lambda acc, pred: acc.or_(pred), code_system_predicates
+      )
+
+      return dataclasses.replace(
+          operand_result,
+          select_part=operand_result.select_part.is_null().or_(
+              combined_predicates, _sql_alias=sql_alias
+          ),
+      )
+
+    raise ValueError(
+        'Unexpected type %s and structure definition %s encountered'
+        % (operand_type, operand_type.url)
     )
 
   def _member_of_sql_against_remote_value_set_table(
