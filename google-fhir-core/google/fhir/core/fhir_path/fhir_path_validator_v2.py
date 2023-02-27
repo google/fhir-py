@@ -1203,7 +1203,9 @@ class FhirProfileStandardSqlEncoder:
         builder.get_parent_builder()
     )
     column_name = _key_to_sql_column_name(
-        _path_to_sql_column_name('%s-memberOf' % element_definition_path)
+        _path_to_sql_column_name(
+            '%s-memberOf' % self._abs_path_invocation(builder)
+        )
     )
     description = '%s must be a member of %s' % (
         fhir_path_builder.fhir_path,
