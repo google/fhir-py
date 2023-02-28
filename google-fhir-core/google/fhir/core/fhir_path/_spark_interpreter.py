@@ -20,6 +20,7 @@ from typing import Any, Optional
 from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
+from google.fhir.core.fhir_path import _spark_sql_functions
 from google.fhir.core.fhir_path import _sql_data_types
 from google.fhir.core.fhir_path import expressions
 from google.fhir.core.internal import _primitive_time_utils
@@ -393,4 +394,15 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         from_part=None)
 
   def visit_function(self, function: _evaluation.FunctionNode) -> Any:
-    """Translates a FHIRPath function to Standard SQL."""
+    """Translates a FHIRPath function to Spark SQL."""
+    parent_result = self.visit(function.parent_node())
+    params_result = [self.visit(p) for p in function.params()]
+    if (isinstance(function, _evaluation.MemberOfFunction) and
+        self._value_set_codes_table):
+      return _spark_sql_functions.FUNCTION_MAP[function.NAME](
+          function,
+          parent_result,
+          params_result,
+          value_set_codes_table=str(self._value_set_codes_table))
+    func = _spark_sql_functions.FUNCTION_MAP.get(function.NAME)
+    return func(function, parent_result, params_result)

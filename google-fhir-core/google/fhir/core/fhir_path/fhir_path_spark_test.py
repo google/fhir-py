@@ -690,6 +690,31 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_SUCCEEDS_CASES = [
     },
 ]
 
+_WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_COUNT_FUNCTION_SUCCEEDS_CASES = [
+    {
+        'testcase_name': '_withMemberCount',
+        'fhir_path_expression': 'bar.count()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(count_) '
+            'FROM (SELECT COUNT( bar) AS count_ '
+            'FROM (SELECT bar)) '
+            'WHERE count_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDeepestNestedMemberSqlKeywordCount',
+        'fhir_path_expression': 'bar.bats.struct.count()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(count_) '
+            'FROM (SELECT COUNT( bats_element_.struct) AS count_ '
+            'FROM (SELECT bar) '
+            'LATERAL VIEW POSEXPLODE(bar.bats) AS index_bats_element_, '
+            'bats_element_) '
+            'WHERE count_ IS NOT NULL)'
+        ),
+    },
+]
+
 
 class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
                                   parameterized.TestCase):
@@ -781,7 +806,7 @@ class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
   @parameterized.named_parameters(
       _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_SUCCEEDS_CASES
   )
-  def testEncode_withFhirPathMemberInvocation_succeeds(
+  def testEncode_withFhirPathMemberV2Invocation_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -790,12 +815,26 @@ class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True)
 
+  @parameterized.named_parameters(
+      _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_COUNT_FUNCTION_SUCCEEDS_CASES
+  )
+  def testEncode_withFhirPathV2MemberFunctionInvocation_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
+    self.assertEvaluationNodeSqlCorrect(
+        structdef=self.foo,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=True,
+    )
+
   def testEncode_withFhirPathV2SelectScalarsAsArrayFalseForLiteral_succeeds(
       self):
     fhir_path_expression = 'true'
     expected_sql_expression = '(SELECT TRUE AS literal_)'
     self.assertEvaluationNodeSqlCorrect(None, fhir_path_expression,
                                         expected_sql_expression, False)
+
 
 if __name__ == '__main__':
   absltest.main()
