@@ -19,8 +19,14 @@ from google.fhir.core.execution.expressions import operator_expression_node
 class TernaryExpressionNode(operator_expression_node.OperatorExpressionNode):
   """Defines the abstract base type for expressions that take three arguments."""
 
-  def __init__(self=None, signature=None, operand=None):
-    super().__init__(signature)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      operand=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier, signature)
     if operand is None:
       self.operand = []
     else:

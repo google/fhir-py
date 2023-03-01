@@ -20,9 +20,15 @@ class ConceptDefNode(element_node.ElementNode):
   """Defines a concept identifier that can then be used to reference single concepts anywhere within an expression."""
 
   def __init__(
-      self=None, name=None, display=None, access_level=None, code=None
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      name=None,
+      display=None,
+      access_level='Public',
+      code=None,
   ):
-    super().__init__()
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name
     self.display = display
     self.access_level = access_level

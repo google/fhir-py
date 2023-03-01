@@ -19,7 +19,13 @@ from google.fhir.core.execution.expressions import expression_node
 class ExpressionRefNode(expression_node.ExpressionNode):
   """Defines an expression that references a previously defined namedexpression."""
 
-  def __init__(self=None, name=None, library_name=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      name=None,
+      library_name=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name
     self.library_name = library_name

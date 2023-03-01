@@ -19,6 +19,8 @@ from google.fhir.core.execution.expressions import expression_node
 class TotalNode(expression_node.ExpressionNode):
   """The TotalNode expression returns the current value of the total aggregation accumulator in an aggregate operation."""
 
-  def __init__(self=None, scope=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, scope=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.scope = scope

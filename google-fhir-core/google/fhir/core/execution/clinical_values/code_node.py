@@ -19,8 +19,15 @@ from google.fhir.core.execution.expressions import expression_node
 class CodeNode(expression_node.ExpressionNode):
   """Represents a literal code selector."""
 
-  def __init__(self=None, code=None, display=None, system=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      code=None,
+      display=None,
+      system=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.code = code
     self.display = display
     self.system = system

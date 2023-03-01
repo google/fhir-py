@@ -19,7 +19,13 @@ from google.fhir.core.execution.expressions import expression_node
 class ParameterRefNode(expression_node.ExpressionNode):
   """The ParameterRefNode expression allows the value of a parameter to be referenced as part of an expression."""
 
-  def __init__(self=None, name=None, library_name=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      name=None,
+      library_name=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name
     self.library_name = library_name

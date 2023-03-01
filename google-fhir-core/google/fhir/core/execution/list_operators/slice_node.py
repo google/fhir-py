@@ -20,9 +20,15 @@ class SliceNode(operator_expression_node.OperatorExpressionNode):
   """The SliceNode operator returns a portion of the elements in a list, beginning at the start index and ending just before the ending index."""
 
   def __init__(
-      self=None, signature=None, source=None, start_index=None, end_index=None
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      source=None,
+      start_index=None,
+      end_index=None,
   ):
-    super().__init__(signature)
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.source = source
     self.start_index = start_index
     self.end_index = end_index

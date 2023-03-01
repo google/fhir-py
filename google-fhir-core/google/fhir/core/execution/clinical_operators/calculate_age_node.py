@@ -19,6 +19,15 @@ from google.fhir.core.execution.expressions import unary_expression_node
 class CalculateAgeNode(unary_expression_node.UnaryExpressionNode):
   """Calculates the age in the specified precision of a person born on the given date."""
 
-  def __init__(self=None, signature=None, operand=None, precision=None):
-    super().__init__(signature, operand)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      operand=None,
+      precision=None,
+  ):
+    super().__init__(
+        result_type_name, result_type_specifier, signature, operand
+    )
     self.precision = precision

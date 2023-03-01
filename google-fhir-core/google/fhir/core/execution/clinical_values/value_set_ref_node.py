@@ -19,8 +19,15 @@ from google.fhir.core.execution.expressions import expression_node
 class ValueSetRefNode(expression_node.ExpressionNode):
   """The ValueSetRefNode expression allows a previously defined named value set to be referenced within an expression."""
 
-  def __init__(self=None, name=None, library_name=None, preserve=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      name=None,
+      library_name=None,
+      preserve=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name
     self.library_name = library_name
     self.preserve = preserve

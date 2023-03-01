@@ -19,8 +19,15 @@ from google.fhir.core.execution.expressions import expression_node
 class CaseNode(expression_node.ExpressionNode):
   """The CaseNode operator allows for multiple conditional expressions to be chained together in a single expression, rather than having to nest multiple If operators."""
 
-  def __init__(self=None, comparand=None, case_item=None, else_=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      comparand=None,
+      case_item=None,
+      else_=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.comparand = comparand
     if case_item is None:
       self.case_item = []

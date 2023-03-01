@@ -19,8 +19,15 @@ from google.fhir.core.execution.expressions import expression_node
 class AggregateExpressionNode(expression_node.ExpressionNode):
   """Aggregate expressions perform operations on lists of data, either directly on a list of scalars, or indirectly on a list of objects, with a reference to a property present on each object in the list."""
 
-  def __init__(self=None, path=None, signature=None, source=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      path=None,
+      signature=None,
+      source=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.path = path
     if signature is None:
       self.signature = []

@@ -19,8 +19,15 @@ from google.fhir.core.execution import element_node
 class IncludeDefNode(element_node.ElementNode):
   """Includes a library for use within the artifact."""
 
-  def __init__(self=None, media_type=None, path=None, version=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      media_type='application/elm+xml',
+      path=None,
+      version=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.media_type = media_type
     self.path = path
     self.version = version

@@ -19,6 +19,8 @@ from google.fhir.core.execution.type_specifiers import type_specifier_node
 class IntervalTypeSpecifierNode(type_specifier_node.TypeSpecifierNode):
   """IntervalTypeSpecifierNode defines an interval type by specifying the point type."""
 
-  def __init__(self=None, point_type=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, point_type=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.point_type = point_type

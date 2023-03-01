@@ -20,14 +20,16 @@ class CodeFilterElementNode(element_node.ElementNode):
   """Specifies a terminology filter criteria for use within a retrieve, specified as either [property] [comparator] [value] or [search] [comparator] [value]."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       property_=None,
       value_set_property=None,
       search=None,
       comparator=None,
       value=None,
   ):
-    super().__init__()
+    super().__init__(result_type_name, result_type_specifier)
     self.property_ = property_
     self.value_set_property = value_set_property
     self.search = search

@@ -19,8 +19,15 @@ from google.fhir.core.execution.expressions import expression_node
 class IfNode(expression_node.ExpressionNode):
   """The IfNode operator evaluates a condition, and returns the then argument if the condition evaluates to true; if the condition evaluates to false or null, the result of the else argument is returned."""
 
-  def __init__(self=None, condition=None, then=None, else_=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      condition=None,
+      then=None,
+      else_=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.condition = condition
     self.then = then
     self.else_ = else_

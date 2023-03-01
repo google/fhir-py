@@ -20,7 +20,9 @@ class RetrieveNode(expression_node.ExpressionNode):
   """The retrieve expression defines clinical data that will be used by the artifact."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       data_type=None,
       template_id=None,
       id_property=None,
@@ -45,7 +47,7 @@ class RetrieveNode(expression_node.ExpressionNode):
       date_filter=None,
       other_filter=None,
   ):
-    super().__init__()
+    super().__init__(result_type_name, result_type_specifier)
     self.data_type = data_type
     self.template_id = template_id
     self.id_property = id_property

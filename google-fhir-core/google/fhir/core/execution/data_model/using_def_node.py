@@ -19,7 +19,13 @@ from google.fhir.core.execution import element_node
 class UsingDefNode(element_node.ElementNode):
   """Defines a data model that is available within the artifact."""
 
-  def __init__(self=None, uri=None, version=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      uri=None,
+      version=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.uri = uri
     self.version = version

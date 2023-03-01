@@ -19,8 +19,16 @@ from google.fhir.core.execution import element_node
 class CodeSystemDefNode(element_node.ElementNode):
   """Defines a code system identifier that can then be used to identify code systems involved in value set definitions."""
 
-  def __init__(self=None, name=None, id_=None, version=None, access_level=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      name=None,
+      id_=None,
+      version=None,
+      access_level='Public',
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name
     self.id_ = id_
     self.version = version

@@ -19,8 +19,10 @@ from google.fhir.core.execution.type_specifiers import type_specifier_node
 class TupleTypeSpecifierNode(type_specifier_node.TypeSpecifierNode):
   """TupleTypeSpecifierNode defines the possible elements of a tuple."""
 
-  def __init__(self=None, element=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, element=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     if element is None:
       self.element = []
     else:

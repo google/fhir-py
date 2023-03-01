@@ -18,7 +18,7 @@
 class VersionedIdentifierNode:
   """VersionedIdentifierNode is composed of three parts: (1) an optional system, or."""
 
-  def __init__(self=None, id_=None, system=None, version=None):
+  def __init__(self, id_=None, system=None, version=None):
     self.id_ = id_
     self.system = system
     self.version = version

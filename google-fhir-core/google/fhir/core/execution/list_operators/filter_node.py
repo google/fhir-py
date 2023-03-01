@@ -19,8 +19,15 @@ from google.fhir.core.execution.expressions import expression_node
 class FilterNode(expression_node.ExpressionNode):
   """The FilterNode operator returns a list with only those elements in the source list for which the condition element evaluates to true."""
 
-  def __init__(self=None, scope=None, source=None, condition=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      scope=None,
+      source=None,
+      condition=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.scope = scope
     self.source = source
     self.condition = condition

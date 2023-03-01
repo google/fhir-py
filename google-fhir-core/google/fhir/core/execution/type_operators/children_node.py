@@ -19,6 +19,12 @@ from google.fhir.core.execution.expressions import operator_expression_node
 class ChildrenNode(operator_expression_node.OperatorExpressionNode):
   """For structured types, the ChildrenNode operator returns a list of all the values of the elements of the type."""
 
-  def __init__(self=None, signature=None, source=None):
-    super().__init__(signature)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      source=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.source = source

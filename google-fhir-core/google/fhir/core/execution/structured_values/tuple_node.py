@@ -19,8 +19,10 @@ from google.fhir.core.execution.expressions import expression_node
 class TupleNode(expression_node.ExpressionNode):
   """To be built up as an expression."""
 
-  def __init__(self=None, element=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, element=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     if element is None:
       self.element = []
     else:

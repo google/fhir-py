@@ -19,7 +19,14 @@ from google.fhir.core.execution.expressions import operator_expression_node
 class SplitNode(operator_expression_node.OperatorExpressionNode):
   """The SplitNode operator splits a string into a list of strings using a separator."""
 
-  def __init__(self=None, signature=None, string_to_split=None, separator=None):
-    super().__init__(signature)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      string_to_split=None,
+      separator=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.string_to_split = string_to_split
     self.separator = separator

@@ -19,6 +19,13 @@ from google.fhir.core.execution.queries import aliased_query_source_node
 class RelationshipClauseNode(aliased_query_source_node.AliasedQuerySourceNode):
   """The RelationshipClauseNode element allows related sources to be used to restrict the elements included from another source in a query scope."""
 
-  def __init__(self=None, alias=None, expression=None, such_that=None):
-    super().__init__(alias, expression)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      alias=None,
+      expression=None,
+      such_that=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier, alias, expression)
     self.such_that = such_that

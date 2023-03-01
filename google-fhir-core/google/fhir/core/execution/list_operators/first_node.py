@@ -19,7 +19,14 @@ from google.fhir.core.execution.expressions import operator_expression_node
 class FirstNode(operator_expression_node.OperatorExpressionNode):
   """The FirstNode operator returns the first element in a list."""
 
-  def __init__(self=None, signature=None, order_by=None, source=None):
-    super().__init__(signature)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      order_by=None,
+      source=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.order_by = order_by
     self.source = source

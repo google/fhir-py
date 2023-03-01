@@ -20,16 +20,25 @@ class FunctionDefNode(expression_def_node.ExpressionDefNode):
   """Defines a named function that can be invoked by any expression in the artifact."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       name=None,
       context=None,
-      access_level=None,
+      access_level='Public',
       expression=None,
       external=None,
       fluent=None,
-      operand='Public',
+      operand=None,
   ):
-    super().__init__(name, context, access_level, expression)
+    super().__init__(
+        result_type_name,
+        result_type_specifier,
+        name,
+        context,
+        access_level,
+        expression,
+    )
     self.external = external
     self.fluent = fluent
     if operand is None:

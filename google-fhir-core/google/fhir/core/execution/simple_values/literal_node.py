@@ -19,7 +19,13 @@ from google.fhir.core.execution.expressions import expression_node
 class LiteralNode(expression_node.ExpressionNode):
   """Defines a single scalar value."""
 
-  def __init__(self=None, value_type=None, value=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      value_type=None,
+      value=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.value_type = value_type
     self.value = value

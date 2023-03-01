@@ -19,8 +19,14 @@ from google.fhir.core.execution.expressions import expression_node
 class ListNode(expression_node.ExpressionNode):
   """ListNode, whose elements are the result of evaluating the arguments to the list selector, in order."""
 
-  def __init__(self=None, type_specifier=None, element=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      type_specifier=None,
+      element=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.type_specifier = type_specifier
     if element is None:
       self.element = []

@@ -20,12 +20,16 @@ class IsNode(unary_expression_node.UnaryExpressionNode):
   """Of a result to be tested."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       signature=None,
       operand=None,
       is_type=None,
       is_type_specifier=None,
   ):
-    super().__init__(signature, operand)
+    super().__init__(
+        result_type_name, result_type_specifier, signature, operand
+    )
     self.is_type = is_type
     self.is_type_specifier = is_type_specifier

@@ -19,8 +19,14 @@ from google.fhir.core.execution.expressions import expression_node
 class SortNode(expression_node.ExpressionNode):
   """The SortNode operator returns a list with all the elements in source, sorted as described by the by element."""
 
-  def __init__(self=None, source=None, by=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      source=None,
+      by=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.source = source
     if by is None:
       self.by = []

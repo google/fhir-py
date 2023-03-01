@@ -19,6 +19,8 @@ from google.fhir.core.execution.expressions import expression_node
 class CurrentNode(expression_node.ExpressionNode):
   """The CurrentNode expression returns the value of the object currently in scope."""
 
-  def __init__(self=None, scope=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, scope=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.scope = scope

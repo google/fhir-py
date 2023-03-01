@@ -19,7 +19,13 @@ from google.fhir.core.execution.expressions import expression_node
 class RatioNode(expression_node.ExpressionNode):
   """Defines a ratio between two quantities."""
 
-  def __init__(self=None, numerator=None, denominator=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      numerator=None,
+      denominator=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.numerator = numerator
     self.denominator = denominator

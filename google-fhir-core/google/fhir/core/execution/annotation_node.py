@@ -18,7 +18,7 @@ from google.fhir.core.execution.conversion import cql_to_elm_base_node
 
 class AnnotationNode(cql_to_elm_base_node.CqlToElmBaseNode):
 
-  def __init__(self=None, t=None, s=None):
+  def __init__(self, t=None, s=None):
     super().__init__()
     if t is None:
       self.t = []

@@ -20,14 +20,16 @@ class IncludeElementNode(element_node.ElementNode):
   """Specifies include information for an include within a retrieve."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       include_from=None,
       related_data_type=None,
       related_property=None,
       related_search=None,
       is_reverse=None,
   ):
-    super().__init__()
+    super().__init__(result_type_name, result_type_specifier)
     self.include_from = include_from
     self.related_data_type = related_data_type
     self.related_property = related_property

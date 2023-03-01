@@ -17,3 +17,7 @@
 
 class ElementNode:
   """Defines the abstract base type for all library elements in elm."""
+
+  def __init__(self, result_type_name=None, result_type_specifier=None):
+    self.result_type_name = result_type_name
+    self.result_type_specifier = result_type_specifier

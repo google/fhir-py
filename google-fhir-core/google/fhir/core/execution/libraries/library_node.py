@@ -20,7 +20,9 @@ class LibraryNode(element_node.ElementNode):
   """A LibraryNode is an instance of a CQL-ELM library."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       identifier=None,
       schema_identifier=None,
       usings=None,
@@ -33,7 +35,7 @@ class LibraryNode(element_node.ElementNode):
       contexts=None,
       statements=None,
   ):
-    super().__init__()
+    super().__init__(result_type_name, result_type_specifier)
     self.identifier = identifier
     self.schema_identifier = schema_identifier
     self.usings = usings

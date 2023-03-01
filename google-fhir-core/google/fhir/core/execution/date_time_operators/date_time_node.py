@@ -20,7 +20,9 @@ class DateTimeNode(operator_expression_node.OperatorExpressionNode):
   """The DateTimeNode operator constructs a DateTimeNode value from the given components."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       signature=None,
       year=None,
       month=None,
@@ -31,7 +33,7 @@ class DateTimeNode(operator_expression_node.OperatorExpressionNode):
       millisecond=None,
       timezone_offset=None,
   ):
-    super().__init__(signature)
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.year = year
     self.month = month
     self.day = day

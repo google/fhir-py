@@ -19,7 +19,14 @@ from google.fhir.core.execution.expressions import operator_expression_node
 class LastPositionOfNode(operator_expression_node.OperatorExpressionNode):
   """The LastPositionOfNode operator returns the 0-based index of the beginning of the last appearance of the given pattern in the given string."""
 
-  def __init__(self=None, signature=None, pattern=None, string=None):
-    super().__init__(signature)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      pattern=None,
+      string=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.pattern = pattern
     self.string = string

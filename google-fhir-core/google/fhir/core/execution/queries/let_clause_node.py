@@ -19,7 +19,13 @@ from google.fhir.core.execution import element_node
 class LetClauseNode(element_node.ElementNode):
   """The LetClauseNode element allows any number of expression definitions to be introduced within a query scope."""
 
-  def __init__(self=None, identifier=None, expression=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      identifier=None,
+      expression=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.identifier = identifier
     self.expression = expression

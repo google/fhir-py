@@ -19,6 +19,11 @@ from google.fhir.core.execution.type_specifiers import type_specifier_node
 class ParameterTypeSpecifierNode(type_specifier_node.TypeSpecifierNode):
   """A type which is generic class parameter such as T in MyGeneric."""
 
-  def __init__(self=None, parameter_name=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      parameter_name=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.parameter_name = parameter_name

@@ -20,14 +20,16 @@ class CodeDefNode(element_node.ElementNode):
   """Defines a code identifier that can then be used to reference single codes anywhere within an expression."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       name=None,
       id_=None,
       display=None,
-      access_level=None,
+      access_level='Public',
       code_system=None,
   ):
-    super().__init__()
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name
     self.id_ = id_
     self.display = display

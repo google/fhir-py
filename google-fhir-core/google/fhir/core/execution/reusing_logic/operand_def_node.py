@@ -20,9 +20,14 @@ class OperandDefNode(element_node.ElementNode):
   """Defines an operand to a function that can be referenced by name anywhere within the body of a function definition."""
 
   def __init__(
-      self=None, name=None, operand_type=None, operand_type_specifier=None
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      name=None,
+      operand_type=None,
+      operand_type_specifier=None,
   ):
-    super().__init__()
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name
     self.operand_type = operand_type
     self.operand_type_specifier = operand_type_specifier

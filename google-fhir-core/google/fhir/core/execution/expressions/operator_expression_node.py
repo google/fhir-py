@@ -19,8 +19,10 @@ from google.fhir.core.execution.expressions import expression_node
 class OperatorExpressionNode(expression_node.ExpressionNode):
   """Defines the abstract base type for all built-in operators used in the elm expression language."""
 
-  def __init__(self=None, signature=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, signature=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     if signature is None:
       self.signature = []
     else:

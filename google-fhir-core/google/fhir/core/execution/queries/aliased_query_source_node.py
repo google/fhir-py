@@ -19,7 +19,13 @@ from google.fhir.core.execution import element_node
 class AliasedQuerySourceNode(element_node.ElementNode):
   """The AliasedQuerySourceNode element defines a single source for inclusion in a query scope."""
 
-  def __init__(self=None, alias=None, expression=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      alias=None,
+      expression=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.alias = alias
     self.expression = expression

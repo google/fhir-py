@@ -19,6 +19,8 @@ from google.fhir.core.execution.expressions import expression_node
 class OperandRefNode(expression_node.ExpressionNode):
   """The OperandRefNode expression allows the value of an operand to be referenced as part of an expression within the body of a function definition."""
 
-  def __init__(self=None, name=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, name=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name

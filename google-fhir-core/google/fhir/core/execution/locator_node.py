@@ -20,7 +20,7 @@ class LocatorNode(cql_to_elm_base_node.CqlToElmBaseNode):
   """Used to locate sections of the underlying CQL."""
 
   def __init__(
-      self=None,
+      self,
       library_system=None,
       library_id=None,
       library_version=None,

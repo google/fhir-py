@@ -19,7 +19,14 @@ from google.fhir.core.execution.expressions import operator_expression_node
 class IndexOfNode(operator_expression_node.OperatorExpressionNode):
   """The IndexOfNode operator returns the 0-based index of the given element in the given source list."""
 
-  def __init__(self=None, signature=None, source=None, element=None):
-    super().__init__(signature)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      source=None,
+      element=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.source = source
     self.element = element

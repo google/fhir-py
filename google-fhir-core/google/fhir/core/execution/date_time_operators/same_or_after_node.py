@@ -19,6 +19,15 @@ from google.fhir.core.execution.expressions import binary_expression_node
 class SameOrAfterNode(binary_expression_node.BinaryExpressionNode):
   """The SameOrAfterNode operator is defined for Date, DateTime, and Time values, as well as intervals."""
 
-  def __init__(self=None, signature=None, operand=None, precision=None):
-    super().__init__(signature, operand)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      operand=None,
+      precision=None,
+  ):
+    super().__init__(
+        result_type_name, result_type_specifier, signature, operand
+    )
     self.precision = precision

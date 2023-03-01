@@ -19,8 +19,15 @@ from google.fhir.core.execution.expressions import expression_node
 class ForEachNode(expression_node.ExpressionNode):
   """The ForEachNode expression iterates over the list of elements in the source element, and returns a list with the same number of elements, where each element in the new list is the result of evaluating the element expression for each element in the source list."""
 
-  def __init__(self=None, scope=None, source=None, element=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      scope=None,
+      source=None,
+      element=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.scope = scope
     self.source = source
     self.element = element

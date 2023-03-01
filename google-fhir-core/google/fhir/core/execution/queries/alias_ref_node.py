@@ -19,6 +19,8 @@ from google.fhir.core.execution.expressions import expression_node
 class AliasRefNode(expression_node.ExpressionNode):
   """The AliasRefNode expression allows for the reference of a specific source within the scope of a query."""
 
-  def __init__(self=None, name=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, name=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name

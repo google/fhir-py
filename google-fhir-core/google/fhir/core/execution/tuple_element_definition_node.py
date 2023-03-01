@@ -19,8 +19,15 @@ from google.fhir.core.execution import element_node
 class TupleElementDefinitionNode(element_node.ElementNode):
   """TupleElementDefinitionNode defines the name and type of a single element within a TupleTypeSpecifier."""
 
-  def __init__(self=None, name=None, type_=None, element_type=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      name=None,
+      type_=None,
+      element_type=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name
     self.type_ = type_
     self.element_type = element_type

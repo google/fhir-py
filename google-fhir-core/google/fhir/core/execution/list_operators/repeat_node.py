@@ -19,8 +19,15 @@ from google.fhir.core.execution.expressions import expression_node
 class RepeatNode(expression_node.ExpressionNode):
   """The RepeatNode expression performs successive ForEach until no new elements are returned."""
 
-  def __init__(self=None, scope=None, source=None, element=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      scope=None,
+      source=None,
+      element=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.scope = scope
     self.source = source
     self.element = element

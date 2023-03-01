@@ -19,7 +19,13 @@ from google.fhir.core.execution.expressions import expression_node
 class QuantityNode(expression_node.ExpressionNode):
   """Defines a clinical quantity."""
 
-  def __init__(self=None, value=None, unit=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      value=None,
+      unit=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.value = value
     self.unit = unit

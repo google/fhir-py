@@ -20,14 +20,16 @@ class DateFilterElementNode(element_node.ElementNode):
   """Specifies a date-valued filter criteria for use within a retrieve, specified as either a date-valued [property], a date-value [lowproperty] and [highproperty] or a [search], and an expression that evaluates to a date or time type, an interval of a date or time type, or a time-valued quantity."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       property_=None,
       low_property=None,
       high_property=None,
       search=None,
       value=None,
   ):
-    super().__init__()
+    super().__init__(result_type_name, result_type_specifier)
     self.property_ = property_
     self.low_property = low_property
     self.high_property = high_property

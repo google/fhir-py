@@ -20,9 +20,17 @@ class FunctionRefNode(expression_ref_node.ExpressionRefNode):
   """Defines an expression that invokes a previously defined function."""
 
   def __init__(
-      self=None, name=None, library_name=None, signature=None, operand=None
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      name=None,
+      library_name=None,
+      signature=None,
+      operand=None,
   ):
-    super().__init__(name, library_name)
+    super().__init__(
+        result_type_name, result_type_specifier, name, library_name
+    )
     if signature is None:
       self.signature = []
     else:

@@ -19,7 +19,14 @@ from google.fhir.core.execution.expressions import operator_expression_node
 class RoundNode(operator_expression_node.OperatorExpressionNode):
   """The RoundNode operator returns the nearest integer to its argument."""
 
-  def __init__(self=None, signature=None, operand=None, precision=None):
-    super().__init__(signature)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      operand=None,
+      precision=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.operand = operand
     self.precision = precision

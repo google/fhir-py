@@ -20,9 +20,15 @@ class ExpressionDefNode(element_node.ElementNode):
   """Defines an expression and an associated name that can be referenced by any expression in the artifact."""
 
   def __init__(
-      self=None, name=None, context=None, access_level=None, expression=None
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      name=None,
+      context=None,
+      access_level='Public',
+      expression=None,
   ):
-    super().__init__()
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name
     self.context = context
     self.access_level = access_level

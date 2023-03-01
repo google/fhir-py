@@ -19,6 +19,8 @@ from google.fhir.core.execution.expressions import expression_node
 class QueryLetRefNode(expression_node.ExpressionNode):
   """The QueryLetRefNode expression allows for the reference of a specific let definition within the scope of a query."""
 
-  def __init__(self=None, name=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, name=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name

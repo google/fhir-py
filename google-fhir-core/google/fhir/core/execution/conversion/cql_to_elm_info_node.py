@@ -18,7 +18,7 @@ from google.fhir.core.execution.conversion import cql_to_elm_base_node
 
 class CqlToElmInfoNode(cql_to_elm_base_node.CqlToElmBaseNode):
 
-  def __init__(self=None, translator_version=None, translator_options=None):
+  def __init__(self, translator_version=None, translator_options=None):
     super().__init__()
     self.translator_version = translator_version
     self.translator_options = translator_options

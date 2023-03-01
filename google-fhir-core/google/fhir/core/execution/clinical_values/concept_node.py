@@ -19,8 +19,14 @@ from google.fhir.core.execution.expressions import expression_node
 class ConceptNode(expression_node.ExpressionNode):
   """Represents a literal concept selector."""
 
-  def __init__(self=None, display=None, code=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      display=None,
+      code=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.display = display
     if code is None:
       self.code = []

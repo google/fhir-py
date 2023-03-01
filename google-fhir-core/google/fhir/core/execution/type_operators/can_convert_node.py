@@ -20,12 +20,16 @@ class CanConvertNode(unary_expression_node.UnaryExpressionNode):
   """The CanConvertNode operator returns true if the given value can be converted to a specific type, and false otherwise."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       signature=None,
       operand=None,
       to_type=None,
       to_type_specifier=None,
   ):
-    super().__init__(signature, operand)
+    super().__init__(
+        result_type_name, result_type_specifier, signature, operand
+    )
     self.to_type = to_type
     self.to_type_specifier = to_type_specifier

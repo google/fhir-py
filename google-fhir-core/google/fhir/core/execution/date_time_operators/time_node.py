@@ -20,14 +20,16 @@ class TimeNode(operator_expression_node.OperatorExpressionNode):
   """The TimeNode operator constructs a time value from the given components."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       signature=None,
       hour=None,
       minute=None,
       second=None,
       millisecond=None,
   ):
-    super().__init__(signature)
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.hour = hour
     self.minute = minute
     self.second = second

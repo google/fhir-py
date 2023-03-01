@@ -20,14 +20,18 @@ class AsNode(unary_expression_node.UnaryExpressionNode):
   """The AsNode operator allows the result of an expression to be cast as a given target type."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       signature=None,
       operand=None,
       as_type=None,
-      strict=None,
+      strict=False,
       as_type_specifier=None,
   ):
-    super().__init__(signature, operand)
+    super().__init__(
+        result_type_name, result_type_specifier, signature, operand
+    )
     self.as_type = as_type
     self.strict = strict
     self.as_type_specifier = as_type_specifier

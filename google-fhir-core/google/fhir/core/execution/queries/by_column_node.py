@@ -19,6 +19,12 @@ from google.fhir.core.execution import sort_by_item_node
 class ByColumnNode(sort_by_item_node.SortByItemNode):
   """The ByColumnNode element specifies that the sort should be performed using the given column and direction."""
 
-  def __init__(self=None, direction=None, path=None):
-    super().__init__(direction)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      direction=None,
+      path=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier, direction)
     self.path = path

@@ -20,13 +20,15 @@ class AnyInValueSetNode(operator_expression_node.OperatorExpressionNode):
   """The AnyInValueSetNode operator returns true if any of the given codes are in the given value set."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       signature=None,
       codes=None,
       valueset=None,
       valueset_expression=None,
   ):
-    super().__init__(signature)
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.codes = codes
     self.valueset = valueset
     self.valueset_expression = valueset_expression

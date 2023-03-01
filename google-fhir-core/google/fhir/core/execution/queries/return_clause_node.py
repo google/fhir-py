@@ -19,7 +19,13 @@ from google.fhir.core.execution import element_node
 class ReturnClauseNode(element_node.ElementNode):
   """The ReturnClauseNode element defines the shape of the result set of the query."""
 
-  def __init__(self=None, distinct=None, expression=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      distinct=True,
+      expression=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.distinct = distinct
     self.expression = expression

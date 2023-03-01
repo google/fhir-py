@@ -19,6 +19,8 @@ from google.fhir.core.execution.expressions import expression_node
 class MaxValueNode(expression_node.ExpressionNode):
   """The MaxValueNode operator returns the maximum representable value for the given type."""
 
-  def __init__(self=None, value_type=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, value_type=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.value_type = value_type

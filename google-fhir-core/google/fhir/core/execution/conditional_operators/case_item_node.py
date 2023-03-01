@@ -18,7 +18,13 @@ from google.fhir.core.execution import element_node
 
 class CaseItemNode(element_node.ElementNode):
 
-  def __init__(self=None, when=None, then=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      when=None,
+      then=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.when = when
     self.then = then

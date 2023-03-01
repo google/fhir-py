@@ -20,7 +20,9 @@ class QueryNode(expression_node.ExpressionNode):
   """The QueryNode operator represents a clause-based query."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       source=None,
       let=None,
       relationship=None,
@@ -29,7 +31,7 @@ class QueryNode(expression_node.ExpressionNode):
       aggregate=None,
       sort=None,
   ):
-    super().__init__()
+    super().__init__(result_type_name, result_type_specifier)
     if source is None:
       self.source = []
     else:

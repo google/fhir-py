@@ -20,9 +20,15 @@ class AggregateClauseNode(element_node.ElementNode):
   """The AggregateClauseNode element defines the result of the query in terms of an aggregation expression performed for each item in the query."""
 
   def __init__(
-      self=None, identifier=None, distinct=None, expression=None, starting=None
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      identifier=None,
+      distinct=False,
+      expression=None,
+      starting=None,
   ):
-    super().__init__()
+    super().__init__(result_type_name, result_type_specifier)
     self.identifier = identifier
     self.distinct = distinct
     self.expression = expression

@@ -20,15 +20,17 @@ class IntervalNode(expression_node.ExpressionNode):
   """The IntervalNode selector defines an interval value."""
 
   def __init__(
-      self=None,
-      low_closed=None,
-      high_closed=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      low_closed=True,
+      high_closed=True,
       low=None,
       low_closed_expression=None,
-      high=True,
-      high_closed_expression=True,
+      high=None,
+      high_closed_expression=None,
   ):
-    super().__init__()
+    super().__init__(result_type_name, result_type_specifier)
     self.low_closed = low_closed
     self.high_closed = high_closed
     self.low = low

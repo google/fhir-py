@@ -19,8 +19,14 @@ from google.fhir.core.execution.type_specifiers import type_specifier_node
 class ChoiceTypeSpecifierNode(type_specifier_node.TypeSpecifierNode):
   """ChoiceTypeSpecifierNode defines the possible types of a choice type."""
 
-  def __init__(self=None, type_=None, choice=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      type_=None,
+      choice=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     if type_ is None:
       self.type_ = []
     else:

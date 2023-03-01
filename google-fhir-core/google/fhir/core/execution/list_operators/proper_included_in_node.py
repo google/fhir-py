@@ -19,6 +19,15 @@ from google.fhir.core.execution.expressions import binary_expression_node
 class ProperIncludedInNode(binary_expression_node.BinaryExpressionNode):
   """The ProperIncludedInNode operator returns true if the first operand is included in the second, and is strictly smaller."""
 
-  def __init__(self=None, signature=None, operand=None, precision=None):
-    super().__init__(signature, operand)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      operand=None,
+      precision=None,
+  ):
+    super().__init__(
+        result_type_name, result_type_specifier, signature, operand
+    )
     self.precision = precision

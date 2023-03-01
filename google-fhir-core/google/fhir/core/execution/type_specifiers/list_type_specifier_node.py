@@ -19,6 +19,8 @@ from google.fhir.core.execution.type_specifiers import type_specifier_node
 class ListTypeSpecifierNode(type_specifier_node.TypeSpecifierNode):
   """ListTypeSpecifierNode defines a list type by specifying the type of elements the list may contain."""
 
-  def __init__(self=None, element_type=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, element_type=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.element_type = element_type

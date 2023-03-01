@@ -20,8 +20,13 @@ class SplitOnMatchesNode(operator_expression_node.OperatorExpressionNode):
   """The SplitOnMatchesNode operator splits a string into a list of strings using matches of a regex pattern."""
 
   def __init__(
-      self=None, signature=None, string_to_split=None, separator_pattern=None
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      string_to_split=None,
+      separator_pattern=None,
   ):
-    super().__init__(signature)
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.string_to_split = string_to_split
     self.separator_pattern = separator_pattern

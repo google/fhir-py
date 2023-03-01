@@ -19,8 +19,16 @@ from google.fhir.core.execution.expressions import operator_expression_node
 class DateNode(operator_expression_node.OperatorExpressionNode):
   """The DateNode operator constructs a date value from the given components."""
 
-  def __init__(self=None, signature=None, year=None, month=None, day=None):
-    super().__init__(signature)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      year=None,
+      month=None,
+      day=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.year = year
     self.month = month
     self.day = day

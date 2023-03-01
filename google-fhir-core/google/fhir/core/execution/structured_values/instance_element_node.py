@@ -18,6 +18,6 @@
 class InstanceElementNode:
   """The InstanceElementNode is used within an Instance expression to provide the value of a specific element within an object literal expression."""
 
-  def __init__(self=None, name=None, value=None):
+  def __init__(self, name=None, value=None):
     self.name = name
     self.value = value

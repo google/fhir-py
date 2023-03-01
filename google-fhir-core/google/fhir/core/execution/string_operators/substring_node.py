@@ -20,13 +20,15 @@ class SubstringNode(operator_expression_node.OperatorExpressionNode):
   """The SubstringNode operator returns the string within stringToSub, starting at the 0-based index startIndex, and consisting of length characters."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       signature=None,
       string_to_sub=None,
       start_index=None,
       length=None,
   ):
-    super().__init__(signature)
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.string_to_sub = string_to_sub
     self.start_index = start_index
     self.length = length

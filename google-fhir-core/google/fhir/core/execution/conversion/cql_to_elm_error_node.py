@@ -20,7 +20,7 @@ class CqlToElmErrorNode(locator_node.LocatorNode):
   """Represents CQL to ELM conversion errors."""
 
   def __init__(
-      self=None,
+      self,
       library_system=None,
       library_id=None,
       library_version=None,

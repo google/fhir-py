@@ -20,13 +20,17 @@ class AggregateNode(aggregate_expression_node.AggregateExpressionNode):
   """The AggregateNode operator performs custom aggregation by evaluating an expression for each element of the source."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       path=None,
       signature=None,
       source=None,
       iteration=None,
       initial_value=None,
   ):
-    super().__init__(path, signature, source)
+    super().__init__(
+        result_type_name, result_type_specifier, path, signature, source
+    )
     self.iteration = iteration
     self.initial_value = initial_value

@@ -18,6 +18,8 @@ from google.fhir.core.execution import element_node
 
 class SortByItemNode(element_node.ElementNode):
 
-  def __init__(self=None, direction=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, direction=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.direction = direction

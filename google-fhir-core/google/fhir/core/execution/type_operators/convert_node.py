@@ -20,12 +20,16 @@ class ConvertNode(unary_expression_node.UnaryExpressionNode):
   """The ConvertNode operator converts a value to a specific type."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       signature=None,
       operand=None,
       to_type=None,
       to_type_specifier=None,
   ):
-    super().__init__(signature, operand)
+    super().__init__(
+        result_type_name, result_type_specifier, signature, operand
+    )
     self.to_type = to_type
     self.to_type_specifier = to_type_specifier

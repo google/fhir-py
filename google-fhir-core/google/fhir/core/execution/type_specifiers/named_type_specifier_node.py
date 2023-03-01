@@ -19,6 +19,8 @@ from google.fhir.core.execution.type_specifiers import type_specifier_node
 class NamedTypeSpecifierNode(type_specifier_node.TypeSpecifierNode):
   """NamedTypeSpecifierNode defines a type identified by a name, such as Integer, String, Patient, or Encounter."""
 
-  def __init__(self=None, name=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, name=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name

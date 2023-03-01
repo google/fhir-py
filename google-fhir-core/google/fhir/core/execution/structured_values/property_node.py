@@ -19,8 +19,15 @@ from google.fhir.core.execution.expressions import expression_node
 class PropertyNode(expression_node.ExpressionNode):
   """The PropertyNode operator returns the value of the property on source specified by the path attribute."""
 
-  def __init__(self=None, path=None, scope=None, source=None):
-    super().__init__()
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      path=None,
+      scope=None,
+      source=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.path = path
     self.scope = scope
     self.source = source

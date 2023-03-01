@@ -20,13 +20,15 @@ class AnyInCodeSystemNode(operator_expression_node.OperatorExpressionNode):
   """The AnyInCodeSystemNode operator returns true if any of the given codes are in the given code system."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       signature=None,
       codes=None,
       codesystem=None,
       codesystem_expression=None,
   ):
-    super().__init__(signature)
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.codes = codes
     self.codesystem = codesystem
     self.codesystem_expression = codesystem_expression

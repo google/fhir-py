@@ -18,6 +18,6 @@
 class TupleElementNode:
   """The TupleElementNode is used within a Tuple expression to provide the value of a specific element within a tuple literal expression."""
 
-  def __init__(self=None, name=None, value=None):
+  def __init__(self, name=None, value=None):
     self.name = name
     self.value = value

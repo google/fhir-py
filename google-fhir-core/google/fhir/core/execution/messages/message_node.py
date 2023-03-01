@@ -20,7 +20,9 @@ class MessageNode(operator_expression_node.OperatorExpressionNode):
   """The MessageNode operator is used to support errors, warnings, messages, and tracing in an ELM evaluation environment."""
 
   def __init__(
-      self=None,
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
       signature=None,
       source=None,
       condition=None,
@@ -28,7 +30,7 @@ class MessageNode(operator_expression_node.OperatorExpressionNode):
       severity=None,
       message=None,
   ):
-    super().__init__(signature)
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.source = source
     self.condition = condition
     self.code = code

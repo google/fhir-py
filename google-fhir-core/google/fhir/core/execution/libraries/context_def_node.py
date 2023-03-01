@@ -19,6 +19,8 @@ from google.fhir.core.execution import element_node
 class ContextDefNode(element_node.ElementNode):
   """Defines a context definition statement."""
 
-  def __init__(self=None, name=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, name=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     self.name = name

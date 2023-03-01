@@ -19,8 +19,10 @@ from google.fhir.core.execution import element_node
 class SortClauseNode(element_node.ElementNode):
   """The SortClauseNode element defines the sort order for the query."""
 
-  def __init__(self=None, by=None):
-    super().__init__()
+  def __init__(
+      self, result_type_name=None, result_type_specifier=None, by=None
+  ):
+    super().__init__(result_type_name, result_type_specifier)
     if by is None:
       self.by = []
     else:

@@ -19,7 +19,14 @@ from google.fhir.core.execution.expressions import operator_expression_node
 class LastNode(operator_expression_node.OperatorExpressionNode):
   """The LastNode operator returns the last element in a list."""
 
-  def __init__(self=None, signature=None, order_by=None, source=None):
-    super().__init__(signature)
+  def __init__(
+      self,
+      result_type_name=None,
+      result_type_specifier=None,
+      signature=None,
+      order_by=None,
+      source=None,
+  ):
+    super().__init__(result_type_name, result_type_specifier, signature)
     self.order_by = order_by
     self.source = source
