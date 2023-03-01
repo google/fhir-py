@@ -2408,6 +2408,21 @@ class FhirPathStandardSqlEncoderTest(
               WHERE memberof_ IS NOT NULL)"""
           ),
       ),
+      dict(
+          testcase_name='_withScalarCodeableConceptMemberOf',
+          fhir_path_expression=(
+              "codeFlavor.codeableConcept.memberOf('http://value.set/2')"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
+              ARRAY(SELECT memberof_
+              FROM (SELECT (codeFlavor.codeableConcept.coding IS NULL) OR EXISTS(
+              SELECT 1
+              FROM UNNEST(codeFlavor.codeableConcept.coding)
+              WHERE ((system = "system_3") AND (code IN ("code_3", "code_4"))) OR ((system = "system_5") AND (code IN ("code_5")))) AS memberof_)
+              WHERE memberof_ IS NOT NULL)"""
+          ),
+      ),
   )
   def testEncode_withFhirPathMemberFunctionAgainstLocalValueSetDefinitions_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str

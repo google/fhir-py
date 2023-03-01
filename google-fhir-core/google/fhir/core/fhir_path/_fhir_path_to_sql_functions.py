@@ -693,9 +693,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
     # ourselves. If so, expand the value set and generate an IN
     # expression validating if the codes in the column are members of
     # the value set.
-    if value_set_resolver is not None and (
-        _is_string_or_code(operand_type) or _is_coding(operand_type)
-    ):
+    if value_set_resolver is not None:
       expanded_value_set = value_set_resolver.expand_value_set_url(
           value_set_uri
       )
@@ -719,17 +717,10 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
           value_set_codes_table,
       )
 
-    if _is_string_or_code(operand_type):
-      raise ValueError(
-          'Unable to expand value set %s locally and no value set'
-          ' definitions table provided. Unable to generate memberOf SQL.'
-          % value_set_uri,
-      )
-
     raise ValueError(
-        'Non-code bound to value set %s and no value set definitions table'
-        ' provided. Currently, only value sets bound to codes or codings are'
-        ' expanded locally. Unable to generate memberOf SQL.' % value_set_uri,
+        'Unable to expand value set %s locally and no value set'
+        ' definitions table provided. Unable to generate memberOf SQL.'
+        % value_set_uri,
     )
 
   def _member_of_sql_against_inline_value_sets(
@@ -762,53 +753,116 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
       # so we have to generate more complex SQL like:
       # SELECT (system = system1 AND code IN (code1, code2)) OR
       #        (system = system2 AND code IN (code3, code4))
-
-      # Group codes per code system using.
-      codes_per_system = {}
-      for concept in expanded_value_set.expansion.contains:
-        codes_per_system.setdefault(concept.system.value, []).append(
-            concept.code.value
-        )
-
-      # Sort the code system entries to ensure we build stable SQL.
-      codes_per_system = list(codes_per_system.items())
-      codes_per_system.sort(key=operator.itemgetter(0))
-      for _, codes in codes_per_system:
-        codes.sort()
-
-      # Build a 'system = system AND code IN (codes)' expression per code system
-      code_system_predicates = []
-      code_col = operand_result.select_part.dot('code', _sql_data_types.String)
-      system_col = operand_result.select_part.dot(
-          'system', _sql_data_types.String
+      predicate = self._build_predicate_for_coding_in_value_set(
+          expanded_value_set, operand_result.select_part
       )
-      for system, codes in codes_per_system:
-        system = _sql_data_types.RawExpression(
-            '"%s"' % system, _sql_data_types.String
-        )
-        codes = [
-            _sql_data_types.RawExpression('"%s"' % code, _sql_data_types.String)
-            for code in codes
-        ]
-        code_system_predicates.append(
-            system_col.eq_(system).and_(code_col.in_(codes))
-        )
-
-      # OR each of the above predicates.
-      combined_predicates = functools.reduce(
-          lambda acc, pred: acc.or_(pred), code_system_predicates
-      )
-
       return dataclasses.replace(
           operand_result,
           select_part=operand_result.select_part.is_null().or_(
-              combined_predicates, _sql_alias=sql_alias
+              predicate, _sql_alias=sql_alias
+          ),
+      )
+
+    if _fhir_path_data_types.is_codeable_concept(operand_type):
+      # Codeable concepts are an array of codings. We need to check if
+      # any of the codings in the array match one of the value set's
+      # bound codings. We generate SQL like:
+      # SELECT EXISTS(
+      #   SELECT 1
+      #   FROM UNNEST(codeable_concept)
+      #   WHERE (system = system1 AND code IN (code1, code2)) OR
+      #         (system = system2 AND code IN (code3, code4))
+      #
+      coding_column = operand_result.select_part.dot(
+          'coding', _sql_data_types.String
+      )
+      predicate = self._build_predicate_for_coding_in_value_set(
+          expanded_value_set
+      )
+      return dataclasses.replace(
+          operand_result,
+          select_part=coding_column.is_null().or_(
+              _sql_data_types.RawExpression(
+                  (
+                      'EXISTS(\n'
+                      'SELECT 1\n'
+                      f'FROM UNNEST({coding_column})\n'
+                      f'WHERE {predicate})'
+                  ),
+                  _sql_data_type=_sql_data_types.Boolean,
+              ),
+              _sql_alias=sql_alias,
           ),
       )
 
     raise ValueError(
         'Unexpected type %s and structure definition %s encountered'
         % (operand_type, operand_type.url)
+    )
+
+  def _build_predicate_for_coding_in_value_set(
+      self,
+      expanded_value_set: value_set_pb2.ValueSet,
+      coding_column: Optional[_sql_data_types.Identifier] = None,
+  ) -> _sql_data_types.StandardSqlExpression:
+    """Builds a predicate asserting the coding column is bound to the value_set.
+
+    Ensures that the codings contained in `coding_column` are codings found in
+    `expanded_value_set`.
+    Produces SQL like:
+    (`coding_column`.system = system1 AND `coding_column`.code IN (
+      code1, code2)) OR
+    (`coding_column`.system = system2 AND `coding_column`.code IN (
+      code3, code4))
+
+    Args:
+      expanded_value_set: The expanded value set containing the coding values to
+        assert membership against.
+      coding_column: The column containing the coding values. If given, columns
+        `coding_column`.system and `coding_column`.code will be referenced in
+        the predicate. If not given, columns 'system' and 'code' will be
+        referenced.
+
+    Returns:
+      The SQL for the value set binding predicate.
+    """
+    # Group codes per code system.
+    codes_per_system = {}
+    for concept in expanded_value_set.expansion.contains:
+      codes_per_system.setdefault(concept.system.value, []).append(
+          concept.code.value
+      )
+
+    # Sort the code system entries to ensure we build stable SQL.
+    codes_per_system = list(codes_per_system.items())
+    codes_per_system.sort(key=operator.itemgetter(0))
+    for _, codes in codes_per_system:
+      codes.sort()
+
+    # Build a 'system = system AND code IN (codes)' expression per code system
+    if coding_column is None:
+      code_col = _sql_data_types.Identifier('code', _sql_data_types.String)
+      system_col = _sql_data_types.Identifier('system', _sql_data_types.String)
+    else:
+      code_col = coding_column.dot('code', _sql_data_types.String)
+      system_col = coding_column.dot('system', _sql_data_types.String)
+
+    code_system_predicates = []
+    for system, codes in codes_per_system:
+      system = _sql_data_types.RawExpression(
+          '"%s"' % system, _sql_data_types.String
+      )
+      codes = [
+          _sql_data_types.RawExpression('"%s"' % code, _sql_data_types.String)
+          for code in codes
+      ]
+      code_system_predicates.append(
+          system_col.eq_(system).and_(code_col.in_(codes))
+      )
+
+    # OR each of the above predicates.
+    return functools.reduce(
+        lambda acc, pred: acc.or_(pred), code_system_predicates
     )
 
   def _member_of_sql_against_remote_value_set_table(
