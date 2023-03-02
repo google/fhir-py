@@ -16,6 +16,10 @@
 import enum
 
 
+class Node:
+  """The base type of all nodes."""
+
+
 class AccessModifier(str, enum.Enum):
   """Is used to specify the access level for the various definitions within a library such as parameters, expressions, and functions."""
 
@@ -59,7 +63,7 @@ class SortDirection(str, enum.Enum):
   DESCENDING = 'descending'
 
 
-class ElementNode:
+class ElementNode(Node):
   """Defines the abstract base type for all library elements in elm."""
 
   def __init__(self, result_type_name=None, result_type_specifier=None):
@@ -430,7 +434,7 @@ class LiteralNode(ExpressionNode):
     self.value = value
 
 
-class TupleElementNode:
+class TupleElementNode(Node):
   """The TupleElementNode is used within a Tuple expression to provide the value of a specific element within a tuple literal expression."""
 
   def __init__(self, name=None, value=None):
@@ -451,7 +455,7 @@ class TupleNode(ExpressionNode):
       self.element = element
 
 
-class InstanceElementNode:
+class InstanceElementNode(Node):
   """The InstanceElementNode is used within an Instance expression to provide the value of a specific element within an object literal expression."""
 
   def __init__(self, name=None, value=None):
@@ -2249,7 +2253,7 @@ class CqlToElmInfoNode(CqlToElmBaseNode):
     self.translator_options = translator_options
 
 
-class VersionedIdentifierNode:
+class VersionedIdentifierNode(Node):
   """VersionedIdentifierNode is composed of three parts: (1) an optional system, or."""
 
   def __init__(self, id_=None, system=None, version=None):
