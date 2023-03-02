@@ -21,51 +21,72 @@ before 1960:
 import datetime
 from google.fhir.views import bigquery_runner, r4
 
-# Uses resource definitions from a public server
-views = r4.from_fhir_server('http://hapi.fhir.org/baseR4')
+# Load views based on the base FHIR R4 profile definitions.
+views = r4.base_r4()
 
 # Creates a view using the base patient profile.
-pat = views.view_of('Patient')
+pats = views.view_of('Patient')
 
-example_patients = pat.select({
-      'given' : pat.name.given,
-      'state' : pat.address.state,
-      'family' : pat.name.family,
-      'birthDate': pat.birthDate
-     }).where(
-       pat.birthDate < datetime.date(1960,1,1))
+# In this case we interpret the 'current' address as one where period is empty.
+# This can be adjusted to meet the needs of a specific dataset.
+current = pats.address.where(pats.address.period.empty()).first()
+
+simple_pats = pats.select({
+    'id': pats.id,
+    'gender': pats.gender,
+    'birthdate': pats.birthDate,
+    'street': current.line.first(),
+    'city': current.city,
+    'state': current.state,
+    'zip': current.postalCode
+    }).where(
+       pats.birthDate < datetime.date(1960,1,1))
+
 ```
 
 If you run the above in a Jupyter notebook or similar tool, you'll notice that
 the view builder supports tab suggestions that matches the fields in the FHIR
-resource of the given profile. In fact, these expressions are actually FHIRPath
-expressions -- simply defined in a fluent Python builder so they get support
-like this in notebooks.
+resource of the given profile. In fact, this is just a Pythonic way to build
+FHIRPath expressions to be used by the runner, with suggestions available
+by just pressing tab:
+
+![tab suggestion image](./tab_suggest_example.png)
 
 Now that we've defined a view, let's run it against a real dataset. We'll run
 this over BigQuery:
 
 ```py
 # Get a BigQuery client. This may require additional authentication to access
-# BigQuery, depending on your notebook environment.
+# BigQuery, depending on your notebook environment. Typically the client
+# and runner are created only once at the start of a notebook.
 from google.cloud import bigquery as bq
 client = bq.Client()
 runner = bigquery_runner.BigQueryRunner(
     client,
     fhir_dataset='hcls-testing-data.fhir_20k_patients_analytics')
 
-patients_df = runner.to_dataframe(example_patients)
+runner.to_dataframe(simple_pats, limit = 5)
 ```
 
-That's it! Now the patients_df contains a table of the example patients
-described in the query, pulled from the FHIR data stored in BigQuery.
+Which produces this table:
+
+|    | id                                   | gender   | birthdate   | street                   | city        | state         |   zip |
+|---:|:-------------------------------------|:---------|:------------|:-------------------------|:------------|:--------------|------:|
+|  0 | 6759d2b7-38b4-4798-97c0-d171a53e013a | male     | 1916-03-21  | 659 Bayer Wall Apt 61    | Boston      | Massachusetts | 02108 |
+|  1 | 41dbee4d-d355-413f-a040-93ca037fe646 | male     | 1951-12-05  | 226 Sipes Ranch Unit 37  | Lynnfield   | Massachusetts | 01940 |
+|  2 | e194d708-8989-4e0c-a8e1-eda7351672ce | male     | 1947-09-24  | 638 Pouros Wall Suite 52 | Lynnfield   | Massachusetts | 01940 |
+|  3 | 4bccdc85-c040-45dd-ada3-a55064439a01 | male     | 1943-06-20  | 825 Jakubowski Extension | Tewksbury   | Massachusetts | 01876 |
+|  4 | 8dca4c3c-d2d5-460f-9168-5f18e5d29b2b | male     | 1945-12-13  | 319 Cronin Light         | Hubbardston | Massachusetts | 01452 |
+
+
+That's it! Now the returned dataframe contains a table of the example patients
+described in the query, pulled from the FHIR data stored in BigQuery. Examples
+below will show more sophisticated use cases such as turning a FHIR view into
+a BigQuery virtual view or incorporating clinical content from code value sets.
 
 At this time we support a BigQuery runner to consume FHIR data in BigQuery as
 our data source, but future runners may support other data stores, FHIR servers,
 or FHIR bulk extracts on disk.
-
-Of course, we recommend using a virtualenv and other common Python management
-patterns.
 
 ## Working with code values
 
@@ -76,11 +97,11 @@ times they are defined and maintained locally for custom use cases.
 
 FHIR Views offers a convenient mechanism to create and use such value sets in
 your queries. Here is an example that defines a collection of LOINC codes
-indicating HbA1c results:
+indicating LDL results:
 
 ```py
-hba1c_value_set = r4.value_set('urn:example:value_set:hba1c').with_codes(
-    'http://loinc.org', ['4548-4', '4549-2', '17856-6']).build()
+LDL_TEST = r4.value_set('urn:example:value_set:ldl').with_codes(
+    'http://loinc.org', ['18262-6', '18261-8', '12773-8']).build()
 ```
 
 Now we can easily query observations with a view that uses the FHIRPath
@@ -91,15 +112,28 @@ Now we can easily query observations with a view that uses the FHIRPath
 # base type in a notebook.
 obs = views.view_of('Observation')
 
-# Create our HbA1c view based on the based observation view.
-hba1c_obs = (
-    obs.select({
-         'id': obs.id,
-         'patientId': obs.subject.idFor('Patient'),
-         'status': obs.status,
-         'time': obs.issued
-    }).where(obs.code.memberOf(hba1c_value_set)))
+ldl_obs = obs.select({
+    'patient': obs.subject.idFor('Patient'),
+    # Below is a Pythonic shorthand -- users could type
+    # `obs.value.ofType('Quantity').value` instead for the FHIRPath ofType
+    # expression, but the shorthand helps autocompletion
+    'value': obs.valueQuantity.value,
+    'unit': obs.valueQuantity.unit,
+    'test': obs.code.coding.display.first(),
+    'effectiveTime': obs.effectiveDateTime
+    }).where(obs.code.memberOf(LDL_TEST))
+
+runner.to_dataframe(ldl_obs, limit=5)
 ```
+
+|    | patient                              |    value | unit   | test                                | effectiveTime             |
+|---:|:-------------------------------------|---------:|:-------|:------------------------------------|:--------------------------|
+|  0 | 903156da-ca5d-4ec3-ad36-073a9437afe4 | 153.058  | mg/dL  | Low Density Lipoprotein Cholesterol | 2014-06-20 11:30:15+00:00 |
+|  1 | 3d268dce-fed4-4bc7-b156-c78e810c5183 | 149.379  | mg/dL  | Low Density Lipoprotein Cholesterol | 2013-06-10 16:20:36+00:00 |
+|  2 | fdf7c87b-1c8f-4d09-8d51-e622f747a7c8 |  88.047  | mg/dL  | Low Density Lipoprotein Cholesterol | 2013-10-07 00:08:45+00:00 |
+|  3 | 9007c0ff-a0ad-48dc-adc2-c0908c06fba8 | 108.145  | mg/dL  | Low Density Lipoprotein Cholesterol | 2016-03-18 10:31:54+00:00 |
+|  4 | cc5a2dd6-37b6-4f15-9da7-53f3b85e3370 |  64.5849 | mg/dL  | Low Density Lipoprotein Cholesterol | 2012-05-26 13:27:46+00:00 |
+
 
 ## Working with external value sets and terminology services
 
@@ -158,7 +192,7 @@ just be consumed as if it was a first-class table that is updated when the
 underlying data is updated. Here's an example:
 
 ```py
-runner.create_bigquery_view(hba1c_obs, 'hba1c_observations')
+runner.create_bigquery_view(ldl_obs, 'ldl_observations')
 ```
 
 By default the view is created in the fhir_dataset used by the runner, but this
