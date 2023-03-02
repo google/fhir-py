@@ -16,14 +16,14 @@
 import enum
 
 
-class AccessModifierNode(str, enum.Enum):
+class AccessModifier(str, enum.Enum):
   """Is used to specify the access level for the various definitions within a library such as parameters, expressions, and functions."""
 
   PUBLIC = 'Public'
   PRIVATE = 'Private'
 
 
-class DateTimePrecisionNode(str, enum.Enum):
+class DateTimePrecision(str, enum.Enum):
   """Specifies the units of precision available for temporal operations such as durationbetween, sameas, sameorbefore, sameorafter, and datetimecomponentfrom."""
 
   YEAR = 'Year'
@@ -36,13 +36,13 @@ class DateTimePrecisionNode(str, enum.Enum):
   MILLISECOND = 'Millisecond'
 
 
-class ErrorSeverityNode(str, enum.Enum):
+class ErrorSeverity(str, enum.Enum):
   INFO = 'info'
   WARNING = 'warning'
   ERROR = 'error'
 
 
-class ErrorTypeNode(str, enum.Enum):
+class ErrorType(str, enum.Enum):
   """Represents the type of CQL to ELM conversion error."""
 
   ENVIRONMENT = 'environment'
@@ -52,7 +52,7 @@ class ErrorTypeNode(str, enum.Enum):
   INTERNAL = 'internal'
 
 
-class SortDirectionNode(str, enum.Enum):
+class SortDirection(str, enum.Enum):
   ASC = 'asc'
   ASCENDING = 'ascending'
   DESC = 'desc'
