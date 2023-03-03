@@ -11,7 +11,8 @@ google-fhir-views[r4,bigquery]` command.
 FHIR Views has two main concepts:
 
 *   A view *definition*, which defines the fields and criteria created by a
-    view.
+    view. It provides a Python API for convenience, but ultimately a
+    view definition is a set of FHIRPath expressions that we'll explore below.
 *   A view *runner*, which creates that view over some data source.
 
 For example, let's create a simple view of patient resources for patients born
@@ -52,6 +53,32 @@ by just pressing tab:
 
 ![tab suggestion image](./tab_suggest_example.png)
 
+That builder is convenient for Python users, but you can also see the FHIRPath
+expression themselves by just getting the string representation of the view,
+such as by running `print(simple_pats)`. Notice every column and the 'where'
+criteria are defined by FHIRPath expressions:
+
+```
+View<http://hl7.org/fhir/StructureDefinition/Patient.select(
+  id: id,
+  gender: gender,
+  birthdate: birthDate,
+  street: address.where(period.empty()).first().line.first(),
+  city: address.where(period.empty()).first().city,
+  state: address.where(period.empty()).first().state,
+  zip: address.where(period.empty()).first().postalCode
+).where(
+  birthDate < @1960-01-01
+)>
+```
+
+In other words, any _runner_ implementation would basically use the FHIRPath
+expressions to select and filter the underlying data. The example below
+will use a BigQuery runner, which translates FHIRPath expressions into SQL,
+but runners in Apache Spark and directly on JSON will follow. This could
+also be exported as a simple JSON structure and passed to remote services
+to evaluate the FHIRPath expressions and produce a view for the user.
+
 Now that we've defined a view, let's run it against a real dataset. We'll run
 this over BigQuery:
 
@@ -63,7 +90,8 @@ from google.cloud import bigquery as bq
 client = bq.Client()
 runner = bigquery_runner.BigQueryRunner(
     client,
-    fhir_dataset='hcls-testing-data.fhir_20k_patients_analytics')
+    fhir_dataset='bigquery-public-data.fhir_synthea',
+    snake_case_resource_tables=True)
 
 runner.to_dataframe(simple_pats, limit = 5)
 ```
@@ -203,6 +231,6 @@ when creating the runner as the target for any views created. Here's an example:
 ```py
 runner = bigquery_runner.BigQueryRunner(
     client,
-    fhir_dataset='hcls-testing-data.fhir_20k_patients_analytics',
+    fhir_dataset='bigquery-public-data.fhir_synthea',
     view_dataset='example_project.diabetic_care_example')
 ```
