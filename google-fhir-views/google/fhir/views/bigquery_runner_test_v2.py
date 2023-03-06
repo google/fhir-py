@@ -166,7 +166,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM (SELECT name_element_
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-        WHERE given_element_ IS NOT NULL) AS name,(SELECT PARSE_TIMESTAMP("%Y-%m-%d", birthDate) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
+        WHERE given_element_ IS NOT NULL) AS name,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
         ),
         simple_view,
     )
@@ -186,7 +186,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.AstAndExpressionTreeTestRunner(
         expected_output=textwrap.dedent(
             """\
-        SELECT (SELECT PARSE_TIMESTAMP("%Y-%m-%d", birthDate) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.patient"""
+        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.patient"""
         ),
         view=simple_view,
         bq_runner=snake_case_runner,
@@ -218,7 +218,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM (SELECT name_element_
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-        WHERE given_element_ IS NOT NULL) AS name,(SELECT PARSE_TIMESTAMP("%Y-%m-%d", birthDate) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        WHERE given_element_ IS NOT NULL) AS name,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT active
         FROM (SELECT active)
@@ -253,10 +253,10 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM (SELECT name_element_
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-        WHERE given_element_ IS NOT NULL) AS name,(SELECT PARSE_TIMESTAMP("%Y-%m-%d", birthDate) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        WHERE given_element_ IS NOT NULL) AS name,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT comparison_
-        FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%d", birthDate) < PARSE_TIMESTAMP("%Y-%m-%d", '1960-01-01')) AS comparison_)
+        FROM (SELECT (SAFE_CAST(birthDate AS TIMESTAMP) < SAFE_CAST('1960-01-01' AS TIMESTAMP)) AS comparison_)
         WHERE comparison_ IS NOT NULL)) AS logic_)"""
         ),
         born_before_1960,
@@ -278,7 +278,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
         WHERE given_element_ IS NOT NULL) AS name,ARRAY(SELECT start
-        FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", telecom_element_.period.start) AS start
+        FROM (SELECT SAFE_CAST(telecom_element_.period.start AS TIMESTAMP) AS start
         FROM UNNEST(telecom) AS telecom_element_ WITH OFFSET AS element_offset)
         WHERE start IS NOT NULL) AS telecom,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
         ),
@@ -398,12 +398,12 @@ class BigqueryRunnerTest(parameterized.TestCase):
         SELECT *,(SELECT patient.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.ExplanationOfBenefit
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT comparison_
-        FROM (SELECT ((SELECT PARSE_TIMESTAMP("%Y-%m-%d", addItem_element_.serviced.Date) AS ofType_
-        FROM UNNEST(addItem) AS addItem_element_ WITH OFFSET AS element_offset) >= PARSE_TIMESTAMP("%Y-%m-%d", '2012-01-01')) AS comparison_)
+        FROM (SELECT ((SELECT SAFE_CAST(addItem_element_.serviced.Date AS TIMESTAMP) AS ofType_
+        FROM UNNEST(addItem) AS addItem_element_ WITH OFFSET AS element_offset) >= SAFE_CAST('2012-01-01' AS TIMESTAMP)) AS comparison_)
         WHERE comparison_ IS NOT NULL)) AS logic_) AND (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT comparison_
-        FROM (SELECT ((SELECT PARSE_TIMESTAMP("%Y-%m-%d", addItem_element_.serviced.Date) AS ofType_
-        FROM UNNEST(addItem) AS addItem_element_ WITH OFFSET AS element_offset) < PARSE_TIMESTAMP("%Y-%m-%d", '2013-01-01')) AS comparison_)
+        FROM (SELECT ((SELECT SAFE_CAST(addItem_element_.serviced.Date AS TIMESTAMP) AS ofType_
+        FROM UNNEST(addItem) AS addItem_element_ WITH OFFSET AS element_offset) < SAFE_CAST('2013-01-01' AS TIMESTAMP)) AS comparison_)
         WHERE comparison_ IS NOT NULL)) AS logic_)"""
         ),
         eob_view,
@@ -430,7 +430,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             """\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
-        SELECT (SELECT PARSE_TIMESTAMP("%Y-%m-%d", birthDate) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -470,7 +470,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             """\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
-        SELECT (SELECT PARSE_TIMESTAMP("%Y-%m-%d", birthDate) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -511,7 +511,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             """\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
-        SELECT (SELECT PARSE_TIMESTAMP("%Y-%m-%d", birthDate) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT eq_
         FROM (SELECT ((SELECT memberof_
@@ -551,7 +551,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             """\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://loinc.org" as system, "10346-5" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://loinc.org" as system, "10486-9" as code)
-        SELECT (SELECT id) AS id,(SELECT status) AS status,(SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", issued) AS issued) AS time,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation
+        SELECT (SELECT id) AS id,(SELECT status) AS status,(SELECT SAFE_CAST(issued AS TIMESTAMP) AS issued) AS time,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -592,7 +592,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             """\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://loinc.org" as system, "10346-5" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://loinc.org" as system, "10486-9" as code)
-        SELECT (SELECT id) AS id,(SELECT status) AS status,(SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", issued) AS issued) AS time,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation
+        SELECT (SELECT id) AS id,(SELECT status) AS status,(SELECT SAFE_CAST(issued AS TIMESTAMP) AS issued) AS time,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -671,7 +671,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         textwrap.dedent(
             """\
         WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM vs_project.vs_dataset.vs_table)
-        SELECT (SELECT PARSE_TIMESTAMP("%Y-%m-%d", birthDate) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -703,7 +703,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         textwrap.dedent(
             """\
         WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM vs_project.vs_dataset.vs_table)
-        SELECT (SELECT PARSE_TIMESTAMP("%Y-%m-%d", birthDate) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -948,9 +948,9 @@ class BigqueryRunnerTest(parameterized.TestCase):
           USING(__patientId__)))
           WHERE (SELECT LOGICAL_AND(logic_)
           FROM UNNEST(ARRAY(SELECT comparison_
-          FROM (SELECT ((SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", statusHistory_element_.period.start) AS start
+          FROM (SELECT ((SELECT SAFE_CAST(statusHistory_element_.period.start AS TIMESTAMP) AS start
           FROM (SELECT Encounter),
-          UNNEST(Encounter.statusHistory) AS statusHistory_element_ WITH OFFSET AS element_offset) > (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", contact_element_.period.start) AS start
+          UNNEST(Encounter.statusHistory) AS statusHistory_element_ WITH OFFSET AS element_offset) > (SELECT SAFE_CAST(contact_element_.period.start AS TIMESTAMP) AS start
           FROM (SELECT Patient),
           UNNEST(Patient.contact) AS contact_element_ WITH OFFSET AS element_offset
           LIMIT 1)) AS comparison_)
@@ -1008,7 +1008,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
           FROM (SELECT status IS NOT NULL AS exists_)
           WHERE exists_ IS NOT NULL)) AS logic_) AND (SELECT LOGICAL_AND(logic_)
           FROM UNNEST(ARRAY(SELECT comparison_
-          FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", period.start) > PARSE_TIMESTAMP("%Y-%m-%d", '2000-01-01')) AS comparison_)
+          FROM (SELECT (SAFE_CAST(period.start AS TIMESTAMP) > SAFE_CAST('2000-01-01' AS TIMESTAMP)) AS comparison_)
           WHERE comparison_ IS NOT NULL)) AS logic_))
           INNER JOIN
           (SELECT ARRAY(SELECT given_element_

@@ -33,12 +33,6 @@ _TIMESTAMP_FORMAT_SPARK = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
 # ISO format of dates used by FHIR.
 _DATE_FORMAT_SPARK = 'yyyy-MM-dd'
 
-# Timestamp format to convert ISO strings into BigQuery Timestamp types.
-_TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%E*S%Ez'
-
-# ISO format of dates used by FHIR.
-_DATE_FORMAT = '%Y-%m-%d'
-
 # TODO(b/202892821): Consolidate with `_fhir_path_data_types.py` functionality.
 
 # Keywords are a group of tokens that have special meaning in the BigQuery
@@ -679,21 +673,18 @@ def wrap_time_types_spark(raw_sql: str, sql_type: StandardSqlDataType) -> str:
 
 
 def wrap_time_types(raw_sql: str, sql_type: StandardSqlDataType) -> str:
-  """If the type is a date/timestamp type, wrap the SQL statement with a PARSE_TIMESTAMP."""
+  """If the type is a date/timestamp type, wrap the SQL statement with a SAFE_CAST."""
   if raw_sql.startswith('TO_TIMESTAMP'):
     return raw_sql
 
-  if raw_sql.startswith('PARSE_'):
+  if raw_sql.startswith('SAFE_CAST'):
     return raw_sql
   if isinstance(sql_type, Array):
     sql_type = cast(Array, sql_type).contained_type
 
-  if isinstance(sql_type, _Timestamp):
-    return f'PARSE_TIMESTAMP("{_TIMESTAMP_FORMAT}", {raw_sql})'
+  if isinstance(sql_type, (_Timestamp, _Date)):
+    return f'SAFE_CAST({raw_sql} AS TIMESTAMP)'
 
-  if isinstance(sql_type, _Date):
-    # Parse dates as timestamps so that comparisons can be made.
-    return f'PARSE_TIMESTAMP("{_DATE_FORMAT}", {raw_sql})'
   return raw_sql
 
 

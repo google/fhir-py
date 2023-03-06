@@ -387,7 +387,7 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT literal_
-          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%d", '1970-01-01') AS literal_)
+          FROM (SELECT SAFE_CAST('1970-01-01' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""
           ),
       ),
@@ -397,7 +397,7 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT literal_
-          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%d", '1970-01-01') AS literal_)
+          FROM (SELECT SAFE_CAST('1970-01-01' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""
           ),
       ),
@@ -407,7 +407,7 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT literal_
-          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%d", '1970-01-01') AS literal_)
+          FROM (SELECT SAFE_CAST('1970-01-01' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""
           ),
       ),
@@ -417,7 +417,7 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT literal_
-          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:00:00+00:00') AS literal_)
+          FROM (SELECT SAFE_CAST('2015-02-04T14:00:00+00:00' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""
           ),
       ),
@@ -427,7 +427,7 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT literal_
-          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:00+00:00') AS literal_)
+          FROM (SELECT SAFE_CAST('2015-02-04T14:34:00+00:00' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""
           ),
       ),
@@ -437,7 +437,7 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT literal_
-          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28+00:00') AS literal_)
+          FROM (SELECT SAFE_CAST('2015-02-04T14:34:28+00:00' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""
           ),
       ),
@@ -447,7 +447,7 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT literal_
-          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28.123000+00:00') AS literal_)
+          FROM (SELECT SAFE_CAST('2015-02-04T14:34:28.123000+00:00' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""
           ),
       ),
@@ -457,7 +457,7 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT literal_
-          FROM (SELECT PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28.123000+09:00') AS literal_)
+          FROM (SELECT SAFE_CAST('2015-02-04T14:34:28.123000+09:00' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""
           ),
       ),
@@ -517,7 +517,7 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT eq_
-          FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28+00:00') = PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:00:00+00:00')) AS eq_)
+          FROM (SELECT (SAFE_CAST('2015-02-04T14:34:28+00:00' AS TIMESTAMP) = SAFE_CAST('2015-02-04T14:00:00+00:00' AS TIMESTAMP)) AS eq_)
           WHERE eq_ IS NOT NULL)"""
           ),
       ),
@@ -527,7 +527,7 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT eq_
-          FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:34:28+00:00') = PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2015-02-04T14:00:00+00:00')) AS eq_)
+          FROM (SELECT (SAFE_CAST('2015-02-04T14:34:28+00:00' AS TIMESTAMP) = SAFE_CAST('2015-02-04T14:00:00+00:00' AS TIMESTAMP)) AS eq_)
           WHERE eq_ IS NOT NULL)"""
           ),
       ),
@@ -814,7 +814,7 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT comparison_
-          FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%d", dateField) < PARSE_TIMESTAMP("%Y-%m-%d", '2000-01-01')) AS comparison_)
+          FROM (SELECT (SAFE_CAST(dateField AS TIMESTAMP) < SAFE_CAST('2000-01-01' AS TIMESTAMP)) AS comparison_)
           WHERE comparison_ IS NOT NULL)"""
           ),
       ),
@@ -825,7 +825,7 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT comparison_
-          FROM (SELECT (PARSE_TIMESTAMP("%Y-%m-%d", dateField) < PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", '2000-01-01T14:34:00+00:00')) AS comparison_)
+          FROM (SELECT (SAFE_CAST(dateField AS TIMESTAMP) < SAFE_CAST('2000-01-01T14:34:00+00:00' AS TIMESTAMP)) AS comparison_)
           WHERE comparison_ IS NOT NULL)"""
           ),
       ),
