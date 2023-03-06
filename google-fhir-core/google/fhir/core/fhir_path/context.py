@@ -116,13 +116,18 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
 
   def get_fhir_type_from_string(
       self,
-      type_code: str,
+      type_code: Optional[str],
       element_definition: Optional[ElementDefinition],
       profile: Optional[str] = None,
   ) -> _fhir_path_data_types.FhirPathDataType:
     """Returns a FhirPathDataType from a type code string."""
+    return_type = None
+
     # If this is a primitive, simply return the corresponding primitive type.
-    return_type = _fhir_path_data_types.primitive_type_from_type_code(type_code)
+    if type_code is not None:
+      return_type = _fhir_path_data_types.primitive_type_from_type_code(
+          type_code
+      )
 
     # Load the structure definition for the non-primitive type.
     if return_type is None:

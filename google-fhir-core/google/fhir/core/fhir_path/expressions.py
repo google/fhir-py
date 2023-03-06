@@ -354,7 +354,8 @@ class Builder:
     returns the raw patient id.
 
     Args:
-      resource_type: the FHIR resource to get the id, e.g. 'Patient'.
+      resource_type: The FHIR resource to get the id for, e.g. 'Patient' or
+        'http://hl7.org/fhir/StructureDefinition/Patient'
 
     Returns:
       An expression retrieving the resource id.

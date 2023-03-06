@@ -807,7 +807,27 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.AstAndExpressionTreeTestRunner(
         textwrap.dedent(
             """\
-        SELECT (SELECT id) AS id,(SELECT subject.PatientId AS idFor_) AS patientId,(SELECT status) AS status,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation"""
+        SELECT (SELECT id) AS id,(SELECT subject.patientId AS idFor_) AS patientId,(SELECT status) AS status,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation"""
+        ),
+        obs_with_raw_patient_id_view,
+    )
+
+  def testSelectRawSubjectId_forPatientStructureDefinitionUrl_succeeds(self):
+    """Tests selecting id for a structure definition URL."""
+    obs = self._views.view_of('Observation')
+
+    obs_with_raw_patient_id_view = obs.select({
+        'id': obs.id,
+        'patientId': obs.subject.idFor(
+            'http://hl7.org/fhir/StructureDefinition/Patient'
+        ),
+        'status': obs.status,
+    })
+
+    self.AstAndExpressionTreeTestRunner(
+        textwrap.dedent(
+            """\
+        SELECT (SELECT id) AS id,(SELECT subject.patientId AS idFor_) AS patientId,(SELECT status) AS status,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation"""
         ),
         obs_with_raw_patient_id_view,
     )

@@ -857,9 +857,11 @@ class _IdForFunction(_FhirPathFunctionStandardSqlEncoder):
     # As described in
     # https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md,
     # this is a special case where the name of the field is based on the desired
-    # reference target, e.g. PatientId or OrganizationId.
+    # reference target, e.g. patientId or organizationId.
     sql_alias = 'idFor_'
     resource_type = function.base_type_str
+    # Make the first character lowercase to match the column names.
+    resource_type = resource_type[:1].lower() + resource_type[1:]
 
     return dataclasses.replace(
         operand_result,

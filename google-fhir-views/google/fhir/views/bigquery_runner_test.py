@@ -732,7 +732,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.AstAndExpressionTreeTestRunner(
         textwrap.dedent(
             """\
-        SELECT (SELECT id) AS id,(SELECT subject.PatientId AS idFor_) AS patientId,(SELECT status) AS status,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation"""
+        SELECT (SELECT id) AS id,(SELECT subject.patientId AS idFor_) AS patientId,(SELECT status) AS status,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation"""
         ),
         obs_with_raw_patient_id_view,
     )
@@ -1030,7 +1030,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
     self.assertMultiLineEqual(
         """WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM vs_project.vs_dataset.vs_table)
-SELECT (SELECT id) AS eob_id,(SELECT patient.PatientId AS idFor_) AS patient,(SELECT coding_element_.code
+SELECT (SELECT id) AS eob_id,(SELECT patient.patientId AS idFor_) AS patient,(SELECT coding_element_.code
 FROM (SELECT item_element_.productOrService
 FROM UNNEST(item) AS item_element_ WITH OFFSET AS element_offset),
 UNNEST(productOrService.coding) AS coding_element_ WITH OFFSET AS element_offset
@@ -1090,7 +1090,7 @@ WHERE memberof_ IS NOT NULL)) AS logic_)""",
 
     self.assertMultiLineEqual(
         """WITH VALUESET_VIEW AS (SELECT "urn:example:valueset:outpatient_claims" as valueseturi, NULL as valuesetversion, "https://bluebutton.cms.gov/resources/codesystem/eob-type" as system, "OUTPATIENT" as code)
-SELECT (SELECT id) AS eob_id,(SELECT patient.PatientId AS idFor_) AS patient,(SELECT coding_element_.code
+SELECT (SELECT id) AS eob_id,(SELECT patient.patientId AS idFor_) AS patient,(SELECT coding_element_.code
 FROM (SELECT procedure_element_.procedure.CodeableConcept AS ofType_
 FROM UNNEST(procedure) AS procedure_element_ WITH OFFSET AS element_offset
 LIMIT 1),
@@ -1175,7 +1175,7 @@ WHERE comparison_ IS NOT NULL)) AS logic_)""",
         """WITH VALUESET_VIEW AS (SELECT "urn:example:valueset:principal_diagnosis" as valueseturi, NULL as valuesetversion, "http://terminology.hl7.org/CodeSystem/ex-diagnosistype" as system, "principal" as code
 UNION ALL SELECT "urn:example:valueset:outpatient_claims" as valueseturi, NULL as valuesetversion, "https://bluebutton.cms.gov/resources/codesystem/eob-type" as system, "OUTPATIENT" as code
 UNION ALL SELECT "urn:example:valueset:principal_diagnosis" as valueseturi, NULL as valuesetversion, "http://terminology.hl7.org/CodeSystem/ex-diagnosistype" as system, "principal" as code)
-SELECT (SELECT id) AS eob_id,(SELECT patient.PatientId AS idFor_) AS patient,(SELECT coding_element_.code
+SELECT (SELECT id) AS eob_id,(SELECT patient.patientId AS idFor_) AS patient,(SELECT coding_element_.code
 FROM (SELECT diagnosis_element_.diagnosis.CodeableConcept AS ofType_
 FROM UNNEST(diagnosis) AS diagnosis_element_ WITH OFFSET AS element_offset
 WHERE (SELECT LOGICAL_OR(

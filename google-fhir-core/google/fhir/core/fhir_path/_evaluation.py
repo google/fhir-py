@@ -773,21 +773,38 @@ class IdForFunction(FunctionNode):
     # Determine the expected FHIR type to use as the node's return type.
     type_param_str = cast(Any, params[0]).get_value().value
 
-    # Trim the FHIR prefix used for primitive types, if applicable.
-    self.base_type_str = (
-        type_param_str[5:]
-        if type_param_str.startswith('FHIR.')
-        else type_param_str
-    )
-    self.struct_def_url = (
-        'http://hl7.org/fhir/StructureDefinition/'
-        f'{self.base_type_str.capitalize()}'
-    )
-    return_type = fhir_context.get_fhir_type_from_string(
-        type_code=self.base_type_str.capitalize(),
-        profile=self.struct_def_url,
-        element_definition=None,
-    )
+    parsed = urllib.parse.urlparse(type_param_str)
+    if parsed.scheme and parsed.netloc and parsed.path:
+      # It's a URI such as 'http://hl7.org/fhir/StructureDefinition/Patient.'
+      self.struct_def_url = type_param_str
+      return_type = fhir_context.get_fhir_type_from_string(
+          # type_code will be found by inspecting the struct def.
+          type_code=None,
+          profile=self.struct_def_url,
+          element_definition=None,
+      )
+      self.base_type_str = return_type.base_type
+    else:
+      # It's a bare type name such as 'Patient.'
+      # Trim the FHIR prefix used for primitive types, if applicable.
+      self.base_type_str = (
+          type_param_str[5:]
+          if type_param_str.startswith('FHIR.')
+          else type_param_str
+      )
+      # Ensure the first character is capitalized.
+      self.base_type_str = (
+          self.base_type_str[:1].upper() + self.base_type_str[1:]
+      )
+      self.struct_def_url = (
+          f'http://hl7.org/fhir/StructureDefinition/{self.base_type_str}'
+      )
+      return_type = fhir_context.get_fhir_type_from_string(
+          type_code=self.base_type_str,
+          profile=self.struct_def_url,
+          element_definition=None,
+      )
+
     super().__init__(fhir_context, operand, params, return_type)
 
 
