@@ -28,30 +28,37 @@ class FhirPathAstTest(parameterized.TestCase):
       dict(
           testcase_name='_withEmptyLiteral',
           fhir_path_expression='{ }',
-          expected_ast_string='None'),
+          expected_ast_string='None',
+      ),
       dict(
           testcase_name='_withBooleanLiteral',
           fhir_path_expression='true',
-          expected_ast_string='True'),
+          expected_ast_string='True',
+      ),
       dict(
           testcase_name='_withStringLiteral',
           fhir_path_expression="'foo'",
-          expected_ast_string="'foo'"),
+          expected_ast_string="'foo'",
+      ),
       dict(
           testcase_name='_withQuantityLiteral',
           fhir_path_expression="10 'mg'",
-          expected_ast_string="Quantity(value='10', unit='mg')"),
+          expected_ast_string="Quantity(value='10', unit='mg')",
+      ),
       dict(
           testcase_name='_withIntegerLiteral',
           fhir_path_expression='100',
-          expected_ast_string='100'),
+          expected_ast_string='100',
+      ),
       dict(
           testcase_name='_withDecimalLiteral',
           fhir_path_expression='3.14',
-          expected_ast_string="Decimal('3.14')"),
+          expected_ast_string="Decimal('3.14')",
+      ),
   )
-  def testBuildAst_withFhirPathLiteral_succeeds(self, fhir_path_expression: str,
-                                                expected_ast_string: str):
+  def testBuildAst_withFhirPathLiteral_succeeds(
+      self, fhir_path_expression: str, expected_ast_string: str
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
     self.assertEqual(_ast.ast_to_string(ast), expected_ast_string)
 
@@ -59,42 +66,52 @@ class FhirPathAstTest(parameterized.TestCase):
       dict(
           testcase_name='_withLogicalAnd',
           fhir_path_expression='{} and false',
-          expected_ast_string='(and None False)'),
+          expected_ast_string='(and None False)',
+      ),
       dict(
           testcase_name='_withLogicalOr',
           fhir_path_expression='true or 2',
-          expected_ast_string='(or True 2)'),
+          expected_ast_string='(or True 2)',
+      ),
       dict(
           testcase_name='_withLogicalImplies',
           fhir_path_expression="'foo' implies false",
-          expected_ast_string="(implies 'foo' False)"),
+          expected_ast_string="(implies 'foo' False)",
+      ),
       dict(
           testcase_name='_withLogicalXor',
           fhir_path_expression="'foo' xor false",
-          expected_ast_string="(xor 'foo' False)"),
+          expected_ast_string="(xor 'foo' False)",
+      ),
       dict(
           testcase_name='_withComparableOperandsLt',
           fhir_path_expression='10 < 9',
-          expected_ast_string='(< 10 9)'),
+          expected_ast_string='(< 10 9)',
+      ),
       dict(
           testcase_name='_withComparableOperandsGt',
           fhir_path_expression="'foo' > 'bar'",
-          expected_ast_string="(> 'foo' 'bar')"),
+          expected_ast_string="(> 'foo' 'bar')",
+      ),
       dict(
           testcase_name='_withImplicitlyConvertibleComparableOperandsLe',
           fhir_path_expression='10 <= 9.0',
-          expected_ast_string="(<= 10 Decimal('9.0'))"),
+          expected_ast_string="(<= 10 Decimal('9.0'))",
+      ),
       dict(
           testcase_name='_withImplicitlyConvertibleComparableOperandsGe',
           fhir_path_expression='9.0 >= 10',
-          expected_ast_string="(>= Decimal('9.0') 10)"),
+          expected_ast_string="(>= Decimal('9.0') 10)",
+      ),
       dict(
           testcase_name='_withEmptyOperandEq',
           fhir_path_expression='10 = { }',
-          expected_ast_string='(= 10 None)'),
+          expected_ast_string='(= 10 None)',
+      ),
   )
   def testBuildAst_withFhirPathBooleanOperator_succeeds(
-      self, fhir_path_expression: str, expected_ast_string: str):
+      self, fhir_path_expression: str, expected_ast_string: str
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
     self.assertEqual(_ast.ast_to_string(ast), expected_ast_string)
 
@@ -102,23 +119,27 @@ class FhirPathAstTest(parameterized.TestCase):
       dict(
           testcase_name='_withIdentifierAccess',
           fhir_path_expression='patient.id',
-          expected_ast_string='(. patient id)'),
+          expected_ast_string='(. patient id)',
+      ),
       dict(
           testcase_name='_withFunctionInvocation',
           fhir_path_expression='patient.exists()',
-          expected_ast_string='(. patient (function exists))'),
+          expected_ast_string='(. patient (function exists))',
+      ),
       dict(
           testcase_name='_withIdentifierFollowedByFunctionInvocation',
           fhir_path_expression='patient.id.exists()',
-          expected_ast_string='(. (. patient id) (function exists))'),
+          expected_ast_string='(. (. patient id) (function exists))',
+      ),
       dict(
           testcase_name='_withFunctionWithParameterInvocation',
           fhir_path_expression="patient.where(id = '123')",
-          expected_ast_string="(. patient (function where (= id '123')))"),
+          expected_ast_string="(. patient (function where (= id '123')))",
+      ),
   )
-  def testBuildAst_withFhirPathInvocation_succeeds(self,
-                                                   fhir_path_expression: str,
-                                                   expected_ast_string: str):
+  def testBuildAst_withFhirPathInvocation_succeeds(
+      self, fhir_path_expression: str, expected_ast_string: str
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
     self.assertEqual(_ast.ast_to_string(ast), expected_ast_string)
 
@@ -208,42 +229,55 @@ class FhirPathAstTest(parameterized.TestCase):
       dict(
           testcase_name='_withIdentifierAccess',
           fhir_path_expression='patient.id',
-          expected_debug_string=textwrap.dedent("""\
+          expected_debug_string=textwrap.dedent(
+              """\
           Invocation<.>
           | Identifier<patient>
-          | Identifier<id>""")),
+          | Identifier<id>"""
+          ),
+      ),
       dict(
           testcase_name='_withFunctionInvocation',
           fhir_path_expression='patient.exists()',
-          expected_debug_string=textwrap.dedent("""\
+          expected_debug_string=textwrap.dedent(
+              """\
           Invocation<.>
           | Identifier<patient>
           | Function<function>
-          | | Identifier<exists>""")),
+          | | Identifier<exists>"""
+          ),
+      ),
       dict(
           testcase_name='_withIdentifierFollowedByFunctionInvocation',
           fhir_path_expression='patient.id.exists()',
-          expected_debug_string=textwrap.dedent("""\
+          expected_debug_string=textwrap.dedent(
+              """\
           Invocation<.>
           | Invocation<.>
           | | Identifier<patient>
           | | Identifier<id>
           | Function<function>
-          | | Identifier<exists>""")),
+          | | Identifier<exists>"""
+          ),
+      ),
       dict(
           testcase_name='_withFunctionWithParameterInvocation',
           fhir_path_expression="patient.where(id = '123')",
-          expected_debug_string=textwrap.dedent("""\
+          expected_debug_string=textwrap.dedent(
+              """\
           Invocation<.>
           | Identifier<patient>
           | Function<function>
           | | Identifier<where>
           | | EqualityRelation<=>
           | | | Identifier<id>
-          | | | Literal<'123'>""")),
+          | | | Literal<'123'>"""
+          ),
+      ),
   )
-  def testDebugString_producesExpectedString(self, fhir_path_expression: str,
-                                             expected_debug_string: str):
+  def testDebugString_producesExpectedString(
+      self, fhir_path_expression: str, expected_debug_string: str
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
     self.assertEqual(ast.debug_string(), expected_debug_string)
 

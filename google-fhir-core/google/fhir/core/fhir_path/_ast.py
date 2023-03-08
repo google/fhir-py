@@ -36,11 +36,14 @@ Number = Union[int, decimal.Decimal]
 @dataclasses.dataclass
 class Quantity:
   """A FHIRPath Quantity literal."""
+
   value: Number
   unit: Optional[str] = None
 
   def __str__(self) -> str:
-    return f'{self.value}' if self.unit is None else f"{self.value} '{self.unit}'"
+    return (
+        f'{self.value}' if self.unit is None else f"{self.value} '{self.unit}'"
+    )
 
 
 # Python native datatypes for FHIRPath literal values.
@@ -71,8 +74,9 @@ class AbstractSyntaxTree(abc.ABC):
     """
     return self._children
 
-  def __init__(self,
-               children: Optional[List['AbstractSyntaxTree']] = None) -> None:
+  def __init__(
+      self, children: Optional[List['AbstractSyntaxTree']] = None
+  ) -> None:
     """Initializes an `AbstractSyntaxTree` with an optional list of children.
 
     Note that the `parent` property is set for children at the time their parent
@@ -84,7 +88,7 @@ class AbstractSyntaxTree(abc.ABC):
     self.data_type: Optional[_fhir_path_data_types.FhirPathDataType] = None
     self.parent = None
     self._children = children
-    for c in (self._children or []):
+    for c in self._children or []:
       c.parent = weakref.proxy(self)
 
   def num_children(self) -> int:
@@ -145,7 +149,8 @@ class AbstractSyntaxTree(abc.ABC):
     self_repr = f'{"| " * indent}{self.__class__.__name__}<{repr(self)}>'
     if self._children:
       child_repr = '\n'.join(
-          child.debug_string(indent=indent + 1) for child in self._children)
+          child.debug_string(indent=indent + 1) for child in self._children
+      )
       self_repr = f'{self_repr}\n{child_repr}'
     return self_repr
 
@@ -153,8 +158,9 @@ class AbstractSyntaxTree(abc.ABC):
 class Expression(AbstractSyntaxTree):
   """An abstract FHIRPath expression base class."""
 
-  def __init__(self,
-               children: Optional[List[AbstractSyntaxTree]] = None) -> None:
+  def __init__(
+      self, children: Optional[List[AbstractSyntaxTree]] = None
+  ) -> None:
     super(Expression, self).__init__(children)
 
   def __repr__(self) -> str:
@@ -240,6 +246,7 @@ class Polarity(UnaryOperator):
   @enum.unique
   class Op(str, enum.Enum):
     """Polarity operators."""
+
     NEGATIVE = '-'
     POSITIVE = '+'
 
@@ -275,6 +282,7 @@ class Arithmetic(BinaryOperator):
   @enum.unique
   class Op(str, enum.Enum):
     """Arithmetic operators."""
+
     ADDITION = '+'
     DIVISION = '/'
     MODULO = 'mod'
@@ -296,11 +304,13 @@ class TypeExpression(Expression):
   @enum.unique
   class Op(str, enum.Enum):
     """Type operators."""
+
     AS = 'as'
     IS = 'is'
 
-  def __init__(self, op: Op, expression: Expression,
-               type_specifier: Identifier) -> None:
+  def __init__(
+      self, op: Op, expression: Expression, type_specifier: Identifier
+  ) -> None:
     super(TypeExpression, self).__init__([expression, type_specifier])
     self.op = op
     self.expression = expression
@@ -329,6 +339,7 @@ class EqualityRelation(BinaryOperator):
   @enum.unique
   class Op(str, enum.Enum):
     """Equality operators."""
+
     EQUAL = '='
     EQUIVALENT = '~'
     NOT_EQUAL = '!='
@@ -354,6 +365,7 @@ class Comparison(BinaryOperator):
   @enum.unique
   class Op(str, enum.Enum):
     """Comparison operators."""
+
     GREATER_THAN = '>'
     GREATER_THAN_OR_EQUAL = '>='
     LESS_THAN = '<'
@@ -382,6 +394,7 @@ class BooleanLogic(BinaryOperator):
   @enum.unique
   class Op(str, enum.Enum):
     """Boolean logic operators."""
+
     AND = 'and'
     IMPLIES = 'implies'
     OR = 'or'
@@ -400,6 +413,7 @@ class MembershipRelation(BinaryOperator):
   @enum.unique
   class Op(str, enum.Enum):
     """Membership operators."""
+
     CONTAINS = 'contains'
     IN = 'in'
 
@@ -573,11 +587,12 @@ class Function(Expression):
     # of FHIRPath and additional functions.
     ID_FOR = 'idFor'
 
-  def __init__(self,
-               identifier: Identifier,
-               params: Optional[List[Expression]] = None) -> None:
-    super(Function,
-          self).__init__([identifier] + (params if params is not None else []))
+  def __init__(
+      self, identifier: Identifier, params: Optional[List[Expression]] = None
+  ) -> None:
+    super(Function, self).__init__(
+        [identifier] + (params if params is not None else [])
+    )
     self.identifier = identifier
     self.params = params if params is not None else []
 
@@ -589,11 +604,15 @@ class Function(Expression):
     return visitor.visit_function(self, **kwargs)
 
 
-_ArithmeticContext = Union[FhirPathParser.AdditiveExpressionContext,
-                           FhirPathParser.MultiplicativeExpressionContext]
-_LogicalExpressionContext = Union[FhirPathParser.AndExpressionContext,
-                                  FhirPathParser.OrExpressionContext,
-                                  FhirPathParser.ImpliesExpressionContext]
+_ArithmeticContext = Union[
+    FhirPathParser.AdditiveExpressionContext,
+    FhirPathParser.MultiplicativeExpressionContext,
+]
+_LogicalExpressionContext = Union[
+    FhirPathParser.AndExpressionContext,
+    FhirPathParser.OrExpressionContext,
+    FhirPathParser.ImpliesExpressionContext,
+]
 
 
 class _FhirPathErrorListener(ErrorListener.ErrorListener):
@@ -602,8 +621,15 @@ class _FhirPathErrorListener(ErrorListener.ErrorListener):
   def __init__(self) -> None:
     self.errors: List[str] = []
 
-  def syntaxError(self, recognizer: FhirPathParser, offending_symbol: Any,
-                  line: int, column: int, msg: str, e: Exception) -> None:
+  def syntaxError(
+      self,
+      recognizer: FhirPathParser,
+      offending_symbol: Any,
+      line: int,
+      column: int,
+      msg: str,
+      e: Exception,
+  ) -> None:
     formatted_err_msg = 'line: %d:%d %s' % (line, column, msg)
     logging.error(formatted_err_msg)
     self.errors.append(formatted_err_msg)
@@ -618,57 +644,66 @@ class _FhirPathCstVisitor(FhirPathVisitor):
     rhs: Expression = self.visit(ctx.expression(1))
     return Arithmetic(op, lhs, rhs)
 
-  def _build_boolean_logic(self,
-                           ctx: _LogicalExpressionContext) -> BooleanLogic:
+  def _build_boolean_logic(
+      self, ctx: _LogicalExpressionContext
+  ) -> BooleanLogic:
     op = BooleanLogic.Op(ctx.getChild(1).getText())
     lhs: Expression = self.visit(ctx.expression(0))
     rhs: Expression = self.visit(ctx.expression(1))
     return BooleanLogic(op, lhs, rhs)
 
   def visitIndexerExpression(
-      self, ctx: FhirPathParser.IndexerExpressionContext) -> Indexer:
+      self, ctx: FhirPathParser.IndexerExpressionContext
+  ) -> Indexer:
     lhs: Expression = self.visit(ctx.expression(0))
     rhs: Expression = self.visit(ctx.expression(1))
     return Indexer(lhs, rhs)
 
   def visitPolarityExpression(
-      self, ctx: FhirPathParser.PolarityExpressionContext) -> Polarity:
+      self, ctx: FhirPathParser.PolarityExpressionContext
+  ) -> Polarity:
     op = Polarity.Op(ctx.getChild(0).getText())
     operand: Expression = self.visit(ctx.expression())
     return Polarity(op, operand)
 
   def visitAdditiveExpression(
-      self, ctx: FhirPathParser.AdditiveExpressionContext) -> Arithmetic:
+      self, ctx: FhirPathParser.AdditiveExpressionContext
+  ) -> Arithmetic:
     return self._build_arithmetic(ctx)
 
   def visitMultiplicativeExpression(
-      self, ctx: FhirPathParser.MultiplicativeExpressionContext) -> Arithmetic:
+      self, ctx: FhirPathParser.MultiplicativeExpressionContext
+  ) -> Arithmetic:
     return self._build_arithmetic(ctx)
 
   def visitUnionExpression(
-      self, ctx: FhirPathParser.UnionExpressionContext) -> UnionOp:
+      self, ctx: FhirPathParser.UnionExpressionContext
+  ) -> UnionOp:
     lhs: Expression = self.visit(ctx.expression(0))
     rhs: Expression = self.visit(ctx.expression(1))
     return UnionOp(lhs, rhs)
 
   def visitOrExpression(
-      self, ctx: FhirPathParser.OrExpressionContext) -> BooleanLogic:
+      self, ctx: FhirPathParser.OrExpressionContext
+  ) -> BooleanLogic:
     return self._build_boolean_logic(ctx)
 
   def visitAndExpression(
-      self, ctx: FhirPathParser.AndExpressionContext) -> BooleanLogic:
+      self, ctx: FhirPathParser.AndExpressionContext
+  ) -> BooleanLogic:
     return self._build_boolean_logic(ctx)
 
   def visitMembershipExpression(
-      self,
-      ctx: FhirPathParser.MembershipExpressionContext) -> MembershipRelation:
+      self, ctx: FhirPathParser.MembershipExpressionContext
+  ) -> MembershipRelation:
     op = MembershipRelation.Op(ctx.getChild(1).getText())
     lhs: Expression = self.visit(ctx.expression(0))
     rhs: Expression = self.visit(ctx.expression(1))
     return MembershipRelation(op, lhs, rhs)
 
   def visitInequalityExpression(
-      self, ctx: FhirPathParser.InequalityExpressionContext) -> Comparison:
+      self, ctx: FhirPathParser.InequalityExpressionContext
+  ) -> Comparison:
     op = Comparison.Op(ctx.getChild(1).getText())
     lhs: Expression = self.visit(ctx.expression(0))
     rhs: Expression = self.visit(ctx.expression(1))
@@ -682,32 +717,36 @@ class _FhirPathCstVisitor(FhirPathVisitor):
     return Invocation(lhs, rhs)
 
   def visitEqualityExpression(
-      self, ctx: FhirPathParser.EqualityExpressionContext) -> EqualityRelation:
+      self, ctx: FhirPathParser.EqualityExpressionContext
+  ) -> EqualityRelation:
     op = EqualityRelation.Op(ctx.getChild(1).getText())
     lhs: Expression = self.visit(ctx.expression(0))
     rhs: Expression = self.visit(ctx.expression(1))
     return EqualityRelation(op, lhs, rhs)
 
   def visitImpliesExpression(
-      self, ctx: FhirPathParser.ImpliesExpressionContext) -> BooleanLogic:
+      self, ctx: FhirPathParser.ImpliesExpressionContext
+  ) -> BooleanLogic:
     return self._build_boolean_logic(ctx)
 
   def visitTermExpression(
-      self, ctx: FhirPathParser.TermExpressionContext) -> Expression:
+      self, ctx: FhirPathParser.TermExpressionContext
+  ) -> Expression:
     # Singular child of type: invocation, literal, externalConstant, or
     # '(' expression ')'; propagate.
     return self.visit(ctx.getChild(0))
 
   def visitTypeExpression(
-      self, ctx: FhirPathParser.TypeExpressionContext) -> TypeExpression:
+      self, ctx: FhirPathParser.TypeExpressionContext
+  ) -> TypeExpression:
     op = TypeExpression.Op(ctx.getChild(1).getText())
     expression: Expression = self.visit(ctx.expression())
     type_specifier: Identifier = self.visit(ctx.typeSpecifier())
     return TypeExpression(op, expression, type_specifier)
 
   def visitInvocationTerm(
-      self,
-      ctx: FhirPathParser.InvocationTermContext) -> Union[Identifier, Function]:
+      self, ctx: FhirPathParser.InvocationTermContext
+  ) -> Union[Identifier, Function]:
     # Singular non-termal of type: invocation; propagate
     return self.visit(ctx.invocation())
 
@@ -726,7 +765,8 @@ class _FhirPathCstVisitor(FhirPathVisitor):
     return self.visit(ctx.getChild(0))
 
   def visitParenthesizedTerm(
-      self, ctx: FhirPathParser.ParenthesizedTermContext) -> Expression:
+      self, ctx: FhirPathParser.ParenthesizedTermContext
+  ) -> Expression:
     # A value of '(' expression ')'; propagate.
     return self.visit(ctx.getChild(1))
 
@@ -737,16 +777,18 @@ class _FhirPathCstVisitor(FhirPathVisitor):
     # `Patient.name` will return an empty collection {}.
     return None
 
-  def visitBooleanLiteral(self,
-                          ctx: FhirPathParser.BooleanLiteralContext) -> bool:
+  def visitBooleanLiteral(
+      self, ctx: FhirPathParser.BooleanLiteralContext
+  ) -> bool:
     return bool(ctx.getChild(0).getText() == 'true')
 
   def visitStringLiteral(self, ctx: FhirPathParser.StringLiteralContext) -> str:
     # Remove leading and trailing single quotations.
     return str(ctx.getChild(0).getText())[1:-1]
 
-  def visitNumberLiteral(self,
-                         ctx: FhirPathParser.NumberLiteralContext) -> Number:
+  def visitNumberLiteral(
+      self, ctx: FhirPathParser.NumberLiteralContext
+  ) -> Number:
     # Note that Python3 decimal.Decimal defaults to 28 digits of *exact*
     # precision, which is sufficient to represent a FHIRPath Decimal:
     # http://hl7.org/fhirpath/#decimal.
@@ -757,8 +799,9 @@ class _FhirPathCstVisitor(FhirPathVisitor):
     raw_str: str = ctx.getChild(0).getText()
     return raw_str
 
-  def visitDateTimeLiteral(self,
-                           ctx: FhirPathParser.DateTimeLiteralContext) -> str:
+  def visitDateTimeLiteral(
+      self, ctx: FhirPathParser.DateTimeLiteralContext
+  ) -> str:
     raw_str: str = ctx.getChild(0).getText()
     return raw_str
 
@@ -768,40 +811,46 @@ class _FhirPathCstVisitor(FhirPathVisitor):
     return raw_str[2:]
 
   def visitQuantityLiteral(
-      self, ctx: FhirPathParser.QuantityLiteralContext) -> Quantity:
+      self, ctx: FhirPathParser.QuantityLiteralContext
+  ) -> Quantity:
     # Singular `quantity` non-terminal; propagate.
     return self.visit(ctx.getChild(0))
 
   def visitExternalConstant(
-      self,
-      ctx: FhirPathParser.ExternalConstantContext) -> Union[Identifier, str]:
+      self, ctx: FhirPathParser.ExternalConstantContext
+  ) -> Union[Identifier, str]:
     # A value of '%' (identifier | STRING); propagate on non-terminal.
     if ctx.STRING() is not None:
       return str(ctx.getChild(1).getText())[1:-1]
     return self.visit(ctx.getChild(1))
 
   def visitMemberInvocation(
-      self, ctx: FhirPathParser.MemberInvocationContext) -> Identifier:
+      self, ctx: FhirPathParser.MemberInvocationContext
+  ) -> Identifier:
     # A value of identifier; propagate
     return self.visit(ctx.identifier())
 
   def visitFunctionInvocation(
-      self, ctx: FhirPathParser.FunctionInvocationContext) -> Function:
+      self, ctx: FhirPathParser.FunctionInvocationContext
+  ) -> Function:
     # A value of function; propagate
     return self.visit(ctx.getChild(0))
 
   def visitThisInvocation(
-      self, ctx: FhirPathParser.ThisInvocationContext) -> Identifier:
+      self, ctx: FhirPathParser.ThisInvocationContext
+  ) -> Identifier:
     # $this terminal
     return Identifier(ctx.getChild(0).getText())
 
   def visitIndexInvocation(
-      self, ctx: FhirPathParser.IndexInvocationContext) -> Identifier:
+      self, ctx: FhirPathParser.IndexInvocationContext
+  ) -> Identifier:
     # $index terminal
     return Identifier(ctx.getChild(0).getText())
 
   def visitTotalInvocation(
-      self, ctx: FhirPathParser.TotalInvocationContext) -> Identifier:
+      self, ctx: FhirPathParser.TotalInvocationContext
+  ) -> Identifier:
     # $total terminal
     return Identifier(ctx.getChild(0).getText())
 
@@ -809,10 +858,12 @@ class _FhirPathCstVisitor(FhirPathVisitor):
     if ctx.paramList() is None:
       return Function(self.visit(ctx.identifier()))
     return Function(
-        self.visit(ctx.identifier()), params=self.visit(ctx.paramList()))
+        self.visit(ctx.identifier()), params=self.visit(ctx.paramList())
+    )
 
-  def visitParamList(self,
-                     ctx: FhirPathParser.ParamListContext) -> List[Expression]:
+  def visitParamList(
+      self, ctx: FhirPathParser.ParamListContext
+  ) -> List[Expression]:
     # A value of expression (, expression)*; propagate, collect, and return
     result: List[Expression] = []
     for i in range(ctx.getChildCount()):
@@ -834,22 +885,26 @@ class _FhirPathCstVisitor(FhirPathVisitor):
     return self.visit(ctx.getChild(0))
 
   def visitDateTimePrecision(
-      self, ctx: FhirPathParser.DateTimePrecisionContext) -> str:
+      self, ctx: FhirPathParser.DateTimePrecisionContext
+  ) -> str:
     # Remove leading and trailing single quotations.
     return str(ctx.getChild(0).getText())[1:-1]
 
   def visitPluralDateTimePrecision(
-      self, ctx: FhirPathParser.PluralDateTimePrecisionContext) -> str:
+      self, ctx: FhirPathParser.PluralDateTimePrecisionContext
+  ) -> str:
     # Remove leading and trailing single quotations.
     return str(ctx.getChild(0).getText())[1:-1]
 
   def visitTypeSpecifier(
-      self, ctx: FhirPathParser.TypeSpecifierContext) -> Identifier:
+      self, ctx: FhirPathParser.TypeSpecifierContext
+  ) -> Identifier:
     # A value of qualifiedIdentifier; propagate
     return self.visit(ctx.qualifiedIdentifier())
 
   def visitQualifiedIdentifier(
-      self, ctx: FhirPathParser.QualifiedIdentifierContext) -> Identifier:
+      self, ctx: FhirPathParser.QualifiedIdentifierContext
+  ) -> Identifier:
     # A value of: identifier ('.' identifier)* expressing a fully-qualified
     # FHIRPath type for exclusive use within a `typeExpression`. Treat as a
     # single dot delimited ('.') identifier.
@@ -859,8 +914,9 @@ class _FhirPathCstVisitor(FhirPathVisitor):
       result.append(id_.value)
     return Identifier('.'.join(result))
 
-  def visitIdentifier(self,
-                      ctx: FhirPathParser.IdentifierContext) -> Identifier:
+  def visitIdentifier(
+      self, ctx: FhirPathParser.IdentifierContext
+  ) -> Identifier:
     # Note: This is an ambiguity in the FHIRPath CFG. The highlighted keywords
     # 'as', 'contains', 'in', and 'is' collide with the IDENTIFIER token.
     # Assuming leading terminals are consumed first in the event of a tie,
@@ -868,8 +924,10 @@ class _FhirPathCstVisitor(FhirPathVisitor):
     if ctx.DELIMITEDIDENTIFIER() is not None:
       return Identifier(ctx.DELIMITEDIDENTIFIER().getText().strip('`'))
     if ctx.IDENTIFIER() is None:
-      raise ValueError('Unsupported FHIRPath expression. Expected an identifier'
-                       ' but got None.')
+      raise ValueError(
+          'Unsupported FHIRPath expression. Expected an identifier'
+          ' but got None.'
+      )
     return Identifier(ctx.IDENTIFIER().getText())
 
 
@@ -885,8 +943,9 @@ class FhirPathAstBaseVisitor(abc.ABC):
     """Calls `node.accept`, passing the caller as a visitor."""
     return node.accept(self, **kwargs)
 
-  def visit_children(self, node: AbstractSyntaxTree,
-                     **kwargs: Any) -> List[Any]:
+  def visit_children(
+      self, node: AbstractSyntaxTree, **kwargs: Any
+  ) -> List[Any]:
     """Calls `accept` on each child node, passing the caller as a visitor."""
     result: List[Any] = []
     for c in node.children:
@@ -910,8 +969,9 @@ class FhirPathAstBaseVisitor(abc.ABC):
     pass
 
   @abc.abstractmethod
-  def visit_type_expression(self, type_expression: TypeExpression,
-                            **kwargs: Any) -> Any:
+  def visit_type_expression(
+      self, type_expression: TypeExpression, **kwargs: Any
+  ) -> Any:
     pass
 
   @abc.abstractmethod
@@ -923,13 +983,15 @@ class FhirPathAstBaseVisitor(abc.ABC):
     pass
 
   @abc.abstractmethod
-  def visit_boolean_logic(self, boolean_logic: BooleanLogic,
-                          **kwargs: Any) -> Any:
+  def visit_boolean_logic(
+      self, boolean_logic: BooleanLogic, **kwargs: Any
+  ) -> Any:
     pass
 
   @abc.abstractmethod
-  def visit_membership(self, membership: MembershipRelation,
-                       **kwargs: Any) -> Any:
+  def visit_membership(
+      self, membership: MembershipRelation, **kwargs: Any
+  ) -> Any:
     pass
 
   @abc.abstractmethod
@@ -1030,7 +1092,8 @@ def paths_referenced_by(node: AbstractSyntaxTree) -> Collection[str]:
 
 
 def _paths_referenced_by(
-    node: AbstractSyntaxTree) -> Tuple[Optional[str], Collection[str]]:
+    node: AbstractSyntaxTree,
+) -> Tuple[Optional[str], Collection[str]]:
   """Finds paths for any fields referenced in the given tree.
 
   Recursively builds paths by visitng the trees nodes depth-first in-order.
@@ -1093,7 +1156,8 @@ def _paths_referenced_by(
     # e.g. a.where(b > c.d) is understood as a.where(a.b > a.c.d)
     child_paths = tuple(
         _append_path_to_context(context, child_path)
-        for child_path in child_paths)
+        for child_path in child_paths
+    )
 
     return context, paths + child_paths
 
@@ -1104,7 +1168,8 @@ def _paths_referenced_by(
 
 
 def _get_paths_from_children_except_first(
-    node: AbstractSyntaxTree) -> Tuple[str, ...]:
+    node: AbstractSyntaxTree,
+) -> Tuple[str, ...]:
   """Finds paths referenced by any child nodes except the first."""
   paths = []
   children = node.children or ()
