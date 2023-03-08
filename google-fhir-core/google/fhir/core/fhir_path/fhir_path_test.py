@@ -3140,6 +3140,10 @@ class FhirPathStandardSqlEncoderTest(
           testcase_name='_withSingleMemberAccessLeadingExpression',
           fhir_path_expression='(true or false).bar',
       ),
+      dict(
+          testcase_name='_withReferenceTypeLackingIdFor',
+          fhir_path_expression='reference',
+      ),
   )
   def testEncode_withUnsupportedFhirPathExpression_raisesTypeError(
       self, fhir_path_expression: str

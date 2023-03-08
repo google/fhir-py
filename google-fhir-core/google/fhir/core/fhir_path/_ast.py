@@ -1188,3 +1188,53 @@ def _append_path_to_context(context: Optional[str], path: str) -> str:
     return path
   else:
     return f'{context}.{path}'
+
+
+def contains_reference_without_id_for(node: AbstractSyntaxTree) -> bool:
+  """Checks if the AST contains a reference without a corresponding idFor call.
+
+  Args:
+    node: The root node of the abstract syntax tree to search.
+
+  Returns:
+    True if the abstract syntax tree contains an identifier to a reference
+    without an idFor call against it. False otherwise.
+  """
+  # Check if the node is an identifier of a reference type.
+  if (
+      isinstance(node, Identifier)
+      and isinstance(node.data_type, _fhir_path_data_types.StructureDataType)
+      and node.data_type.element_type == 'Reference'
+  ):
+    # Try to find a parent invocation with the reference node on the
+    # left and an idFor function on the right.
+    if not node.has_parent or not isinstance(node.parent, Invocation):
+      return True
+
+    # For a path like 'reference.idFor' the reference would be on the
+    # left of an invocation with the function call on the right. For a
+    # path like 'foo.reference.idFor' the reference would be on the
+    # right with another parent invocation containing the function
+    # call on its right.
+    if node.parent.lhs == node:
+      parent_invocation = node.parent
+    else:
+      if not node.parent.has_parent or not isinstance(
+          node.parent.parent, Invocation
+      ):
+        return True
+      parent_invocation = node.parent.parent
+
+    # Ensure the reference has an idFor call against it.
+    if (
+        not isinstance(parent_invocation.rhs, Function)
+        or parent_invocation.rhs.identifier.value != 'idFor'
+    ):
+      return True
+
+  # Recursively check each child node.
+  for child in node.children or ():
+    if contains_reference_without_id_for(child):
+      return True
+
+  return False

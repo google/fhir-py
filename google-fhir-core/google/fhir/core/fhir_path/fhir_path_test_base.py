@@ -39,6 +39,7 @@ class FhirPathTestBase:
   Foo {
     Bar bar;
     Bats bat;
+    Reference reference;
 
     InlineElement {
       string value;
@@ -106,6 +107,17 @@ class FhirPathTestBase:
           )
       ],
   )
+  # reference datatype
+  reference_datatype = sdefs.build_resource_definition(
+      id_='Reference',
+      element_definitions=[
+          sdefs.build_element_definition(
+              id_='Reference',
+              type_codes=None,
+              cardinality=sdefs.Cardinality(min=0, max='1'),
+          )
+      ],
+  )
 
   # Foo resource
   foo_root_element_definition = sdefs.build_element_definition(
@@ -114,6 +126,11 @@ class FhirPathTestBase:
   bar_element_definition = sdefs.build_element_definition(
       id_='Foo.bar',
       type_codes=['Bar'],
+      cardinality=sdefs.Cardinality(min=0, max='1'),
+  )
+  reference_element_definition = sdefs.build_element_definition(
+      id_='Foo.reference',
+      type_codes=['Reference'],
       cardinality=sdefs.Cardinality(min=0, max='1'),
   )
   bat_element_definition = sdefs.build_element_definition(
@@ -172,6 +189,7 @@ class FhirPathTestBase:
           foo_root_element_definition,
           bar_element_definition,
           bat_element_definition,
+          reference_element_definition,
           inline_element_definition,
           inline_value_element_definition,
           inline_numbers_element_definition,
@@ -371,6 +389,7 @@ class FhirPathTestBase:
   # Set resources for test
   resources = [
       string_datatype,
+      reference_datatype,
       foo,
       bar,
       bats,

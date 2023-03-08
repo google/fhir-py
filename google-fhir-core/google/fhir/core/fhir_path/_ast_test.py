@@ -15,10 +15,12 @@
 """Tests Python FHIRPath Abstract Syntax Tree functionality."""
 
 import textwrap
+import unittest.mock
 
 from absl.testing import absltest
 from absl.testing import parameterized
 from google.fhir.core.fhir_path import _ast
+from google.fhir.core.fhir_path import _fhir_path_data_types
 
 
 class FhirPathAstTest(parameterized.TestCase):
@@ -280,6 +282,81 @@ class FhirPathAstTest(parameterized.TestCase):
   ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
     self.assertEqual(ast.debug_string(), expected_debug_string)
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='_withBareReference_returnsTrue',
+          fhir_path_expression='reference',
+          expected_result=True,
+      ),
+      dict(
+          testcase_name='_withNestedBareReference_returnsTrue',
+          fhir_path_expression='foo.reference',
+          expected_result=True,
+      ),
+      dict(
+          testcase_name='_withReferenceAndNonIdForFunctionCall_returnsTrue',
+          fhir_path_expression='reference.exists()',
+          expected_result=True,
+      ),
+      dict(
+          testcase_name=(
+              '_withNestedReferenceAndNonIdForFunctionCall_returnsTrue'
+          ),
+          fhir_path_expression='foo.reference.exists()',
+          expected_result=True,
+      ),
+      dict(
+          testcase_name='_withReferenceAndIdForCall_returnsFalse',
+          fhir_path_expression="reference.idFor('Patient')",
+          expected_result=False,
+      ),
+      dict(
+          testcase_name='_withNestedReferenceAndIdForCall_returnsFalse',
+          fhir_path_expression="foo.reference.idFor('Patient')",
+          expected_result=False,
+      ),
+      dict(
+          testcase_name=(
+              '_withReferenceAndIdForCallAndTrailingCall_returnsFalse'
+          ),
+          fhir_path_expression="reference.idFor('Patient').exists()",
+          expected_result=False,
+      ),
+      dict(
+          testcase_name=(
+              '_withNestedReferenceAndIdForCallAndTrailingCall_returnsFalse'
+          ),
+          fhir_path_expression="foo.reference.idFor('Patient').exists()",
+          expected_result=False,
+      ),
+  )
+  def testContainsReferenceWithoutIdFor(
+      self, fhir_path_expression: str, expected_result: bool
+  ):
+    ast = _ast.build_fhir_path_ast(fhir_path_expression)
+    _decorate_ast_reference_data_types(ast)
+    self.assertEqual(
+        _ast.contains_reference_without_id_for(ast), expected_result
+    )
+
+
+def _decorate_ast_reference_data_types(node: _ast.AbstractSyntaxTree) -> None:
+  """Adds data types for reference nodes.
+
+  Sets the data_type for any identifier node named 'reference' to that of a
+  Reference type.
+
+  Args:
+    node: The root node of the AST to modify.
+  """
+  if isinstance(node, _ast.Identifier) and node.value == 'reference':
+    node.data_type = unittest.mock.Mock(
+        spec=_fhir_path_data_types.StructureDataType, element_type='Reference'
+    )
+
+  for child in node.children or ():
+    _decorate_ast_reference_data_types(child)
 
 
 if __name__ == '__main__':

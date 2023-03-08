@@ -282,6 +282,14 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
           'Unexpected errors during semantic analysis:\n%s' % semantic_errors
       )
 
+    if _ast.contains_reference_without_id_for(ast):
+      raise TypeError(
+          'The ast contains a resource type without a corresponding idFor call'
+          ' to disambiguate the underlying database column. The FHIRPath for'
+          ' resource types must contain an idFor call at present:'
+          f' {ast.debug_string()}'
+      )
+
     walker = _navigation.FhirStructureDefinitionWalker(
         self._env,
         structure_definition,
