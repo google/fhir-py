@@ -117,6 +117,14 @@ class _RegexInfo:
   type_code: str
 
 
+@dataclasses.dataclass
+class _BuilderSql:
+  """A named tuple with sql generated from the fhir expression."""
+
+  sql: str
+  builder: expressions.Builder
+
+
 def _get_analytic_path(element_definition: ElementDefinition) -> str:
   """Returns the identifying dot-separated (`.`) analytic path of the element.
 
@@ -343,7 +351,7 @@ class FhirProfileStandardSqlEncoder:
       struct_def: _fhir_path_data_types.StructureDataType,
       fhir_path_expression: str,
       node_context: expressions.Builder,
-  ) -> Optional[str]:
+  ) -> Optional[_BuilderSql]:
     """Returns a Standard SQL translation of the constraint `fhir_path_expression`.
 
     If an error is encountered during encoding, the associated error reporter
@@ -360,7 +368,8 @@ class FhirProfileStandardSqlEncoder:
     Returns:
       A Standard SQL encoding of the constraint `fhir_path_expression` upon
       successful completion. The SQL will evaluate to a single boolean
-      indicating whether the constraint is satisfied.
+      indicating whether the constraint is satisfied and the builder that
+      created it. May be different from the input builder(s).
     """
     if node_context.get_root_builder().fhir_path == node_context.fhir_path:
       node_context = None
@@ -414,7 +423,7 @@ class FhirProfileStandardSqlEncoder:
       self,
       builder: expressions.Builder,
       top_level_constraint: Optional[expressions.Builder],
-  ) -> Optional[str]:
+  ) -> Optional[_BuilderSql]:
     """Returns a Standard SQL translation of the constraint `fhir_path_expression` relative to its top-level constraint.
 
     Args:
@@ -425,7 +434,8 @@ class FhirProfileStandardSqlEncoder:
     Returns:
       A Standard SQL encoding of the constraint `fhir_path_expression` upon
       successful completion. The SQL will evaluate to a single boolean
-      indicating whether the constraint is satisfied.
+      indicating whether the constraint is satisfied and the builder that
+      created it. May be different from the input builder(s).
     """
     # If a top-level constraint is not provided, simply return `sql_expression`.
     # Otherwise, we need to add a supporting context query. This is
@@ -444,31 +454,38 @@ class FhirProfileStandardSqlEncoder:
     ):
       sql_expression = self._encode_fhir_path_builder(builder)
       if sql_expression:
-        return (
-            '(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
-            f'FROM UNNEST({sql_expression}) AS result_)'
+        return _BuilderSql(
+            (
+                '(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
+                f'FROM UNNEST({sql_expression}) AS result_)'
+            ),
+            builder,
         )
       return None
 
     root_sql_expression = self._encode_fhir_path_builder(top_level_constraint)
-    new_builder = builder.replace_operand(
+    relative_builder = expressions.Builder.replace_with_operand(
+        builder,
         old_path=top_level_constraint.fhir_path,
         replacement_node=_evaluation.StructureBaseNode(
             self._context, top_level_constraint.return_type
         ),
     )
 
-    sql_expression = self._encode_fhir_path_builder(new_builder)
+    sql_expression = self._encode_fhir_path_builder(relative_builder)
 
     if not sql_expression or not root_sql_expression:
       return None
     # Bind the two expressions together via a correlated `ARRAY` subquery
-    return (
-        '(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
-        f'FROM (SELECT {sql_expression} AS subquery_\n'
-        'FROM (SELECT AS VALUE ctx_element_\n'
-        f'FROM UNNEST({root_sql_expression}) AS ctx_element_)),\n'
-        'UNNEST(subquery_) AS result_)'
+    return _BuilderSql(
+        (
+            '(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
+            f'FROM (SELECT {sql_expression} AS subquery_\n'
+            'FROM (SELECT AS VALUE ctx_element_\n'
+            f'FROM UNNEST({root_sql_expression}) AS ctx_element_)),\n'
+            'UNNEST(subquery_) AS result_)'
+        ),
+        relative_builder,
     )
 
   def _encode_constraints(
@@ -536,10 +553,10 @@ class FhirProfileStandardSqlEncoder:
           _fhir_path_data_types.StructureDataType,
           builder.get_root_builder().return_type,
       )
-      sql_expression = self._encode_fhir_path_constraint(
+      result_constraint = self._encode_fhir_path_constraint(
           struct_def, fhir_path_expression, builder
       )
-      if sql_expression is None:
+      if result_constraint is None:
         continue  # Failure to generate Standard SQL expression
       # Constraint type and severity metadata; default to WARNING
       # TODO(b/199419068): Cleanup validation severity mapping
@@ -563,15 +580,15 @@ class FhirProfileStandardSqlEncoder:
 
       requirement = validation_pb2.SqlRequirement(
           column_name=column_name,
-          sql_expression=sql_expression,
+          sql_expression=result_constraint.sql,
           severity=validation_severity,
           type=type_,
           element_path=element_definition_path,
           description=cast(Any, constraint).human.value,
           fhir_path_key=constraint_key,
-          fhir_path_expression=fhir_path_expression,
+          fhir_path_expression=result_constraint.builder.fhir_path,
           fields_referenced_by_expression=_fields_referenced_by_expression(
-              fhir_path_expression
+              result_constraint.builder.fhir_path
           ),
       )
 
@@ -716,10 +733,10 @@ class FhirProfileStandardSqlEncoder:
     if not _SKIP_TYPE_CODES.isdisjoint(type_codes):
       return None
 
-    required_sql_expression = self._encode_fhir_path_builder_constraint(
+    result = self._encode_fhir_path_builder_constraint(
         fhir_path_builder, containing_type_builder
     )
-    if required_sql_expression is None:
+    if result is None:
       return None  # Failure to generate Standard SQL expression.
 
     # Create the `SqlRequirement`.
@@ -732,15 +749,15 @@ class FhirProfileStandardSqlEncoder:
 
     requirement = validation_pb2.SqlRequirement(
         column_name=column_name,
-        sql_expression=required_sql_expression,
+        sql_expression=result.sql,
         severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
         type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
         element_path=element_definition_path,
         description=description,
         fhir_path_key=constraint_key,
-        fhir_path_expression=fhir_path_builder.fhir_path,
+        fhir_path_expression=result.builder.fhir_path,
         fields_referenced_by_expression=_fields_referenced_by_expression(
-            fhir_path_builder.fhir_path
+            result.builder.fhir_path
         ),
     )
     return requirement
@@ -789,10 +806,10 @@ class FhirProfileStandardSqlEncoder:
     )
     exclusivity_constraint: expressions.Builder = num_choices_exist <= 1
 
-    exclusivity_constraint_sql = self._encode_fhir_path_builder_constraint(
+    result = self._encode_fhir_path_builder_constraint(
         exclusivity_constraint, builder.get_parent_builder()
     )
-    if exclusivity_constraint_sql is None:
+    if result is None:
       return []
 
     choice_type_path = self._abs_path_invocation(builder)
@@ -805,15 +822,15 @@ class FhirProfileStandardSqlEncoder:
     return [
         validation_pb2.SqlRequirement(
             column_name=column_name,
-            sql_expression=exclusivity_constraint_sql,
+            sql_expression=result.sql,
             severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
             type=validation_pb2.ValidationType.VALIDATION_TYPE_CHOICE_TYPE,
             element_path=parent_path,
             description=description,
             fhir_path_key=constraint_key,
-            fhir_path_expression=exclusivity_constraint.fhir_path,
+            fhir_path_expression=result.builder.fhir_path,
             fields_referenced_by_expression=_fields_referenced_by_expression(
-                exclusivity_constraint.fhir_path
+                result.builder.fhir_path
             ),
         )
     ]
@@ -1052,11 +1069,10 @@ class FhirProfileStandardSqlEncoder:
         fhir_path_builder = child_builder.all(fhir_path_builder)
 
       element_definition_path = self._abs_path_invocation(child_builder)
-      fhir_expression = fhir_path_builder.fhir_path
-      required_sql_expression = self._encode_fhir_path_builder_constraint(
+      result = self._encode_fhir_path_builder_constraint(
           fhir_path_builder, builder
       )
-      if required_sql_expression is None:
+      if result is None:
         continue  # Failure to generate Standard SQL expression.
 
       # Create the `SqlRequirement`.
@@ -1071,15 +1087,15 @@ class FhirProfileStandardSqlEncoder:
 
       requirement = validation_pb2.SqlRequirement(
           column_name=column_name,
-          sql_expression=required_sql_expression,
+          sql_expression=result.sql,
           severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
           type=validation_pb2.ValidationType.VALIDATION_TYPE_PRIMITIVE_REGEX,
           element_path=self._abs_path_invocation(child_builder),
           description=f'{name} needs to match regex of {regex_type_code}.',
           fhir_path_key=constraint_key,
-          fhir_path_expression=fhir_path_builder.fhir_path,
+          fhir_path_expression=result.builder.fhir_path,
           fields_referenced_by_expression=_fields_referenced_by_expression(
-              _escape_fhir_path_invocation(fhir_expression)
+              _escape_fhir_path_invocation(result.builder.fhir_path)
           ),
       )
       encoded_requirements.append(requirement)
@@ -1193,10 +1209,10 @@ class FhirProfileStandardSqlEncoder:
 
     # Since the binding is required, we don't have to check the top-level
     # constraints.
-    sql_expression = self._encode_fhir_path_builder_constraint(
+    result = self._encode_fhir_path_builder_constraint(
         fhir_path_builder, top_level_constraint=None
     )
-    if sql_expression is None:
+    if result is None:
       return []
 
     element_definition_path = self._abs_path_invocation(
@@ -1214,7 +1230,7 @@ class FhirProfileStandardSqlEncoder:
     return [
         validation_pb2.SqlRequirement(
             column_name=column_name,
-            sql_expression=sql_expression,
+            sql_expression=result.sql,
             severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
             type=(
                 validation_pb2.ValidationType.VALIDATION_TYPE_VALUE_SET_BINDING

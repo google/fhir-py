@@ -3955,66 +3955,6 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     )
     self.assertEqual(actual_bindings_v2[0].sql_expression, expected_sql)
 
-  def testEncode_withChoiceTypes_producesChoiceTypeExclusivityConstraint(self):
-    """Ensures we enforce an exclusivity constraint among choice type options."""
-    foo_root = sdefs.build_element_definition(
-        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
-    )
-    # Should generate SQL ensuring only one of string or integer is set.
-    foo_bar_element_definition = sdefs.build_element_definition(
-        id_='Foo.bar[x]',
-        type_codes=['string', 'integer'],
-        cardinality=sdefs.Cardinality(min=0, max='1'),
-    )
-    # Should not generate any SQL because there is only one choice.
-    foo_baz_element_definition = sdefs.build_element_definition(
-        id_='Foo.baz[x]',
-        type_codes=['string'],
-        cardinality=sdefs.Cardinality(min=0, max='1'),
-    )
-    foo = sdefs.build_resource_definition(
-        id_='Foo',
-        element_definitions=[
-            foo_root,
-            foo_bar_element_definition,
-            foo_baz_element_definition,
-        ],
-    )
-
-    error_reporter_v2 = fhir_errors.ListErrorReporter()
-    encoder_v2 = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
-        unittest.mock.Mock(iter_structure_definitions=lambda: [foo]),
-        primitive_handler.PrimitiveHandler(),
-        error_reporter_v2,
-    )
-    actual_bindings_v2 = encoder_v2.encode(foo)
-    self.assertEmpty(error_reporter_v2.warnings)
-    self.assertEmpty(error_reporter_v2.errors)
-    self.assertLen(actual_bindings_v2, 1)
-    self.assertEqual(actual_bindings_v2[0].element_path, 'Foo')
-    self.assertEqual(
-        actual_bindings_v2[0].fhir_path_expression,
-        (
-            "bar.ofType('string').exists().toInteger() +"
-            " bar.ofType('integer').exists().toInteger() <= 1"
-        ),
-    )
-    self.assertEqual(
-        actual_bindings_v2[0].fields_referenced_by_expression, ['bar']
-    )
-    self.assertEqual(
-        actual_bindings_v2[0].sql_expression,
-        textwrap.dedent(
-            """\
-            (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
-            FROM UNNEST(ARRAY(SELECT comparison_
-            FROM (SELECT ((CAST(
-            bar.string IS NOT NULL AS INT64) + CAST(
-            bar.integer IS NOT NULL AS INT64)) <= 1) AS comparison_)
-            WHERE comparison_ IS NOT NULL)) AS result_)"""
-        ),
-    )
-
   def testSkipKeys_withValidResource_producesNoConstraints(self):
     # Setup resource with a defined constraint
     constraint = self.build_constraint(
@@ -4553,6 +4493,167 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(error_reporter.warnings)
     self.assertEmpty(error_reporter.errors)
     self.assertEmpty(actual_bindings)
+
+
+class FhirProfileStandardSqlEncoderChoiceTest(
+    FhirProfileStandardSqlEncoderTestBase
+):
+  """Tests Standard SQL encoding over choice types.
+
+  The suite stands-up a list of synthetic resources for profiling and
+  validation. The resources have the following structure:
+  ```
+  Foo {
+    <string, integer> bar[x];
+    <string> baz[x]
+  }
+
+  Boo {
+    Deep deep;
+  }
+
+  Deep {
+    <string, bool> deepChoice[x];
+  }
+  ```
+  """
+
+  @classmethod
+  def setUpClass(cls) -> None:
+    super().setUpClass()
+    foo_root = sdefs.build_element_definition(
+        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
+    # Should generate SQL ensuring only one of string or integer is set.
+    foo_bar_element_definition = sdefs.build_element_definition(
+        id_='Foo.bar[x]',
+        type_codes=['string', 'integer'],
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+
+    # Should not generate any SQL because there is only one choice.
+    foo_baz_element_definition = sdefs.build_element_definition(
+        id_='Foo.baz[x]',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    foo = sdefs.build_resource_definition(
+        id_='Foo',
+        element_definitions=[
+            foo_root,
+            foo_bar_element_definition,
+            foo_baz_element_definition,
+        ],
+    )
+
+    boo_root = sdefs.build_element_definition(
+        id_='Boo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
+    boo_deep = sdefs.build_element_definition(
+        id_='Boo.deep',
+        type_codes=['Deep'],
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    boo = sdefs.build_resource_definition(
+        id_='Boo', element_definitions=[boo_root, boo_deep]
+    )
+
+    deep_root = sdefs.build_element_definition(
+        id_='Deep', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
+    deep_choice = sdefs.build_element_definition(
+        id_='Deep.deepChoice[x]',
+        type_codes=['string', 'bool'],
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    deep = sdefs.build_resource_definition(
+        id_='Deep', element_definitions=[deep_root, deep_choice]
+    )
+
+    all_resources = [foo, boo, deep]
+    cls.resources = {resource.url.value: resource for resource in all_resources}
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='_testChoiceTypeExclusivity',
+          base_id='Foo',
+          context_element_path='Foo',
+          expected_sql_expression=textwrap.dedent(
+              """\
+            (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
+            FROM UNNEST(ARRAY(SELECT comparison_
+            FROM (SELECT ((CAST(
+            bar.string IS NOT NULL AS INT64) + CAST(
+            bar.integer IS NOT NULL AS INT64)) <= 1) AS comparison_)
+            WHERE comparison_ IS NOT NULL)) AS result_)"""
+          ),
+          fhir_path_expression=(
+              "bar.ofType('string').exists().toInteger() +"
+              " bar.ofType('integer').exists().toInteger() <= 1"
+          ),
+          fields_referenced_by_expression=['bar'],
+      ),
+      dict(
+          testcase_name='_testDeepChoiceTypeExclusivity',
+          base_id='Boo',
+          context_element_path='Boo.deep',
+          expected_sql_expression=textwrap.dedent(
+              """\
+            (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
+            FROM (SELECT ARRAY(SELECT comparison_
+            FROM (SELECT ((CAST(
+            deepChoice.string IS NOT NULL AS INT64) + CAST(
+            deepChoice.bool IS NOT NULL AS INT64)) <= 1) AS comparison_)
+            WHERE comparison_ IS NOT NULL) AS subquery_
+            FROM (SELECT AS VALUE ctx_element_
+            FROM UNNEST(ARRAY(SELECT deep
+            FROM (SELECT deep)
+            WHERE deep IS NOT NULL)) AS ctx_element_)),
+            UNNEST(subquery_) AS result_)"""
+          ),
+          fhir_path_expression=(
+              "deepChoice.ofType('string').exists().toInteger() + "
+              "deepChoice.ofType('bool').exists().toInteger() <= 1"
+          ),
+          fields_referenced_by_expression=['deepChoice'],
+      ),
+  )
+  def testEncode_withChoiceTypes_producesChoiceTypeExclusivityConstraint(
+      self,
+      base_id: str,
+      context_element_path: str,
+      expected_sql_expression: str,
+      fhir_path_expression: str,
+      fields_referenced_by_expression: List[str],
+  ):
+    """Ensures we enforce an exclusivity constraint among choice type options."""
+    error_reporter_v2 = fhir_errors.ListErrorReporter()
+    all_resources = list(self.resources.values())
+    encoder_v2 = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(iter_structure_definitions=lambda: all_resources),
+        primitive_handler.PrimitiveHandler(),
+        error_reporter_v2,
+    )
+
+    resource = self.resources[
+        f'http://hl7.org/fhir/StructureDefinition/{base_id}'
+    ]
+
+    actual_bindings_v2 = encoder_v2.encode(resource)
+    self.assertEmpty(error_reporter_v2.warnings)
+    self.assertEmpty(error_reporter_v2.errors)
+    self.assertLen(actual_bindings_v2, 1)
+    self.assertEqual(actual_bindings_v2[0].element_path, context_element_path)
+    self.assertEqual(
+        actual_bindings_v2[0].fhir_path_expression, fhir_path_expression
+    )
+    self.assertEqual(
+        actual_bindings_v2[0].fields_referenced_by_expression,
+        fields_referenced_by_expression,
+    )
+    self.assertEqual(
+        actual_bindings_v2[0].sql_expression, expected_sql_expression
+    )
 
 
 class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(

@@ -168,6 +168,17 @@ class ExpressionNode(abc.ABC):
     """Returns debug string of the current node."""
     return self._operand_to_string(self, with_typing)
 
+  def deepcopy(self) -> 'ExpressionNode':
+    """Returns a deep copy of the node without copying the context."""
+    obj_copy = copy.deepcopy(
+        self,
+        # Context contains all the structdefs necessary for a resource so it
+        # can be very large and won't be modified between nodes anyway so
+        # avoid deepcopying context.
+        {id(self.context): self.context},
+    )
+    return obj_copy
+
 
 def _check_is_predicate(
     function_name: str, params: List[ExpressionNode]

@@ -18,7 +18,6 @@ such as in the r4 sub-package.
 """
 
 import collections
-import copy
 import datetime
 from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
@@ -110,6 +109,29 @@ class Builder:
   ):
     self._node = node
     self._handler = handler
+
+  @classmethod
+  def replace_with_operand(
+      cls,
+      old_builder: 'Builder',
+      old_path: str,
+      replacement_node: _evaluation.ExpressionNode,
+  ) -> 'Builder':
+    """Returns a builder with the old path replaced with a new node.
+
+    Args:
+      old_builder: Builder with nodes to be copied into the new one.
+      old_path: String of the old path to be replaced in the old_builder. If no
+        path matches, then the old builder will be the same as the new builder.
+      replacement_node: An expression node that will replace the node that
+        matches the old_path.
+
+    Returns:
+      A builder with the new expression node tree.
+    """
+    localized = old_builder.get_node().deepcopy()
+    localized.replace_operand(old_path, replacement_node)
+    return cls(localized, old_builder._handler)  # pylint: disable=protected-access
 
   def _primitive_to_fhir_path(self, primitive: Optional[Comparable]) -> str:
     """Converts a primitive type into a FHIRPath literal string."""
@@ -473,24 +495,6 @@ class Builder:
         _evaluation.ToIntegerFunction(self._node.context, self._node, [])
     )
 
-  def replace_operand(
-      self, old_path: str, replacement_node: _evaluation.ExpressionNode
-  ) -> 'Builder':
-    """Returns a builder with the old path replaced with a new node.
-
-    Args:
-      old_path: String of the old path to be replaced in the current buildergx.
-        If no path matches, then the old builder will be the same as the new
-        builder.
-      replacement_node: An expression node that will replace the node that
-        matches the old_path.
-
-    Returns:
-      A builder with the new expression node tree.
-    """
-    self._node.replace_operand(old_path, replacement_node)
-    return self._builder(self._node)
-
   def _function_args_to_nodes(
       self, operand_node: _evaluation.ExpressionNode, args: List[Any]
   ) -> List[_evaluation.ExpressionNode]:
@@ -523,13 +527,7 @@ class Builder:
         # `patient.address.where(patient.address.use = 'home')` is built from
         # patient, but should be evaluated in the context of address.
 
-        localized = copy.deepcopy(
-            arg.get_node(),
-            # Context contains all the structdefs necessary for a resource so it
-            # can be very large and won't be modified between nodes anyway so
-            # avoid deepcopying context.
-            {id(arg.get_node().context): arg.get_node().context},
-        )
+        localized = arg.get_node().deepcopy()
         localized.replace_operand(
             operand_node.to_fhir_path(),
             _evaluation.ReferenceNode(self._node.context, operand_node),
