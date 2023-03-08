@@ -14,16 +14,39 @@
 # limitations under the License.
 """Test value_sets functionality."""
 
-import unittest.mock
-
+from typing import Iterable, Type, TypeVar
+from unittest import mock
+from google.protobuf import message
 from google.protobuf import text_format
 from absl.testing import absltest
+from google.fhir.r4.proto.core.resources import code_system_pb2
+from google.fhir.r4.proto.core.resources import search_parameter_pb2
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
 from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core.utils import fhir_package
+from google.fhir.r4 import primitive_handler
 from google.fhir.r4 import r4_package
 from google.fhir.r4.terminology import terminology_service_client
 from google.fhir.r4.terminology import value_sets
+
+TResourceCollection = TypeVar('TResourceCollection', bound=message.Message)
+
+
+def _get_empty_collection(
+    msg_cls: Type[TResourceCollection],
+) -> fhir_package.ResourceCollection[TResourceCollection]:
+  return fhir_package.ResourceCollection(
+      msg_cls, primitive_handler.PrimitiveHandler(), 'Z'
+  )
+
+
+def _build_mock_collection(
+    resources: Iterable[TResourceCollection],
+) -> mock.MagicMock:
+  return mock.MagicMock(
+      spec=fhir_package.ResourceCollection,
+      __iter__=lambda _: iter(resources),
+  )
 
 
 class ValueSetsTest(absltest.TestCase):
@@ -71,14 +94,10 @@ class ValueSetsTest(absltest.TestCase):
     pixie_dust = magic.snapshot.element.add()
     pixie_dust.binding.value_set.value = 'http://hl7.org/fhir/ValueSet/fey'
 
-    package_manager = unittest.mock.MagicMock(
-        spec=fhir_package.FhirPackageManager
-    )
+    package_manager = mock.MagicMock(spec=fhir_package.FhirPackageManager)
     package_manager.get_resource.side_effect = {magic.url.value: magic}.get
 
-    resolver = value_sets.ValueSetResolver(
-        package_manager, unittest.mock.MagicMock()
-    )
+    resolver = value_sets.ValueSetResolver(package_manager, mock.MagicMock())
 
     result = resolver.value_set_urls_from_structure_definition(definition)
     self.assertCountEqual(
@@ -160,10 +179,16 @@ class ValueSetsTest(absltest.TestCase):
     )
 
     package = fhir_package.FhirPackage(
-        structure_definitions=[definition, another_definition],
-        search_parameters=[],
-        code_systems=[],
-        value_sets=[value_set, another_value_set, duplicate_value_set],
+        structure_definitions=_build_mock_collection(
+            [definition, another_definition]
+        ),
+        search_parameters=_get_empty_collection(
+            search_parameter_pb2.SearchParameter
+        ),
+        code_systems=_get_empty_collection(code_system_pb2.CodeSystem),
+        value_sets=_build_mock_collection(
+            [value_set, another_value_set, duplicate_value_set],
+        ),
     )
 
     result = get_resolver().value_set_urls_from_fhir_package(package)
@@ -180,20 +205,24 @@ class ValueSetsTest(absltest.TestCase):
 
   def testValueSetUrlsFromFhirPackage_withEmptyPackage_returnsEmpty(self):
     package = fhir_package.FhirPackage(
-        structure_definitions=[],
-        search_parameters=[],
-        code_systems=[],
-        value_sets=[],
+        structure_definitions=_get_empty_collection(
+            structure_definition_pb2.StructureDefinition
+        ),
+        search_parameters=_get_empty_collection(
+            search_parameter_pb2.SearchParameter
+        ),
+        code_systems=_get_empty_collection(code_system_pb2.CodeSystem),
+        value_sets=_get_empty_collection(value_set_pb2.ValueSet),
     )
     self.assertEqual(
         list(get_resolver().value_set_urls_from_fhir_package(package)), []
     )
 
   def testExpandValueSet_withMissingResource_callsTerminologyService(self):
-    mock_package_manager = unittest.mock.MagicMock()
+    mock_package_manager = mock.MagicMock()
     mock_package_manager.get_resource.return_value = None
 
-    mock_client = unittest.mock.MagicMock(
+    mock_client = mock.MagicMock(
         spec=terminology_service_client.TerminologyServiceClient
     )
 
@@ -205,12 +234,10 @@ class ValueSetsTest(absltest.TestCase):
     )
 
   def testExpandValueSet_returnsResultFromFirstSuccessfuleResolver(self):
-    first_resolver = unittest.mock.MagicMock()
-    second_resolver = unittest.mock.MagicMock()
+    first_resolver = mock.MagicMock()
+    second_resolver = mock.MagicMock()
 
-    resolver = value_sets.ValueSetResolver(
-        unittest.mock.MagicMock(), unittest.mock.MagicMock()
-    )
+    resolver = value_sets.ValueSetResolver(mock.MagicMock(), mock.MagicMock())
     resolver._resolvers = (first_resolver, second_resolver)
 
     result = resolver.expand_value_set_url('http://some-url')
@@ -226,14 +253,12 @@ class ValueSetsTest(absltest.TestCase):
   def testExpandValueSet_returnsResultFromSecondResolverIfFirstReturnsNone(
       self,
   ):
-    first_resolver = unittest.mock.MagicMock()
+    first_resolver = mock.MagicMock()
     first_resolver.expand_value_set_url.return_value = None
 
-    second_resolver = unittest.mock.MagicMock()
+    second_resolver = mock.MagicMock()
 
-    resolver = value_sets.ValueSetResolver(
-        unittest.mock.MagicMock(), unittest.mock.MagicMock()
-    )
+    resolver = value_sets.ValueSetResolver(mock.MagicMock(), mock.MagicMock())
     resolver._resolvers = (first_resolver, second_resolver)
 
     result = resolver.expand_value_set_url('http://some-url')
@@ -407,14 +432,10 @@ class ValueSetsTest(absltest.TestCase):
         for sd in (definition, lonely, snake, hiss, hisssssss, ladder, chute)
     }
 
-    package_manager = unittest.mock.MagicMock(
-        spec=fhir_package.FhirPackageManager
-    )
+    package_manager = mock.MagicMock(spec=fhir_package.FhirPackageManager)
     package_manager.get_resource.side_effect = definitions.get
 
-    resolver = value_sets.ValueSetResolver(
-        package_manager, unittest.mock.MagicMock()
-    )
+    resolver = value_sets.ValueSetResolver(package_manager, mock.MagicMock())
     result = list(
         resolver._get_structure_defintions_for_elements_of(definition)
     )
@@ -428,7 +449,7 @@ def get_resolver() -> value_sets.ValueSetResolver:
   package_manager = fhir_package.FhirPackageManager()
   package_manager.add_package(r4_package.load_base_r4())
 
-  return value_sets.ValueSetResolver(package_manager, unittest.mock.MagicMock())
+  return value_sets.ValueSetResolver(package_manager, mock.MagicMock())
 
 
 if __name__ == '__main__':
