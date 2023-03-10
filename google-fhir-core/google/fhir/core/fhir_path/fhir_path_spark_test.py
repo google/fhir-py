@@ -972,7 +972,10 @@ class FhirPathSparkSqlEncoderTest(
     fhir_path_expression = 'true'
     expected_sql_expression = '(SELECT TRUE AS literal_)'
     self.assertEvaluationNodeSqlCorrect(
-        None, fhir_path_expression, expected_sql_expression, False
+        structdef=self.foo,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=False,
     )
 
 

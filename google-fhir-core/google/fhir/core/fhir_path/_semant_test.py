@@ -14,7 +14,7 @@
 # limitations under the License.
 """Tests Python FHIRPath semantic analysis functionality."""
 
-from typing import List, Optional, Set
+from typing import List, Optional, Set, cast
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -720,8 +720,12 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
     self.assertEmpty(self.error_reporter.warnings)
 
     if expect_repeated:
-      self.assertIsInstance(ast.data_type, _fhir_path_data_types.Collection)
-      self.assertEqual(ast.data_type.types, expected_data_types)
+      data_type = ast.data_type
+      self.assertIsInstance(data_type, _fhir_path_data_types.Collection)
+      self.assertEqual(
+          cast(_fhir_path_data_types.Collection, data_type).types,
+          expected_data_types,
+      )
     else:
       self.assertLen(expected_data_types, 1)
       self.assertEqual(ast.data_type, expected_data_types[0])
@@ -811,9 +815,12 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
     self.assertEmpty(self.error_reporter.warnings)
 
     # bar.tin.fig invocation
+    self.assertIsInstance(ast, _ast.Invocation)
     self.assertEqual(ast.lhs.data_type, _fhir_path_data_types.String)
     # bar.tin.fig identifier
-    self.assertEqual(ast.lhs.rhs.data_type, _fhir_path_data_types.String)
+    lhs = ast.lhs
+    self.assertIsInstance(lhs, _ast.Invocation)
+    self.assertEqual(lhs.rhs.data_type, _fhir_path_data_types.String)
 
   @parameterized.named_parameters(
       dict(
@@ -941,8 +948,12 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
     self.assertEmpty(self.error_reporter.warnings)
 
     if expect_repeated:
-      self.assertIsInstance(ast.data_type, _fhir_path_data_types.Collection)
-      self.assertEqual(ast.data_type.types, expected_data_types)
+      data_type = ast.data_type
+      self.assertIsInstance(data_type, _fhir_path_data_types.Collection)
+      self.assertEqual(
+          cast(_fhir_path_data_types.Collection, data_type).types,
+          expected_data_types,
+      )
     else:
       self.assertLen(expected_data_types, 1)
       self.assertEqual(ast.data_type, list(expected_data_types)[0])

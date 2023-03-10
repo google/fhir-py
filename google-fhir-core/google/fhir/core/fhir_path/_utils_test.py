@@ -14,6 +14,8 @@
 # limitations under the License.
 """Tests for _utils."""
 
+from typing import Any, cast
+
 from absl.testing import absltest
 from absl.testing import parameterized
 from google.fhir.core.fhir_path import _structure_definitions as sdefs
@@ -322,7 +324,7 @@ class FhirPathUtilitiesTest(parameterized.TestCase):
     root_element_def = _utils.get_root_element_definition(
         self._patient_structdef
     )
-    self.assertEqual(root_element_def.id, self.patient_root.id)
+    self.assertEqual(cast(Any, root_element_def).id, self.patient_root.id)
 
   def testGetRootElementDefinition_withMultipleRoots_fails(self):
     with self.assertRaisesRegex(

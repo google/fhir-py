@@ -16,8 +16,8 @@
 
 import datetime
 import textwrap
+from typing import Any, Optional, cast
 from unittest import mock
-
 from google.cloud import bigquery
 import numpy
 import pandas
@@ -25,6 +25,7 @@ import pandas
 from absl.testing import absltest
 from absl.testing import parameterized
 from google.fhir.core.fhir_path import context
+from google.fhir.core.utils import fhir_package
 from google.fhir.r4 import r4_package
 from google.fhir.r4.terminology import terminology_service_client
 from google.fhir.r4.terminology import value_sets
@@ -35,6 +36,8 @@ from google.fhir.views import views
 
 class BigqueryRunnerTest(parameterized.TestCase):
   """Tests the bigquery runner running on v2."""
+
+  _fhir_package: fhir_package.FhirPackage
 
   @classmethod
   def setUpClass(cls):
@@ -61,8 +64,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
       self,
       expected_output: str,
       view: views.View,
-      bq_runner: bigquery_runner.BigQueryRunner = None,
-      limit: int = None,
+      bq_runner: Optional[bigquery_runner.BigQueryRunner] = None,
+      limit: Optional[int] = None,
   ):
     if not bq_runner:
       bq_runner = self.runner
@@ -422,7 +425,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     # an external service in future implementations.
     self._context.add_local_value_set(unmarried_value_set)
     active_patients_view = pat.select({'birthDate': pat.birthDate}).where(
-        pat.maritalStatus.memberOf(unmarried_value_set.url.value)
+        pat.maritalStatus.memberOf(cast(Any, unmarried_value_set).url.value)
     )
 
     self.AstAndExpressionTreeTestRunner(
@@ -462,7 +465,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     # an external service in future implementations.
     self._context.add_local_value_set(unmarried_value_set)
     active_patients_view = pat.select({'birthDate': pat.birthDate}).where(
-        pat.maritalStatus.memberOf(f'{unmarried_value_set.url.value}')
+        pat.maritalStatus.memberOf(f'{cast(Any,unmarried_value_set).url.value}')
     )
 
     self.AstAndExpressionTreeTestRunner(
@@ -503,7 +506,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self._context.add_local_value_set(unmarried_value_set)
     active_patients_view = pat.select({'birthDate': pat.birthDate}).where(
         # pylint: disable=g-explicit-bool-comparison singleton-comparison
-        pat.maritalStatus.memberOf(f'{unmarried_value_set.url.value}')
+        pat.maritalStatus.memberOf(f'{cast(Any,unmarried_value_set).url.value}')
         == True
     )
     self.AstAndExpressionTreeTestRunner(

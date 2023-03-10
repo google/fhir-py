@@ -16,7 +16,7 @@
 
 import copy
 import textwrap
-from typing import Dict, List, Optional
+from typing import cast, Dict, List, Optional
 import unittest.mock
 
 from google.cloud import bigquery
@@ -545,7 +545,7 @@ class FhirPathStandardSqlEncoderTest(
     fhir_path_expression = 'true'
     expected_sql_expression = '(SELECT TRUE AS literal_)'
     self.assertEvaluationNodeSqlCorrect(
-        structdef=None,
+        structdef=self.foo,
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=False,
@@ -3318,6 +3318,8 @@ class FhirProfileStandardSqlEncoderTestBase(
       `StructureDefinition`.
   """
 
+  resources: Dict[str, structure_definition_pb2.StructureDefinition]
+
   @classmethod
   def setUpClass(cls):
     super().setUpClass()
@@ -3389,7 +3391,7 @@ class FhirProfileStandardSqlEncoderTestBase(
       element_definition_id: str,
       constraint: datatypes_pb2.ElementDefinition.Constraint,
       expected_sql_expression: str,
-      expected_severity: codes_pb2.ConstraintSeverityCode.Value = codes_pb2.ConstraintSeverityCode.ERROR,
+      expected_severity: validation_pb2.ValidationSeverity = validation_pb2.ValidationSeverity.SEVERITY_ERROR,
       supported_in_v2: bool = False,
       expected_sql_expression_v2: Optional[str] = None,
   ) -> None:
@@ -3487,7 +3489,7 @@ class FhirProfileStandardSqlEncoderTestBase(
       expected_column_name: str,
       description: str,
       expected_sql_expression: str,
-      expected_severity: codes_pb2.ConstraintSeverityCode.Value = codes_pb2.ConstraintSeverityCode.ERROR,
+      expected_severity: validation_pb2.ValidationSeverity = validation_pb2.ValidationSeverity.SEVERITY_ERROR,
       fhir_path_key: Optional[str] = None,
       fhir_path_expression: Optional[str] = None,
       fields_referenced_by_expression: Optional[List[str]] = None,
@@ -3769,7 +3771,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         unittest.mock.Mock(iter_structure_definitions=lambda: [profile]),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=options,
+        options=cast(fhir_path_validator_v2.SqlGenerationOptions, options),
     )
     actual_bindings = encoder.encode(profile)
     self.assertEmpty(error_reporter.warnings)
@@ -3798,7 +3800,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         unittest.mock.Mock(iter_structure_definitions=lambda: [profile]),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=options,
+        options=cast(fhir_path_validator_v2.SqlGenerationOptions, options),
     )
     actual_bindings = encoder.encode(profile)
     self.assertEmpty(error_reporter.warnings)
@@ -4121,7 +4123,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         unittest.mock.Mock(iter_structure_definitions=lambda: [foo]),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=options,
+        options=cast(fhir_path_validator_v2.SqlGenerationOptions, options),
     )
 
     actual_bindings = encoder.encode(foo)
@@ -4198,7 +4200,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         unittest.mock.Mock(iter_structure_definitions=lambda: [foo, bar]),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=options,
+        options=cast(fhir_path_validator_v2.SqlGenerationOptions, options),
     )
 
     actual_bindings = encoder.encode(foo)
@@ -4267,7 +4269,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         ),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=options,
+        options=cast(fhir_path_validator_v2.SqlGenerationOptions, options),
     )
     # We are expecting to not see 'always-fail-constraint-key' here because we
     # skipped encoding fields on the primitive `string`.
@@ -5800,7 +5802,7 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
         FROM (SELECT boof IS NOT NULL AS exists_)
         WHERE exists_ IS NOT NULL)) AS result_)"""
         ),
-        severity=codes_pb2.ConstraintSeverityCode.ERROR,
+        severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
         type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
         element_path='Foob',
         description='The length of boof must be maximum 1 and minimum 1.',
@@ -5822,7 +5824,7 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
         WHERE boof IS NOT NULL)) AS ctx_element_)),
         UNNEST(subquery_) AS result_)"""
         ),
-        severity=codes_pb2.ConstraintSeverityCode.ERROR,
+        severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
         type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
         element_path='Foob.boof',
         description='The length of deep must be maximum 1 and minimum 1.',
