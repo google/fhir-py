@@ -61,7 +61,6 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
   CodeableConcept {
     Coding coding
   }
-
   """
 
   def setUp(self) -> None:
@@ -71,7 +70,8 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
     self.foo_root = sdefs.build_element_definition(
         id_='Foo',
         type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     self.foo = sdefs.build_resource_definition(
         id_='Foo',
         element_definitions=[
@@ -79,38 +79,47 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
             sdefs.build_element_definition(
                 id_='Foo.bar',
                 type_codes=['Bar'],
-                cardinality=sdefs.Cardinality(min=0, max='1')),
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
             sdefs.build_element_definition(
                 id_='Foo.baz',
                 type_codes=['string', 'decimal'],
-                cardinality=sdefs.Cardinality(min=0, max='1')),
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
             sdefs.build_element_definition(
                 id_='Foo.name',
                 type_codes=['string'],
-                cardinality=sdefs.Cardinality(min=0, max='1')),
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
             sdefs.build_element_definition(
                 id_='Foo.choiceExample[x]',
                 type_codes=['string', 'integer', 'CodeableConcept'],
-                cardinality=sdefs.Cardinality(min=0, max='1')),
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
             sdefs.build_element_definition(
                 id_='Foo.multipleChoiceExample[x]',
                 type_codes=['string', 'CodeableConcept'],
-                cardinality=sdefs.Cardinality(min=0, max='*')),
+                cardinality=sdefs.Cardinality(min=0, max='*'),
+            ),
             sdefs.build_element_definition(
                 id_='Foo.id',
                 type_codes=['integer'],
-                cardinality=sdefs.Cardinality(min=0, max='1')),
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
             sdefs.build_element_definition(
                 id_='Foo.boolList',
                 type_codes=['boolean'],
-                cardinality=sdefs.Cardinality(min=0, max='*')),
-        ])
+                cardinality=sdefs.Cardinality(min=0, max='*'),
+            ),
+        ],
+    )
 
     # Bar resource
     self.bar_root = sdefs.build_element_definition(
         id_='Bar',
         type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     self.bar = sdefs.build_resource_definition(
         id_='Bar',
         element_definitions=[
@@ -118,18 +127,22 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
             sdefs.build_element_definition(
                 id_='Bar.tin',
                 type_codes=['Tin'],
-                cardinality=sdefs.Cardinality(min=0, max='1')),
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
             sdefs.build_element_definition(
                 id_='Bar.fuzz',
                 type_codes=['string'],
-                cardinality=sdefs.Cardinality(min=0, max='1'))
-        ])
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
+        ],
+    )
 
     # Tin resource.
     self.tin_root = sdefs.build_element_definition(
         id_='Tin',
         type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     self.tin = sdefs.build_resource_definition(
         id_='Tin',
         element_definitions=[
@@ -137,18 +150,22 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
             sdefs.build_element_definition(
                 id_='Tin.fig',
                 type_codes=['string'],
-                cardinality=sdefs.Cardinality(min=0, max='1')),
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
             sdefs.build_element_definition(
                 id_='Tin.struct',
                 type_codes=['Struct'],
-                cardinality=sdefs.Cardinality(min=0, max='1')),
-        ])
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
+        ],
+    )
 
     # Struct resource.
     self.struct_root = sdefs.build_element_definition(
         id_='Struct',
         type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'))
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
     self.struct = sdefs.build_resource_definition(
         id_='Struct',
         element_definitions=[
@@ -156,52 +173,69 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
             sdefs.build_element_definition(
                 id_='Struct.value',
                 type_codes=['string'],
-                cardinality=sdefs.Cardinality(min=0, max='*')),
+                cardinality=sdefs.Cardinality(min=0, max='*'),
+            ),
             sdefs.build_element_definition(
                 id_='Struct.num',
                 type_codes=['integer'],
-                cardinality=sdefs.Cardinality(min=0, max='*')),
-        ])
+                cardinality=sdefs.Cardinality(min=0, max='*'),
+            ),
+        ],
+    )
 
     # CodeableConcept resource
     codeable_concept_root_element_definition = sdefs.build_element_definition(
         id_='CodeableConcept',
         type_codes=None,
-        cardinality=sdefs.Cardinality(min=1, max='1'))
-    codeable_concept_coding_system_element_definition = sdefs.build_element_definition(
-        id_='CodeableConcept.coding',
-        type_codes=['Coding'],
-        cardinality=sdefs.Cardinality(min=0, max='*'))
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    codeable_concept_coding_system_element_definition = (
+        sdefs.build_element_definition(
+            id_='CodeableConcept.coding',
+            type_codes=['Coding'],
+            cardinality=sdefs.Cardinality(min=0, max='*'),
+        )
+    )
     codeable_concept = sdefs.build_resource_definition(
         id_='CodeableConcept',
         element_definitions=[
             codeable_concept_root_element_definition,
             codeable_concept_coding_system_element_definition,
-        ])
+        ],
+    )
 
     structure_definitions = [
-        self.foo, self.bar, self.tin, self.struct, codeable_concept
+        self.foo,
+        self.bar,
+        self.tin,
+        self.struct,
+        codeable_concept,
     ]
 
     self.semantic_analyzer = _semant.FhirPathSemanticAnalyzer(
-        _navigation._Environment(structure_definitions))
+        _navigation._Environment(structure_definitions)
+    )
 
     self.error_reporter = fhir_errors.ListErrorReporter()
 
   def assertSemanticAnalysis_succedsWithNoErrors(
-      self, fhir_path_expression: str,
-      expected_data_type: _fhir_path_data_types.FhirPathDataType):
+      self,
+      fhir_path_expression: str,
+      expected_data_type: _fhir_path_data_types.FhirPathDataType,
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
-    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                    self.foo, self.foo_root)
+    self.semantic_analyzer.add_semantic_annotations(
+        ast, self.error_reporter, self.foo, self.foo_root
+    )
     self.assertEmpty(self.error_reporter.errors)
     self.assertEmpty(self.error_reporter.warnings)
     self.assertEqual(ast.data_type, expected_data_type)
 
   def assertSemanticAnalysis_failsWithError(self, fhir_path_expression: str):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
-    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                    self.foo, self.foo_root)
+    self.semantic_analyzer.add_semantic_annotations(
+        ast, self.error_reporter, self.foo, self.foo_root
+    )
     self.assertLen(self.error_reporter.errors, 1)
     self.assertEmpty(self.error_reporter.warnings)
     self.assertEqual(ast.data_type, _fhir_path_data_types.Empty)
@@ -210,101 +244,129 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       dict(
           testcase_name='_withEmptyLiteral',
           fhir_path_expression='{ }',
-          expected_data_type=_fhir_path_data_types.Empty),
+          expected_data_type=_fhir_path_data_types.Empty,
+      ),
       dict(
           testcase_name='_withBooleanLiteral',
           fhir_path_expression='true',
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
       dict(
           testcase_name='_withStringLiteral',
           fhir_path_expression="'foo'",
-          expected_data_type=_fhir_path_data_types.String),
+          expected_data_type=_fhir_path_data_types.String,
+      ),
       dict(
           testcase_name='_withQuantityLiteral',
           fhir_path_expression="10 'mg'",
-          expected_data_type=_fhir_path_data_types.Quantity),
+          expected_data_type=_fhir_path_data_types.Quantity,
+      ),
       dict(
           testcase_name='_withIntegerLiteral',
           fhir_path_expression='100',
-          expected_data_type=_fhir_path_data_types.Integer),
+          expected_data_type=_fhir_path_data_types.Integer,
+      ),
       dict(
           testcase_name='_withDecimalLiteral',
           fhir_path_expression='3.14',
-          expected_data_type=_fhir_path_data_types.Decimal),
+          expected_data_type=_fhir_path_data_types.Decimal,
+      ),
       dict(
           testcase_name='_withDateLiteral',
           fhir_path_expression='@2000-01-01',
-          expected_data_type=_fhir_path_data_types.Date),
+          expected_data_type=_fhir_path_data_types.Date,
+      ),
       dict(
           testcase_name='_withDateTimeLiteral',
           fhir_path_expression='@2000-01-01T12:34:56+09:00',
-          expected_data_type=_fhir_path_data_types.DateTime),
+          expected_data_type=_fhir_path_data_types.DateTime,
+      ),
   )
   def testSemanticAnalysis_withFhirPathLiteral_succeeds(
-      self, fhir_path_expression: str,
-      expected_data_type: _fhir_path_data_types.FhirPathDataType):
-    self.assertSemanticAnalysis_succedsWithNoErrors(fhir_path_expression,
-                                                    expected_data_type)
+      self,
+      fhir_path_expression: str,
+      expected_data_type: _fhir_path_data_types.FhirPathDataType,
+  ):
+    self.assertSemanticAnalysis_succedsWithNoErrors(
+        fhir_path_expression, expected_data_type
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withLogicalAnd',
           fhir_path_expression='true and false',
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
       dict(
           testcase_name='_withLogicalAndBooleanEmpty',
           fhir_path_expression='true and { }',
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
       dict(
           testcase_name='_withLogicalAndEmpty',
           fhir_path_expression='{ } and { }',
-          expected_data_type=_fhir_path_data_types.Empty),
+          expected_data_type=_fhir_path_data_types.Empty,
+      ),
       dict(
           testcase_name='_withLogicalOr',
           fhir_path_expression='true or 1',
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
       dict(
           testcase_name='_withLogicalImplies',
           fhir_path_expression="'foo' implies false",
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
       dict(
           testcase_name='_withLogicalXorBooleanEvaluatedOperands',
           fhir_path_expression="'foo' xor false",
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
       dict(
           testcase_name='_withLogicalXorEmptyOperand',
           fhir_path_expression="'foo' xor { }",
-          expected_data_type=_fhir_path_data_types.Empty),
+          expected_data_type=_fhir_path_data_types.Empty,
+      ),
   )
   def testSemanticAnalysis_withFhirPathBooleanLogic_succeeds(
-      self, fhir_path_expression: str,
-      expected_data_type: _fhir_path_data_types.FhirPathDataType):
-    self.assertSemanticAnalysis_succedsWithNoErrors(fhir_path_expression,
-                                                    expected_data_type)
+      self,
+      fhir_path_expression: str,
+      expected_data_type: _fhir_path_data_types.FhirPathDataType,
+  ):
+    self.assertSemanticAnalysis_succedsWithNoErrors(
+        fhir_path_expression, expected_data_type
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withComparableOperands',
           fhir_path_expression='10 = 11',
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
       dict(
           testcase_name='_withImplicitlyConvertibleComparableOperands',
           fhir_path_expression='10 = 11.0',
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
       dict(
           testcase_name='_withEmptyOperand',
           fhir_path_expression='10 = { }',
-          expected_data_type=_fhir_path_data_types.Empty),
+          expected_data_type=_fhir_path_data_types.Empty,
+      ),
       dict(
           testcase_name='_withBothAsEmptyOperands',
           fhir_path_expression='{ } = { }',
-          expected_data_type=_fhir_path_data_types.Empty),
+          expected_data_type=_fhir_path_data_types.Empty,
+      ),
   )
   def testSemanticAnalysis_withFhirPathEquality_succeeds(
-      self, fhir_path_expression: str,
-      expected_data_type: _fhir_path_data_types.FhirPathDataType):
-    self.assertSemanticAnalysis_succedsWithNoErrors(fhir_path_expression,
-                                                    expected_data_type)
+      self,
+      fhir_path_expression: str,
+      expected_data_type: _fhir_path_data_types.FhirPathDataType,
+  ):
+    self.assertSemanticAnalysis_succedsWithNoErrors(
+        fhir_path_expression, expected_data_type
+    )
 
   @parameterized.named_parameters(
       dict(
@@ -317,52 +379,66 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       ),
   )
   def testSemanticAnalysis_withInvalidFhirPathEquality_reportsError(
-      self, fhir_path_expression: str):
+      self, fhir_path_expression: str
+  ):
     self.assertSemanticAnalysis_failsWithError(fhir_path_expression)
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withComparableOperands',
           fhir_path_expression='10 ~ 11',
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
       dict(
           testcase_name='_withImplicitlyConvertibleComparableOperands',
           fhir_path_expression='10 ~ 11.0',
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
       dict(
           testcase_name='_withEmptyOperand',
           fhir_path_expression='10 ~ { }',
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
       dict(
           testcase_name='_withBothAsEmptyOperands',
           fhir_path_expression='{ } ~ { }',
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
   )
   def testSemanticAnalysis_withFhirPathEquivalence_succeeds(
-      self, fhir_path_expression: str,
-      expected_data_type: _fhir_path_data_types.FhirPathDataType):
-    self.assertSemanticAnalysis_succedsWithNoErrors(fhir_path_expression,
-                                                    expected_data_type)
+      self,
+      fhir_path_expression: str,
+      expected_data_type: _fhir_path_data_types.FhirPathDataType,
+  ):
+    self.assertSemanticAnalysis_succedsWithNoErrors(
+        fhir_path_expression, expected_data_type
+    )
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withComparableOperands',
           fhir_path_expression='10 < 11',
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
       dict(
           testcase_name='_withImplicitlyConvertibleComparableOperands',
           fhir_path_expression='10 < 11.0',
-          expected_data_type=_fhir_path_data_types.Boolean),
+          expected_data_type=_fhir_path_data_types.Boolean,
+      ),
       dict(
           testcase_name='_withEmptyOperand',
           fhir_path_expression='10 < { }',
-          expected_data_type=_fhir_path_data_types.Empty),
+          expected_data_type=_fhir_path_data_types.Empty,
+      ),
   )
   def testSemanticAnalysis_withFhirPathComparison_succeeds(
-      self, fhir_path_expression: str,
-      expected_data_type: _fhir_path_data_types.FhirPathDataType):
-    self.assertSemanticAnalysis_succedsWithNoErrors(fhir_path_expression,
-                                                    expected_data_type)
+      self,
+      fhir_path_expression: str,
+      expected_data_type: _fhir_path_data_types.FhirPathDataType,
+  ):
+    self.assertSemanticAnalysis_succedsWithNoErrors(
+        fhir_path_expression, expected_data_type
+    )
 
   @parameterized.named_parameters(
       dict(
@@ -375,36 +451,45 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       ),
   )
   def testSemanticAnalysis_withInvalidFhirPathComparison_reportsError(
-      self, fhir_path_expression: str):
+      self, fhir_path_expression: str
+  ):
     self.assertSemanticAnalysis_failsWithError(fhir_path_expression)
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_withComparableOperands',
           fhir_path_expression='10 + 11',
-          expected_data_type=_fhir_path_data_types.Integer),
+          expected_data_type=_fhir_path_data_types.Integer,
+      ),
       dict(
           testcase_name='_withImplicitlyConvertibleComparableOperands',
           fhir_path_expression='10 * 11.0',
-          expected_data_type=_fhir_path_data_types.Decimal),
+          expected_data_type=_fhir_path_data_types.Decimal,
+      ),
       dict(
           testcase_name='_withEmptyOperand',
           fhir_path_expression='10 - { }',
-          expected_data_type=_fhir_path_data_types.Empty),
+          expected_data_type=_fhir_path_data_types.Empty,
+      ),
       dict(
           testcase_name='_withComparableStringOperands',
           fhir_path_expression="'a' + 'b'",
-          expected_data_type=_fhir_path_data_types.String),
+          expected_data_type=_fhir_path_data_types.String,
+      ),
       dict(
           testcase_name='_withComparableOperandsAndExpression',
           fhir_path_expression='10 + (11 + 1)',
-          expected_data_type=_fhir_path_data_types.Integer),
+          expected_data_type=_fhir_path_data_types.Integer,
+      ),
   )
   def testSemanticAnalysis_withFhirPathArithmetic_succeeds(
-      self, fhir_path_expression: str,
-      expected_data_type: _fhir_path_data_types.FhirPathDataType):
-    self.assertSemanticAnalysis_succedsWithNoErrors(fhir_path_expression,
-                                                    expected_data_type)
+      self,
+      fhir_path_expression: str,
+      expected_data_type: _fhir_path_data_types.FhirPathDataType,
+  ):
+    self.assertSemanticAnalysis_succedsWithNoErrors(
+        fhir_path_expression, expected_data_type
+    )
 
   @parameterized.named_parameters(
       dict(
@@ -417,7 +502,8 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       ),
   )
   def testSemanticAnalysis_withInvalidFhirPathArithmetic_reportsError(
-      self, fhir_path_expression: str):
+      self, fhir_path_expression: str
+  ):
     self.assertSemanticAnalysis_failsWithError(fhir_path_expression)
 
   @parameterized.named_parameters(
@@ -433,10 +519,13 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       ),
   )
   def testSemanticAnalysis_withValidPolarity_succeeds(
-      self, fhir_path_expression: str,
-      expected_data_type: _fhir_path_data_types.FhirPathDataType):
-    self.assertSemanticAnalysis_succedsWithNoErrors(fhir_path_expression,
-                                                    expected_data_type)
+      self,
+      fhir_path_expression: str,
+      expected_data_type: _fhir_path_data_types.FhirPathDataType,
+  ):
+    self.assertSemanticAnalysis_succedsWithNoErrors(
+        fhir_path_expression, expected_data_type
+    )
 
   @parameterized.named_parameters(
       dict(
@@ -449,7 +538,8 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       ),
   )
   def testSemanticAnalysis_withInvalidFhirPathPolarity_reportsError(
-      self, fhir_path_expression: str):
+      self, fhir_path_expression: str
+  ):
     self.assertSemanticAnalysis_failsWithError(fhir_path_expression)
 
   @parameterized.named_parameters(
@@ -465,10 +555,12 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       ),
   )
   def testSemanticAnalysis_withIdentifiers(
-      self, fhir_path_expression: str, expected_data_type_url: Optional[str]):
+      self, fhir_path_expression: str, expected_data_type_url: Optional[str]
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
-    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                    self.foo, self.foo_root)
+    self.semantic_analyzer.add_semantic_annotations(
+        ast, self.error_reporter, self.foo, self.foo_root
+    )
     self.assertEmpty(self.error_reporter.errors)
     self.assertEmpty(self.error_reporter.warnings)
     self.assertEqual(ast.data_type.url, expected_data_type_url)
@@ -486,10 +578,12 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       ),
   )
   def testSemanticAnalysis_withIdentifiers_andPrimitiveTypes(
-      self, fhir_path_expression: str, expected_data_type_url: Optional[str]):
+      self, fhir_path_expression: str, expected_data_type_url: Optional[str]
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
-    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                    self.foo, self.foo_root)
+    self.semantic_analyzer.add_semantic_annotations(
+        ast, self.error_reporter, self.foo, self.foo_root
+    )
     self.assertEmpty(self.error_reporter.errors)
     self.assertEmpty(self.error_reporter.warnings)
     self.assertEqual(ast.data_type, expected_data_type_url)
@@ -503,15 +597,18 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       dict(
           testcase_name='_withNestedIdentifier',
           fhir_path_expression='bar.tin.struct',
-          expected_data_type_url=('http://hl7.org/fhir/StructureDefinition/'
-                                  'Struct'),
+          expected_data_type_url=(
+              'http://hl7.org/fhir/StructureDefinition/Struct'
+          ),
       ),
   )
   def testSemanticAnalysis_withInvocation(
-      self, fhir_path_expression: str, expected_data_type_url: Optional[str]):
+      self, fhir_path_expression: str, expected_data_type_url: Optional[str]
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
-    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                    self.foo, self.foo_root)
+    self.semantic_analyzer.add_semantic_annotations(
+        ast, self.error_reporter, self.foo, self.foo_root
+    )
     self.assertEmpty(self.error_reporter.errors)
     self.assertEmpty(self.error_reporter.warnings)
     self.assertEqual(ast.data_type.url, expected_data_type_url)
@@ -567,7 +664,9 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       ),
       dict(
           testcase_name='_withRepeatedMemberOfCall',
-          fhir_path_expression="bar.tin.struct.value.memberOf('http://value.set')",
+          fhir_path_expression=(
+              "bar.tin.struct.value.memberOf('http://value.set')"
+          ),
           expect_repeated=True,
           expected_data_types={_fhir_path_data_types.Boolean},
       ),
@@ -591,23 +690,32 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       ),
       dict(
           testcase_name='_withOfTypeCallonMultipleMessage',
-          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding",
+          fhir_path_expression=(
+              "multipleChoiceExample.ofType('CodeableConcept').coding"
+          ),
           expect_repeated=False,
           expected_data_types=[_fhir_path_data_types.Any_],
       ),
       dict(
           testcase_name='_withOfTypeCallonMultipleMessage_andWhere',
-          fhir_path_expression="multipleChoiceExample.ofType('CodeableConcept').coding.where(system = 'test')",
+          fhir_path_expression=(
+              "multipleChoiceExample.ofType('CodeableConcept').coding.where(system"
+              " = 'test')"
+          ),
           expect_repeated=False,
           expected_data_types=[_fhir_path_data_types.Any_],
       ),
   )
   def testSemanticAnalysis_withInvocation_andPrimitiveTypes(
-      self, fhir_path_expression: str, expect_repeated: bool,
-      expected_data_types: List[_fhir_path_data_types.FhirPathDataType]):
+      self,
+      fhir_path_expression: str,
+      expect_repeated: bool,
+      expected_data_types: List[_fhir_path_data_types.FhirPathDataType],
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
-    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                    self.foo, self.foo_root)
+    self.semantic_analyzer.add_semantic_annotations(
+        ast, self.error_reporter, self.foo, self.foo_root
+    )
     self.assertEmpty(self.error_reporter.errors)
     self.assertEmpty(self.error_reporter.warnings)
 
@@ -621,18 +729,22 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
   @parameterized.named_parameters(
       dict(
           testcase_name='_withNestedMemberAccessLeadingExpression',
-          fhir_path_expression='(true and false).bar.bats'),
+          fhir_path_expression='(true and false).bar.bats',
+      ),
       dict(
           testcase_name='_withDeepNestedMemberAccessLeadingExpression',
-          fhir_path_expression='(true and false).bar.bats'),
+          fhir_path_expression='(true and false).bar.bats',
+      ),
   )
   def testSemanticAnalysis_withUnsupportedInvocation_raisesValueError(
-      self, fhir_path_expression: str):
+      self, fhir_path_expression: str
+  ):
     """Tests FHIRPath expressions that are unsupported for Standard SQL."""
     with self.assertRaises(ValueError):
       ast = _ast.build_fhir_path_ast(fhir_path_expression)
-      self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                      self.foo, self.foo_root)
+      self.semantic_analyzer.add_semantic_annotations(
+          ast, self.error_reporter, self.foo, self.foo_root
+      )
 
   @parameterized.named_parameters(
       dict(
@@ -672,11 +784,14 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       ),
   )
   def testSemanticAnalysis_withFunction(
-      self, fhir_path_expression: str,
-      expected_data_type: _fhir_path_data_types.FhirPathDataType):
+      self,
+      fhir_path_expression: str,
+      expected_data_type: _fhir_path_data_types.FhirPathDataType,
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
-    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                    self.foo, self.foo_root)
+    self.semantic_analyzer.add_semantic_annotations(
+        ast, self.error_reporter, self.foo, self.foo_root
+    )
     self.assertEmpty(self.error_reporter.errors)
     self.assertEmpty(self.error_reporter.warnings)
     if expected_data_type is _fhir_path_data_types.Collection:
@@ -689,8 +804,9 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
   def testSemanticAnalysis_withFunction_analyzesAllIdentifiers(self):
     """Ensure identifiers on which the function is called are analyzed as well."""
     ast = _ast.build_fhir_path_ast('bar.tin.fig.exists()')
-    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                    self.foo, self.foo_root)
+    self.semantic_analyzer.add_semantic_annotations(
+        ast, self.error_reporter, self.foo, self.foo_root
+    )
     self.assertEmpty(self.error_reporter.errors)
     self.assertEmpty(self.error_reporter.warnings)
 
@@ -710,26 +826,33 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       ),
   )
   def testSemanticAnalysis_withUnsupportedOperandsMembership_raisesAnError(
-      self, fhir_path_expression):
+      self, fhir_path_expression
+  ):
     self.assertSemanticAnalysis_failsWithError(fhir_path_expression)
 
   @parameterized.named_parameters(
       dict(
           testcase_name='_anyTrueWithNonCollection',
           fhir_path_expression='bar.fuzz.anyTrue()',
-          expected_err_substring='anyTrue() must be called on a Collection of booleans',
+          expected_err_substring=(
+              'anyTrue() must be called on a Collection of booleans'
+          ),
       ),
       dict(
           testcase_name='_anyTrueWithNonBooleanCollection',
           fhir_path_expression='bar.tin.struct.value.anyTrue()',
-          expected_err_substring='anyTrue() must be called on a Collection of booleans',
+          expected_err_substring=(
+              'anyTrue() must be called on a Collection of booleans'
+          ),
       ),
   )
-  def testSemanticAnalysis_raisesAnError(self, fhir_path_expression: str,
-                                         expected_err_substring: str):
+  def testSemanticAnalysis_raisesAnError(
+      self, fhir_path_expression: str, expected_err_substring: str
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
-    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                    self.foo, self.foo_root)
+    self.semantic_analyzer.add_semantic_annotations(
+        ast, self.error_reporter, self.foo, self.foo_root
+    )
     self.assertLen(self.error_reporter.errors, 1)
     self.assertIn(expected_err_substring, self.error_reporter.errors[0])
 
@@ -763,7 +886,8 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
           fhir_path_expression='bar.fuzz | id',
           expect_repeated=True,
           expected_data_types={
-              _fhir_path_data_types.String, _fhir_path_data_types.Integer
+              _fhir_path_data_types.String,
+              _fhir_path_data_types.Integer,
           },
       ),
       dict(
@@ -771,7 +895,8 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
           fhir_path_expression='bar.tin.struct.value | 1',
           expect_repeated=True,
           expected_data_types={
-              _fhir_path_data_types.String, _fhir_path_data_types.Integer
+              _fhir_path_data_types.String,
+              _fhir_path_data_types.Integer,
           },
       ),
       dict(
@@ -779,7 +904,8 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
           fhir_path_expression='1 | bar.tin.struct.value',
           expect_repeated=True,
           expected_data_types={
-              _fhir_path_data_types.String, _fhir_path_data_types.Integer
+              _fhir_path_data_types.String,
+              _fhir_path_data_types.Integer,
           },
       ),
       dict(
@@ -787,7 +913,8 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
           fhir_path_expression='bar.tin.struct.num | bar.tin.struct.value',
           expect_repeated=True,
           expected_data_types={
-              _fhir_path_data_types.String, _fhir_path_data_types.Integer
+              _fhir_path_data_types.String,
+              _fhir_path_data_types.Integer,
           },
       ),
       dict(
@@ -795,16 +922,21 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
           fhir_path_expression="bar.tin.struct.value | (bar.fuzz = '')",
           expect_repeated=True,
           expected_data_types={
-              _fhir_path_data_types.String, _fhir_path_data_types.Boolean
+              _fhir_path_data_types.String,
+              _fhir_path_data_types.Boolean,
           },
       ),
   )
   def testSemanticAnalysis_withUnionOperation_andPrimitiveTypes(
-      self, fhir_path_expression: str, expect_repeated: bool,
-      expected_data_types: Set[_fhir_path_data_types.FhirPathDataType]):
+      self,
+      fhir_path_expression: str,
+      expect_repeated: bool,
+      expected_data_types: Set[_fhir_path_data_types.FhirPathDataType],
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
-    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                    self.foo, self.foo_root)
+    self.semantic_analyzer.add_semantic_annotations(
+        ast, self.error_reporter, self.foo, self.foo_root
+    )
     self.assertEmpty(self.error_reporter.errors)
     self.assertEmpty(self.error_reporter.warnings)
 
@@ -838,10 +970,12 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       ),
   )
   def testSemanticAnalysis_withTypeSpecifier(
-      self, fhir_path_expression: str, expected_data_type_url: Optional[str]):
+      self, fhir_path_expression: str, expected_data_type_url: Optional[str]
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
-    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                    self.foo, self.foo_root)
+    self.semantic_analyzer.add_semantic_annotations(
+        ast, self.error_reporter, self.foo, self.foo_root
+    )
     self.assertEmpty(self.error_reporter.errors)
     self.assertEmpty(self.error_reporter.warnings)
     self.assertEqual(ast.data_type, expected_data_type_url)
@@ -852,21 +986,25 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
           fhir_path_expression='bar is unknown',
           expected_error=(
               'FHIR Path Error: Semantic Analysis; Expected rhs of type'
-              ' expression to describe a type but got:... is unknown.'),
+              ' expression to describe a type but got:... is unknown.'
+          ),
       ),
       dict(
           testcase_name='_andAs',
           fhir_path_expression='bar.tin.struct.num as unknown',
           expected_error=(
               'FHIR Path Error: Semantic Analysis; Expected rhs of type'
-              ' expression to describe a type but got:... as unknown.'),
+              ' expression to describe a type but got:... as unknown.'
+          ),
       ),
   )
   def testSemanticAnalysis_withTypeSpecifier_reportsError(
-      self, fhir_path_expression: str, expected_error: str):
+      self, fhir_path_expression: str, expected_error: str
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
-    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                    self.foo, self.foo_root)
+    self.semantic_analyzer.add_semantic_annotations(
+        ast, self.error_reporter, self.foo, self.foo_root
+    )
     self.assertLen(self.error_reporter.errors, 1)
     self.assertEmpty(self.error_reporter.warnings)
     self.assertEqual(self.error_reporter.errors, [expected_error])
@@ -905,10 +1043,12 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       self,
       fhir_path_expression: str,
       expected_data_type_url: Optional[str],
-      expect_error: bool = False):
+      expect_error: bool = False,
+  ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
-    self.semantic_analyzer.add_semantic_annotations(ast, self.error_reporter,
-                                                    self.foo, self.foo_root)
+    self.semantic_analyzer.add_semantic_annotations(
+        ast, self.error_reporter, self.foo, self.foo_root
+    )
     if not expect_error:
       self.assertEmpty(self.error_reporter.errors)
     self.assertEmpty(self.error_reporter.warnings)

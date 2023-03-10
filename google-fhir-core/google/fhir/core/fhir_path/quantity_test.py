@@ -82,8 +82,11 @@ class QuantityTest(absltest.TestCase):
         quantity.quantity_from_proto(
             datatypes_pb2.Quantity(
                 value=datatypes_pb2.Decimal(value='1.0'),
-                unit=datatypes_pb2.String(value='g'))),
-        quantity.Quantity(value=1, unit='g'))
+                unit=datatypes_pb2.String(value='g'),
+            )
+        ),
+        quantity.Quantity(value=1, unit='g'),
+    )
 
 
 if __name__ == '__main__':
