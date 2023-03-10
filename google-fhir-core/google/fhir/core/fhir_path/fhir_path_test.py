@@ -4279,25 +4279,34 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(actual_bindings)
 
 
-class FhirProfileStandardSqlEncoderChoiceTest(
+class FhirProfileStandardSqlEncoderV2ConstraintTest(
     FhirProfileStandardSqlEncoderTestBase
 ):
-  """Tests Standard SQL encoding over choice types.
+  """Tests Standard SQL encoding over synthetic types.
 
   The suite stands-up a list of synthetic resources for profiling and
   validation. The resources have the following structure:
   ```
-  Foo {
+  ChoiceTest {
     <string, integer> bar[x];
     <string> baz[x]
   }
 
-  Boo {
-    Deep deep;
+  NestedChoiceTest {
+    NestedChoice deep;
   }
 
-  Deep {
+  NestedChoice {
     <string, bool> deepChoice[x];
+  }
+
+  ReferenceTest {
+    Reference(Patient | Device) bar
+    Reference(Patient) baz
+  }
+
+  RepeatedReferenceTest {
+    repeated Reference(Patient | Device) bar
   }
   ```
   """
@@ -4305,63 +4314,183 @@ class FhirProfileStandardSqlEncoderChoiceTest(
   @classmethod
   def setUpClass(cls) -> None:
     super().setUpClass()
-    foo_root = sdefs.build_element_definition(
-        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+
+    # Definitions for testing choice types
+    choice_test_root = sdefs.build_element_definition(
+        id_='ChoiceTest', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
     )
     # Should generate SQL ensuring only one of string or integer is set.
-    foo_bar_element_definition = sdefs.build_element_definition(
-        id_='Foo.bar[x]',
+    choice_test_bar_element_definition = sdefs.build_element_definition(
+        id_='ChoiceTest.bar[x]',
         type_codes=['string', 'integer'],
         cardinality=sdefs.Cardinality(min=0, max='1'),
     )
 
     # Should not generate any SQL because there is only one choice.
-    foo_baz_element_definition = sdefs.build_element_definition(
-        id_='Foo.baz[x]',
+    choice_test_baz_element_definition = sdefs.build_element_definition(
+        id_='ChoiceTest.baz[x]',
         type_codes=['string'],
         cardinality=sdefs.Cardinality(min=0, max='1'),
     )
-    foo = sdefs.build_resource_definition(
-        id_='Foo',
+    choice_test = sdefs.build_resource_definition(
+        id_='ChoiceTest',
         element_definitions=[
-            foo_root,
-            foo_bar_element_definition,
-            foo_baz_element_definition,
+            choice_test_root,
+            choice_test_bar_element_definition,
+            choice_test_baz_element_definition,
         ],
     )
 
-    boo_root = sdefs.build_element_definition(
-        id_='Boo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    nested_choice_test_root = sdefs.build_element_definition(
+        id_='NestedChoiceTest',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(0, '1'),
     )
-    boo_deep = sdefs.build_element_definition(
-        id_='Boo.deep',
-        type_codes=['Deep'],
+    nested_choice_test_deep = sdefs.build_element_definition(
+        id_='NestedChoiceTest.deep',
+        type_codes=['NestedChoice'],
         cardinality=sdefs.Cardinality(min=0, max='1'),
     )
-    boo = sdefs.build_resource_definition(
-        id_='Boo', element_definitions=[boo_root, boo_deep]
+    nested_choice_test = sdefs.build_resource_definition(
+        id_='NestedChoiceTest',
+        element_definitions=[nested_choice_test_root, nested_choice_test_deep],
     )
 
-    deep_root = sdefs.build_element_definition(
-        id_='Deep', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    nest_choice_root = sdefs.build_element_definition(
+        id_='NestedChoice',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(0, '1'),
     )
-    deep_choice = sdefs.build_element_definition(
-        id_='Deep.deepChoice[x]',
+    nest_choice_choice = sdefs.build_element_definition(
+        id_='NestedChoice.deepChoice[x]',
         type_codes=['string', 'bool'],
         cardinality=sdefs.Cardinality(min=0, max='1'),
     )
-    deep = sdefs.build_resource_definition(
-        id_='Deep', element_definitions=[deep_root, deep_choice]
+    nest_choice = sdefs.build_resource_definition(
+        id_='NestedChoice',
+        element_definitions=[nest_choice_root, nest_choice_choice],
     )
 
-    all_resources = [foo, boo, deep]
+    # Definitions for testing constraints against references.
+    reference_datatype = sdefs.build_resource_definition(
+        id_='Reference',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='Reference',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            )
+        ],
+    )
+
+    patient_datatype = sdefs.build_resource_definition(
+        id_='Patient',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='Patient',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            )
+        ],
+    )
+
+    device_datatype = sdefs.build_resource_definition(
+        id_='Device',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='Device',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            )
+        ],
+    )
+
+    reference_test_root = sdefs.build_element_definition(
+        id_='ReferenceTest',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
+
+    # Should generate SQL ensuring only one of Patient or Device is set.
+    reference_test_bar_element_definition = sdefs.build_element_definition(
+        id_='ReferenceTest.bar',
+        type_codes=['Reference'],
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    reference_test_bar_element_definition.type[0].target_profile.add(
+        value='Patient'
+    )
+    reference_test_bar_element_definition.type[0].target_profile.add(
+        value='Device'
+    )
+
+    # Should not generate any SQL because there is only one choice.
+    reference_test_baz_element_definition = sdefs.build_element_definition(
+        id_='ReferenceTest.baz',
+        type_codes=['Reference'],
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    reference_test_baz_element_definition.type[0].target_profile.add(
+        value='Patient'
+    )
+
+    reference_test = sdefs.build_resource_definition(
+        id_='ReferenceTest',
+        element_definitions=[
+            reference_test_root,
+            reference_test_bar_element_definition,
+            reference_test_baz_element_definition,
+        ],
+    )
+
+    # Ensure we handle repeated reference fields.
+    repeated_reference_test_root = sdefs.build_element_definition(
+        id_='RepeatedReferenceTest',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(0, '1'),
+    )
+
+    # Should generate SQL ensuring only one of Patient or Device is
+    # set for each element.
+    repeated_reference_test_bar_element_definition = (
+        sdefs.build_element_definition(
+            id_='RepeatedReferenceTest.bar',
+            type_codes=['Reference'],
+            cardinality=sdefs.Cardinality(min=0, max='*'),
+        )
+    )
+    repeated_reference_test_bar_element_definition.type[0].target_profile.add(
+        value='Patient'
+    )
+    repeated_reference_test_bar_element_definition.type[0].target_profile.add(
+        value='Device'
+    )
+
+    repeated_reference_test = sdefs.build_resource_definition(
+        id_='RepeatedReferenceTest',
+        element_definitions=[
+            repeated_reference_test_root,
+            repeated_reference_test_bar_element_definition,
+        ],
+    )
+
+    all_resources = [
+        choice_test,
+        nested_choice_test,
+        nest_choice,
+        patient_datatype,
+        device_datatype,
+        reference_datatype,
+        reference_test,
+        repeated_reference_test,
+    ]
     cls.resources = {resource.url.value: resource for resource in all_resources}
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_testChoiceTypeExclusivity',
-          base_id='Foo',
-          context_element_path='Foo',
+          testcase_name='_withChoiceType_encodesChoiceTypeExclusivity',
+          base_id='ChoiceTest',
+          context_element_path='ChoiceTest',
           expected_sql_expression=textwrap.dedent(
               """\
             (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
@@ -4378,9 +4507,9 @@ class FhirProfileStandardSqlEncoderChoiceTest(
           fields_referenced_by_expression=['bar'],
       ),
       dict(
-          testcase_name='_testDeepChoiceTypeExclusivity',
-          base_id='Boo',
-          context_element_path='Boo.deep',
+          testcase_name='_withNestedChoiceType_encodesChoiceTypeExclusivity',
+          base_id='NestedChoiceTest',
+          context_element_path='NestedChoiceTest.deep',
           expected_sql_expression=textwrap.dedent(
               """\
             (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
@@ -4401,8 +4530,55 @@ class FhirProfileStandardSqlEncoderChoiceTest(
           ),
           fields_referenced_by_expression=['deepChoice'],
       ),
+      dict(
+          testcase_name=(
+              '_withScalarReferenceType_encodesReferenceTypeExclusivity'
+          ),
+          base_id='ReferenceTest',
+          context_element_path='ReferenceTest',
+          fields_referenced_by_expression=['bar'],
+          fhir_path_expression=(
+              "bar.idFor('Device').exists().toInteger() +"
+              " bar.idFor('Patient').exists().toInteger() <= 1"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
+            (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
+            FROM UNNEST(ARRAY(SELECT comparison_
+            FROM (SELECT ((CAST(
+            bar.deviceId IS NOT NULL AS INT64) + CAST(
+            bar.patientId IS NOT NULL AS INT64)) <= 1) AS comparison_)
+            WHERE comparison_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
+      dict(
+          testcase_name=(
+              '_withVectorReferenceType_encodesReferenceTypeExclusivity'
+          ),
+          base_id='RepeatedReferenceTest',
+          context_element_path='RepeatedReferenceTest',
+          fields_referenced_by_expression=['bar', 'bar.bar'],
+          fhir_path_expression=(
+              'bar.all('
+              "bar.idFor('Device').exists().toInteger() +"
+              " bar.idFor('Patient').exists().toInteger() <= 1)"
+          ),
+          expected_sql_expression=textwrap.dedent(
+              """\
+              (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
+              FROM UNNEST(ARRAY(SELECT all_
+              FROM (SELECT IFNULL(
+              LOGICAL_AND(
+              IFNULL(
+              (SELECT ((CAST(
+              bar_element_.deviceId IS NOT NULL AS INT64) + CAST(
+              bar_element_.patientId IS NOT NULL AS INT64)) <= 1) AS all_), FALSE)), TRUE) AS all_
+              FROM UNNEST(bar) AS bar_element_ WITH OFFSET AS element_offset)
+              WHERE all_ IS NOT NULL)) AS result_)"""
+          ),
+      ),
   )
-  def testEncode_withChoiceTypes_producesChoiceTypeExclusivityConstraint(
+  def testEncode(
       self,
       base_id: str,
       context_element_path: str,

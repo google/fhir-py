@@ -17,7 +17,7 @@
 import dataclasses
 import functools
 import operator
-from typing import Any, Collection, List, Optional, Set, cast, Dict
+from typing import Any, Collection, Iterable, List, Optional, Set, cast, Dict
 
 from google.cloud import bigquery
 
@@ -633,6 +633,7 @@ class FhirProfileStandardSqlEncoder:
             f'{builder}.{name}',
             str(e),
         )
+        continue
 
       requirement = self._encode_required_field(
           name, builder, child_builder, child_message
@@ -797,12 +798,8 @@ class FhirProfileStandardSqlEncoder:
       return []
 
     # Ensure only one of the choice types exist.
-    num_choices_exist: expressions.Builder = functools.reduce(
-        operator.add,
-        (
-            builder.ofType(choice_field).exists().toInteger()
-            for choice_field in type_codes
-        ),
+    num_choices_exist: expressions.Builder = _num_fields_exist(
+        builder.ofType(choice_field) for choice_field in type_codes
     )
     exclusivity_constraint: expressions.Builder = num_choices_exist <= 1
 
@@ -831,6 +828,84 @@ class FhirProfileStandardSqlEncoder:
             fhir_path_expression=result.builder.fhir_path,
             fields_referenced_by_expression=_fields_referenced_by_expression(
                 result.builder.fhir_path
+            ),
+        )
+    ]
+
+  def _encode_reference_type_constraints(
+      self, builder: expressions.Builder
+  ) -> List[validation_pb2.SqlRequirement]:
+    """Generates constraints for reference types.
+
+    Ensures that a reference type only has a value for one of the resourceId
+    columns across each of the possible resources the reference can link.
+
+    Args:
+      builder: The builder to the reference type for which to encode
+        constraints.
+
+    Returns:
+      A constraint enforcing the above requirements for the given reference
+      type.
+    """
+    field_name = _last_path_token(builder)
+    constraint_key = f'{field_name}-resource-type-exclusivity'
+    if constraint_key in self._options.skip_keys:
+      return []
+
+    element_definition = cast(Any, builder.return_type.root_element_definition)
+    type_codes = _utils.element_type_codes(element_definition)
+    if type_codes != ['Reference']:
+      return []
+
+    allowed_reference_types = [
+        target_profile.value
+        for target_profile in element_definition.type[0].target_profile
+    ]
+    if len(allowed_reference_types) <= 1:
+      # If there's only one reference type, there's no exclusivity to enforce.
+      return []
+
+    # If there are more than one possible reference types, ensure only
+    # one is filled.
+    num_references_exist: expressions.Builder = _num_fields_exist(
+        builder.idFor(reference_type)
+        for reference_type in sorted(allowed_reference_types)
+    )
+    constraint: expressions.Builder = num_references_exist <= 1
+
+    # If the field is a collection, enforce the constraint over its elements.
+    if _fhir_path_data_types.is_collection(builder.return_type):
+      constraint: expressions.Builder = builder.all(constraint)
+
+    constraint_sql = self._encode_fhir_path_builder_constraint(
+        constraint, builder.get_parent_builder()
+    )
+    if constraint_sql is None:
+      return []
+
+    reference_type_path = self._abs_path_invocation(builder)
+    column_name = (
+        f'{_path_to_sql_column_name(reference_type_path)}_'
+        f'{_key_to_sql_column_name(constraint_key)}'
+    )
+    parent_path = self._abs_path_invocation(builder.get_parent_builder())
+    description = (
+        f'Reference type {reference_type_path} links to multiple resources or'
+        ' to resources of a type restricted by the profile.'
+    )
+    return [
+        validation_pb2.SqlRequirement(
+            column_name=column_name,
+            sql_expression=constraint_sql.sql,
+            severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
+            type=validation_pb2.ValidationType.VALIDATION_TYPE_REFERENCE_TYPE,
+            element_path=parent_path,
+            description=description,
+            fhir_path_key=constraint_key,
+            fhir_path_expression=constraint.fhir_path,
+            fields_referenced_by_expression=_fields_referenced_by_expression(
+                constraint.fhir_path
             ),
         )
     ]
@@ -1112,14 +1187,16 @@ class FhirProfileStandardSqlEncoder:
     if not _is_elem_supported(element_definition):
       return []
 
-    type_codes = _utils.element_type_codes(element_definition)
-    if not _SKIP_TYPE_CODES.isdisjoint(type_codes):
-      return result  # Early-exit if any types overlap with `_SKIP_TYPE_CODES`
-
     # `ElementDefinition.base.path` is guaranteed to be present for snapshots
     base_path: str = cast(Any, element_definition).base.path.value
     if base_path in UNSUPPORTED_BASE_PATHS:
       return result  # Early-exit if unsupported `ElementDefinition.base.path`
+
+    result += self._encode_reference_type_constraints(builder)
+
+    type_codes = _utils.element_type_codes(element_definition)
+    if not _SKIP_TYPE_CODES.isdisjoint(type_codes):
+      return result  # Early-exit if any types overlap with `_SKIP_TYPE_CODES`
 
     # Encode all relevant FHIRPath expression constraints, prior to recursing on
     # children.
@@ -1323,4 +1400,12 @@ def _fields_referenced_by_expression(
               _escape_fhir_path_invocation(fhir_path_expression)
           )
       )
+  )
+
+
+def _num_fields_exist(
+    fields: Iterable[expressions.Builder],
+) -> expressions.Builder:
+  return functools.reduce(
+      operator.add, (field.exists().toInteger() for field in fields)
   )

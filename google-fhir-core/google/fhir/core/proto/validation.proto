@@ -56,6 +56,12 @@ enum ValidationType {
   // A validation originating from a ValueSet binding.
   // See: hl7.org/fhir/terminologies.html#binding
   VALIDATION_TYPE_VALUE_SET_BINDING = 6;
+
+  // A validation originating from violating requirements of a Reference type,
+  // i.e., multiple values within a reference type set or a reference to a type
+  // not allowed by the profile.
+  // See: https://build.fhir.org/references.html#Reference
+  VALIDATION_TYPE_REFERENCE_TYPE = 7;
 }
 
 // A representation of a Validation requirement defined by a FHIR Profile,
@@ -109,7 +115,7 @@ message SqlRequirement {
   //  `field.exists()`. These are included here for debugging purposes.
   string fhir_path_expression = 8;
 
-  // The field names referenced by the above fhir_path_expresion. For example,
+  // The field names referenced by the above fhir_path_expression. For example,
   // an expression like 'a.b.where(c > d.e)' references fields
   // ['a.b', 'a.b.c', 'a.b.d.e']
   repeated string fields_referenced_by_expression = 9;
