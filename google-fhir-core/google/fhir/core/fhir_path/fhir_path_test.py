@@ -1654,7 +1654,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE NOT EXISTS(
           SELECT lhs_.*
           FROM (SELECT ROW_NUMBER() OVER() AS row_, system
-          FROM (SELECT coding_element_.system)) AS lhs_
+          FROM (SELECT system)) AS lhs_
           EXCEPT DISTINCT
           SELECT rhs_.*
           FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
@@ -1679,7 +1679,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE NOT EXISTS(
           SELECT lhs_.*
           FROM (SELECT ROW_NUMBER() OVER() AS row_, system
-          FROM (SELECT coding_element_.system)) AS lhs_
+          FROM (SELECT system)) AS lhs_
           EXCEPT DISTINCT
           SELECT rhs_.*
           FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
@@ -2653,6 +2653,7 @@ class FhirPathStandardSqlEncoderTest(
           # TODO(b/253262668): Determine if this is a bug in the old
           # implementation or new implementation.
           fhir_path_expression="bar.bats.struct.all( value = '' )",
+          different_in_v2=True,
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT all_
@@ -2664,6 +2665,25 @@ class FhirPathStandardSqlEncoderTest(
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
           WHERE all_ IS NOT NULL)"""
           ),
+          expected_sql_expression_v2=textwrap.dedent(
+              """\
+          ARRAY(SELECT all_
+          FROM (SELECT IFNULL(
+          LOGICAL_AND(
+          IFNULL(
+          (SELECT NOT EXISTS(
+          SELECT lhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, value
+          FROM (SELECT value)) AS lhs_
+          EXCEPT DISTINCT
+          SELECT rhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
+          FROM (SELECT '' AS literal_)) AS rhs_) AS all_), FALSE)), TRUE) AS all_
+          FROM (SELECT bats_element_.struct
+          FROM (SELECT bar),
+          UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset))
+          WHERE all_ IS NOT NULL)"""
+          ),
       ),
       dict(
           # This test checks that we are semantically checking our parameters
@@ -2671,6 +2691,7 @@ class FhirPathStandardSqlEncoderTest(
           # instead of assuming that it is a scalar.
           testcase_name='_withAllAndRepeatedOperandUsesExistFunction',
           fhir_path_expression='bar.all( bats.exists() )',
+          different_in_v2=True,
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT all_
@@ -2685,10 +2706,26 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT bar))
           WHERE all_ IS NOT NULL)"""
           ),
+          expected_sql_expression_v2=textwrap.dedent(
+              """\
+          ARRAY(SELECT all_
+          FROM (SELECT IFNULL(
+          LOGICAL_AND(
+          IFNULL(
+          (SELECT EXISTS(
+          SELECT bats_element_
+          FROM (SELECT bats_element_
+          FROM (SELECT bar),
+          UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
+          WHERE bats_element_ IS NOT NULL) AS all_), FALSE)), TRUE) AS all_
+          FROM (SELECT bar))
+          WHERE all_ IS NOT NULL)"""
+          ),
       ),
       dict(
           testcase_name='_withWhereAndRepeated',
           fhir_path_expression='bar.bats.where( struct.exists() )',
+          different_in_v2=True,
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT bats_element_
@@ -2698,10 +2735,23 @@ class FhirPathStandardSqlEncoderTest(
           WHERE (`struct` IS NOT NULL))
           WHERE bats_element_ IS NOT NULL)"""
           ),
+          expected_sql_expression_v2=textwrap.dedent(
+              """\
+          ARRAY(SELECT bats_element_
+          FROM (SELECT bats_element_
+          FROM (SELECT bar),
+          UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
+          WHERE EXISTS(
+          SELECT `struct`
+          FROM (SELECT `struct`)
+          WHERE `struct` IS NOT NULL))
+          WHERE bats_element_ IS NOT NULL)"""
+          ),
       ),
       dict(
           testcase_name='_withWhereAndRepeatedAndExists',
           fhir_path_expression='bar.bats.where( struct = struct ).exists()',
+          different_in_v2=True,
           expected_sql_expression=textwrap.dedent(
               """\
           ARRAY(SELECT exists_
@@ -2711,6 +2761,25 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
           WHERE (`struct` = `struct`))
+          WHERE bats_element_ IS NOT NULL) AS exists_)
+          WHERE exists_ IS NOT NULL)"""
+          ),
+          expected_sql_expression_v2=textwrap.dedent(
+              """\
+          ARRAY(SELECT exists_
+          FROM (SELECT EXISTS(
+          SELECT bats_element_
+          FROM (SELECT bats_element_
+          FROM (SELECT bar),
+          UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
+          WHERE NOT EXISTS(
+          SELECT lhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, `struct`
+          FROM (SELECT `struct`)) AS lhs_
+          EXCEPT DISTINCT
+          SELECT rhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, `struct`
+          FROM (SELECT `struct`)) AS rhs_))
           WHERE bats_element_ IS NOT NULL) AS exists_)
           WHERE exists_ IS NOT NULL)"""
           ),
@@ -2760,7 +2829,11 @@ class FhirPathStandardSqlEncoderTest(
       ),
   )
   def testEncode_withAdvancedFhirPathMemberFunctionInvocation_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str
+      self,
+      fhir_path_expression: str,
+      expected_sql_expression: str,
+      different_in_v2: bool = False,
+      expected_sql_expression_v2: str = '',
   ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
@@ -2769,301 +2842,10 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
 
-  @parameterized.named_parameters(
-      dict(
-          testcase_name='_withWhereAndNoOperand',
-          fhir_path_expression='where(true)',
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT where_clause_
-          FROM (SELECT NULL AS where_clause_)
-          WHERE where_clause_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withWhere',
-          fhir_path_expression="bat.struct.where(value='')",
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT `struct`
-          FROM (SELECT bat.struct
-          FROM (SELECT bat.struct.*)
-          WHERE (`struct`.value = ''))
-          WHERE `struct` IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withWhereAndEmpty',
-          fhir_path_expression="bat.struct.where(value='').empty()",
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT empty_
-          FROM (SELECT bat.struct IS NULL AS empty_
-          FROM (SELECT bat.struct.*)
-          WHERE (`struct`.value = ''))
-          WHERE empty_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withChainedWhere',
-          fhir_path_expression=(
-              "bat.struct.where(value='').where(anotherValue='')"
-          ),
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT `struct`
-          FROM (SELECT bat.struct
-          FROM (SELECT bat.struct.*)
-          WHERE (`struct`.value = '') AND (`struct`.anotherValue = ''))
-          WHERE `struct` IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withComplexWhere',
-          fhir_path_expression="bat.struct.where(value='' and anotherValue='')",
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT `struct`
-          FROM (SELECT bat.struct
-          FROM (SELECT bat.struct.*)
-          WHERE ((`struct`.value = '') AND (`struct`.anotherValue = '')))
-          WHERE `struct` IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withWhereAndThisAndValue',
-          fhir_path_expression="bat.struct.value.where($this='')",
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT value
-          FROM (SELECT bat.struct.value
-          FROM (SELECT bat.struct.value)
-          WHERE (value = ''))
-          WHERE value IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withWhereAndThisAndAnotherValue',
-          fhir_path_expression="bat.struct.anotherValue.where($this='')",
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT anotherValue
-          FROM (SELECT bat.struct.anotherValue
-          FROM (SELECT bat.struct.anotherValue)
-          WHERE (anotherValue = ''))
-          WHERE anotherValue IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withAll',
-          fhir_path_expression="bat.struct.value.all($this='')",
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT all_
-          FROM (SELECT IFNULL(
-          LOGICAL_AND(
-          IFNULL(
-          (SELECT (value = '') AS all_), FALSE)), TRUE) AS all_
-          FROM (SELECT bat.struct.value))
-          WHERE all_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withAllAndIdentifier',
-          fhir_path_expression="bat.struct.all(anotherValue = '')",
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT all_
-          FROM (SELECT IFNULL(
-          LOGICAL_AND(
-          IFNULL(
-          (SELECT (`struct`.anotherValue = '') AS all_), FALSE)), TRUE) AS all_
-          FROM (SELECT bat.struct))
-          WHERE all_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withAllAndMultipleIdentifiers',
-          fhir_path_expression=(
-              "bat.struct.all(anotherValue = '' and value = '')"
-          ),
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT all_
-          FROM (SELECT IFNULL(
-          LOGICAL_AND(
-          IFNULL(
-          (SELECT ((`struct`.anotherValue = '') AND (`struct`.value = '')) AS all_), FALSE)), TRUE) AS all_
-          FROM (SELECT bat.struct))
-          WHERE all_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withAllAndIdentifierPlusThis',
-          fhir_path_expression="bat.struct.all(anotherValue = '' and $this)",
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT all_
-          FROM (SELECT IFNULL(
-          LOGICAL_AND(
-          IFNULL(
-          (SELECT ((`struct`.anotherValue = '') AND (SELECT `struct` IS NOT NULL)) AS all_), FALSE)), TRUE) AS all_
-          FROM (SELECT bat.struct))
-          WHERE all_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          # TODO(b/197153513): Remove unnecessary `(SELECT inline),` from the
-          # below sql query.
-          testcase_name='_withAllAndRepeatedPrimitiveOnlyComparison',
-          fhir_path_expression='inline.numbers.all($this > 0)',
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT all_
-          FROM (SELECT IFNULL(
-          LOGICAL_AND(
-          IFNULL(
-          (SELECT (numbers_element_ > 0) AS all_), FALSE)), TRUE) AS all_
-          FROM (SELECT inline),
-          UNNEST(inline.numbers) AS numbers_element_ WITH OFFSET AS element_offset)
-          WHERE all_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withAllAndRepeatedSubfieldPrimitiveOnlyComparison',
-          # TODO(b/253262668): Determine if this is a bug in the old
-          # implementation or new implementation.
-          fhir_path_expression="bar.bats.struct.all( value = '' )",
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT all_
-          FROM (SELECT IFNULL(
-          LOGICAL_AND(
-          IFNULL(
-          (SELECT NOT EXISTS(
-          SELECT lhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, value
-          FROM (SELECT `struct`.value)) AS lhs_
-          EXCEPT DISTINCT
-          SELECT rhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-          FROM (SELECT '' AS literal_)) AS rhs_) AS all_), FALSE)), TRUE) AS all_
-          FROM (SELECT bats_element_.struct
-          FROM (SELECT bar),
-          UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset))
-          WHERE all_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          # This test checks that we are semantically checking our parameters
-          # because it uses an EXIST here for a repeated item in the operand
-          # instead of assuming that it is a scalar.
-          testcase_name='_withAllAndRepeatedOperandUsesExistFunction',
-          fhir_path_expression='bar.all( bats.exists() )',
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT all_
-          FROM (SELECT IFNULL(
-          LOGICAL_AND(
-          IFNULL(
-          (SELECT EXISTS(
-          SELECT bats_element_
-          FROM (SELECT bats_element_
-          FROM (SELECT bar),
-          UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)
-          WHERE bats_element_ IS NOT NULL) AS all_), FALSE)), TRUE) AS all_
-          FROM (SELECT bar))
-          WHERE all_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withWhereAndRepeated',
-          fhir_path_expression='bar.bats.where( struct.exists() )',
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT bats_element_
-          FROM (SELECT bats_element_
-          FROM (SELECT bar),
-          UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
-          WHERE EXISTS(
-          SELECT `struct`
-          FROM (SELECT bats_element_.struct)
-          WHERE `struct` IS NOT NULL))
-          WHERE bats_element_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withWhereAndRepeatedAndExists',
-          fhir_path_expression='bar.bats.where( struct = struct ).exists()',
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT exists_
-          FROM (SELECT EXISTS(
-          SELECT bats_element_
-          FROM (SELECT bats_element_
-          FROM (SELECT bar),
-          UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
-          WHERE NOT EXISTS(
-          SELECT lhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, `struct`
-          FROM (SELECT bats_element_.struct)) AS lhs_
-          EXCEPT DISTINCT
-          SELECT rhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, `struct`
-          FROM (SELECT bats_element_.struct)) AS rhs_))
-          WHERE bats_element_ IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withRetrieveNestedField',
-          fhir_path_expression="bat.struct.where(value='').anotherValue",
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT anotherValue
-          FROM (SELECT bat.struct.anotherValue
-          FROM (SELECT bat.struct.*)
-          WHERE (`struct`.value = ''))
-          WHERE anotherValue IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withMultipleWhereClauseAndRetrieveNestedField',
-          fhir_path_expression=(
-              "bat.struct.where(value='').where(anotherValue='').anotherValue"
-          ),
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT anotherValue
-          FROM (SELECT bat.struct.anotherValue
-          FROM (SELECT bat.struct.*)
-          WHERE (`struct`.value = '') AND (`struct`.anotherValue = ''))
-          WHERE anotherValue IS NOT NULL)"""
-          ),
-      ),
-      dict(
-          testcase_name='_withRetrieveNestedFieldExists',
-          fhir_path_expression=(
-              "bat.struct.where(value='').anotherValue.exists()"
-          ),
-          expected_sql_expression=textwrap.dedent(
-              """\
-          ARRAY(SELECT exists_
-          FROM (SELECT EXISTS(
-          SELECT anotherValue
-          FROM (SELECT bat.struct.anotherValue
-          FROM (SELECT bat.struct.*)
-          WHERE (`struct`.value = ''))
-          WHERE anotherValue IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)"""
-          ),
-      ),
-  )
-  def testEncode_withAdvancedFhirPathMemberFunctionInvocation_succeeds_v2(
-      self, fhir_path_expression: str, expected_sql_expression: str
-  ):
+    if not different_in_v2:
+      expected_sql_expression_v2 = expected_sql_expression
     self.assertEvaluationNodeSqlCorrect(
-        self.foo, fhir_path_expression, expected_sql_expression
+        self.foo, fhir_path_expression, expected_sql_expression_v2
     )
 
   @parameterized.named_parameters(

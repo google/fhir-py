@@ -215,54 +215,55 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       # If the identifier is `$this`, we assume that the repeated field has been
       # unnested upstream so we only need to reference it with its alias:
       # `{}_element_`.
+      sql_alias = f'{sql_alias}_element_'
       if identifier.identifier == '$this':
-        sql_alias = f'{sql_alias}_element_'
         return _sql_data_types.IdentifierSelect(
             select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
             from_part=parent_result,
         )
-      else:
-        sql_alias = f'{sql_alias}_element_'
-        if parent_result:
-          parent_identifier_str = parent_result.sql_alias
-          identifier_str = f'{parent_identifier_str}.{raw_identifier_str}'
-        else:
-          # Identifiers need to be escaped if they are referenced directly.
-          identifier_str = f'{_escape_identifier(raw_identifier_str)}'
 
-        from_part = (
-            f'UNNEST({identifier_str}) AS {sql_alias} '
-            'WITH OFFSET AS element_offset'
-        )
-        if parent_result:
-          from_part = f'({parent_result}),\n{from_part}'
-        # When UNNEST-ing a repeated field, we always generate an offset column
-        # as well. If unused by the overall query, the expectation is that the
-        # BigQuery query optimizer will be able to detect the unused column and
-        # ignore it.
-        return _sql_data_types.IdentifierSelect(
-            select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
-            from_part=from_part,
-        )
-    else:  # Scalar
-      # Append the current identifier to the path chain being selected if there
-      # is a parent. Includes the from & where clauses of the parent.
       if parent_result:
-        return dataclasses.replace(
-            parent_result,
-            select_part=parent_result.select_part.dot(
-                raw_identifier_str,
-                sql_data_type,
-                sql_alias=_escape_identifier(sql_alias),
-            ),
-        )
+        parent_identifier_str = parent_result.sql_alias
+        identifier_str = f'{parent_identifier_str}.{raw_identifier_str}'
       else:
-        return _sql_data_types.IdentifierSelect(
-            select_part=_sql_data_types.Identifier(
-                _escape_identifier(identifier_str), sql_data_type
-            ),
-            from_part=parent_result,
+        # Identifiers need to be escaped if they are referenced directly.
+        identifier_str = f'{_escape_identifier(raw_identifier_str)}'
+
+      from_part = (
+          f'UNNEST({identifier_str}) AS {sql_alias} '
+          'WITH OFFSET AS element_offset'
+      )
+      if parent_result:
+        from_part = f'({parent_result}),\n{from_part}'
+      # When UNNEST-ing a repeated field, we always generate an offset column
+      # as well. If unused by the overall query, the expectation is that the
+      # BigQuery query optimizer will be able to detect the unused column and
+      # ignore it.
+      return _sql_data_types.IdentifierSelect(
+          select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
+          from_part=from_part,
+      )
+
+    # Scalar
+    select_part = _sql_data_types.Identifier(
+        _escape_identifier(identifier_str), sql_data_type
+    )
+    if parent_result:
+      # Append the current identifier to the path chain being selected if the
+      # parent is not a ReferenceNode. If it is a ReferenceNode, we assume that
+      # the parent has already been previously unnested.
+      if not isinstance(identifier.operand_node, _evaluation.ReferenceNode):
+        select_part = parent_result.select_part.dot(
+            raw_identifier_str,
+            sql_data_type,
+            sql_alias=_escape_identifier(sql_alias),
         )
+      return dataclasses.replace(parent_result, select_part=select_part)
+
+    return _sql_data_types.IdentifierSelect(
+        select_part=select_part,
+        from_part=None,
+    )
 
   def visit_indexer(
       self, indexer: _evaluation.IndexerNode
