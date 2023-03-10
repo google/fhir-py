@@ -271,11 +271,110 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       equality: The `Equality` Expression node.
 
     Returns:
-      A compiled Standard SQL expression.
+      A compiled Spark SQL expression.
+
+      Raises:
+        NotImplementedError: If both the left and right hand evaluations are
+        non-scalar as Spark does not support this
     """
+    lhs_result = self.visit(equality.left)
+    rhs_result = self.visit(equality.right)
+
+    if (
+        equality.op == _ast.EqualityRelation.Op.EQUAL
+        or equality.op == _ast.EqualityRelation.Op.EQUIVALENT
+    ):
+      collection_check_func_name = 'NOT EXISTS'
+      scalar_check_op = '='
+    else:  # NOT_*
+      collection_check_func_name = 'EXISTS'
+      scalar_check_op = '!='
+
+    sql_alias = 'eq_'
+    sql_data_type = _sql_data_types.Boolean
+
+    # Both sides are scalars.
+    if _fhir_path_data_types.is_scalar(
+        equality.left.return_type()
+    ) and _fhir_path_data_types.is_scalar(equality.right.return_type()):
+      # Use the simpler query.
+      return _sql_data_types.Select(
+          select_part=_sql_data_types.RawExpression(
+              (
+                  f'({lhs_result.as_operand()} '
+                  f'{scalar_check_op} '
+                  f'{rhs_result.as_operand()})'
+              ),
+              _sql_data_type=sql_data_type,
+              _sql_alias=sql_alias,
+          ),
+          from_part=None,
+      )
+
+    elif not _fhir_path_data_types.is_scalar(
+        equality.left.return_type()
+    ) and _fhir_path_data_types.is_scalar(equality.right.return_type()):
+      sql_expr = (
+          'ARRAY_EXCEPT('
+          f'(SELECT {lhs_result.sql_alias}), '
+          f'(SELECT ARRAY({rhs_result}))'
+          ')'
+      )
+      return _sql_data_types.Select(
+          select_part=_sql_data_types.FunctionCall(
+              name=collection_check_func_name,
+              params=[
+                  _sql_data_types.RawExpression(
+                      sql_expr, _sql_data_type=_sql_data_types.Int64
+                  ),
+                  'x -> x IS NOT NULL',
+              ],
+              _sql_data_type=sql_data_type,
+              _sql_alias=sql_alias,
+          ),
+          from_part=(
+              '(SELECT COLLECT_LIST(*) AS'
+              f' {lhs_result.sql_alias} FROM'
+              f' {lhs_result.as_operand()})'
+          ),
+      )
+
+    elif _fhir_path_data_types.is_scalar(
+        equality.left.return_type()
+    ) and not _fhir_path_data_types.is_scalar(equality.right.return_type()):
+      sql_expr = (
+          'ARRAY_EXCEPT('
+          f'(SELECT {rhs_result.sql_alias}), '
+          f'(SELECT ARRAY({lhs_result}))'
+          ')'
+      )
+      return _sql_data_types.Select(
+          select_part=_sql_data_types.FunctionCall(
+              name=collection_check_func_name,
+              params=[
+                  _sql_data_types.RawExpression(
+                      sql_expr, _sql_data_type=_sql_data_types.Int64
+                  ),
+                  'x -> x IS NOT NULL',
+              ],
+              _sql_data_type=sql_data_type,
+              _sql_alias=sql_alias,
+          ),
+          from_part=(
+              '(SELECT COLLECT_LIST(*) AS'
+              f' {rhs_result.sql_alias} FROM'
+              f' {rhs_result.as_operand()})'
+          ),
+      )
+    else:
+      raise NotImplementedError(
+          'Spark SQL does not support equality when both the left and'
+          ' right-hand sides are non-scalar'
+      )
 
   def visit_comparison(
-      self, comparison: _evaluation.ComparisonNode) -> _sql_data_types.Select:
+      self, comparison: _evaluation.ComparisonNode
+  ) -> _sql_data_types.Select:
     """Translates a FHIRPath comparison to Standard SQL.
 
     Each operand is expected to be a collection of a single element. Operands

@@ -20,8 +20,6 @@ from absl.testing import parameterized
 from google.fhir.core.fhir_path import fhir_path_test_base
 
 
-# TODO(b/262544393): add _withDateTimeEqual and _withDateTimeEquivalent
-# tests when visit_equality is implemented
 _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [{
     'testcase_name':
         '_withNull',
@@ -489,7 +487,7 @@ _WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
     # }
 ]
 
-_WITH_FHIRPATH_V2_FHIRPATH_POLARITY_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
     {
         'testcase_name': '_withIntegerPositivePolarity',
         'fhir_path_expression': '+5',
@@ -603,14 +601,105 @@ _WITH_FHIRPATH_V2_MEMBERSHIP_SUCCEEDS_CASES = [
     },
 ]
 
+_WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
+    {
+        'testcase_name': '_withIntegerEqual',
+        'fhir_path_expression': '3 = 4',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(eq_) '
+            'FROM (SELECT (3 = 4) AS eq_) '
+            'WHERE eq_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withIntegerEquivalent',
+        'fhir_path_expression': '3 ~ 4',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(eq_) '
+            'FROM (SELECT (3 = 4) AS eq_) '
+            'WHERE eq_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDateTimeEqual',
+        'fhir_path_expression': '@2015-02-04T14:34:28 = @2015-02-04T14',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(eq_) FROM (SELECT'
+            " (TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:34:28+00:00',"
+            ' "yyyy-MM-dd\'T\'HH:mm:ss.SSSZ")) ='
+            " TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:00:00+00:00',"
+            ' "yyyy-MM-dd\'T\'HH:mm:ss.SSSZ"))) AS eq_) WHERE eq_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDateTimeEquivalent',
+        'fhir_path_expression': '@2015-02-04T14:34:28 ~ @2015-02-04T14',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(eq_) FROM (SELECT'
+            " (TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:34:28+00:00',"
+            ' "yyyy-MM-dd\'T\'HH:mm:ss.SSSZ")) ='
+            " TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:00:00+00:00',"
+            ' "yyyy-MM-dd\'T\'HH:mm:ss.SSSZ"))) AS eq_) WHERE eq_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withIntegerNotEqualTo',
+        'fhir_path_expression': '3 != 4',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(eq_) '
+            'FROM (SELECT (3 != 4) AS eq_) '
+            'WHERE eq_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withIntegerNotEquivalentTo',
+        'fhir_path_expression': '3 !~ 4',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(eq_) '
+            'FROM (SELECT (3 != 4) AS eq_) '
+            'WHERE eq_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withScalarComplexComparisonRightSideScalar',
+        # TODO(b/262544393): Change to "bar.bats.struct.value = ('abc' | '123')"
+        #                    when visit_union is implemented.
+        'fhir_path_expression': "bar.bats.struct.value = '123'",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(eq_) '
+            'FROM (SELECT NOT EXISTS('
+            " ARRAY_EXCEPT((SELECT value), (SELECT ARRAY('123'))),"
+            ' x -> x IS NOT NULL) AS eq_ '
+            'FROM (SELECT COLLECT_LIST(*) AS value '
+            'FROM (SELECT bats_element_.struct.value '
+            'FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) '
+            'AS index_bats_element_, bats_element_)))'
+            ' WHERE eq_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withScalarComplexComparisonLeftSideScalar',
+        'fhir_path_expression': " '123' = bar.bats.struct.value",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(eq_) '
+            'FROM (SELECT NOT EXISTS('
+            " ARRAY_EXCEPT((SELECT value), (SELECT ARRAY('123'))),"
+            ' x -> x IS NOT NULL) AS eq_ '
+            'FROM (SELECT COLLECT_LIST(*) AS value '
+            'FROM (SELECT bats_element_.struct.value '
+            'FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) '
+            'AS index_bats_element_, bats_element_)))'
+            ' WHERE eq_ IS NOT NULL)'
+        ),
+    },
+]
+
 _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_SUCCEEDS_CASES = [
     {
         'testcase_name': '_withSingleMemberAccess',
         'fhir_path_expression': 'bar',
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(bar) '
-            'FROM (SELECT bar) '
-            'WHERE bar IS NOT NULL)'
+            '(SELECT COLLECT_LIST(bar) FROM (SELECT bar) WHERE bar IS NOT NULL)'
         ),
     },
     {
@@ -776,9 +865,7 @@ class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True)
 
-  @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_FHIRPATH_POLARITY_SUCCEEDS_CASES
-  )
+  @parameterized.named_parameters(_WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES)
   def testEncode_withFhirPathV2LiteralPolarity_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
@@ -792,7 +879,22 @@ class FhirPathSparkSqlEncoderTest(fhir_path_test_base.FhirPathTestBase,
         structdef=self.foo,
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
-        select_scalars_as_array=True)
+        select_scalars_as_array=True,
+    )
+
+  @parameterized.named_parameters(_WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES)
+  def testEncode_withFhirPathV2LiteralEquality_succeeds(
+      self,
+      fhir_path_expression: str,
+      expected_sql_expression: str,
+      select_scalars_as_array=True,
+  ):
+    self.assertEvaluationNodeSqlCorrect(
+        structdef=self.foo,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=select_scalars_as_array,
+    )
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_MEMBERSHIP_SUCCEEDS_CASES)
   def testEncode_withFhirPathLiteralMembershipRelation_succeeds(
