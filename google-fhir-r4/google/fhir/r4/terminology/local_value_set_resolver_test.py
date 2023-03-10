@@ -78,6 +78,7 @@ class LocalResolverTest(absltest.TestCase):
             code=datatypes_pb2.Code(value='code-2-1'),
         ),
     ]
+    self.assertIsInstance(result, value_set_pb2.ValueSet)
     self.assertCountEqual(result.expansion.contains, expected)
 
   def testExpandValueSetUrl_withFullCodeSystem_expandsCodes(self):
@@ -124,6 +125,7 @@ class LocalResolverTest(absltest.TestCase):
     expected_designation = expected[0].designation.add()
     expected_designation.value.value = 'doing great'
 
+    self.assertIsInstance(result, value_set_pb2.ValueSet)
     self.assertCountEqual(result.expansion.contains, expected)
 
   def testExpandValueSetUrl_withMissingCodeSystem_returnsNone(self):
