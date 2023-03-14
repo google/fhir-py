@@ -797,7 +797,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_SUCCEEDS_CASES = [
     },
 ]
 
-_WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_COUNT_FUNCTION_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
     {
         'testcase_name': '_withMemberCount',
         'fhir_path_expression': 'bar.count()',
@@ -820,6 +820,32 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_COUNT_FUNCTION_SUCCEEDS_CASES = [
             'WHERE count_ IS NOT NULL)'
         ),
     },
+    {
+        'testcase_name': '_withMemberEmpty',
+        'fhir_path_expression': 'bar.empty()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(empty_) '
+            'FROM (SELECT bar IS NULL AS empty_) '
+            'WHERE empty_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDeepestNestedMemberSqlKeywordEmpty',
+        'fhir_path_expression': 'bar.bats.struct.empty()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(empty_) '
+            'FROM (SELECT CASE WHEN COUNT(*) = 0 THEN TRUE ELSE FALSE END '
+            'AS empty_ FROM (SELECT bats_element_.struct '
+            'FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS '
+            'index_bats_element_, bats_element_) '
+            'WHERE `struct` IS NOT NULL) WHERE empty_ IS NOT NULL)'
+        ),
+    },
+]
+
+_WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
+    {'testcase_name': '_withCount', 'fhir_path_expression': 'count()'},
+    {'testcase_name': '_withEmpty', 'fhir_path_expression': 'empty()'},
 ]
 
 
@@ -954,7 +980,7 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_COUNT_FUNCTION_SUCCEEDS_CASES
+      _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES
   )
   def testEncode_withFhirPathV2MemberFunctionInvocation_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
@@ -965,6 +991,16 @@ class FhirPathSparkSqlEncoderTest(
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True,
     )
+
+  @parameterized.named_parameters(
+      _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR
+  )
+  def testEncode_withFhirPathFunctionNoOperand_raisesError(
+      self, fhir_path_expression: str
+  ):
+    with self.assertRaises(ValueError):
+      builder = self.create_builder_from_str(self.foo, fhir_path_expression)
+      self.spark_interpreter.encode(builder)
 
   def testEncode_withFhirPathV2SelectScalarsAsArrayFalseForLiteral_succeeds(
       self,
