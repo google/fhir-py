@@ -16,6 +16,7 @@
 
 import dataclasses
 import functools
+import itertools
 import operator
 from typing import Any, Collection, Iterable, List, Optional, Set, cast, Dict
 
@@ -96,6 +97,8 @@ _SKIP_KEYS = frozenset([
     # Ignore this constraint because it is directed towards `Extension` fields
     # which are not propagated to our protos or tables.
     'ext-1',
+    # TODO(b/271314399): Handle complex types like SimpleQuantity
+    'rng-2',
 ])
 
 # These primitives are excluded from regex encoding because at the point when
@@ -489,29 +492,48 @@ class FhirProfileStandardSqlEncoder:
     )
 
   def _encode_constraints(
-      self, builder: expressions.Builder
+      self, builder: expressions.Builder, element_definition: ElementDefinition
   ) -> List[validation_pb2.SqlRequirement]:
     """Returns a list of `SqlRequirement`s for FHIRPath constraints.
 
     Args:
       builder: The builder containing the element to encode constraints for.
+      element_definition: Element definition passed from the parent.
 
     Returns:
       A list of `SqlRequirement`s expressing FHIRPath constraints defined on the
-      `element_definition`.
+      `element_definition` and `builder` if applicable.
     """
     result: List[validation_pb2.SqlRequirement] = []
-    element_definition = builder.return_type.root_element_definition
     constraints: List[Constraint] = cast(Any, element_definition).constraint
-    for constraint in constraints:
+    root_constraints: List[Constraint] = []
+    if isinstance(builder.return_type, _fhir_path_data_types.StructureDataType):
+      root_constraints = cast(
+          Any, builder.return_type.root_element_definition
+      ).constraint
+    dedup_constraint_keys: Set[str] = set()
+
+    for constraint in itertools.chain(constraints, root_constraints):
       constraint_key: str = cast(Any, constraint).key.value
+
+      # Constraints from the builder and the parent might overlap but shouldn't
+      # be an error so we continue the loop.
+      if constraint_key in dedup_constraint_keys:
+        continue
+      dedup_constraint_keys.add(constraint_key)
+
       if constraint_key in self._options.skip_keys:
         continue
 
       # Metadata for the requirement
       fhir_path_expression: str = cast(Any, constraint).expression.value
       # TODO(b/254866189): Support specialized identifiers.
-      if '%resource' in fhir_path_expression:
+      # TODO(b/271314399): Handle complex types like SimpleQuantity with its own
+      # comparison operators.
+      if (
+          '%resource' in fhir_path_expression
+          or 'comparator' in fhir_path_expression
+      ):
         continue
 
       element_definition_path = self._abs_path_invocation(builder)
@@ -802,16 +824,17 @@ class FhirProfileStandardSqlEncoder:
         builder.ofType(choice_field) for choice_field in type_codes
     )
     exclusivity_constraint: expressions.Builder = num_choices_exist <= 1
+    parent_builder = builder.get_parent_builder()
 
     result = self._encode_fhir_path_builder_constraint(
-        exclusivity_constraint, builder.get_parent_builder()
+        exclusivity_constraint, parent_builder
     )
     if result is None:
       return []
 
     choice_type_path = self._abs_path_invocation(builder)
     column_name = _path_to_sql_column_name(choice_type_path)
-    parent_path = self._abs_path_invocation(builder.get_parent_builder())
+    parent_path = self._abs_path_invocation(parent_builder)
     description = (
         f'Choice type {choice_type_path} has more than one of'
         ' its possible choice data types set.'
@@ -833,7 +856,7 @@ class FhirProfileStandardSqlEncoder:
     ]
 
   def _encode_reference_type_constraints(
-      self, builder: expressions.Builder
+      self, builder: expressions.Builder, elem: message.Message
   ) -> List[validation_pb2.SqlRequirement]:
     """Generates constraints for reference types.
 
@@ -843,6 +866,7 @@ class FhirProfileStandardSqlEncoder:
     Args:
       builder: The builder to the reference type for which to encode
         constraints.
+      elem: Element definition of the builder.
 
     Returns:
       A constraint enforcing the above requirements for the given reference
@@ -853,7 +877,7 @@ class FhirProfileStandardSqlEncoder:
     if constraint_key in self._options.skip_keys:
       return []
 
-    element_definition = cast(Any, builder.return_type.root_element_definition)
+    element_definition = cast(Any, elem)
     type_codes = _utils.element_type_codes(element_definition)
     if type_codes != ['Reference']:
       return []
@@ -974,10 +998,10 @@ class FhirProfileStandardSqlEncoder:
   # TODO(b/207690471): Move important ElementDefinition (and other) functions
   # to their respective utility modules and unit test their public facing apis .
   def _get_regex_from_element(
-      self, builder: expressions.Builder
+      self, builder: expressions.Builder, elem: ElementDefinition
   ) -> Optional[_RegexInfo]:
     """Returns the regex of this element_definition if available."""
-    element_definition = cast(Any, builder.return_type.root_element_definition)
+    element_definition = cast(Any, elem)
     type_codes = _utils.element_type_codes(element_definition)
 
     if _utils.is_slice_on_extension(element_definition):
@@ -1105,7 +1129,9 @@ class FhirProfileStandardSqlEncoder:
         continue
 
       child_builder = builder.__getattr__(name)
-      primitive_regex_info = self._get_regex_from_element(child_builder)
+      primitive_regex_info = self._get_regex_from_element(
+          child_builder, child_message
+      )
       if primitive_regex_info is None:
         continue  # Unable to find primitive regexes for this child element.
 
@@ -1178,7 +1204,9 @@ class FhirProfileStandardSqlEncoder:
     return encoded_requirements
 
   def _encode_element_definition_of_builder(
-      self, builder: expressions.Builder
+      self,
+      builder: expressions.Builder,
+      parent_element_definition: ElementDefinition,
   ) -> List[validation_pb2.SqlRequirement]:
     """Returns a list of Standard SQL expressions for an `ElementDefinition`."""
     result: List[validation_pb2.SqlRequirement] = []
@@ -1192,7 +1220,9 @@ class FhirProfileStandardSqlEncoder:
     if base_path in UNSUPPORTED_BASE_PATHS:
       return result  # Early-exit if unsupported `ElementDefinition.base.path`
 
-    result += self._encode_reference_type_constraints(builder)
+    result += self._encode_reference_type_constraints(
+        builder, parent_element_definition
+    )
 
     type_codes = _utils.element_type_codes(element_definition)
     if not _SKIP_TYPE_CODES.isdisjoint(type_codes):
@@ -1201,7 +1231,7 @@ class FhirProfileStandardSqlEncoder:
     # Encode all relevant FHIRPath expression constraints, prior to recursing on
     # children.
 
-    result += self._encode_constraints(builder)
+    result += self._encode_constraints(builder, parent_element_definition)
     result += self._encode_required_fields(builder)
     result += self._encode_choice_type_exclusivity(builder)
 
@@ -1209,7 +1239,9 @@ class FhirProfileStandardSqlEncoder:
       result += self._encode_primitive_regexes(builder)
 
     if self._options.add_value_set_bindings:
-      result += self._encode_value_set_bindings(builder)
+      result += self._encode_value_set_bindings(
+          builder, parent_element_definition
+      )
 
     if isinstance(builder.return_type, _fhir_path_data_types.StructureDataType):
       struct_type = cast(
@@ -1218,13 +1250,17 @@ class FhirProfileStandardSqlEncoder:
       # Ignores the fields inside complex extensions.
       # TODO(b/200575760): Add support for complex extensions and the fields
       # inside them.
-      if struct_type.element_type == 'Extension':
+      if (
+          struct_type.element_type == 'Extension'
+          or struct_type.element_type == 'Resource'
+      ):
         return result
 
       for child, elem in struct_type.children().items():
         # TODO(b/200575760): Add support for more complicated fields
         if (
-            child == 'extension'
+            ':' in child
+            or child == 'extension'
             or child == 'link'
             or '#' in cast(Any, elem).content_reference.value
         ):
@@ -1243,18 +1279,19 @@ class FhirProfileStandardSqlEncoder:
         if isinstance(
             new_builder.return_type, _fhir_path_data_types.StructureDataType
         ):
-          result += self._encode_structure_definition(new_builder)
+          result += self._encode_structure_definition(new_builder, elem)
         else:
-          result += self._encode_element_definition_of_builder(new_builder)
+          result += self._encode_element_definition_of_builder(
+              new_builder, elem
+          )
 
     return result
 
   def _encode_value_set_bindings(
-      self, builder: expressions.Builder
+      self, builder: expressions.Builder, element_definition: ElementDefinition
   ) -> List[validation_pb2.SqlRequirement]:
     """Encode .memberOf calls implied by elements bound to value sets."""
     # Ensure the element defines a value set binding.
-    element_definition = builder.return_type.root_element_definition
     binding = cast(Any, element_definition).binding
     value_set_uri: str = binding.value_set.value
     if not value_set_uri:
@@ -1323,7 +1360,9 @@ class FhirProfileStandardSqlEncoder:
     ]
 
   def _encode_structure_definition(
-      self, builder: expressions.Builder
+      self,
+      builder: expressions.Builder,
+      parent_element_definition: Optional[ElementDefinition] = None,
   ) -> List[validation_pb2.SqlRequirement]:
     """Recursively encodes the provided resource into Standard SQL."""
 
@@ -1336,7 +1375,11 @@ class FhirProfileStandardSqlEncoder:
     self._in_progress.add(builder.return_type.url)
     self._ctx.append(builder)  # save the root.
 
-    result = self._encode_element_definition_of_builder(builder)
+    if not parent_element_definition:
+      parent_element_definition = builder.return_type.root_element_definition
+    result = self._encode_element_definition_of_builder(
+        builder, parent_element_definition
+    )
 
     _ = self._ctx.pop()
     self._in_progress.remove(builder.return_type.url)

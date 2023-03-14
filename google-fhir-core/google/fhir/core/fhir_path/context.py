@@ -134,11 +134,9 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       lookup_type = profile if profile else type_code
       child_structdef = self.get_structure_definition(lookup_type)
       if child_structdef.url.value == QUANTITY_URL:
-        return_type = _fhir_path_data_types.QuantityStructureDataType(
-            child_structdef
-        )
+        return _fhir_path_data_types.QuantityStructureDataType(child_structdef)
       else:
-        return_type = _fhir_path_data_types.StructureDataType(
+        return _fhir_path_data_types.StructureDataType(
             child_structdef, element_type=type_code
         )
 
@@ -147,7 +145,7 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
 
     # If an element definition is provided (from a parent) then override the
     # existing element definition saved.
-    return return_type.get_fhir_type_with_root_element_definition(
+    return return_type.copy_fhir_type_with_root_element_definition(
         element_definition
     )
 
@@ -215,7 +213,12 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       return_type = self.get_fhir_type_from_string(type_code, elem, profile)
 
     return_type = self._maybe_return_collection_type(elem, return_type, parent)
-    return return_type.get_fhir_type_with_root_element_definition(
+    # If the root_element_definition has already been set, then avoid setting it
+    # again.
+    if return_type.root_element_definition:
+      return return_type
+
+    return return_type.copy_fhir_type_with_root_element_definition(
         element_definition
     )
 

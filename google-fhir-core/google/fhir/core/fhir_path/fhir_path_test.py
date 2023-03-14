@@ -86,8 +86,8 @@ class FhirPathStandardSqlEncoderTest(
     fhir_path_expression = 'bar.bats.struct'
     builder = self.create_builder_from_str(self.foo, fhir_path_expression)
     expected_element_def = sdefs.build_element_definition(
-        id_='Bats.struct',
-        type_codes=['Struct'],
+        id_='Struct',
+        type_codes=None,
         cardinality=sdefs.Cardinality(min=0, max='1'),
     )
 
@@ -4059,20 +4059,93 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertLen(error_reporter.errors, 1)
     self.assertLen(actual_bindings, 1)
 
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='_withOverlappingConstraints',
+          bar_constraints=[
+              fhir_path_test_base.FhirPathTestBase.build_constraint(
+                  fhir_path_expression='false', key='some-key'
+              ),
+              fhir_path_test_base.FhirPathTestBase.build_constraint(
+                  fhir_path_expression='false', key='another-key'
+              ),
+          ],
+          foo_bar_constraints=[
+              fhir_path_test_base.FhirPathTestBase.build_constraint(
+                  fhir_path_expression='true', key='another-key'
+              )
+          ],
+          expected_bindings=2,
+      ),
+      dict(
+          testcase_name='_withDisjointConstraints',
+          bar_constraints=[
+              fhir_path_test_base.FhirPathTestBase.build_constraint(
+                  fhir_path_expression='false', key='some-key'
+              ),
+              fhir_path_test_base.FhirPathTestBase.build_constraint(
+                  fhir_path_expression='2', key='another-key'
+              ),
+          ],
+          foo_bar_constraints=[
+              fhir_path_test_base.FhirPathTestBase.build_constraint(
+                  fhir_path_expression='true', key='another-another-key'
+              )
+          ],
+          expected_bindings=3,
+      ),
+  )
+  def testEncode_withDuplicateSqlRequirement_createsConstraintAndLogsError_v2(
+      self,
+      bar_constraints: List[datatypes_pb2.ElementDefinition.Constraint],
+      foo_bar_constraints: List[datatypes_pb2.ElementDefinition.Constraint],
+      expected_bindings: int,
+  ):
+    # Setup resource with a defined constraint. Mimics the scenario where Bar
+    # itself has a constraint and Foo defines a separate constraint on its own
+    # Foo.bar field.
+    foo_root = sdefs.build_element_definition(
+        id_='Foo',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(1, '1'),
+    )
+
+    bar_root = sdefs.build_element_definition(
+        id_='Bar',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(1, '1'),
+        constraints=bar_constraints,
+    )
+
+    foo_bar = sdefs.build_element_definition(
+        id_='Foo.bar',
+        type_codes=['Bar'],
+        cardinality=sdefs.Cardinality(0, '*'),
+        constraints=foo_bar_constraints,
+    )
+
+    foo = sdefs.build_resource_definition(
+        id_='Foo', element_definitions=[foo_root, foo_bar]
+    )
+
+    bar = sdefs.build_resource_definition(
+        id_='Bar', element_definitions=[bar_root]
+    )
+
     # Standup encoder v2
     error_reporter = fhir_errors.ListErrorReporter()
     encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
-        unittest.mock.Mock(iter_structure_definitions=lambda: [foo]),
+        unittest.mock.Mock(iter_structure_definitions=lambda: [foo, bar]),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
     )
 
-    # Ensure that we only produce a single Standard SQL requirement, and that
-    # an error is logged since we were given a duplicate constraint.
+    # Ensure that a constraint is created for the cardinality of Foo, the
+    # constraint from foo_bar and the third disjoint constraint in Bar.
     actual_bindings = encoder.encode(foo)
     self.assertEmpty(error_reporter.warnings)
-    self.assertLen(error_reporter.errors, 1)
-    self.assertLen(actual_bindings, 1)
+    self.assertEmpty(error_reporter.errors)
+    self.assertLen(actual_bindings, expected_bindings)
 
   def testEncode_withReplacement_replacesConstraint(self):
     first_constraint = self.build_constraint(

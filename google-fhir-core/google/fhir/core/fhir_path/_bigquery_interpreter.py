@@ -584,6 +584,16 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """Translates a FHIRPath function to Standard SQL."""
     parent_result = self.visit(function.parent_node())
     params_result = [self.visit(p) for p in function.params()]
+    # TODO(b/271314993): Support functions acting on polymorphic types beyond
+    # OfType.
+    if (
+        function.parent_node().return_type().returns_polymorphic()
+        and not isinstance(function, _evaluation.OfTypeFunction)
+    ):
+      raise ValueError(
+          f'Function {function.NAME} called on a Polymorphic type which'
+          ' is not supported yet.'
+      )
     if isinstance(function, _evaluation.MemberOfFunction):
       kwargs = {}
       if self._value_set_codes_table is not None:

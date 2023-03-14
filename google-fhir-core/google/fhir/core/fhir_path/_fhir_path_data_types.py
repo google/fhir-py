@@ -136,9 +136,17 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
     # pylint: enable=protected-access
     return obj_copy
 
-  def get_fhir_type_with_root_element_definition(
+  def copy_fhir_type_with_root_element_definition(
       self, root_element_definition: message.Message
   ) -> 'FhirPathDataType':
+    """Copies the type and sets the root_element_definition.
+
+    Args:
+      root_element_definition: Element definition to set for the type.
+
+    Returns:
+      A copy of the original type with the root_element_definition set.
+    """
     obj_copy = copy.deepcopy(self)
     # pylint: disable=protected-access
     obj_copy._root_element_definition = root_element_definition
