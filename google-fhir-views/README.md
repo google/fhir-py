@@ -178,7 +178,7 @@ the place of 'your-umls-api-key' below.
 from google.fhir.r4.terminology import terminology_service_client
 
 tx_client = terminology_service_client.TerminologyServiceClient({
-    'http://cts.nlm.nih.gov/fhir/': ('apikey', 'your-umls-api-key')),
+    'http://cts.nlm.nih.gov/fhir/': ('apikey', 'your-umls-api-key'),
 })
 ```
 
