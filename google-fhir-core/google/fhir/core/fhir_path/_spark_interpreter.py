@@ -35,15 +35,15 @@ def _escape_identifier(identifier_value: str) -> str:
 
 
 class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
-  """Traverses the ExpressionNode tree and generates BigQuery SQL recursively.
+  """Traverses the ExpressionNode tree and generates Spark SQL recursively.
   """
 
   def encode(self,
              builder: expressions.Builder,
              select_scalars_as_array: bool = True) -> str:
-    """Returns a Standard SQL encoding of a FHIRPath expression.
+    """Returns a Spark SQL encoding of a FHIRPath expression.
 
-    If select_scalars_as_array is True, the resulting Standard SQL encoding
+    If select_scalars_as_array is True, the resulting Spark SQL encoding
     always returns a top-level `COLLECT_LIST`, whose elements are non-`NULL`.
     Otherwise the resulting SQL will attempt to return a scalar when possible
     and only return a `COLLECT_LIST` for actual collections.
@@ -55,7 +55,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         possible.
 
     Returns:
-      A Standard SQL representation of the provided FHIRPath expression.
+      A Spark SQL representation of the provided FHIRPath expression.
     """
     result = self.visit(builder.get_node())
     if select_scalars_as_array or _fhir_path_data_types.returns_collection(
@@ -136,7 +136,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     raw_identifier_str = identifier.identifier
     parent_result = self.visit(identifier.operand_node)
 
-    # Map to Standard SQL type. Note that we never map to a type of `ARRAY`,
+    # Map to Spark SQL type. Note that we never map to a type of `ARRAY`,
     # as the member encoding flattens any `ARRAY` members.
     sql_data_type = _sql_data_types.get_standard_sql_data_type(
         identifier.return_type())
@@ -163,15 +163,15 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
           return _sql_data_types.IdentifierSelect(
               select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
               from_part=(
-                  f'(SELECT ({identifier_str}) '
-                  f'LATERAL VIEW POSEXPLODE({identifier_str}) '
-                  f'AS index_{sql_alias}, {sql_alias}'
+                  f'(SELECT EXPLODE({sql_alias}) AS {sql_alias} '
+                  f'FROM (SELECT {raw_identifier_str} AS {sql_alias}))'
               ),
           )
 
-        from_part = (f'LATERAL VIEW POSEXPLODE({identifier_str}) '
-                     f'AS index_{sql_alias}, {sql_alias}'
-                     )
+        from_part = (
+            f'LATERAL VIEW POSEXPLODE({identifier_str}) '
+            f'AS index_{sql_alias}, {sql_alias}'
+        )
 
         if parent_result:
           from_part = f'({parent_result}) {from_part}'
@@ -200,13 +200,13 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
   def visit_indexer(self,
                     indexer: _evaluation.IndexerNode) -> _sql_data_types.Select:
-    """Translates a FHIRPath indexer expression to Standard SQL.
+    """Translates a FHIRPath indexer expression to Spark SQL.
 
     Args:
       indexer: The `_Indexer` Expression node.
 
     Returns:
-      A compiled Standard SQL expression.
+      A compiled Spark SQL expression.
     """
     collection_result = self.visit(indexer.collection)
     index_result = self.visit(indexer.index)
@@ -227,7 +227,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   def visit_arithmetic(
       self,
       arithmetic: _evaluation.ArithmeticNode) -> _sql_data_types.Select:
-    """Translates a FHIRPath arithmetic expression to Standard SQL.
+    """Translates a FHIRPath arithmetic expression to Spark SQL.
 
     Each operand is expected to be a collection of a single element. Both
     operands must be of the same type, or of compatible types according to the
@@ -237,7 +237,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       arithmetic: The `_Arithmetic` Expression node.
 
     Returns:
-      A compiled Standard SQL expression.
+      A compiled Spark SQL expression.
     """
     lhs_result = self.visit(arithmetic.left)
     rhs_result = self.visit(arithmetic.right)
@@ -375,7 +375,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   def visit_comparison(
       self, comparison: _evaluation.ComparisonNode
   ) -> _sql_data_types.Select:
-    """Translates a FHIRPath comparison to Standard SQL.
+    """Translates a FHIRPath comparison to Spark SQL.
 
     Each operand is expected to be a collection of a single element. Operands
     can be strings, integers, decimals, dates, datetimes, and times. Comparison
@@ -385,7 +385,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       comparison: The `Comparison` Expression node.
 
     Returns:
-      A compiled Standard SQL expression.
+      A compiled Spark SQL expression.
     """
     lhs_result = self.visit(comparison.left)
     rhs_result = self.visit(comparison.right)
@@ -405,7 +405,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   def visit_boolean_op(
       self,
       boolean_logic: _evaluation.BooleanOperatorNode) -> _sql_data_types.Select:
-    """Translates a FHIRPath Boolean logic operation to Standard SQL.
+    """Translates a FHIRPath Boolean logic operation to Spark SQL.
 
     Note that evaluation for Boolean logic is only supported for Boolean
     operands of scalar cardinality.
@@ -414,7 +414,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       boolean_logic: The FHIRPath AST `BooleanLogic` node.
 
     Returns:
-      A compiled Standard SQL expression.
+      A compiled Spark SQL expression.
     """
     lhs_result = self.visit(boolean_logic.left)
     rhs_result = self.visit(boolean_logic.right)
