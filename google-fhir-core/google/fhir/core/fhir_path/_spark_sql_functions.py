@@ -15,6 +15,7 @@
 """Contains classes used for getting Spark SQL equivalents of FHIRPath functions."""
 
 import abc
+import copy
 import dataclasses
 from typing import Any, Collection, Mapping, Optional
 
@@ -104,11 +105,10 @@ class _EmptyFunction(_FhirPathFunctionSparkSqlEncoder):
     Args:
       function: The FHIRPath AST `EmptyFunction` node
       operand_result: The expression which is being evaluated
-      params_result: Unused parameter in this function
+      params_result: The parameter passed in to function
 
     Returns:
       A compiled Spark SQL expression.
-
 
     Raises:
       ValueError: When the function is called without an operand
@@ -141,9 +141,54 @@ class _EmptyFunction(_FhirPathFunctionSparkSqlEncoder):
       )
 
 
+class _FirstFunction(_FhirPathFunctionSparkSqlEncoder):
+  """Returns a collection with the first value of the operand collection.
+
+  The returned SQL expression is a table with cardinality 0 or 1.
+  """
+
+  def __call__(
+      self,
+      function: _evaluation.FirstFunction,
+      operand_result: Optional[_sql_data_types.Select],
+      params_result: Collection[_sql_data_types.StandardSqlExpression],
+  ) -> _sql_data_types.Select:
+    """Generates Spark SQL representing the FHIRPath first() function.
+
+    Args:
+      function: The FHIRPath AST `FirstFunction` node
+      operand_result: The expression which is being evaluated
+      params_result: The parameter passed in to function
+
+    Returns:
+      A compiled Spark SQL expression.
+
+    Raises:
+      ValueError: When the function is called without an operand
+    """
+    del params_result  # Unused parameter in this function
+    if operand_result is None:
+      raise ValueError('first() cannot be called without an operand.')
+
+    # We append a limit 1 to get the first row in row order.
+    # Note that if an ARRAY was unnested, row order may not match array order,
+    # but for most FHIR this should not matter.
+    result = copy.copy(operand_result)
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            sql_expr=f'FIRST({result.sql_alias})',
+            _sql_data_type=result.sql_data_type,
+            _sql_alias=result.sql_alias,
+        ),
+        from_part=f'{result.to_subquery()}',
+    )
+
+
 FUNCTION_MAP: Mapping[str, _FhirPathFunctionSparkSqlEncoder] = (
     immutabledict.immutabledict({
         _evaluation.CountFunction.NAME: _CountFunction(),
         _evaluation.EmptyFunction.NAME: _EmptyFunction(),
+        _evaluation.FirstFunction.NAME: _FirstFunction(),
+
     })
 )
