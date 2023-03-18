@@ -861,12 +861,33 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
             'FROM (SELECT bar)) WHERE bar IS NOT NULL)'
         ),
     },
+    {
+        'testcase_name': '_withMemberHasValue',
+        'fhir_path_expression': 'bar.hasValue()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(has_value_) '
+            'FROM (SELECT bar IS NOT NULL AS has_value_) '
+            'WHERE has_value_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDeepestMemberSqlKeywordHasValue',
+        'fhir_path_expression': 'bar.bats.struct.hasValue()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(has_value_) '
+            'FROM (SELECT bats_element_.struct IS NOT NULL AS has_value_ '
+            'FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) '
+            'AS index_bats_element_, bats_element_) '
+            'WHERE has_value_ IS NOT NULL)'
+        ),
+    },
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
     {'testcase_name': '_withCount', 'fhir_path_expression': 'count()'},
     {'testcase_name': '_withEmpty', 'fhir_path_expression': 'empty()'},
     {'testcase_name': '_withFirst', 'fhir_path_expression': 'first()'},
+    {'testcase_name': '_withHasValue', 'fhir_path_expression': 'hasValue()'},
 ]
 
 

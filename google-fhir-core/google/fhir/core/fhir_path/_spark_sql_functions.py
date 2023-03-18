@@ -14,10 +14,9 @@
 # limitations under the License.
 """Contains classes used for getting Spark SQL equivalents of FHIRPath functions."""
 
-import abc
 import copy
 import dataclasses
-from typing import Any, Collection, Mapping, Optional
+from typing import Callable, Collection, Mapping, Optional
 
 import immutabledict
 
@@ -26,65 +25,59 @@ from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _sql_data_types
 
 
-class _FhirPathFunctionSparkSqlEncoder(abc.ABC):
-  """Returns a Spark SQL equivalent of a FHIRPath function.
-
-  The __call__ method enables the instances of each class  to behave like
-  functions when called like a function.
-  """
-
-  def __call__(
-      self,
-      function: Any,
-      operand_result: Optional[_sql_data_types.Select],
-      params_result: Collection[_sql_data_types.StandardSqlExpression],
-      # Individual classes may specify additional kwargs they accept.
-      **kwargs,
-  ) -> _sql_data_types.Select:
-    raise NotImplementedError('Subclasses *must* implement `__call__`.')
-
-
-class _CountFunction(_FhirPathFunctionSparkSqlEncoder):
+def count_function(
+    function: _evaluation.CountFunction,
+    operand_result: Optional[_sql_data_types.Select],
+    params_result: Collection[_sql_data_types.StandardSqlExpression],
+) -> _sql_data_types.Select:
   """Returns an integer representing the number of elements in a collection.
 
   By default, `_CountFunction` will return 0.
+
+  Args:
+    function: The FHIRPath AST `HasValueFunction` node
+    operand_result: The expression which is being evaluated
+    params_result: The parameter passed in to function
+
+  Returns:
+    A compiled Spark SQL expression.
+
+  Raises:
+    ValueError: When the function is called without an operand
   """
+  del function, params_result  # Unused parameters in this function
+  if operand_result is None:
+    raise ValueError('count() cannot be called without an operand.')
 
-  def __call__(
-      self,
-      function: _evaluation.CountFunction,
-      operand_result: Optional[_sql_data_types.Select],
-      params_result: Collection[_sql_data_types.StandardSqlExpression],
-  ) -> _sql_data_types.Select:
-    del params_result  # Unused parameter in this function
-    if operand_result is None:
-      raise ValueError('count() cannot be called without an operand.')
-
-    if operand_result.from_part is None:
-      # COUNT is an aggregation and requires a FROM. If there is not one
-      # already, build a subquery for the FROM.
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.CountCall(
-              (
-                  _sql_data_types.RawExpression(
-                      operand_result.sql_alias,
-                      _sql_data_type=operand_result.sql_data_type,
-                  ),
-              )
-          ),
-          from_part=str(operand_result.to_subquery()),
-          where_part=operand_result.where_part,
-      )
-    else:
-      # We don't need a sub-query because we already have a FROM.
-      return dataclasses.replace(
-          operand_result,
-          select_part=_sql_data_types.CountCall((operand_result.select_part,)),
-      )
+  if operand_result.from_part is None:
+    # COUNT is an aggregation and requires a FROM. If there is not one
+    # already, build a subquery for the FROM.
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.CountCall((
+            _sql_data_types.RawExpression(
+                operand_result.sql_alias,
+                _sql_data_type=operand_result.sql_data_type,
+            ),
+        )),
+        from_part=str(operand_result.to_subquery()),
+        where_part=operand_result.where_part,
+    )
+  else:
+    # We don't need a sub-query because we already have a FROM.
+    return dataclasses.replace(
+        operand_result,
+        select_part=_sql_data_types.CountCall((operand_result.select_part,)),
+    )
 
 
-class _EmptyFunction(_FhirPathFunctionSparkSqlEncoder):
-  """Returns `TRUE` if the input collection is empty and `FALSE` otherwise.
+def empty_function(
+    function: _evaluation.EmptyFunction,
+    operand_result: Optional[_sql_data_types.Select],
+    params_result: Collection[_sql_data_types.StandardSqlExpression],
+) -> _sql_data_types.Select:
+  """Generates Spark SQL representing the FHIRPath empty() function.
+
+  Returns `TRUE` if the input collection is empty and `FALSE` otherwise.
 
   This is the opposite of `_ExistsFunction`. If the operand is empty, then the
   result is `TRUE`.
@@ -92,103 +85,133 @@ class _EmptyFunction(_FhirPathFunctionSparkSqlEncoder):
   The returned SQL expression is a table of cardinality 1, whose value is of
   `BOOL` type. By default, `_EmptyFunction` will return `FALSE` if given no
   operand.
+
+  Args:
+    function: The FHIRPath AST `EmptyFunction` node
+    operand_result: The expression which is being evaluated
+    params_result: The parameter passed in to function
+
+  Returns:
+    A compiled Spark SQL expression.
+
+  Raises:
+    ValueError: When the function is called without an operand
   """
+  del params_result  # Unused parameter in this function
+  if operand_result is None:
+    raise ValueError('empty() cannot be called without an operand.')
 
-  def __call__(
-      self,
-      function: _evaluation.EmptyFunction,
-      operand_result: Optional[_sql_data_types.Select],
-      params_result: Collection[_sql_data_types.StandardSqlExpression],
-  ) -> _sql_data_types.Select:
-    """Generates Spark SQL representing the FHIRPath empty() function.
+  sql_alias = 'empty_'
+  sql_data_type = _sql_data_types.Boolean
 
-    Args:
-      function: The FHIRPath AST `EmptyFunction` node
-      operand_result: The expression which is being evaluated
-      params_result: The parameter passed in to function
-
-    Returns:
-      A compiled Spark SQL expression.
-
-    Raises:
-      ValueError: When the function is called without an operand
-    """
-    del params_result  # Unused parameter in this function
-    if operand_result is None:
-      raise ValueError('empty() cannot be called without an operand.')
-
-    sql_alias = 'empty_'
-    sql_data_type = _sql_data_types.Boolean
-
-    if not _fhir_path_data_types.returns_collection(
-        function.parent_node().return_type()
-    ):
-      # We can use a less expensive scalar check.
-      return dataclasses.replace(
-          operand_result,
-          select_part=operand_result.select_part.is_null(_sql_alias=sql_alias),
-      )
-    else:
-      # We have to use a more expensive EXISTS check.
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.RawExpression(
-              'CASE WHEN COUNT(*) = 0 THEN TRUE ELSE FALSE END',
-              _sql_data_type=sql_data_type,
-              _sql_alias=sql_alias,
-          ),
-          from_part=str(operand_result.to_subquery()),
-          where_part=f'{operand_result.sql_alias} IS NOT NULL'
-      )
-
-
-class _FirstFunction(_FhirPathFunctionSparkSqlEncoder):
-  """Returns a collection with the first value of the operand collection.
-
-  The returned SQL expression is a table with cardinality 0 or 1.
-  """
-
-  def __call__(
-      self,
-      function: _evaluation.FirstFunction,
-      operand_result: Optional[_sql_data_types.Select],
-      params_result: Collection[_sql_data_types.StandardSqlExpression],
-  ) -> _sql_data_types.Select:
-    """Generates Spark SQL representing the FHIRPath first() function.
-
-    Args:
-      function: The FHIRPath AST `FirstFunction` node
-      operand_result: The expression which is being evaluated
-      params_result: The parameter passed in to function
-
-    Returns:
-      A compiled Spark SQL expression.
-
-    Raises:
-      ValueError: When the function is called without an operand
-    """
-    del params_result  # Unused parameter in this function
-    if operand_result is None:
-      raise ValueError('first() cannot be called without an operand.')
-
-    # We append a limit 1 to get the first row in row order.
-    # Note that if an ARRAY was unnested, row order may not match array order,
-    # but for most FHIR this should not matter.
-    result = copy.copy(operand_result)
+  if not _fhir_path_data_types.returns_collection(
+      function.parent_node().return_type()
+  ):
+    # We can use a less expensive scalar check.
+    return dataclasses.replace(
+        operand_result,
+        select_part=operand_result.select_part.is_null(_sql_alias=sql_alias),
+    )
+  else:
+    # We have to use a more expensive EXISTS check.
     return _sql_data_types.Select(
         select_part=_sql_data_types.RawExpression(
-            sql_expr=f'FIRST({result.sql_alias})',
-            _sql_data_type=result.sql_data_type,
-            _sql_alias=result.sql_alias,
+            'CASE WHEN COUNT(*) = 0 THEN TRUE ELSE FALSE END',
+            _sql_data_type=sql_data_type,
+            _sql_alias=sql_alias,
         ),
-        from_part=f'{result.to_subquery()}',
+        from_part=str(operand_result.to_subquery()),
+        where_part=f'{operand_result.sql_alias} IS NOT NULL',
     )
 
 
-FUNCTION_MAP: Mapping[str, _FhirPathFunctionSparkSqlEncoder] = (
-    immutabledict.immutabledict({
-        _evaluation.CountFunction.NAME: _CountFunction(),
-        _evaluation.EmptyFunction.NAME: _EmptyFunction(),
-        _evaluation.FirstFunction.NAME: _FirstFunction(),
+def first_function(
+    function: _evaluation.FirstFunction,
+    operand_result: Optional[_sql_data_types.Select],
+    params_result: Collection[_sql_data_types.StandardSqlExpression],
+) -> _sql_data_types.Select:
+  """Generates Spark SQL representing the FHIRPath first() function.
 
+  Returns a collection with the first value of the operand collection.
+
+  The returned SQL expression is a table with cardinality 0 or 1.
+
+  Args:
+    function: The FHIRPath AST `FirstFunction` node
+    operand_result: The expression which is being evaluated
+    params_result: The parameter passed in to function
+
+  Returns:
+    A compiled Spark SQL expression.
+
+  Raises:
+    ValueError: When the function is called without an operand
+  """
+  del function, params_result  # Unused parameters in this function
+  if operand_result is None:
+    raise ValueError('first() cannot be called without an operand.')
+
+  # We append a limit 1 to get the first row in row order.
+  # Note that if an ARRAY was unnested, row order may not match array order,
+  # but for most FHIR this should not matter.
+  result = copy.copy(operand_result)
+  return _sql_data_types.Select(
+      select_part=_sql_data_types.RawExpression(
+          sql_expr=f'FIRST({result.sql_alias})',
+          _sql_data_type=result.sql_data_type,
+          _sql_alias=result.sql_alias,
+      ),
+      from_part=f'{result.to_subquery()}',
+  )
+
+
+def has_value_function(
+    function: _evaluation.HasValueFunction,
+    operand_result: Optional[_sql_data_types.Select],
+    params_result: Collection[_sql_data_types.StandardSqlExpression],
+) -> _sql_data_types.Select:
+  """Generates Spark SQL representing the FHIRPath hasValue() function.
+
+  Returns `TRUE` if the operand is a primitive with a `value` field.
+
+  The input operand must be a collection of FHIR primitives of cardinality 1,
+  and the value must be non-`NULL`.
+
+  Args:
+    function: The FHIRPath AST `HasValueFunction` node
+    operand_result: The expression which is being evaluated
+    params_result: The parameter passed in to function
+
+  Returns:
+    A compiled Spark SQL expression.
+
+  Raises:
+    ValueError: When the function is called without an operand
+  """
+  del function, params_result  # Unused parameters in this function
+  if operand_result is None:
+    raise ValueError('hasValue() cannot be called without an operand.')
+
+  # TODO(b/234476234):
+  # The spec says: "Returns true if the input collection contains a single
+  # value which is a FHIR primitive, and it has a primitive value (e.g. as
+  # opposed to not having a value and just having extensions)."
+  # Currently we're just checking if the value is null.
+  # We don't check if it's a primitive or not.
+  # For collections, we're returning one row per collection element rather
+  # than ensuring the collection contains a single value.
+  sql_alias = 'has_value_'
+  return dataclasses.replace(
+      operand_result,
+      select_part=operand_result.select_part.is_not_null(_sql_alias=sql_alias),
+  )
+
+
+FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
+    immutabledict.immutabledict({
+        _evaluation.CountFunction.NAME: count_function,
+        _evaluation.EmptyFunction.NAME: empty_function,
+        _evaluation.FirstFunction.NAME: first_function,
+        _evaluation.HasValueFunction.NAME: has_value_function,
     })
 )
