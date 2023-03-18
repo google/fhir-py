@@ -207,11 +207,73 @@ def has_value_function(
   )
 
 
+def matches_function(
+    function: _evaluation.MatchesFunction,
+    operand_result: Optional[_sql_data_types.Select],
+    params_result: Collection[_sql_data_types.StandardSqlExpression],
+) -> _sql_data_types.Select:
+  """Generates Spark SQL representing the FHIRPath matches() function.
+
+  Returns `TRUE` if the operand matches the regex in the given param.
+
+  This function takes one param (`pattern`) in addition to the operand. If
+  `pattern` is not provided the matches function returns the empty set which in
+  this function translates to NULL.
+
+  The returned SQL expression is a table of cardinality 1, whose value is of
+  `BOOL` type. By default, `_MatchesFunction` will return `FALSE` if given no
+  operand.
+
+  Returns an error In the event that the input collection contains multiple
+  items.
+
+  Args:
+    function: The FHIRPath AST `MatchesFunction` node
+    operand_result: The expression which is being evaluated
+    params_result: The parameter passed in to function
+
+  Returns:
+    A compiled Spark SQL expression.
+
+  Raises:
+    ValueError: When the function is called without an operand
+  """
+  del function  # Unused parameter in this function
+  if operand_result is None:
+    raise ValueError('matches() cannot be called without an operand.')
+
+  sql_alias = 'matches_'
+  sql_data_type = _sql_data_types.Boolean
+
+  # If `pattern` is not given, return empty set.
+  if not params_result:
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            'NULL',
+            _sql_alias=sql_alias,
+            _sql_data_type=sql_data_type,
+        ),
+        from_part=None,
+    )
+  else:
+    param_to_evaluate = [param for param in params_result]
+    return dataclasses.replace(
+        operand_result,
+        select_part=_sql_data_types.FunctionCall(
+            name='REGEXP',
+            params=(operand_result.select_part, param_to_evaluate[0]),
+            _sql_alias=sql_alias,
+            _sql_data_type=sql_data_type,
+        ),
+    )
+
+
 FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
     immutabledict.immutabledict({
         _evaluation.CountFunction.NAME: count_function,
         _evaluation.EmptyFunction.NAME: empty_function,
         _evaluation.FirstFunction.NAME: first_function,
         _evaluation.HasValueFunction.NAME: has_value_function,
+        _evaluation.MatchesFunction.NAME: matches_function,
     })
 )

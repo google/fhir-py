@@ -881,6 +881,26 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
             'WHERE has_value_ IS NOT NULL)'
         ),
     },
+    {
+        'testcase_name': '_withDeepMemberMatches',
+        'fhir_path_expression': "bar.bats.struct.value.matches('foo_regex')",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(matches_) '
+            "FROM (SELECT REGEXP( bats_element_.struct.value, 'foo_regex') "
+            'AS matches_ FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) '
+            'AS index_bats_element_, bats_element_) '
+            'WHERE matches_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDeepMemberMatchesNoPattern',
+        'fhir_path_expression': 'bar.bats.struct.value.matches()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(matches_) '
+            'FROM (SELECT NULL AS matches_) '
+            'WHERE matches_ IS NOT NULL)'
+        ),
+    },
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
@@ -888,6 +908,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
     {'testcase_name': '_withEmpty', 'fhir_path_expression': 'empty()'},
     {'testcase_name': '_withFirst', 'fhir_path_expression': 'first()'},
     {'testcase_name': '_withHasValue', 'fhir_path_expression': 'hasValue()'},
+    {'testcase_name': '_withMatches', 'fhir_path_expression': 'matches()'},
 ]
 
 
