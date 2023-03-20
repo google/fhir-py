@@ -24,7 +24,7 @@ import abc
 import copy
 import enum
 
-from typing import Any, Dict, Optional, Set, cast
+from typing import Any, Dict, Optional, Set, cast, Collection as CollectionType
 from google.protobuf import message
 from google.fhir.core.fhir_path import _utils
 
@@ -379,6 +379,27 @@ class _Quantity(FhirPathDataType):
     return '<QuantityFhirPathDataType>'
 
 
+class _Reference(FhirPathDataType):
+  """Represents a FHIR Reference.
+
+  See more at: https://build.fhir.org/references.html
+  """
+
+  @property
+  def supported_coercion(self) -> Set[FhirPathDataType]:
+    return set()  # No supported coercion
+
+  @property
+  def url(self) -> str:
+    return 'http://hl7.org/fhirpath/System.Reference'
+
+  def __init__(self) -> None:
+    super().__init__(comparable=False)
+
+  def _class_name(self) -> str:
+    return '<ReferenceFhirPathDataType>'
+
+
 class _String(FhirPathDataType):
   r"""Represents string values up to 2^31 - 1 characters in length.
 
@@ -622,6 +643,47 @@ class QuantityStructureDataType(StructureDataType, _Quantity):
     return f'<QuantityStructureFhirPathDataType(url={self.url})>'
 
 
+class ReferenceStructureDataType(StructureDataType):
+  """Represents a FHIR Reference.
+
+  See more at: https://build.fhir.org/references.html
+
+  Attributes:
+    target_profiles: The types of resources to which the reference may link. See
+      more at:
+      https://build.fhir.org/elementdefinition-definitions.html#ElementDefinition.type.targetProfile
+  """
+
+  target_profiles: CollectionType[str]
+
+  @property
+  def supported_coercion(self) -> Set[FhirPathDataType]:
+    return set([Reference])
+
+  @property
+  def url(self) -> str:
+    return 'http://hl7.org/fhirpath/System.Reference'
+
+  def __init__(
+      self,
+      struct_def_proto: message.Message,
+      element_definition: message.Message,
+      backbone_element_path: Optional[str] = None,
+  ) -> None:
+    super().__init__(
+        struct_def_proto=struct_def_proto,
+        backbone_element_path=backbone_element_path,
+        comparable=False,
+    )
+    self.target_profiles = [
+        profile.value
+        for profile in cast(Any, element_definition).type[0].target_profile
+    ]
+
+  def _class_name(self) -> str:
+    return f'<ReferenceStructureFhirPathDataType(url={self.url})>'
+
+
 class _Any(FhirPathDataType):
   """Represents any type in FHIRPath.
 
@@ -706,6 +768,7 @@ DateTime = _DateTime()
 Decimal = _Decimal()
 Integer = _Integer()
 Quantity = _Quantity()
+Reference = _Reference()
 String = _String()
 
 Empty = _Empty()

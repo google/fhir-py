@@ -20,6 +20,7 @@ from absl.testing import absltest
 
 # TODO(b/229908551): Eliminate R4-specific tests from this package.
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
+from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import context
 from google.fhir.core.utils import fhir_package
 from google.fhir.r4 import primitive_handler
@@ -76,6 +77,37 @@ class FhirPathContextTest(absltest.TestCase):
             'http://hl7.org/fhir/StructureDefinition/Coding',
         },
         dependency_urls,
+    )
+
+  def testGetFhirTypeFromString_withReference_succeeds(self):
+    test_context = context.LocalFhirPathContext(self._package)
+
+    # Grab the element definition for Observation.subject, a reference field.
+    observation = test_context.get_structure_definition(
+        'http://hl7.org/fhir/StructureDefinition/Observation'
+    )
+    subject = next(
+        element
+        for element in observation.snapshot.element
+        if element.id.value == 'Observation.subject'
+    )
+
+    return_type = test_context.get_fhir_type_from_string(
+        element_definition=subject,
+        profile='http://hl7.org/fhir/StructureDefinition/Reference',
+        type_code=None,
+    )
+    self.assertIsInstance(
+        return_type, _fhir_path_data_types.ReferenceStructureDataType
+    )
+    self.assertCountEqual(
+        return_type.target_profiles,
+        [
+            'http://hl7.org/fhir/StructureDefinition/Patient',
+            'http://hl7.org/fhir/StructureDefinition/Group',
+            'http://hl7.org/fhir/StructureDefinition/Device',
+            'http://hl7.org/fhir/StructureDefinition/Location',
+        ],
     )
 
 

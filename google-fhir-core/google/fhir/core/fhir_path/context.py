@@ -38,6 +38,7 @@ _ValueSetT = TypeVar('_ValueSetT')
 
 VALUE_SET_URL = 'http://hl7.org/fhir/StructureDefinition/ValueSet'
 QUANTITY_URL = 'http://hl7.org/fhir/StructureDefinition/Quantity'
+REFERENCE_URL = 'http://hl7.org/fhir/StructureDefinition/Reference'
 
 ElementDefinition = message.Message
 
@@ -135,6 +136,10 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       child_structdef = self.get_structure_definition(lookup_type)
       if child_structdef.url.value == QUANTITY_URL:
         return _fhir_path_data_types.QuantityStructureDataType(child_structdef)
+      elif child_structdef.url.value == REFERENCE_URL:
+        return _fhir_path_data_types.ReferenceStructureDataType(
+            child_structdef, element_definition
+        )
       else:
         return _fhir_path_data_types.StructureDataType(
             child_structdef, element_type=type_code
