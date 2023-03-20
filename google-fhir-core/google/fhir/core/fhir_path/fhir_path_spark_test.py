@@ -789,9 +789,8 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_SUCCEEDS_CASES = [
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(boolList_element_) '
             'FROM (SELECT boolList_element_ '
-            'FROM (SELECT (boolList) '
-            'LATERAL VIEW POSEXPLODE(boolList) AS index_boolList_element_, '
-            'boolList_element_) '
+            'FROM (SELECT EXPLODE(boolList_element_) AS boolList_element_ '
+            'FROM (SELECT boolList AS boolList_element_))) '
             'WHERE boolList_element_ IS NOT NULL)'
         ),
     },
