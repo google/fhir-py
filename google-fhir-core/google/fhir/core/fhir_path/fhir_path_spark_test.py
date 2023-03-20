@@ -89,77 +89,74 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         'testcase_name': '_withDateYear',
         'fhir_path_expression': '@1970',
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(literal_) FROM (SELECT'
-            ' TO_TIMESTAMP(\'1970-01-01\', "yyyy-MM-dd") AS literal_) WHERE'
-            ' literal_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(literal_) '
+            "FROM (SELECT CAST('1970-01-01' AS TIMESTAMP) AS literal_) "
+            'WHERE literal_ IS NOT NULL)'
         ),
     },
     {
         'testcase_name': '_withDateYearMonth',
-        'fhir_path_expression': '@1970-01',
+        'fhir_path_expression': '@1970-02',
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(literal_) FROM (SELECT'
-            ' TO_TIMESTAMP(\'1970-01-01\', "yyyy-MM-dd") AS literal_) WHERE'
-            ' literal_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(literal_) '
+            "FROM (SELECT CAST('1970-02-01' AS TIMESTAMP) AS literal_) "
+            'WHERE literal_ IS NOT NULL)'
         ),
     },
     {
         'testcase_name': '_withDateYearMonthDay',
-        'fhir_path_expression': '@1970-01-01',
+        'fhir_path_expression': '@1970-02-03',
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(literal_) FROM (SELECT'
-            ' TO_TIMESTAMP(\'1970-01-01\', "yyyy-MM-dd") AS literal_) WHERE'
-            ' literal_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(literal_) '
+            "FROM (SELECT CAST('1970-02-03' AS TIMESTAMP) AS literal_) "
+            'WHERE literal_ IS NOT NULL)'
         ),
     },
     {
         'testcase_name': '_withDateTimeYearMonthDayHours',
         'fhir_path_expression': '@2015-02-04T14',
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(literal_) FROM (SELECT'
-            " TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:00:00+00:00',"
-            ' "yyyy-MM-dd\'T\'HH:mm:ss.SSSZ")) AS literal_) WHERE literal_ IS'
-            ' NOT NULL)'
+            '(SELECT COLLECT_LIST(literal_) '
+            "FROM (SELECT CAST('2015-02-04T14:00:00+00:00' AS TIMESTAMP) "
+            'AS literal_) WHERE literal_ IS NOT NULL)'
         ),
     },
     {
         'testcase_name': '_withDateTimeYearMonthDayHoursMinutes',
         'fhir_path_expression': '@2015-02-04T14:34',
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(literal_) FROM (SELECT'
-            " TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:34:00+00:00',"
-            ' "yyyy-MM-dd\'T\'HH:mm:ss.SSSZ")) AS literal_) WHERE literal_ IS'
-            ' NOT NULL)'
+            '(SELECT COLLECT_LIST(literal_) '
+            "FROM (SELECT CAST('2015-02-04T14:34:00+00:00' AS TIMESTAMP) "
+            'AS literal_) WHERE literal_ IS NOT NULL)'
         ),
     },
     {
         'testcase_name': '_withDateTimeYearMonthDayHoursMinutesSeconds',
         'fhir_path_expression': '@2015-02-04T14:34:28',
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(literal_) FROM (SELECT'
-            " TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:34:28+00:00',"
-            ' "yyyy-MM-dd\'T\'HH:mm:ss.SSSZ")) AS literal_) WHERE literal_ IS'
-            ' NOT NULL)'
+            '(SELECT COLLECT_LIST(literal_) '
+            "FROM (SELECT CAST('2015-02-04T14:34:28+00:00' AS TIMESTAMP) "
+            'AS literal_) WHERE literal_ IS NOT NULL)'
         ),
     },
     {
         'testcase_name': '_withDateTimeYearMonthDayHoursMinutesSecondsMilli',
         'fhir_path_expression': '@2015-02-04T14:34:28.123',
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(literal_) FROM (SELECT'
-            " TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:34:28.123000+00:00',"
-            ' "yyyy-MM-dd\'T\'HH:mm:ss.SSSZ")) AS literal_) WHERE literal_ IS'
-            ' NOT NULL)'
+            '(SELECT COLLECT_LIST(literal_) '
+            "FROM (SELECT CAST('2015-02-04T14:34:28.123000+00:00' "
+            'AS TIMESTAMP) '
+            'AS literal_) WHERE literal_ IS NOT NULL)'
         ),
     },
     {
         'testcase_name': '_withDateTimeYearMonthDayHoursMinutesSecondsMilliTz',
         'fhir_path_expression': '@2015-02-04T14:34:28.123+09:00',
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(literal_) FROM (SELECT'
-            " TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:34:28.123000+09:00',"
-            ' "yyyy-MM-dd\'T\'HH:mm:ss.SSSZ")) AS literal_) WHERE literal_ IS'
-            ' NOT NULL)'
+            '(SELECT COLLECT_LIST(literal_) '
+            "FROM (SELECT CAST('2015-02-04T14:34:28.123000+09:00' "
+            'AS TIMESTAMP) '
+            'AS literal_) WHERE literal_ IS NOT NULL)'
         ),
     },
     {
@@ -480,29 +477,26 @@ _WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
             'comparison_) WHERE comparison_ IS NOT NULL)'
         ),
     },
-    # TODO(b/262544393): add _withDateLessThan and _dateComparedWithTimestamp
-    # tests when visit_invoke_expression is implemented
-    # {
-    #     'testcase_name':
-    #         '_withDateLessThan',
-    #     'fhir_path_expression':
-    #         'dateField < @2000-01-01',
-    #     'expected_sql_expression': (
-    #         '(SELECT COLLECT_LIST(comparison_) '
-    #         'FROM (SELECT 3 <= 4 AS comparison_) '
-    #         'WHERE comparison_ IS NOT NULL)'
-    #     )
-    # }, {
-    #     'testcase_name':
-    #         '_dateComparedWithTimestamp',
-    #     'fhir_path_expression':
-    #         'dateField < @2000-01-01T14:34',
-    #     'expected_sql_expression': (
-    #         '(SELECT COLLECT_LIST(comparison_) '
-    #         'FROM (SELECT 3 <= 4 AS comparison_) '
-    #         'WHERE comparison_ IS NOT NULL)'
-    #     )
-    # }
+    {
+        'testcase_name': '_withDateLessThan',
+        'fhir_path_expression': 'dateField < @2000-01-01',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(comparison_) '
+            'FROM (SELECT CAST(dateField AS TIMESTAMP) '
+            "< CAST('2000-01-01' AS TIMESTAMP) AS comparison_) "
+            'WHERE comparison_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_dateComparedWithTimestamp',
+        'fhir_path_expression': 'dateField < @2000-01-01T14:34',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(comparison_) '
+            'FROM (SELECT CAST(dateField AS TIMESTAMP) '
+            "< CAST('2000-01-01T14:34:00+00:00' AS TIMESTAMP) AS comparison_) "
+            'WHERE comparison_ IS NOT NULL)'
+        ),
+    },
 ]
 
 _WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
@@ -642,22 +636,20 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         'testcase_name': '_withDateTimeEqual',
         'fhir_path_expression': '@2015-02-04T14:34:28 = @2015-02-04T14',
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(eq_) FROM (SELECT'
-            " (TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:34:28+00:00',"
-            ' "yyyy-MM-dd\'T\'HH:mm:ss.SSSZ")) ='
-            " TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:00:00+00:00',"
-            ' "yyyy-MM-dd\'T\'HH:mm:ss.SSSZ"))) AS eq_) WHERE eq_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(eq_) FROM '
+            "(SELECT (CAST('2015-02-04T14:34:28+00:00' AS TIMESTAMP) "
+            "= CAST('2015-02-04T14:00:00+00:00' AS TIMESTAMP)) AS eq_) "
+            'WHERE eq_ IS NOT NULL)'
         ),
     },
     {
         'testcase_name': '_withDateTimeEquivalent',
         'fhir_path_expression': '@2015-02-04T14:34:28 ~ @2015-02-04T14',
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(eq_) FROM (SELECT'
-            " (TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:34:28+00:00',"
-            ' "yyyy-MM-dd\'T\'HH:mm:ss.SSSZ")) ='
-            " TO_TIMESTAMP(DATE_FORMAT('2015-02-04T14:00:00+00:00',"
-            ' "yyyy-MM-dd\'T\'HH:mm:ss.SSSZ"))) AS eq_) WHERE eq_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(eq_) FROM '
+            "(SELECT (CAST('2015-02-04T14:34:28+00:00' AS TIMESTAMP) "
+            "= CAST('2015-02-04T14:00:00+00:00' AS TIMESTAMP)) AS eq_) "
+            'WHERE eq_ IS NOT NULL)'
         ),
     },
     {
@@ -980,7 +972,7 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
-        structdef=None,
+        structdef=self.foo,
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True,

@@ -117,10 +117,13 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       # LiteralNode constructor ensures that literal has to be one of the above
       # cases. But we error out here in case we enter an illegal state.
       raise ValueError(
-          f'Unsupported literal value: {literal} {literal.return_type()}.')
+          f'Unsupported literal value: {literal} {literal.return_type()}.'
+      )
 
     return _sql_data_types.RawExpression(
-        _sql_data_types.wrap_time_types_spark(sql_value, sql_data_type),
+        _sql_data_types.wrap_time_types(
+            sql_value, sql_data_type, _sql_data_types.SqlDialect.SPARK
+        ),
         _sql_data_type=sql_data_type,
         _sql_alias='literal_',
     )
@@ -151,6 +154,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         return _sql_data_types.IdentifierSelect(
             select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
             from_part=parent_result,
+            sql_dialect=_sql_data_types.SqlDialect.SPARK,
         )
       else:
         sql_alias = f'{sql_alias}_element_'
@@ -166,6 +170,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
                   f'(SELECT EXPLODE({sql_alias}) AS {sql_alias} '
                   f'FROM (SELECT {raw_identifier_str} AS {sql_alias}))'
               ),
+              sql_dialect=_sql_data_types.SqlDialect.SPARK,
           )
 
         from_part = (
@@ -179,6 +184,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         return _sql_data_types.IdentifierSelect(
             select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
             from_part=from_part,
+            sql_dialect=_sql_data_types.SqlDialect.SPARK,
         )
     else:  # Scalar
       # Append the current identifier to the path chain being selected if there
@@ -196,6 +202,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             select_part=_sql_data_types.Identifier(
                 _escape_identifier(identifier_str), sql_data_type),
             from_part=parent_result,
+            sql_dialect=_sql_data_types.SqlDialect.SPARK,
         )
 
   def visit_indexer(self,
@@ -222,6 +229,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             _sql_alias=sql_alias,
         ),
         from_part=f'{collection_result.to_subquery()}',
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
     )
 
   def visit_arithmetic(
@@ -260,7 +268,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     return _sql_data_types.Select(
         select_part=_sql_data_types.RawExpression(
             sql_value, _sql_data_type=sql_data_type, _sql_alias='arith_'),
-        from_part=None)
+        from_part=None,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK)
 
   def visit_equality(self, equality: _evaluation.EqualityNode):
     """Returns `TRUE` if the left collection is equal/equivalent to the right.
@@ -309,6 +318,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
               _sql_alias=sql_alias,
           ),
           from_part=None,
+          sql_dialect=_sql_data_types.SqlDialect.SPARK,
       )
 
     elif not _fhir_path_data_types.is_scalar(
@@ -337,6 +347,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
               f' {lhs_result.sql_alias} FROM'
               f' {lhs_result.as_operand()})'
           ),
+          sql_dialect=_sql_data_types.SqlDialect.SPARK,
       )
 
     elif _fhir_path_data_types.is_scalar(
@@ -365,6 +376,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
               f' {rhs_result.sql_alias} FROM'
               f' {rhs_result.as_operand()})'
           ),
+          sql_dialect=_sql_data_types.SqlDialect.SPARK,
       )
     else:
       raise NotImplementedError(
@@ -400,7 +412,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             sql_value,
             _sql_data_type=_sql_data_types.Boolean,
             _sql_alias='comparison_'),
-        from_part=None)
+        from_part=None,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK)
 
   def visit_boolean_op(
       self,
@@ -441,7 +454,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             sql_value,
             _sql_data_type=_sql_data_types.Boolean,
             _sql_alias='logic_'),
-        from_part=None)
+        from_part=None,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK)
 
   def visit_membership(
       self, relation: _evaluation.MembershipRelationNode
@@ -475,7 +489,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             _sql_data_type=_sql_data_types.Boolean,
             _sql_alias='mem_',
         ),
-        from_part=None)
+        from_part=None,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK)
 
   def visit_union(self, union: _evaluation.UnionNode):
     """Translates a FHIRPath union to Standard SQL."""
@@ -490,7 +505,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             _sql_data_type=operand_result.sql_data_type,
             _sql_alias='pol_',
         ),
-        from_part=None)
+        from_part=None,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK)
 
   def visit_function(self, function: _evaluation.FunctionNode) -> Any:
     """Translates a FHIRPath function to Spark SQL."""

@@ -24,14 +24,9 @@ from __future__ import annotations
 
 import abc
 import dataclasses
+import enum
 from typing import Any, List, Optional, Sequence, Set, Union, cast
 from google.fhir.core.fhir_path import _fhir_path_data_types
-
-# Timestamp format to convert ISO strings into Spark Timestamp types.
-_TIMESTAMP_FORMAT_SPARK = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-
-# ISO format of dates used by FHIR.
-_DATE_FORMAT_SPARK = 'yyyy-MM-dd'
 
 # TODO(b/202892821): Consolidate with `_fhir_path_data_types.py` functionality.
 
@@ -137,6 +132,11 @@ STANDARD_SQL_KEYWORDS = frozenset([
     'WITH',
     'WITHIN',
 ])
+
+
+class SqlDialect(enum.Enum):
+  BIGQUERY = 'GoogleSQL'
+  SPARK = 'SparkSQL'
 
 
 # TODO(b/218912393): Add a consistent string representation to all the
@@ -656,34 +656,35 @@ def get_standard_sql_data_type(
   return return_type
 
 
-def wrap_time_types_spark(raw_sql: str, sql_type: StandardSqlDataType) -> str:
-  """If the type is date/timestamp, wrap the SQL statement with TO_TIMESTAMP."""
-  if raw_sql.startswith('TO_TIMESTAMP'):
-    return raw_sql
+def wrap_time_types(
+    raw_sql: str,
+    sql_type: StandardSqlDataType,
+    sql_dialect: SqlDialect = SqlDialect.BIGQUERY,
+) -> str:
+  """If the type is a date/timestamp type, wrap the SQL statement with a CAST."""
   if isinstance(sql_type, Array):
     sql_type = cast(Array, sql_type).contained_type
 
-  if isinstance(sql_type, _Timestamp):
-    return f'TO_TIMESTAMP(DATE_FORMAT({raw_sql}, "{_TIMESTAMP_FORMAT_SPARK}"))'
-
-  if isinstance(sql_type, _Date):
-    # Parse dates as timestamps so that comparisons can be made.
-    return f'TO_TIMESTAMP({raw_sql}, "{_DATE_FORMAT_SPARK}")'
-  return raw_sql
-
-
-def wrap_time_types(raw_sql: str, sql_type: StandardSqlDataType) -> str:
-  """If the type is a date/timestamp type, wrap the SQL statement with a SAFE_CAST."""
   if raw_sql.startswith('TO_TIMESTAMP'):
+    return raw_sql
+
+  if raw_sql.startswith('CAST'):
     return raw_sql
 
   if raw_sql.startswith('SAFE_CAST'):
     return raw_sql
-  if isinstance(sql_type, Array):
-    sql_type = cast(Array, sql_type).contained_type
 
-  if isinstance(sql_type, (_Timestamp, _Date)):
+  if (
+      isinstance(sql_type, (_Timestamp, _Date))
+      and sql_dialect is SqlDialect.BIGQUERY
+  ):
     return f'SAFE_CAST({raw_sql} AS TIMESTAMP)'
+
+  if (
+      isinstance(sql_type, (_Timestamp, _Date))
+      and sql_dialect is SqlDialect.SPARK
+  ):
+    return f'CAST({raw_sql} AS TIMESTAMP)'
 
   return raw_sql
 
@@ -1248,12 +1249,14 @@ class Select(StandardSqlExpression):
       expressions taking their FROM from a parent query.
     where_part: The body of the WHERE clause.
     limit_part: The body of the LIMIT clause.
+    sql_dialect: The SQL dialect to use. Defaults to BigQuery
   """
 
   select_part: StandardSqlExpression
   from_part: Optional[str]
   where_part: Optional[str] = None
   limit_part: Optional[int] = None
+  sql_dialect: Optional[SqlDialect] = SqlDialect.BIGQUERY
 
   @property
   def sql_data_type(self) -> StandardSqlDataType:
@@ -1275,7 +1278,9 @@ class Select(StandardSqlExpression):
     """Builds the SQL expression from its given components."""
     query_parts = ['SELECT ']
 
-    select_part = wrap_time_types(str(self.select_part), self.sql_data_type)
+    select_part = wrap_time_types(
+        str(self.select_part), self.sql_data_type, self.sql_dialect
+    )
     query_parts.append(select_part)
     # Add an AS statement to match sql_alias if necessary.
     if select_part != str(
@@ -1306,7 +1311,9 @@ class Select(StandardSqlExpression):
     if self.from_part or self.where_part:
       return str(self.to_subquery())
 
-    return wrap_time_types(self.select_part.as_operand(), self.sql_data_type)
+    return wrap_time_types(
+        self.select_part.as_operand(), self.sql_data_type, self.sql_dialect
+    )
 
 
 @dataclasses.dataclass
