@@ -42,7 +42,8 @@ class FhirPathContextTest(absltest.TestCase):
     from_unqualified = test_context.get_structure_definition('Patient')
     self.assertEqual(from_unqualified.url.value, _PATIENT_STRUCTDEF_URL)
     from_qualified = test_context.get_structure_definition(
-        _PATIENT_STRUCTDEF_URL)
+        _PATIENT_STRUCTDEF_URL
+    )
     self.assertEqual(from_qualified.url.value, _PATIENT_STRUCTDEF_URL)
 
   def testStructDefLoad_FromFhirPackageManager_succeeds(self):
@@ -50,14 +51,16 @@ class FhirPathContextTest(absltest.TestCase):
     from_unqualified = test_context.get_structure_definition('Patient')
     self.assertEqual(from_unqualified.url.value, _PATIENT_STRUCTDEF_URL)
     from_qualified = test_context.get_structure_definition(
-        _PATIENT_STRUCTDEF_URL)
+        _PATIENT_STRUCTDEF_URL
+    )
     self.assertEqual(from_qualified.url.value, _PATIENT_STRUCTDEF_URL)
 
   def testStuctDefLoadMissingResource_FromFhirPackage_fails(self):
     test_context = context.LocalFhirPathContext(self._package)
 
-    with self.assertRaisesRegex(context.UnableToLoadResourceError,
-                                '.*BogusResource.*'):
+    with self.assertRaisesRegex(
+        context.UnableToLoadResourceError, '.*BogusResource.*'
+    ):
       test_context.get_structure_definition('BogusResource')
 
   def testStructDef_LoadDependencies_asExpected(self):
@@ -70,8 +73,10 @@ class FhirPathContextTest(absltest.TestCase):
         {
             'http://hl7.org/fhir/StructureDefinition/Range',
             'http://hl7.org/fhir/StructureDefinition/CodeableConcept',
-            'http://hl7.org/fhir/StructureDefinition/Coding'
-        }, dependency_urls)
+            'http://hl7.org/fhir/StructureDefinition/Coding',
+        },
+        dependency_urls,
+    )
 
 
 class ServerFhirPathContextTest(absltest.TestCase):
@@ -81,32 +86,33 @@ class ServerFhirPathContextTest(absltest.TestCase):
     super().setUpClass()
     cls._mock_server_address = 'https://mockserver.com'
     cls._test_context = context.ServerFhirPathContext(
-        cls._mock_server_address, structure_definition_pb2.StructureDefinition,
-        _PRIMITIVE_HANDLER)
+        cls._mock_server_address,
+        structure_definition_pb2.StructureDefinition,
+        _PRIMITIVE_HANDLER,
+    )
 
   def testStructDefLoad_FromFhirServer_succeeds(self):
-
     patient_url = f'{self._mock_server_address}/StructureDefinition?_id={requests.utils.quote(_PATIENT_STRUCTDEF_URL)}'
     with requests_mock.Mocker() as m:
       m.get(
           patient_url,
           # Bundle with placeholder patient for testing.
           json={
-              'resourceType':
-                  'Bundle',
-              'id':
-                  'resources',
-              'type':
-                  'collection',
-              'entry': [{
-                  'resource': {
-                      'resourceType': 'StructureDefinition',
-                      'id': 'Patient',
-                      'url': _PATIENT_STRUCTDEF_URL,
-                      'name': 'Patient',
+              'resourceType': 'Bundle',
+              'id': 'resources',
+              'type': 'collection',
+              'entry': [
+                  {
+                      'resource': {
+                          'resourceType': 'StructureDefinition',
+                          'id': 'Patient',
+                          'url': _PATIENT_STRUCTDEF_URL,
+                          'name': 'Patient',
+                      }
                   }
-              }]
-          })
+              ],
+          },
+      )
 
       patient_structdef = self._test_context.get_structure_definition('Patient')
       self.assertEqual(patient_structdef.url.value, _PATIENT_STRUCTDEF_URL)
@@ -117,14 +123,16 @@ class ServerFhirPathContextTest(absltest.TestCase):
       self.assertEqual(patient_structdef.url.value, _PATIENT_STRUCTDEF_URL)
 
   def testStructDefLoad_FromFhirServer_notFound(self):
-
     bad_resource_id = 'http://hl7.org/fhir/StructureDefinition/NoSuchResource'
-    no_resource_url = f'{self._mock_server_address}/StructureDefinition?_id={bad_resource_id}'
+    no_resource_url = (
+        f'{self._mock_server_address}/StructureDefinition?_id={bad_resource_id}'
+    )
     with requests_mock.Mocker() as m:
       m.get(no_resource_url, status_code=404)
 
-      with self.assertRaisesRegex(context.UnableToLoadResourceError,
-                                  '.*NoSuchResource.*404.*'):
+      with self.assertRaisesRegex(
+          context.UnableToLoadResourceError, '.*NoSuchResource.*404.*'
+      ):
         self._test_context.get_structure_definition('NoSuchResource')
 
 
