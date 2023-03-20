@@ -209,8 +209,8 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     sql_data_type = _sql_data_types.get_standard_sql_data_type(
         identifier.return_type()
     )
-    sql_alias = f'{raw_identifier_str}'
-    identifier_str = f'{raw_identifier_str}'
+    sql_alias = raw_identifier_str
+    identifier_str = raw_identifier_str
     if _fhir_path_data_types.is_collection(identifier.return_type()):  # Array
       # If the identifier is `$this`, we assume that the repeated field has been
       # unnested upstream so we only need to reference it with its alias:
@@ -227,7 +227,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         identifier_str = f'{parent_identifier_str}.{raw_identifier_str}'
       else:
         # Identifiers need to be escaped if they are referenced directly.
-        identifier_str = f'{_escape_identifier(raw_identifier_str)}'
+        identifier_str = _escape_identifier(raw_identifier_str)
 
       from_part = (
           f'UNNEST({identifier_str}) AS {sql_alias} '
