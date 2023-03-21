@@ -115,6 +115,44 @@ class FhirPathTestBase:
               id_='Reference',
               type_codes=None,
               cardinality=sdefs.Cardinality(min=0, max='1'),
+          ),
+          sdefs.build_element_definition(
+              id_='Reference.reference',
+              type_codes=['string'],
+              cardinality=sdefs.Cardinality(min=0, max='1'),
+          ),
+      ],
+  )
+
+  patient_datatype = sdefs.build_resource_definition(
+      id_='Patient',
+      element_definitions=[
+          sdefs.build_element_definition(
+              id_='Patient',
+              type_codes=None,
+              cardinality=sdefs.Cardinality(min=0, max='1'),
+          )
+      ],
+  )
+
+  device_datatype = sdefs.build_resource_definition(
+      id_='Device',
+      element_definitions=[
+          sdefs.build_element_definition(
+              id_='Device',
+              type_codes=None,
+              cardinality=sdefs.Cardinality(min=0, max='1'),
+          )
+      ],
+  )
+
+  observation_datatype = sdefs.build_resource_definition(
+      id_='Observation',
+      element_definitions=[
+          sdefs.build_element_definition(
+              id_='Observation',
+              type_codes=None,
+              cardinality=sdefs.Cardinality(min=0, max='1'),
           )
       ],
   )
@@ -128,11 +166,22 @@ class FhirPathTestBase:
       type_codes=['Bar'],
       cardinality=sdefs.Cardinality(min=0, max='1'),
   )
+
   reference_element_definition = sdefs.build_element_definition(
-      id_='Foo.reference',
+      id_='Foo.ref',
       type_codes=['Reference'],
       cardinality=sdefs.Cardinality(min=0, max='1'),
   )
+  reference_element_definition.type[0].target_profile.add(
+      value='http://hl7.org/fhir/StructureDefinition/Patient'
+  )
+  reference_element_definition.type[0].target_profile.add(
+      value='http://hl7.org/fhir/StructureDefinition/Device'
+  )
+  reference_element_definition.type[0].target_profile.add(
+      value='http://hl7.org/fhir/StructureDefinition/Observation'
+  )
+
   bat_element_definition = sdefs.build_element_definition(
       id_='Foo.bat',
       type_codes=['Bats'],
@@ -390,6 +439,9 @@ class FhirPathTestBase:
   resources = [
       string_datatype,
       reference_datatype,
+      patient_datatype,
+      device_datatype,
+      observation_datatype,
       foo,
       bar,
       bats,

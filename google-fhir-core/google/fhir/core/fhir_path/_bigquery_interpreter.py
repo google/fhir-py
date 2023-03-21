@@ -15,6 +15,7 @@
 """Functionality to output BigQuery SQL expressions from FHIRPath expressions."""
 
 import dataclasses
+import functools
 from typing import Any, Optional
 
 from google.cloud import bigquery
@@ -264,6 +265,59 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         select_part=select_part,
         from_part=None,
     )
+
+  def visit_invoke_reference(
+      self, identifier: _evaluation.InvokeReferenceNode
+  ) -> _sql_data_types.Select:
+    reference_node = identifier.get_parent_node()
+
+    if not isinstance(
+        reference_node.return_type(),
+        _fhir_path_data_types.ReferenceStructureDataType,
+    ):
+      raise ValueError(
+          'visit_reference called on node with return type'
+          f' {reference_node.return_type()}.'
+      )
+
+    # Build a SELECT for the reference struct.
+    parent_query = self.visit(reference_node)
+
+    # Select the first non-null ID field on the struct. Validation
+    # should ensure at most one of the fields is not null.
+    type_names = (
+        # Get the base resource type for structure definition URIs in
+        # `target_profiles`.
+        identifier.context.get_fhir_type_from_string(
+            profile=reference, type_code=None, element_definition=None
+        ).base_type
+        for reference in reference_node.return_type().target_profiles
+    )
+
+    # If we have a parent query, append our record access against it.
+    if parent_query is not None:
+      prefix = f'{parent_query.select_part}.'
+    else:
+      prefix = ''
+
+    # Build column names for each resource type, e.g. patientId, deviceId.
+    column_names = (
+        f'{prefix}{type_name[:1].lower()}{type_name[1:]}Id'
+        for type_name in type_names
+    )
+    # Select the first non-null ID column by chaining IFNULL calls, e.g.
+    # IFNULL("a", IFNULL("b", "c"))
+    sql = functools.reduce(
+        lambda acc, column: f'IFNULL({column}, {acc})', sorted(column_names)
+    )
+    select_part = _sql_data_types.RawExpression(
+        sql, _sql_data_types.String, 'reference'
+    )
+
+    if parent_query is not None:
+      return dataclasses.replace(parent_query, select_part=select_part)
+
+    return _sql_data_types.Select(select_part=select_part, from_part=None)
 
   def visit_indexer(
       self, indexer: _evaluation.IndexerNode

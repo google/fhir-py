@@ -395,12 +395,45 @@ class LiteralNode(ExpressionNode):
 class InvokeExpressionNode(ExpressionNode):
   """Handles the FHIRPath InvocationExpression."""
 
+  _identifier: str
+  _parent_node: ExpressionNode
+
+  def __new__(cls, *args) -> 'InvokeExpressionNode':
+    """Creates a new InvokeExpressionNode node or one of its subclasses.
+
+    Creates either an InvokeExpressionNode or InvokeReferenceNode, a subclass of
+    InvokeExpressionNode. The InvokeReferenceNode is returned when a field named
+    'reference' is invoked against a FHIR Reference resource. Database backends
+    have special behavior for reference nodes. This reference-specific node type
+    allows them to define visitors to implement their reference-specific logic.
+
+    Args:
+      *args: The args passed to `__init__`.
+
+    Returns:
+      A new InvokeExpressionNode of the appropriate type.
+    """
+    # For special initializations, such as via a copy, no args are supplied.
+    if not args:
+      return super().__new__(cls)
+
+    # For regular initialization, the arguments will be the same as __init__.
+    _, identifier, parent_node = args
+    if identifier == 'reference' and isinstance(
+        parent_node.return_type(),
+        _fhir_path_data_types.ReferenceStructureDataType,
+    ):
+      return super().__new__(InvokeReferenceNode)
+
+    return super().__new__(InvokeExpressionNode)
+
   def __init__(
       self,
       fhir_context: context.FhirPathContext,
       identifier: str,
       parent_node: ExpressionNode,
   ) -> None:
+    """Prefer calling the `new` classmethod over __init__."""
     self._identifier = identifier
     self._parent_node = parent_node
     return_type = None
@@ -464,6 +497,16 @@ class InvokeExpressionNode(ExpressionNode):
       self._parent_node = replacement
     else:
       self._parent_node.replace_operand(expression_to_replace, replacement)
+
+
+class InvokeReferenceNode(InvokeExpressionNode):
+  """An invocation of a 'reference' field against a FHIR Reference resource.
+
+  See `InvokeExpressionNode.__new__` for more details.
+  """
+
+  def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
+    return visitor.visit_invoke_reference(self)
 
 
 class IndexerNode(ExpressionNode):
@@ -1381,6 +1424,24 @@ class ExpressionNodeBaseVisitor(abc.ABC):
   def visit_invoke_expression(self, identifier: InvokeExpressionNode) -> Any:
     pass
 
+  def visit_invoke_reference(self, identifier: InvokeReferenceNode) -> Any:
+    """Allows visitors to implement custom Reference logic.
+
+    By default, calls `visit_invoke_expression`. Subclasses may override this
+    method to introduce custom logic for handling references.
+
+    This function is called when the 'reference' identifier is invoked against a
+    FHIR Reference resource. The visit_invoke_expression function is called for
+    all other invocations.
+
+    Args:
+      identifier: The identifier on the right hand side of an invocation.
+
+    Returns:
+      The result of the reference invocation.
+    """
+    return self.visit_invoke_expression(identifier)
+
   @abc.abstractmethod
   def visit_indexer(self, indexer: IndexerNode) -> Any:
     pass
@@ -1605,6 +1666,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
       lhs_result = self._node_context[-1]
     else:
       lhs_result = self.visit(invocation.lhs)
+
     return InvokeExpressionNode(self._context, str(invocation.rhs), lhs_result)
 
   def visit_function(

@@ -1613,16 +1613,30 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT bat.struct.anotherStruct.anotherValue)
           WHERE anotherValue IS NOT NULL)"""),
       ),
+      dict(
+          testcase_name='_withReference',
+          v2_only=True,
+          fhir_path_expression='ref.reference',
+          expected_sql_expression=textwrap.dedent("""\
+          ARRAY(SELECT reference
+          FROM (SELECT IFNULL(ref.patientId, IFNULL(ref.observationId, ref.deviceId)) AS reference)
+          WHERE reference IS NOT NULL)"""),
+      ),
   )
   def testEncode_withFhirPathMemberInvocation_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str
+      self,
+      fhir_path_expression: str,
+      expected_sql_expression: str,
+      v2_only=False,
   ):
-    actual_sql_expression = self.fhir_path_encoder.encode(
-        structure_definition=self.foo,
-        element_definition=self.foo_root,
-        fhir_path_expression=fhir_path_expression,
-    )
-    self.assertEqual(actual_sql_expression, expected_sql_expression)
+    if not v2_only:
+      actual_sql_expression = self.fhir_path_encoder.encode(
+          structure_definition=self.foo,
+          element_definition=self.foo_root,
+          fhir_path_expression=fhir_path_expression,
+      )
+      self.assertEqual(actual_sql_expression, expected_sql_expression)
+
     self.assertEvaluationNodeSqlCorrect(
         self.foo, fhir_path_expression, expected_sql_expression
     )
@@ -2554,7 +2568,7 @@ class FhirPathStandardSqlEncoderTest(
       ),
       dict(
           testcase_name='_withReferenceTypeLackingIdFor',
-          fhir_path_expression='reference',
+          fhir_path_expression='ref',
       ),
   )
   def testEncode_withUnsupportedFhirPathExpression_raisesTypeError(
