@@ -17,6 +17,7 @@
 from google.protobuf import message
 from absl.testing import absltest
 from absl.testing import parameterized
+from google.fhir.core.fhir_path import _spark_interpreter
 from google.fhir.core.fhir_path import fhir_path_test_base
 
 
@@ -704,7 +705,7 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
     },
 ]
 
-_WITH_FHIRPATH_V2_FHIRPATH_MEMBER_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES = [
     {
         'testcase_name': '_withSingleMemberAccess',
         'fhir_path_expression': 'bar',
@@ -787,6 +788,109 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_SUCCEEDS_CASES = [
         ),
     },
 ]
+
+_WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
+    # TODO(b/262544393): Add examples with exists() and where() once functions
+    # are implemented
+    {
+        'testcase_name': '_withChoiceNoType',
+        'fhir_path_expression': 'choiceExample',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(choiceExample) FROM (SELECT choiceExample)'
+            ' WHERE choiceExample IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withChoiceStringType',
+        'fhir_path_expression': "choiceExample.ofType('string')",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(ofType_) FROM (SELECT choiceExample.string AS'
+            ' ofType_) WHERE ofType_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withChoiceIntegerType',
+        'fhir_path_expression': "choiceExample.ofType('integer')",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(ofType_) FROM (SELECT choiceExample.integer'
+            ' AS ofType_) WHERE ofType_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_ArrayWithChoice',
+        'fhir_path_expression': "multipleChoiceExample.ofType('integer')",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(ofType_) '
+            'FROM (SELECT multipleChoiceExample_element_.integer AS ofType_ '
+            'FROM (SELECT EXPLODE(multipleChoiceExample_element_) '
+            'AS multipleChoiceExample_element_ '
+            'FROM (SELECT multipleChoiceExample AS '
+            'multipleChoiceExample_element_))) WHERE ofType_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_ScalarWithRepeatedMessageChoice',
+        'fhir_path_expression': (
+            "choiceExample.ofType('CodeableConcept').coding"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(coding_element_) FROM (SELECT coding_element_'
+            ' FROM (SELECT choiceExample.CodeableConcept AS ofType_) LATERAL'
+            ' VIEW POSEXPLODE(ofType_.coding) AS index_coding_element_,'
+            ' coding_element_) WHERE coding_element_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_ArrayWithMessageChoice',
+        'fhir_path_expression': (
+            "multipleChoiceExample.ofType('CodeableConcept').coding"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(coding_element_) FROM (SELECT coding_element_'
+            ' FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS'
+            ' ofType_ FROM (SELECT EXPLODE(multipleChoiceExample_element_) AS'
+            ' multipleChoiceExample_element_ FROM (SELECT multipleChoiceExample'
+            ' AS multipleChoiceExample_element_))) LATERAL VIEW'
+            ' POSEXPLODE(ofType_.coding) AS index_coding_element_,'
+            ' coding_element_) WHERE coding_element_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_ArrayWithMessageChoice_andIdentifier',
+        'fhir_path_expression': (
+            "multipleChoiceExample.ofType('CodeableConcept').coding.system"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(system) FROM (SELECT coding_element_.system'
+            ' FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS'
+            ' ofType_ FROM (SELECT EXPLODE(multipleChoiceExample_element_) AS'
+            ' multipleChoiceExample_element_ FROM (SELECT multipleChoiceExample'
+            ' AS multipleChoiceExample_element_))) LATERAL VIEW'
+            ' POSEXPLODE(ofType_.coding) AS index_coding_element_,'
+            ' coding_element_) WHERE system IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_ArrayWithMessageChoice_andEquality',
+        'fhir_path_expression': (
+            "multipleChoiceExample.ofType('CodeableConcept').coding.system ="
+            " 'test'"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
+            " ARRAY_EXCEPT((SELECT system), (SELECT ARRAY('test'))), x -> x IS"
+            ' NOT NULL) AS eq_ FROM (SELECT COLLECT_LIST(*) AS system FROM'
+            ' (SELECT coding_element_.system FROM (SELECT'
+            ' multipleChoiceExample_element_.CodeableConcept AS ofType_ FROM'
+            ' (SELECT EXPLODE(multipleChoiceExample_element_) AS'
+            ' multipleChoiceExample_element_ FROM (SELECT multipleChoiceExample'
+            ' AS multipleChoiceExample_element_))) LATERAL VIEW'
+            ' POSEXPLODE(ofType_.coding) AS index_coding_element_,'
+            ' coding_element_))) WHERE eq_ IS NOT NULL)'
+        ),
+    },
+]
+
 
 _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
     {
@@ -900,6 +1004,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
     {'testcase_name': '_withFirst', 'fhir_path_expression': 'first()'},
     {'testcase_name': '_withHasValue', 'fhir_path_expression': 'hasValue()'},
     {'testcase_name': '_withMatches', 'fhir_path_expression': 'matches()'},
+    {'testcase_name': '_withOfType', 'fhir_path_expression': 'ofType()'},
 ]
 
 
@@ -917,7 +1022,7 @@ class FhirPathSparkSqlEncoderTest(
   ) -> None:
     builder = self.create_builder_from_str(structdef, fhir_path_expression)
 
-    actual_sql_expression = self.spark_interpreter.encode(
+    actual_sql_expression = _spark_interpreter.SparkSqlInterpreter().encode(
         builder, select_scalars_as_array=select_scalars_as_array
     )
     self.assertEqual(
@@ -1010,7 +1115,7 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_MEMBERSHIP_SUCCEEDS_CASES)
-  def testEncode_withFhirPathLiteralMembershipRelation_succeeds(
+  def testEncode_withFhirPathV2LiteralMembershipRelation_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1021,9 +1126,22 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_SUCCEEDS_CASES
+      _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES
   )
-  def testEncode_withFhirPathMemberV2Invocation_succeeds(
+  def testEncode_withFhirPathV2MemberAccess_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
+    self.assertEvaluationNodeSqlCorrect(
+        structdef=self.foo,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=True,
+    )
+
+  @parameterized.named_parameters(
+      _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES
+  )
+  def testEncode_withFhirPathV2OfTypeInvocation_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1036,7 +1154,7 @@ class FhirPathSparkSqlEncoderTest(
   @parameterized.named_parameters(
       _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES
   )
-  def testEncode_withFhirPathV2MemberFunctionInvocation_succeeds(
+  def testEncode_withFhirPathV2FunctionInvocation_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1054,7 +1172,7 @@ class FhirPathSparkSqlEncoderTest(
   ):
     with self.assertRaises(ValueError):
       builder = self.create_builder_from_str(self.foo, fhir_path_expression)
-      self.spark_interpreter.encode(builder)
+      _spark_interpreter.SparkSqlInterpreter().encode(builder)
 
   def testEncode_withFhirPathV2SelectScalarsAsArrayFalseForLiteral_succeeds(
       self,

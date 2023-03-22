@@ -268,6 +268,47 @@ def matches_function(
     )
 
 
+def of_type_function(
+    function: _evaluation.OfTypeFunction,
+    operand_result: Optional[_sql_data_types.IdentifierSelect],
+    params_result: Collection[_sql_data_types.StandardSqlExpression],
+) -> _sql_data_types.Select:
+  """Generates Spark SQL representing the FHIRPath ofType() function.
+
+  Returns the resource of the given type, typically used in choice types.
+
+  Args:
+    function: The FHIRPath AST `MatchesFunction` node
+    operand_result: The expression which is being evaluated
+    params_result: The parameter passed in to function
+
+  Returns:
+    A compiled Spark SQL expression.
+
+  Raises:
+    ValueError: When the function is called without an operand, or the length of
+    params_result is not one.
+  """
+  if operand_result is None:
+    raise ValueError('ofType() cannot be called without an operand.')
+
+  if len(params_result) != 1:
+    raise ValueError('ofType must have a data type parameter.')
+
+  sql_alias = 'ofType_'
+  attribute = function.base_type_str
+  return_type = _sql_data_types.get_standard_sql_data_type(
+      function.return_type()
+  )
+
+  return dataclasses.replace(
+      operand_result,
+      select_part=operand_result.select_part.dot(
+          attribute, return_type, sql_alias=sql_alias
+      ),
+  )
+
+
 FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
     immutabledict.immutabledict({
         _evaluation.CountFunction.NAME: count_function,
@@ -275,5 +316,6 @@ FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
         _evaluation.FirstFunction.NAME: first_function,
         _evaluation.HasValueFunction.NAME: has_value_function,
         _evaluation.MatchesFunction.NAME: matches_function,
+        _evaluation.OfTypeFunction.NAME: of_type_function
     })
 )
