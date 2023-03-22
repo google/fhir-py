@@ -4400,7 +4400,79 @@ class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
         ],
     )
 
-    all_resources = [simple_cycle, cycle_a, cycle_b]
+    # Reference contains an optional identifier...
+    reference_datatype = sdefs.build_resource_definition(
+        id_='Reference',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='Reference',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
+            sdefs.build_element_definition(
+                id_='Reference.identifier',
+                type_codes=['Identifier'],
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+                # Add a constraint to see how many times we visit this field.
+                constraints=[
+                    cls.build_constraint(
+                        fhir_path_expression='0 < 1', key='from-reference'
+                    )
+                ],
+            ),
+        ],
+    )
+
+    # .. which contains an optional reference!
+    identifier_datatype = sdefs.build_resource_definition(
+        id_='Identifier',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='Identifier',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
+            sdefs.build_element_definition(
+                id_='Identifier.assigner',
+                type_codes=['Reference'],
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+                # Add a constraint to see how many times we visit this field.
+                constraints=[
+                    cls.build_constraint(
+                        fhir_path_expression='1 < 2', key='from-identifier'
+                    )
+                ],
+            ),
+        ],
+    )
+
+    # Risk assessment contains a reference. We should build SQL for
+    # RiskAssessment.basedOn.identifier.assigner but recurse no
+    # further. This matches data mapper's behaviour.
+    risk_assessment_datatype = sdefs.build_resource_definition(
+        id_='RiskAssessment',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='RiskAssessment',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
+            sdefs.build_element_definition(
+                id_='RiskAssessment.basedOn',
+                type_codes=['Reference'],
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
+        ],
+    )
+
+    all_resources = [
+        simple_cycle,
+        cycle_a,
+        cycle_b,
+        reference_datatype,
+        identifier_datatype,
+        risk_assessment_datatype,
+    ]
     cls.resources = {resource.url.value: resource for resource in all_resources}
 
   def testEncodeProfile_withSimpleCycle_reportsCycleError(self):
@@ -4423,6 +4495,40 @@ class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
         element_definition_id='CycleA.b',
         constraint=constraint,
         supported_in_v2=True,
+    )
+
+  def testEncodeProfile_withCycle_buildsSql(self):
+    error_reporter = fhir_errors.ListErrorReporter()
+
+    all_resources = list(self.resources.values())
+    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(iter_structure_definitions=lambda: all_resources),
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
+    )
+
+    risk_assessment = self.resources[
+        'http://hl7.org/fhir/StructureDefinition/RiskAssessment'
+    ]
+
+    actual_bindings = encoder.encode(risk_assessment)
+
+    # We should have one constraint each from visiting
+    # RiskAssessment.basedOn.identifier and
+    # RiskAssessment.basedOn.identifier.assigner. We should have
+    # stopped recursing before visiting
+    # RiskAssessment.basedOn.identifier.assigner.identifier
+    self.assertLen(actual_bindings, 2)
+    self.assertListEqual(
+        [binding.element_path for binding in actual_bindings],
+        [
+            'RiskAssessment.basedOn.identifier',
+            'RiskAssessment.basedOn.identifier.assigner',
+        ],
+    )
+    self.assertListEqual(
+        [binding.fhir_path_key for binding in actual_bindings],
+        ['from-reference', 'from-identifier'],
     )
 
 

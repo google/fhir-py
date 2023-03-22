@@ -128,6 +128,14 @@ class _BuilderSql:
   builder: expressions.Builder
 
 
+@dataclasses.dataclass(frozen=True)
+class _PathStep:
+  """A step along a step1.step2.step3... FHIRPath expression."""
+
+  field: str
+  type_url: str
+
+
 def _get_analytic_path(element_definition: ElementDefinition) -> str:
   """Returns the identifying dot-separated (`.`) analytic path of the element.
 
@@ -330,7 +338,7 @@ class FhirProfileStandardSqlEncoder:
     self._options.skip_keys.update(_SKIP_KEYS)
 
     self._ctx: List[expressions.Builder] = []
-    self._in_progress: Set[str] = set()
+    self._in_progress: Set[_PathStep] = set()
     self._element_id_to_regex_map: Dict[str, _RegexInfo] = {}
     self._regex_columns_generated = set()
     # Used to track duplicate requirements.
@@ -660,7 +668,6 @@ class FhirProfileStandardSqlEncoder:
     encoded_requirements: List[validation_pb2.SqlRequirement] = []
     children = builder.return_type.children()
     for name, child_message in children.items():
-
       child_builder = self._get_new_child_builder(builder, name)
       if not child_builder:
         continue
@@ -1383,13 +1390,17 @@ class FhirProfileStandardSqlEncoder:
   ) -> List[validation_pb2.SqlRequirement]:
     """Recursively encodes the provided resource into Standard SQL."""
 
-    if builder.return_type.url in self._in_progress:
+    path_step = _PathStep(
+        field=builder.get_node().to_path_token(),
+        type_url=builder.return_type.url,
+    )
+    if path_step in self._in_progress:
       self._error_reporter.report_conversion_error(
           self._abs_path_invocation(builder),
           f'Cycle detected when encoding: {builder.return_type.url}.',
       )
       return []
-    self._in_progress.add(builder.return_type.url)
+    self._in_progress.add(path_step)
     self._ctx.append(builder)  # save the root.
 
     if not parent_element_definition:
@@ -1398,8 +1409,8 @@ class FhirProfileStandardSqlEncoder:
         builder, parent_element_definition
     )
 
-    _ = self._ctx.pop()
-    self._in_progress.remove(builder.return_type.url)
+    self._ctx.pop()
+    self._in_progress.remove(path_step)
     return result
 
   def encode(
