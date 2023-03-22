@@ -336,19 +336,6 @@ class FhirProfileStandardSqlEncoder:
     # Used to track duplicate requirements.
     self._requirement_column_names: Set[str] = set()
 
-  def _get_new_child_builder(
-      self, builder: expressions.Builder, name: str
-  ) -> Optional[expressions.Builder]:
-    try:
-      return builder.__getattr__(name)
-    except (AttributeError, ValueError) as e:
-      self._error_reporter.report_fhir_path_error(
-          self._abs_path_invocation(builder),
-          f'{builder}.{name}',
-          str(e),
-      )
-    return None
-
   def _abs_path_invocation(self, builder: expressions.Builder) -> str:
     """Returns the absolute path invocation given the traversal context."""
     if not builder:
@@ -660,9 +647,14 @@ class FhirProfileStandardSqlEncoder:
     encoded_requirements: List[validation_pb2.SqlRequirement] = []
     children = builder.return_type.children()
     for name, child_message in children.items():
-
-      child_builder = self._get_new_child_builder(builder, name)
-      if not child_builder:
+      try:
+        child_builder = builder.__getattr__(name)
+      except (AttributeError, ValueError) as e:
+        self._error_reporter.report_fhir_path_error(
+            self._abs_path_invocation(builder),
+            f'{builder}.{name}',
+            str(e),
+        )
         continue
 
       requirement = self._encode_required_field(
@@ -678,20 +670,22 @@ class FhirProfileStandardSqlEncoder:
       containing_type_builder = builder
       child_builder = containing_type_builder
       paths = name.split('.')
-      for path in paths:
-        if isinstance(
-            child_builder.return_type,
-            _fhir_path_data_types.StructureDataType,
-        ):
-          containing_type_builder = child_builder
-
-        child_builder = self._get_new_child_builder(child_builder, path)
-        if not child_builder:
-          break
-
-      if not child_builder:
+      try:
+        for path in paths:
+          if isinstance(
+              child_builder.return_type,
+              _fhir_path_data_types.StructureDataType,
+          ):
+            containing_type_builder = child_builder
+          child_builder = child_builder.__getattr__(path)
+        name = paths[-1]
+      except (AttributeError, ValueError) as e:
+        self._error_reporter.report_fhir_path_error(
+            self._abs_path_invocation(builder),
+            f'{containing_type_builder}.{name}',
+            str(e),
+        )
         continue
-      name = paths[-1]
       requirement = self._encode_required_field(
           name, containing_type_builder, child_builder, desc_message
       )
@@ -902,7 +896,6 @@ class FhirProfileStandardSqlEncoder:
         builder.idFor(reference_type)
         for reference_type in sorted(allowed_reference_types)
     )
-
     constraint: expressions.Builder = num_references_exist <= 1
 
     # If the field is a collection, enforce the constraint over its elements.
@@ -1135,10 +1128,7 @@ class FhirProfileStandardSqlEncoder:
       if not _is_elem_supported(child):
         continue
 
-      child_builder = self._get_new_child_builder(builder, name)
-      if not child_builder:
-        continue
-
+      child_builder = builder.__getattr__(name)
       primitive_regex_info = self._get_regex_from_element(
           child_builder, child_message
       )
@@ -1179,7 +1169,7 @@ class FhirProfileStandardSqlEncoder:
       if element_is_repeated:
         fhir_path_builder = child_builder.all(fhir_path_builder)
 
-      element_definition_path = self._abs_path_invocation(builder)
+      element_definition_path = self._abs_path_invocation(child_builder)
       result = self._encode_fhir_path_builder_constraint(
           fhir_path_builder, builder
       )
@@ -1201,7 +1191,7 @@ class FhirProfileStandardSqlEncoder:
           sql_expression=result.sql,
           severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
           type=validation_pb2.ValidationType.VALIDATION_TYPE_PRIMITIVE_REGEX,
-          element_path=self._abs_path_invocation(builder),
+          element_path=self._abs_path_invocation(child_builder),
           description=f'{name} needs to match regex of {regex_type_code}.',
           fhir_path_key=constraint_key,
           fhir_path_expression=result.builder.fhir_path,
@@ -1276,9 +1266,7 @@ class FhirProfileStandardSqlEncoder:
         ):
           continue
 
-        new_builder = self._get_new_child_builder(builder, child)
-        if not new_builder:
-          continue
+        new_builder = builder.__getattr__(child)
 
         # TODO(b/200575760): Add support polymorphic choice types
         if not new_builder.return_type.root_element_definition:
@@ -1303,11 +1291,6 @@ class FhirProfileStandardSqlEncoder:
       self, builder: expressions.Builder, element_definition: ElementDefinition
   ) -> List[validation_pb2.SqlRequirement]:
     """Encode .memberOf calls implied by elements bound to value sets."""
-    if isinstance(
-        builder.return_type, _fhir_path_data_types.PolymorphicDataType
-    ):
-      return []
-
     # Ensure the element defines a value set binding.
     binding = cast(Any, element_definition).binding
     value_set_uri: str = binding.value_set.value
