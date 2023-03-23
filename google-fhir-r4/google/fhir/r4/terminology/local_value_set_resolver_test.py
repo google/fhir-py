@@ -92,6 +92,7 @@ class LocalResolverTest(absltest.TestCase):
     # Add the definition for the code system.
     code_system = code_system_pb2.CodeSystem()
     code_system.url.value = 'http://system'
+
     code_1 = code_system.concept.add()
     code_1.code.value = 'code-1'
     designation_1 = code_1.designation.add()
@@ -99,6 +100,10 @@ class LocalResolverTest(absltest.TestCase):
 
     code_2 = code_system.concept.add()
     code_2.code.value = 'code-2'
+
+    # Add a nested concept.
+    code_3 = code_2.concept.add()
+    code_3.code.value = 'code-3'
 
     # Return the definition for the above code system.
     package_manager = unittest.mock.MagicMock()
@@ -120,6 +125,11 @@ class LocalResolverTest(absltest.TestCase):
             system=datatypes_pb2.Uri(value='http://system'),
             version=datatypes_pb2.String(value='version'),
             code=datatypes_pb2.Code(value='code-2'),
+        ),
+        value_set_pb2.ValueSet.Expansion.Contains(
+            system=datatypes_pb2.Uri(value='http://system'),
+            version=datatypes_pb2.String(value='version'),
+            code=datatypes_pb2.Code(value='code-3'),
         ),
     ]
     expected_designation = expected[0].designation.add()

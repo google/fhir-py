@@ -16,7 +16,7 @@
 
 import copy
 import itertools
-from typing import List, Optional, Sequence
+from typing import Iterable, List, Optional, Sequence
 
 import logging
 
@@ -208,7 +208,7 @@ class LocalResolver:
             % (concept_set.system.value, code_system.DESCRIPTOR.name)
         )
       else:
-        concepts = code_system.concept
+        concepts = _flatten_code_system_concepts(code_system.concept)
 
     expansion: List[value_set_pb2.ValueSet.Expansion.Contains] = []
     for concept in concepts:
@@ -235,3 +235,16 @@ class LocalResolver:
 
       expansion.append(contains)
     return expansion
+
+
+def _flatten_code_system_concepts(
+    concepts: Sequence[code_system_pb2.CodeSystem.ConceptDefinition],
+) -> Iterable[code_system_pb2.CodeSystem.ConceptDefinition]:
+  """Flattens all concepts in the given set of code system concepts."""
+  for concept in concepts:
+    yield concept
+
+    # Code system concepts can contain a set of nested concepts. Yield
+    # those nested concepts as well.
+    if concept.concept:
+      yield from _flatten_code_system_concepts(concept.concept)
