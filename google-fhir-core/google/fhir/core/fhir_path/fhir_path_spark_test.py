@@ -996,15 +996,71 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
             'WHERE matches_ IS NOT NULL)'
         ),
     },
+    {
+        'testcase_name': '_withArrayScalarMemberExists',
+        'fhir_path_expression': 'bar.exists()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(exists_) '
+            'FROM (SELECT bar IS NOT NULL AS exists_) '
+            'WHERE exists_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDeepestNestedMemberSqlKeywordExists',
+        'fhir_path_expression': 'bar.bats.exists()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(exists_) '
+            'FROM (SELECT CASE WHEN COUNT(*) = 0 THEN FALSE ELSE TRUE END '
+            'AS exists_ FROM (SELECT bats_element_ '
+            'FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS '
+            'index_bats_element_, bats_element_) '
+            'WHERE bats_element_ IS NOT NULL) '
+            'WHERE exists_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDeepestNestedMemberSqlKeywordStructExists',
+        'fhir_path_expression': 'bar.bats.struct.exists()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(exists_) '
+            'FROM (SELECT CASE WHEN COUNT(*) = 0 THEN FALSE ELSE TRUE END '
+            'AS exists_ FROM (SELECT bats_element_.struct '
+            'FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS '
+            'index_bats_element_, bats_element_) '
+            'WHERE `struct` IS NOT NULL) '
+            'WHERE exists_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDeepestNestedMemberFhirPathKeywordExists',
+        'fhir_path_expression': 'bar.bats.`div`.exists()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(exists_) '
+            'FROM (SELECT CASE WHEN COUNT(*) = 0 THEN FALSE ELSE TRUE END '
+            'AS exists_ FROM (SELECT bats_element_.div '
+            'FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS '
+            'index_bats_element_, bats_element_) '
+            'WHERE div IS NOT NULL) '
+            'WHERE exists_ IS NOT NULL)'
+        ),
+    },
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
     {'testcase_name': '_withCount', 'fhir_path_expression': 'count()'},
     {'testcase_name': '_withEmpty', 'fhir_path_expression': 'empty()'},
+    {'testcase_name': '_withExists', 'fhir_path_expression': 'exists()'},
     {'testcase_name': '_withFirst', 'fhir_path_expression': 'first()'},
     {'testcase_name': '_withHasValue', 'fhir_path_expression': 'hasValue()'},
     {'testcase_name': '_withMatches', 'fhir_path_expression': 'matches()'},
     {'testcase_name': '_withOfType', 'fhir_path_expression': 'ofType()'},
+]
+
+_WITH_FHIRPATH_V2_FHIRPATH_EXISTS_WITH_PARAM_RAISES_ERROR = [
+    {
+        'testcase_name': '_withArrayScalarMemberExists',
+        'fhir_path_expression': 'bar.exists(struct)'
+    },
 ]
 
 
@@ -1173,6 +1229,16 @@ class FhirPathSparkSqlEncoderTest(
     with self.assertRaises(ValueError):
       builder = self.create_builder_from_str(self.foo, fhir_path_expression)
       _spark_interpreter.SparkSqlInterpreter().encode(builder)
+
+  @parameterized.named_parameters(
+      _WITH_FHIRPATH_V2_FHIRPATH_EXISTS_WITH_PARAM_RAISES_ERROR
+  )
+  def testEncode_withFhirPathFunctionExistsWithParam_raisesError(
+      self, fhir_path_expression: str
+  ):
+    with self.assertRaises(ValueError):
+      builder = self.create_builder_from_str(self.foo, fhir_path_expression)
+      self.spark_interpreter.encode(builder)
 
   def testEncode_withFhirPathV2SelectScalarsAsArrayFalseForLiteral_succeeds(
       self,

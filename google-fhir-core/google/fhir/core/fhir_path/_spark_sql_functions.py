@@ -125,6 +125,74 @@ def empty_function(
     )
 
 
+# TODO(b/244184211): Add support for params
+def exists_function(
+    function: _evaluation.ExistsFunction,
+    operand_result: Optional[_sql_data_types.Select],
+    params_result: Collection[_sql_data_types.StandardSqlExpression],
+) -> _sql_data_types.Select:
+  """Generates Spark SQL representing the FHIRPath empty() function.
+
+  Returns `TRUE` if the operand has any elements, and `FALSE` otherwise.
+
+  This is the opposite of `_EmptyFunction`. If the operand is empty, then the
+  result is `FALSE`.
+
+  The returned SQL expression is a table of cardinality 1, whose value is of
+  `BOOL` type. By default, `_ExistsFunction` will return `FALSE` if given no
+  operand.
+
+  Args:
+    function: The FHIRPath AST `ExistsFunction` node
+    operand_result: The expression which is being evaluated
+    params_result: The parameter passed in to function
+
+  Returns:
+    A compiled Spark SQL expression.
+
+  Raises:
+    ValueError: When the function is called without an operand
+  """
+  if operand_result is None:
+    raise ValueError('exists() cannot be called without an operand.')
+  if params_result:
+    raise ValueError(
+        'Unsupported FHIRPath expression: `criteria` parameter for exists() '
+        'is not currently supported.'
+    )
+
+  sql_alias = 'exists_'
+  sql_data_type = _sql_data_types.Boolean
+  # Check that the operand is not a collection and has no where part.
+  # In situations where the `where` function filters out all results,
+  # it causes the query to return 'no rows' which we later interpret
+  # as 'passing validation' in our `sql_expressions_to_view.py`.
+  if (
+      not _fhir_path_data_types.returns_collection(
+          function.parent_node().return_type()
+      )
+      and not operand_result.where_part
+  ):
+    # We can use a less expensive scalar check.
+    return dataclasses.replace(
+        operand_result,
+        select_part=operand_result.select_part.is_not_null(
+            _sql_alias=sql_alias
+        ),
+    )
+  else:
+    # We have to use a more expensive EXISTS check.
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            'CASE WHEN COUNT(*) = 0 THEN FALSE ELSE TRUE END',
+            _sql_data_type=sql_data_type,
+            _sql_alias=sql_alias,
+        ),
+        from_part=str(operand_result.to_subquery()),
+        where_part=f'{operand_result.sql_alias} IS NOT NULL',
+    )
+
+
 def first_function(
     function: _evaluation.FirstFunction,
     operand_result: Optional[_sql_data_types.Select],
@@ -313,6 +381,7 @@ FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
     immutabledict.immutabledict({
         _evaluation.CountFunction.NAME: count_function,
         _evaluation.EmptyFunction.NAME: empty_function,
+        _evaluation.ExistsFunction.NAME: exists_function,
         _evaluation.FirstFunction.NAME: first_function,
         _evaluation.HasValueFunction.NAME: has_value_function,
         _evaluation.MatchesFunction.NAME: matches_function,
