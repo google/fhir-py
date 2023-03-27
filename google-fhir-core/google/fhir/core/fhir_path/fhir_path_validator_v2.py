@@ -1395,10 +1395,12 @@ class FhirProfileStandardSqlEncoder:
         type_url=builder.return_type.url,
     )
     if path_step in self._in_progress:
-      self._error_reporter.report_conversion_error(
-          self._abs_path_invocation(builder),
-          f'Cycle detected when encoding: {builder.return_type.url}.',
-      )
+      # We've hit a recursive data type, e.g. Identifier which
+      # contains an optional Reference which contains an optional
+      # Identifier. We currently only generate validation SQL to a
+      # recursion depth of 1 (e.g. identifier.reference) and do not
+      # attempt to validate deeper resources
+      # (e.g. identifier.reference.identifier)
       return []
     self._in_progress.add(path_step)
     self._ctx.append(builder)  # save the root.

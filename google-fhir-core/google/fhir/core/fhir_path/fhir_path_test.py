@@ -4322,84 +4322,11 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
 class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
     FhirProfileStandardSqlEncoderTestBase
 ):
-  """Tests Standard SQL encoding over a cyclic FHIR resource graph.
-
-  The suite stands-up a list of synthetic resources for profiling and
-  validation. The resources have the following structure:
-  ```
-  SimpleCycle {
-    SimpleCycle cycle
-  }
-  CycleA {
-    CycleB b
-  }
-  CycleB {
-    CycleA a
-  }
-  ```
-  """
+  """Tests Standard SQL encoding over a cyclic FHIR resource graph."""
 
   @classmethod
   def setUpClass(cls) -> None:
     super().setUpClass()
-
-    # SimpleCycle resource
-    simple_cycle_root_element = sdefs.build_element_definition(
-        id_='SimpleCycle',
-        type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'),
-    )
-    cycle_element_definition = sdefs.build_element_definition(
-        id_='SimpleCycle.cycle',
-        type_codes=['SimpleCycle'],
-        cardinality=sdefs.Cardinality(min=0, max='1'),
-    )
-    simple_cycle = sdefs.build_resource_definition(
-        id_='SimpleCycle',
-        element_definitions=[
-            simple_cycle_root_element,
-            cycle_element_definition,
-        ],
-    )
-
-    # CycleA resource
-    cycle_a_root_element = sdefs.build_element_definition(
-        id_='CycleA',
-        type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'),
-    )
-    cycle_b_element_definition = sdefs.build_element_definition(
-        id_='CycleA.b',
-        type_codes=['CycleB'],
-        cardinality=sdefs.Cardinality(min=0, max='1'),
-    )
-    cycle_a = sdefs.build_resource_definition(
-        id_='CycleA',
-        element_definitions=[
-            cycle_a_root_element,
-            cycle_b_element_definition,
-        ],
-    )
-
-    # CycleB resource
-    cycle_b_root_element = sdefs.build_element_definition(
-        id_='CycleB',
-        type_codes=None,
-        cardinality=sdefs.Cardinality(min=0, max='1'),
-    )
-    cycle_a_element_definition = sdefs.build_element_definition(
-        id_='CycleB.a',
-        type_codes=['CycleA'],
-        cardinality=sdefs.Cardinality(min=0, max='1'),
-    )
-    cycle_b = sdefs.build_resource_definition(
-        id_='CycleB',
-        element_definitions=[
-            cycle_b_root_element,
-            cycle_a_element_definition,
-        ],
-    )
-
     # Reference contains an optional identifier...
     reference_datatype = sdefs.build_resource_definition(
         id_='Reference',
@@ -4466,36 +4393,11 @@ class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
     )
 
     all_resources = [
-        simple_cycle,
-        cycle_a,
-        cycle_b,
         reference_datatype,
         identifier_datatype,
         risk_assessment_datatype,
     ]
     cls.resources = {resource.url.value: resource for resource in all_resources}
-
-  def testEncodeProfile_withSimpleCycle_reportsCycleError(self):
-    # Self-loop from the base type `ElementDefinition` to itself.
-    constraint = self.build_constraint(fhir_path_expression='1 + 2 < 4')
-    self.assert_raises_fhir_path_encoding_error(
-        base_id='SimpleCycle',
-        element_definition_id='SimpleCycle.cycle',
-        constraint=constraint,
-        supported_in_v2=True,
-    )
-
-  def testEncodeProfile_withCycle_reportsCycleError(self):
-    # Simple cycle between the `ElementDefinition` of our profile, whose type
-    # is a base type that contains a cycle to a "core" `CycleA` type, which in-
-    # turn has an element whose type is `CycleB`.
-    constraint = self.build_constraint(fhir_path_expression='1 + 2 < 4')
-    self.assert_raises_fhir_path_encoding_error(
-        base_id='CycleA',
-        element_definition_id='CycleA.b',
-        constraint=constraint,
-        supported_in_v2=True,
-    )
 
   def testEncodeProfile_withCycle_buildsSql(self):
     error_reporter = fhir_errors.ListErrorReporter()
