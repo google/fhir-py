@@ -1143,7 +1143,7 @@ def _paths_referenced_by(
 
   # The dotted path chain has ended. Add it as a discovered path.
   if context is not None:
-    paths = paths + (context,)
+    paths = paths + (context,)  # pytype: disable=unsupported-operands  # always-use-return-annotations
 
   if isinstance(node, Invocation):
     # The rhs is a function and the lhs is the identifier on which the function
