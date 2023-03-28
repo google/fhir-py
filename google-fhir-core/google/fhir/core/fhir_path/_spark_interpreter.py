@@ -324,10 +324,15 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     elif not _fhir_path_data_types.is_scalar(
         equality.left.return_type()
     ) and _fhir_path_data_types.is_scalar(equality.right.return_type()):
+      nested_query = (
+          f'ARRAY({rhs_result})'
+          if isinstance(equality.right, _evaluation.LiteralNode)
+          else f'ARRAY_AGG({rhs_result.sql_alias}) FROM ({rhs_result})'
+      )
       sql_expr = (
-          'ARRAY_EXCEPT('
+          f'ARRAY_EXCEPT('
           f'(SELECT {lhs_result.sql_alias}), '
-          f'(SELECT ARRAY({rhs_result}))'
+          f'(SELECT {nested_query})'
           ')'
       )
       return _sql_data_types.Select(
@@ -353,10 +358,15 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     elif _fhir_path_data_types.is_scalar(
         equality.left.return_type()
     ) and not _fhir_path_data_types.is_scalar(equality.right.return_type()):
+      nested_query = (
+          f'ARRAY({lhs_result})'
+          if isinstance(equality.left, _evaluation.LiteralNode)
+          else f'ARRAY_AGG({lhs_result.sql_alias}) FROM ({lhs_result})'
+      )
       sql_expr = (
           'ARRAY_EXCEPT('
           f'(SELECT {rhs_result.sql_alias}), '
-          f'(SELECT ARRAY({lhs_result}))'
+          f'(SELECT {nested_query})'
           ')'
       )
       return _sql_data_types.Select(
@@ -492,8 +502,38 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         from_part=None,
         sql_dialect=_sql_data_types.SqlDialect.SPARK)
 
-  def visit_union(self, union: _evaluation.UnionNode):
-    """Translates a FHIRPath union to Standard SQL."""
+  def visit_union(
+      self, union: _evaluation.UnionNode
+  )-> _sql_data_types.UnionExpression:
+    """Translates a FHIRPath union to Spark SQL."""
+    lhs_result = self.visit(union.left)
+    rhs_result = self.visit(union.right)
+    # Supported in FHIRPath, but currently generates invalid Standard SQL.
+    if isinstance(
+        lhs_result.sql_data_type, _sql_data_types.Struct
+    ) or isinstance(rhs_result.sql_data_type, _sql_data_types.Struct):
+      raise TypeError(
+          f'Unsupported `STRUCT` union between {lhs_result}, {rhs_result}.'
+      )
+
+    sql_alias = 'union_'
+    lhs = _sql_data_types.Select(
+        select_part=_sql_data_types.Identifier(
+            ('lhs_', lhs_result.sql_alias),
+            _sql_alias=sql_alias,
+            _sql_data_type=lhs_result.sql_data_type,
+        ),
+        from_part=f'{lhs_result.to_subquery()} AS lhs_',
+    )
+    rhs = _sql_data_types.Select(
+        select_part=_sql_data_types.Identifier(
+            ('rhs_', rhs_result.sql_alias),
+            _sql_alias=sql_alias,
+            _sql_data_type=rhs_result.sql_data_type,
+        ),
+        from_part=f'{rhs_result.to_subquery()} AS rhs_',
+    )
+    return lhs.union(rhs, distinct=True)
 
   def visit_polarity(self, polarity: _evaluation.NumericPolarityNode):
     """Translates FHIRPath unary polarity (+/-) to Spark SQL."""

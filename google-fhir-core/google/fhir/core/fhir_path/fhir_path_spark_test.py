@@ -673,8 +673,6 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
     },
     {
         'testcase_name': '_withScalarComplexComparisonRightSideScalar',
-        # TODO(b/262544393): Change to "bar.bats.struct.value = ('abc' | '123')"
-        #                    when visit_union is implemented.
         'fhir_path_expression': "bar.bats.struct.value = '123'",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(eq_) '
@@ -695,6 +693,44 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
             '(SELECT COLLECT_LIST(eq_) '
             'FROM (SELECT NOT EXISTS('
             " ARRAY_EXCEPT((SELECT value), (SELECT ARRAY('123'))),"
+            ' x -> x IS NOT NULL) AS eq_ '
+            'FROM (SELECT COLLECT_LIST(*) AS value '
+            'FROM (SELECT bats_element_.struct.value '
+            'FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) '
+            'AS index_bats_element_, bats_element_)))'
+            ' WHERE eq_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withScalarComplexComparisonRightSideUnion',
+        'fhir_path_expression': "bar.bats.struct.value = ('abc' | '123')",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(eq_) '
+            'FROM (SELECT NOT EXISTS('
+            ' ARRAY_EXCEPT((SELECT value), (SELECT ARRAY_AGG(union_) '
+            'FROM (SELECT lhs_.literal_ AS union_ '
+            "FROM (SELECT 'abc' AS literal_) AS lhs_ "
+            'UNION DISTINCT SELECT rhs_.literal_ AS union_ '
+            "FROM (SELECT '123' AS literal_) AS rhs_))),"
+            ' x -> x IS NOT NULL) AS eq_ '
+            'FROM (SELECT COLLECT_LIST(*) AS value '
+            'FROM (SELECT bats_element_.struct.value '
+            'FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) '
+            'AS index_bats_element_, bats_element_)))'
+            ' WHERE eq_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withScalarComplexComparisonLeftSideUnion',
+        'fhir_path_expression': "('abc' | '123') = bar.bats.struct.value",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(eq_) '
+            'FROM (SELECT NOT EXISTS('
+            ' ARRAY_EXCEPT((SELECT value), (SELECT ARRAY_AGG(union_) '
+            'FROM (SELECT lhs_.literal_ AS union_ '
+            "FROM (SELECT 'abc' AS literal_) AS lhs_ "
+            'UNION DISTINCT SELECT rhs_.literal_ AS union_ '
+            "FROM (SELECT '123' AS literal_) AS rhs_))),"
             ' x -> x IS NOT NULL) AS eq_ '
             'FROM (SELECT COLLECT_LIST(*) AS value '
             'FROM (SELECT bats_element_.struct.value '
@@ -1063,6 +1099,52 @@ _WITH_FHIRPATH_V2_FHIRPATH_EXISTS_WITH_PARAM_RAISES_ERROR = [
     },
 ]
 
+_WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_UNION_FUNCTION_SUCCEEDS_CASES = [
+    {
+        'testcase_name': '_withIntegerUnion',
+        'fhir_path_expression': '3 | 4',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(union_) '
+            'FROM (SELECT lhs_.literal_ AS union_ '
+            'FROM (SELECT 3 AS literal_) AS lhs_ '
+            'UNION DISTINCT '
+            'SELECT rhs_.literal_ AS union_ '
+            'FROM (SELECT 4 AS literal_) AS rhs_) '
+            'WHERE union_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withStringUnion',
+        'fhir_path_expression': "'Foo' | 'Bar'",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(union_) '
+            'FROM (SELECT lhs_.literal_ AS union_ '
+            "FROM (SELECT 'Foo' AS literal_) AS lhs_ "
+            'UNION DISTINCT '
+            'SELECT rhs_.literal_ AS union_ '
+            "FROM (SELECT 'Bar' AS literal_) AS rhs_) "
+            'WHERE union_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withStringNestedUnion',
+        'fhir_path_expression': "('Foo' | 'Bar') | ('Bats')",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(union_) '
+            'FROM (SELECT lhs_.union_ '
+            'FROM (SELECT lhs_.literal_ AS union_ '
+            'FROM (SELECT \'Foo\' AS literal_) AS lhs_ '
+            'UNION DISTINCT '
+            'SELECT rhs_.literal_ AS union_ '
+            'FROM (SELECT \'Bar\' AS literal_) AS rhs_) AS lhs_ '
+            'UNION DISTINCT '
+            'SELECT rhs_.literal_ AS union_ '
+            'FROM (SELECT \'Bats\' AS literal_) AS rhs_) '
+            'WHERE union_ IS NOT NULL)'
+        ),
+    },
+]
+
 
 class FhirPathSparkSqlEncoderTest(
     fhir_path_test_base.FhirPathTestBase, parameterized.TestCase
@@ -1252,6 +1334,16 @@ class FhirPathSparkSqlEncoderTest(
         select_scalars_as_array=False,
     )
 
-
+  @parameterized.named_parameters(
+      _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_UNION_FUNCTION_SUCCEEDS_CASES
+  )
+  def testEncode_withFhirPathMemberV2LiteralUnion_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
+    self.assertEvaluationNodeSqlCorrect(
+        structdef=self.foo,
+        fhir_path_expression=fhir_path_expression,
+        expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=True)
 if __name__ == '__main__':
   absltest.main()
