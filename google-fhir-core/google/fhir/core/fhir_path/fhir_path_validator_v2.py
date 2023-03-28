@@ -451,7 +451,9 @@ class FhirProfileStandardSqlEncoder:
   def _error_message_for_exception(self, exc: Exception) -> str:
     """Renders the given exception as a string for use in error reporting."""
     if self._options.verbose_error_reporting:
-      return traceback.format_exc()
+      return ''.join(
+          traceback.format_exception(type(exc), value=exc, tb=exc.__traceback__)
+      )
 
     return str(exc)
 
