@@ -161,6 +161,9 @@ class SqlGenerationOptions:
       definitions which can be used to build SQL for memberOf expressions. These
       value set definitions can be consulted in favor of using an external
       `value_set_codes_table`.
+    verbose_error_reporting: If False, the error report will contain the
+      exception message associated with the error. If True, it will contain the
+      full stack trace for the exception.
   """
 
   skip_keys: Set[str] = dataclasses.field(default_factory=set)
@@ -174,6 +177,7 @@ class SqlGenerationOptions:
   # structure_definitions passed to
   # FhirPathStandardSqlEncoder.__init__ in a single package manager.
   value_set_codes_definitions: Optional[fhir_package.FhirPackageManager] = None
+  verbose_error_reporting: bool = False
 
 
 class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):

@@ -18,6 +18,7 @@ import dataclasses
 import functools
 import itertools
 import operator
+import traceback
 from typing import Any, Collection, Iterable, List, Optional, Set, cast, Dict
 
 from google.cloud import bigquery
@@ -265,6 +266,9 @@ class SqlGenerationOptions:
       definitions which can be used to build SQL for memberOf expressions. These
       value set definitions can be consulted in favor of using an external
       `value_set_codes_table`.
+    verbose_error_reporting: If False, the error report will contain the
+      exception message associated with the error. If True, it will contain the
+      full stack trace for the exception.
   """
 
   skip_keys: Set[str] = dataclasses.field(default_factory=set)
@@ -278,6 +282,7 @@ class SqlGenerationOptions:
   # passed to FhirPathStandardSqlEncoder.__init__ in a single package
   # manager.
   value_set_codes_definitions: Optional[fhir_package.FhirPackageManager] = None
+  verbose_error_reporting: bool = False
 
 
 class FhirProfileStandardSqlEncoder:
@@ -410,7 +415,7 @@ class FhirProfileStandardSqlEncoder:
       self._error_reporter.report_fhir_path_error(
           self._abs_path_invocation(node_context),
           f'{node_context}.{fhir_path_expression}',
-          str(e),
+          self._error_message_for_exception(e),
       )
       return None
     return self._encode_fhir_path_builder_constraint(new_builder, node_context)
@@ -438,10 +443,17 @@ class FhirProfileStandardSqlEncoder:
       self._error_reporter.report_fhir_path_error(
           self._abs_path_invocation(builder),
           str(builder),
-          str(e),
+          self._error_message_for_exception(e),
       )
       return None
     return sql_expression
+
+  def _error_message_for_exception(self, exc: Exception) -> str:
+    """Renders the given exception as a string for use in error reporting."""
+    if self._options.verbose_error_reporting:
+      return traceback.format_exc()
+
+    return str(exc)
 
   def _encode_fhir_path_builder_constraint(
       self,
