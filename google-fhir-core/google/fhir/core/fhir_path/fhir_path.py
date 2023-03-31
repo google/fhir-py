@@ -31,6 +31,7 @@ from google.fhir.core.fhir_path import _navigation
 from google.fhir.core.fhir_path import _semant
 from google.fhir.core.fhir_path import _sql_data_types
 from google.fhir.core.fhir_path import _utils
+from google.fhir.core.fhir_path import expressions
 from google.fhir.core.fhir_path import fhir_path_options
 from google.fhir.core.utils import fhir_package
 from google.fhir.core.utils import proto_utils
@@ -75,6 +76,12 @@ _SYSTEM_PRIMITIVE_TO_STANDARD_SQL_MAP = {
     'http://hl7.org/fhirpath/System.String': _sql_data_types.String,
     'http://hl7.org/fhirpath/System.Time': _sql_data_types.String,
 }
+
+# Timestamp format to convert ISO strings into BigQuery Timestamp types.
+_TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%E*S%Ez'
+
+# ISO format of dates used by FHIR.
+_DATE_FORMAT = '%Y-%m-%d'
 
 
 def _escape_identifier(identifier_value: str) -> str:
@@ -963,3 +970,33 @@ class FhirPathStandardSqlEncoder(_ast.FhirPathAstBaseVisitor):
       return func(function, operand_result, params_result, **kwargs)
     else:
       return func(function, operand_result, params_result)
+
+  # TODO(b/208900793): Remove LOGICAL_AND(UNNEST) when the SQL generator
+  # can return single values and it's safe to do so for non-repeated
+  # fields.
+  def wrap_where_expression(self, where_expression: str) -> str:
+    """Wraps where expression to take care of repeated fields."""
+    return (
+        '(SELECT LOGICAL_AND(logic_)\n'
+        f'FROM UNNEST({where_expression}) AS logic_)'
+    )
+
+
+def wrap_datetime_sql(expr: expressions.Builder, raw_sql: str) -> str:
+  """Wraps raw sql if the result is datetime."""
+  # Dates and datetime types are stored as strings to preseve completeness
+  # of the underlying data, but views converts to date and datetime types
+  # for ease of use.
+
+  node_type = expr.get_node().return_type()
+
+  # Use date format constants drawn from the FHIR Store export conventions
+  # for simplicity. If users encounter different formats in practice, we
+  # could allow these formats to be overridden when constructing the runner
+  # or check the string format explicitily on each row.
+  if node_type == _fhir_path_data_types.DateTime:
+    raw_sql = f'PARSE_TIMESTAMP("{_TIMESTAMP_FORMAT}", {raw_sql})'
+  elif node_type == _fhir_path_data_types.Date:
+    raw_sql = f'PARSE_DATE("{_DATE_FORMAT}", {raw_sql})'
+
+  return raw_sql

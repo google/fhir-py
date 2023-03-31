@@ -44,7 +44,6 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
   def __init__(
       self,
-      use_resource_alias: bool = False,
       value_set_codes_table: Optional[bigquery.TableReference] = None,
       value_set_codes_definitions: Optional[
           fhir_package.FhirPackageManager
@@ -53,8 +52,6 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """Creates a BigQuerySqlInterpreter.
 
     Args:
-      use_resource_alias: Determines whether it is necessary to call the
-        resource table directly through an alias.
       value_set_codes_table: The name of the database table containing value set
         code definitions. Used when building SQL for memberOf expressions. If
         given, value set definitions needed for memberOf expressions will be
@@ -69,13 +66,13 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         `value_set_codes_definitions` is given, no memberOf SQL will be
         generated.
     """
-    self._use_resource_alias = use_resource_alias
     self._value_set_codes_table = value_set_codes_table
     self._value_set_codes_definitions = value_set_codes_definitions
+    self._use_resource_alias = None
 
   def encode(
-      self, builder: expressions.Builder, select_scalars_as_array: bool = True
-  ) -> str:
+      self, builder: expressions.Builder, select_scalars_as_array: bool = True,
+            use_resource_alias: bool = False) -> str:
     """Returns a Standard SQL encoding of a FHIRPath expression.
 
     If select_scalars_as_array is True, the resulting Standard SQL encoding
@@ -88,11 +85,13 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       select_scalars_as_array: When True, always builds SQL selecting results in
         an array. When False, attempts to build SQL returning scalars where
         possible.
+      use_resource_alias: Determines whether it is necessary to call the
+        resource table directly through an alias.
 
     Returns:
       A Standard SQL representation of the provided FHIRPath expression.
     """
-
+    self._use_resource_alias = use_resource_alias
     result = self.visit(builder.get_node())
     if select_scalars_as_array or _fhir_path_data_types.returns_collection(
         builder.get_node().return_type()
@@ -662,3 +661,12 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       )
     func = _bigquery_sql_functions.FUNCTION_MAP.get(function.NAME)
     return func(function, parent_result, params_result)
+
+  # TODO(b/208900793): Remove LOGICAL_AND(UNNEST) when the SQL generator
+  # can return single values and it's safe to do so for non-repeated
+  # fields.
+  def wrap_where_expression(self, where_expression: str) -> str:
+    return (
+        '(SELECT LOGICAL_AND(logic_)\n'
+        f'FROM UNNEST({where_expression}) AS logic_)'
+    )

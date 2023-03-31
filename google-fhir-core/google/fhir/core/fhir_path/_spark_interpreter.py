@@ -38,9 +38,13 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   """Traverses the ExpressionNode tree and generates Spark SQL recursively.
   """
 
+  def __init__(self):
+    self._use_resource_alias: Optional[bool] = None
+
   def encode(self,
              builder: expressions.Builder,
-             select_scalars_as_array: bool = True) -> str:
+             select_scalars_as_array: bool = True,
+             use_resource_alias: bool = False) -> str:
     """Returns a Spark SQL encoding of a FHIRPath expression.
 
     If select_scalars_as_array is True, the resulting Spark SQL encoding
@@ -53,10 +57,13 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       select_scalars_as_array: When True, always builds SQL selecting results in
         an array. When False, attempts to build SQL returning scalars where
         possible.
+      use_resource_alias: Determines whether it is necessary to call the
+        resource table directly through an alias.
 
     Returns:
       A Spark SQL representation of the provided FHIRPath expression.
     """
+    self._use_resource_alias = use_resource_alias
     result = self.visit(builder.get_node())
     if select_scalars_as_array or _fhir_path_data_types.returns_collection(
         builder.get_node().return_type()):
@@ -561,3 +568,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
           value_set_codes_table=str(self._value_set_codes_table))
     func = _spark_sql_functions.FUNCTION_MAP.get(function.NAME)
     return func(function, parent_result, params_result)
+
+  def wrap_where_expression(self, where_expression: str) -> str:
+    """Wraps where expression to take care of repeated fields."""
+    return f'(SELECT EXISTS(*, x -> x IS true) FROM {where_expression})'
