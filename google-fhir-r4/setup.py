@@ -21,12 +21,13 @@ import pathlib
 import site
 import subprocess
 from urllib import request
+import warnings
 
 import setuptools
 
 
 def _get_protoc_command():
-  """Finds the protoc command."""
+  """Finds the version-compatible protoc command."""
   if 'PROTOC' in os.environ and os.path.exists(os.environ['PROTOC']):
     protoc = os.environ['PROTOC']
   else:
@@ -35,6 +36,15 @@ def _get_protoc_command():
   if not protoc:
     raise FileNotFoundError('Could not find protoc executable. Please install '
                             'protoc to compile the google-fhir-r4 package.')
+
+  result = subprocess.run(args=[protoc, '--version'],
+                          capture_output=True, text=True, check=True)
+  # The assumption of version number as the last output of `protoc --version`
+  # appears to be stable across versions and the simplest way to check it.
+  if result.stdout.split(' ')[-1] < '3.19':
+    warnings.warn('protoc should be at least 3.19 to ensure forward '
+                  'compatibility of generated files.')
+
   return protoc
 
 
@@ -103,10 +113,11 @@ def main():
       license='Apache 2.0',
       python_requires='>=3.7, <3.11',
       install_requires=[
-          'google-fhir-core~=0.8',
+          f'google-fhir-core~={version}',
           'backports.zoneinfo~=0.2.1;python_version<"3.9"',
           'immutabledict~=2.2',
-          'protobuf~=3.13',
+          # TODO(b/276635321): Fix compatibility issue with protobuf 4.x
+          'protobuf~=3.19',
           'python-dateutil~=2.8',
       ],
       package_data={'google.fhir.r4.data': ['*.tgz']},

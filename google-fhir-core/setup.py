@@ -19,12 +19,13 @@ import glob
 import os
 import pathlib
 import subprocess
+import warnings
 
 import setuptools
 
 
 def _get_protoc_command():
-  """Finds the protoc command."""
+  """Finds the version-compatible protoc command."""
   if 'PROTOC' in os.environ and os.path.exists(os.environ['PROTOC']):
     protoc = os.environ['PROTOC']
   else:
@@ -33,6 +34,15 @@ def _get_protoc_command():
   if not protoc:
     raise FileNotFoundError('Could not find protoc executable. Please install '
                             'protoc to compile the google-fhir-core package.')
+
+  result = subprocess.run(args=[protoc, '--version'],
+                          capture_output=True, text=True, check=True)
+  # The assumption of version number as the last output of `protoc --version`
+  # appears to be stable across versions and the simplest way to check it.
+  if result.stdout.split(' ')[-1] < '3.19':
+    warnings.warn('protoc should be at least 3.19 to ensure forward '
+                  'compatibility of generated files.')
+
   return protoc
 
 
@@ -83,11 +93,12 @@ def main():
       license='Apache 2.0',
       python_requires='>=3.7, <3.11',
       install_requires=[
-          'absl-py~=0.10.0',
+          'absl-py~=1.1',
           'antlr4-python3-runtime~=4.9.3',
           'backports.zoneinfo~=0.2.1;python_version<"3.9"',
           'immutabledict~=2.2',
-          'protobuf~=3.13',
+          # TODO(b/276635321): Fix compatibility issue with protobuf 4.x
+          'protobuf~=3.19',
           'python-dateutil~=2.8',
       ],
       # Include proto files so consuming libraries can build protos that
@@ -95,7 +106,7 @@ def main():
       data_files=[('', proto_files)],
       extras_require={
           'bigquery': [
-              'google-cloud-bigquery~=2.34',
+              'google-cloud-bigquery~=3.1',
               'sqlalchemy~=1.4',
               'sqlalchemy-bigquery~=1.4',
           ]
