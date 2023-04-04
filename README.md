@@ -14,12 +14,14 @@ These libraries are installed via pip.
 
 ## From PyPi
 
-__Note: Installation directly from PyPi is not yet supported, but is coming
-soon. Please install from source for now.__
+Users interested in FHIR Views and the underlying libraries can simply run the
+following to install the views library, BigQuery, and FHIR R4 dependencies:
 
-Users interested in FHIR Views and the underlying libraries can simply run
-`pip install google-fhir-views[r4,bigquery]` to install that and its FHIR R4
-and BigQuery dependencies.
+```
+pip install google-fhir-views[r4,bigquery]
+```
+
+Note: If installing for use in a Jupyter notebook, it's best `pip install ...` _before_ starting the notebook kernel to avoid dependency version issues.
 
 Users looking for only the underlying FHIR Protocol Buffer support can
 run `pip install google-fhir-r4` to retrieve only that and its dependencies.

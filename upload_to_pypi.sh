@@ -21,6 +21,12 @@
 # Typically, users would create a git tag in the format of 'vX.Y.Z',
 # corresponding to the project version. Running this script on that tag
 # version will publish to PyPI.
+#
+# Users can install and verify the uploaded wheels this from the PyPI test repo
+# with the following command:
+#
+# python3 -m pip install --index-url https://test.pypi.org/simple/ \
+#   --extra-index-url https://pypi.org/simple/ google-fhir-views[r4,bigquery]
 
 set -e
 
