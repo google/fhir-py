@@ -42,7 +42,7 @@ def main():
       packages=namespace_packages,
       include_package_data=True,
       license='Apache 2.0',
-      python_requires='>=3.7, <3.11',
+      python_requires='>=3.8, <3.11',
       install_requires=[
           'absl-py~=1.1',
           f'google-fhir-core~={version}',
@@ -69,7 +69,6 @@ def main():
           'License :: OSI Approved :: Apache Software License',
           'Operating System :: MacOS :: MacOS X',
           'Operating System :: POSIX :: Linux',
-          'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
       ],

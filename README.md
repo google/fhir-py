@@ -8,6 +8,8 @@ This is not an officially supported Google product.
 
 # Installation
 
+__Note: Requires Python >= `3.8`.__
+
 These libraries are installed via pip.
 
 ## From PyPi

@@ -34,16 +34,21 @@ def _get_protoc_command():
     protoc = spawn.find_executable('protoc')
 
   if not protoc:
-    raise FileNotFoundError('Could not find protoc executable. Please install '
-                            'protoc to compile the google-fhir-r4 package.')
+    raise FileNotFoundError(
+        'Could not find protoc executable. Please install '
+        'protoc to compile the google-fhir-r4 package.'
+    )
 
-  result = subprocess.run(args=[protoc, '--version'],
-                          capture_output=True, text=True, check=True)
+  result = subprocess.run(
+      args=[protoc, '--version'], capture_output=True, text=True, check=True
+  )
   # The assumption of version number as the last output of `protoc --version`
   # appears to be stable across versions and the simplest way to check it.
   if result.stdout.split(' ')[-1] < '3.19':
-    warnings.warn('protoc should be at least 3.19 to ensure forward '
-                  'compatibility of generated files.')
+    warnings.warn(
+        'protoc should be at least 3.19 to ensure forward '
+        'compatibility of generated files.'
+    )
 
   return protoc
 
@@ -56,8 +61,9 @@ def _generate_proto(protoc, source):
 
   output = source.replace('.proto', '_pb2.py')
 
-  if (os.path.exists(output) and
-      os.path.getmtime(source) < os.path.getmtime(output)):
+  if os.path.exists(output) and os.path.getmtime(source) < os.path.getmtime(
+      output
+  ):
     # No need to regenerate if output is newer than source.
     return
 
@@ -89,7 +95,8 @@ def main():
 
   protoc_command = _get_protoc_command()
   for proto_file in glob.glob(
-      'google/fhir/r4/proto/**/*.proto', recursive=True):
+      'google/fhir/r4/proto/**/*.proto', recursive=True
+  ):
     _generate_proto(protoc_command, proto_file)
 
   absolute_package_path = pathlib.Path(package_dir).joinpath(_FHIR_PACKAGE_PATH)
@@ -111,7 +118,7 @@ def main():
       packages=namespace_packages,
       include_package_data=True,
       license='Apache 2.0',
-      python_requires='>=3.7, <3.11',
+      python_requires='>=3.8, <3.11',
       install_requires=[
           f'google-fhir-core~={version}',
           'backports.zoneinfo~=0.2.1;python_version<"3.9"',
@@ -127,7 +134,6 @@ def main():
           'License :: OSI Approved :: Apache Software License',
           'Operating System :: MacOS :: MacOS X',
           'Operating System :: POSIX :: Linux',
-          'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
       ],
