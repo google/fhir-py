@@ -433,7 +433,6 @@ class InvokeExpressionNode(ExpressionNode):
       identifier: str,
       parent_node: ExpressionNode,
   ) -> None:
-    """Prefer calling the `new` classmethod over __init__."""
     self._identifier = identifier
     self._parent_node = parent_node
     return_type = None
