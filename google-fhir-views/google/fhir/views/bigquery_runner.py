@@ -23,7 +23,6 @@ import re
 from typing import Iterable, Optional, Union, cast, Dict
 
 from google.cloud import bigquery
-import numpy
 import pandas
 import sqlalchemy
 import sqlalchemy_bigquery
@@ -233,46 +232,7 @@ class BigQueryRunner:
       ValueError propagated from the BigQuery client if pandas is not installed.
     """
     df = self.run_query(view, limit).result().to_dataframe()
-
-    # If the view has expressions, we can narrow the non-scalar column list by
-    # checking only for list or struct columns.
-    select_columns = set(view.get_select_expressions().keys())
-    # Ignore the __base__ expression that exists by default.
-    select_columns.discard(views.BASE_BUILDER_KEY)
-
-    if select_columns:
-      non_scalar_cols = [
-          col
-          for (col, expr) in view.get_select_expressions().items()
-          if expr.return_type.returns_collection() or expr.return_type.fields()
-      ]
-    else:
-      # No fields were specified, so we must check any 'object' field
-      # in the dataframe.
-      non_scalar_cols = df.select_dtypes(include=['object']).columns.tolist()
-
-    # Helper function to recursively trim `None` values and empty arrays.
-    def trim_structs(item):
-      if isinstance(item, numpy.ndarray):
-        if not item.any():
-          return None
-        else:
-          return [trim_structs(child) for child in item]
-
-      if isinstance(item, dict):
-        result = {}
-        for key, value in item.items():
-          trimmed_value = trim_structs(value)
-          if trimmed_value is not None:
-            result[key] = trimmed_value
-        return result
-
-      return item
-
-    for col in non_scalar_cols:
-      df[col] = df[col].map(trim_structs)
-
-    return df
+    return runner_utils.clean_dataframe(df, view.get_select_expressions())
 
   def create_bigquery_view(self, view: views.View, view_name: str) -> None:
     """Creates a BigQuery view with the given name in the runner's view_dataset.

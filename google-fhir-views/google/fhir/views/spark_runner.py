@@ -22,6 +22,7 @@ can be consumed by other tools.
 import re
 from typing import Dict, Optional
 
+import pandas
 from sqlalchemy import engine
 
 from google.fhir.core.fhir_path import _spark_interpreter
@@ -125,3 +126,24 @@ class SparkRunner:
         )
       names[structdef_url] = name
     return names
+
+  def to_dataframe(
+      self, view: views.View, limit: Optional[int] = None
+  ) -> pandas.DataFrame:
+    """Returns a Pandas dataframe of the results.
+
+    Args:
+      view: the view that defines the query to run.
+      limit: optional limit of the number of items to return.
+
+    Returns:
+      pandas.DataFrame: dataframe of the view contents.
+
+    Raises:
+      ValueError propagated from the Spark client if pandas is not installed.
+    """
+    df = pandas.read_sql_query(
+        sql=self.to_sql(view, limit=limit, include_patient_id_col=False),
+        con=self._engine,
+    )
+    return runner_utils.clean_dataframe(df, view.get_select_expressions())

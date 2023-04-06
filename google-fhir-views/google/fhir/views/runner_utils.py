@@ -17,6 +17,10 @@
 import itertools
 from typing import Collection, Mapping, MutableSequence, Optional, Sequence, Union
 
+import immutabledict
+import numpy
+import pandas as pd
+
 from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _spark_interpreter
@@ -357,3 +361,57 @@ def _memberof_nodes_from_node(
     nodes.extend(_memberof_nodes_from_node(operand_node))
 
   return nodes
+
+
+def clean_dataframe(
+    df: pd.DataFrame,
+    select_expressions_map: immutabledict.immutabledict[
+        str, expressions.Builder
+    ],
+) -> pd.DataFrame:
+  """Cleans dataframe retrieved from backend.
+
+  Args:
+    df: Dataframe to clean
+    select_expressions_map: If the view has expressions, we can narrow the
+      non-scalar column list by checking only for list or struct columns.
+
+  Returns:
+    Cleaned dataframe
+  """
+  select_columns = set(select_expressions_map.keys())
+  select_columns.discard(views.BASE_BUILDER_KEY)
+
+  if select_columns:
+    non_scalar_cols = [
+        col
+        for (col, expr) in select_expressions_map.items()
+        if expr.return_type.returns_collection() or expr.return_type.fields()
+    ]
+  else:
+    # No fields were specified, so we must check any 'object' field
+    # in the dataframe.
+    non_scalar_cols = df.select_dtypes(include=['object']).columns.tolist()
+
+  # Helper function to recursively trim `None` values and empty arrays.
+  def trim_structs(item):
+    if isinstance(item, numpy.ndarray):
+      if not item.any():
+        return None
+      else:
+        return [trim_structs(child) for child in item]
+
+    if isinstance(item, dict):
+      result = {}
+      for key, value in item.items():
+        trimmed_value = trim_structs(value)
+        if trimmed_value is not None:
+          result[key] = trimmed_value
+      return result
+
+    return item
+
+  for col in non_scalar_cols:
+    df[col] = df[col].map(trim_structs)
+
+  return df

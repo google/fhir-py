@@ -16,6 +16,9 @@
 
 import textwrap
 
+import numpy
+import pandas as pd
+
 from absl.testing import absltest
 from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _spark_interpreter
@@ -245,6 +248,98 @@ class RunnerUtilsTest(absltest.TestCase):
         WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM VALUESET_VIEW)
         """)
     self.assertMultiLineEqual(expected_output, sql_statement)
+
+  def testCleanDataFrame_forPatient_succeeds(self):
+    """Test to_dataframe()."""
+    patient = self._views.view_of('Patient')
+    simple_view = patient.select(
+        {'gender': patient.gender, 'birthDate': patient.birthDate}
+    )
+    expected_df = pd.DataFrame({
+        'gender': ['male', 'male', 'female', 'female', 'male'],
+        'birthDate': [
+            '2002-01-01',
+            '2009-08-02',
+            '2016-10-17',
+            '2017-05-23',
+            '2003-01-17',
+        ],
+    })
+
+    returned_df = runner_utils.clean_dataframe(
+        expected_df, simple_view.get_select_expressions()
+    )
+    self.assertTrue(expected_df.equals(returned_df))
+
+  def testCleanDataFrame_TrimsStructWithSelect_succeeds(self):
+    """Test structure trimming of explicitly defined columns."""
+    patient = self._views.view_of('Patient')
+    simple_view = patient.select({
+        'name': patient.name.given,
+        'address': patient.address,
+        'maritalStatus': patient.maritalStatus,
+    })
+    fake_df = pd.DataFrame.from_dict({
+        'name': ['Bob'],
+        'address': [numpy.empty(shape=0)],
+        'maritalStatus': [{
+            'coding': numpy.array([{
+                'system': 'urn:examplesystem',
+                'code': 'S',
+                'display': None,
+            }]),
+            'text': None,
+        }],
+    })
+
+    returned_df = runner_utils.clean_dataframe(
+        fake_df, simple_view.get_select_expressions()
+    )
+
+    # Assert simple fields are unchanged.
+    self.assertEqual(['Bob'], returned_df['name'].values)
+
+    # Empty arrays should be converted to no values (so users can easily use
+    # dropna() and other pandas features).
+    self.assertEqual([None], returned_df['address'].values)
+
+    # 'None' values should be trimmed from nested structures.
+    self.assertEqual(
+        [{'coding': [{'system': 'urn:examplesystem', 'code': 'S'}]}],
+        returned_df['maritalStatus'].values,
+    )
+
+  def testCleanDataFrame_TrimsStructNoSelect_succeeds(self):
+    """Test the base query directly to ensure struct trimming logic works."""
+    fake_df = pd.DataFrame.from_dict({
+        'name': ['Bob'],
+        'address': [numpy.empty(shape=0)],
+        'maritalStatus': [{
+            'coding': numpy.array([{
+                'system': 'urn:examplesystem',
+                'code': 'S',
+                'display': None,
+            }]),
+            'text': None,
+        }],
+    })
+
+    returned_df = runner_utils.clean_dataframe(
+        fake_df, self._views.view_of('Patient').get_select_expressions()
+    )
+
+    # Assert simple fields are unchanged.
+    self.assertEqual(['Bob'], returned_df['name'].values)
+
+    # Empty arrays should be converted to no values (so users can easily use
+    # dropna() and other pandas features).
+    self.assertEqual([None], returned_df['address'].values)
+
+    # 'None' values should be trimmed from nested structures.
+    self.assertEqual(
+        [{'coding': [{'system': 'urn:examplesystem', 'code': 'S'}]}],
+        returned_df['maritalStatus'].values,
+    )
 
 
 if __name__ == '__main__':

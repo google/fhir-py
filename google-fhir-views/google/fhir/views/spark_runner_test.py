@@ -18,6 +18,8 @@ import datetime
 
 from typing import Optional
 from unittest import mock
+
+import pandas
 from sqlalchemy import engine
 
 from absl.testing import absltest
@@ -61,6 +63,10 @@ class SparkRunnerTest(parameterized.TestCase):
 
   def setUp(self):
     super().setUp()
+    self.mock_read_sql_query = self.enter_context(
+        mock.patch.object(pandas, 'read_sql_query', autospec=True)
+    )
+
     self.addCleanup(mock.patch.stopall)
     self.mock_spark_engine = mock.create_autospec(engine.Engine, instance=True)
     self.runner = spark_runner.SparkRunner(
@@ -263,6 +269,27 @@ class SparkRunnerTest(parameterized.TestCase):
         view=telecom,
         runner=self.runner,
     )
+
+  def testQueryToDataFrame_forPatient_succeeds(self):
+    """Test to_dataframe()."""
+    patient = self._views.view_of('Patient')
+    simple_view = patient.select(
+        {'gender': patient.gender, 'birthDate': patient.birthDate}
+    )
+    expected_df = pandas.DataFrame({
+        'gender': ['male', 'male', 'female', 'female', 'male'],
+        'birthDate': [
+            '2002-01-01',
+            '2009-08-02',
+            '2016-10-17',
+            '2017-05-23',
+            '2003-01-17',
+        ],
+    })
+    self.mock_read_sql_query.return_value = expected_df
+
+    returned_df = self.runner.to_dataframe(simple_view)
+    self.assertTrue(expected_df.equals(returned_df))
 
 
 if __name__ == '__main__':
