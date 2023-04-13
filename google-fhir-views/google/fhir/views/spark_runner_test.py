@@ -291,6 +291,57 @@ class SparkRunnerTest(parameterized.TestCase):
     returned_df = self.runner.to_dataframe(simple_view)
     self.assertTrue(expected_df.equals(returned_df))
 
+  def testSummarizeCodes_forObservationCodeable_succeeds(self):
+    obs = self._views.view_of('Observation')
+    self.runner.summarize_codes(obs, obs.category)
+    expected_sql = (
+        'WITH c AS (SELECT (SELECT COLLECT_LIST(category_element_)\nFROM'
+        ' (SELECT category_element_\nFROM (SELECT EXPLODE(category_element_) AS'
+        ' category_element_ FROM (SELECT category AS'
+        ' category_element_)))\nWHERE category_element_ IS NOT NULL) as target'
+        ' FROM `default`.Observation) SELECT codings.system, codings.code,'
+        ' codings.display, COUNT(*) count FROM c LATERAL VIEW EXPLODE(c.target)'
+        ' AS concepts LATERAL VIEW EXPLODE(concepts.coding) AS codings GROUP BY'
+        ' 1, 2, 3 ORDER BY count DESC'
+    )
+    self.mock_read_sql_query.assert_called_once_with(
+        expected_sql, self.mock_spark_engine
+    )
+
+  def testSummarizeCodes_forObservationStatusCode_succeeds(self):
+    obs = self._views.view_of('Observation')
+    self.runner.summarize_codes(obs, obs.status)
+    expected_sql = (
+        'WITH c AS (SELECT (SELECT COLLECT_LIST(status)\nFROM (SELECT'
+        ' status)\nWHERE status IS NOT NULL) as target FROM'
+        ' `default`.Observation) SELECT code, COUNT(*) count FROM c LATERAL'
+        ' VIEW EXPLODE(c.target) as code GROUP BY 1 ORDER BY count DESC'
+    )
+    self.mock_read_sql_query.assert_called_once_with(
+        expected_sql, self.mock_spark_engine
+    )
+
+  def testSummarizeCodes_forObservationCoding_succeeds(self):
+    obs = self._views.view_of('Observation')
+    self.runner.summarize_codes(obs, obs.code.coding)
+    expected_sql = (
+        'WITH c AS (SELECT (SELECT COLLECT_LIST(coding_element_)\nFROM (SELECT'
+        ' coding_element_\nFROM (SELECT code) LATERAL VIEW'
+        ' POSEXPLODE(code.coding) AS index_coding_element_,'
+        ' coding_element_)\nWHERE coding_element_ IS NOT NULL) as target FROM'
+        ' `default`.Observation) SELECT codings.system, codings.code,'
+        ' codings.display, COUNT(*) count FROM c LATERAL VIEW EXPLODE(c.target)'
+        ' AS codings GROUP BY 1, 2, 3 ORDER BY count DESC'
+    )
+    self.mock_read_sql_query.assert_called_once_with(
+        expected_sql, self.mock_spark_engine
+    )
+
+  def testSummarizeCodes_forObservationNonCodeField_raisesError(self):
+    obs = self._views.view_of('Observation')
+    with self.assertRaises(ValueError):
+      self.runner.summarize_codes(obs, obs.referenceRange)
+
 
 if __name__ == '__main__':
   absltest.main()

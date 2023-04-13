@@ -20,12 +20,14 @@ can be consumed by other tools.
 """
 
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, cast
 
 import pandas
 from sqlalchemy import engine
 
+from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _spark_interpreter
+from google.fhir.core.fhir_path import expressions
 from google.fhir.views import runner_utils
 from google.fhir.views import views
 
@@ -147,3 +149,89 @@ class SparkRunner:
         con=self._engine,
     )
     return runner_utils.clean_dataframe(df, view.get_select_expressions())
+
+  def summarize_codes(
+      self, view: views.View, code_expr: expressions.Builder
+  ) -> pandas.DataFrame:
+    """Returns a summary count of distinct code values for the given expression.
+
+    This method is primarily intended for exploratory data analysis, so users
+    new to a dataset can quickly see the most common code values in the system.
+
+    Here is an example usage:
+
+    >>> obs = views.view_of('Observation')
+    >>> obs_codes_count_df = runner.summarize_codes(obs, obs.code)
+    >>> obs_category_count_df = runner.summarize_codes(obs, obs.category)
+
+    It also works for nested fields, like:
+
+    >>> pat = views.view_of('Patient')
+    >>> rel_count_df = runner.summarize_codes(pat, pat.contact.relationship)
+
+    Args:
+      view: the view containing code values to summarize.
+      code_expr: a FHIRPath expression referencing a codeable concept, coding,
+        or code field to count.
+
+    Returns:
+      A Pandas dataframe containing 'system', 'code', 'display', and 'count'
+      columns for codeable concept and coding fields. 'system' and 'display'
+      columns are omitted when summarzing raw code fields, since they do not
+      have system or display values.
+
+      The datframe is ordered by count is in descending order.
+    """
+    expr_array_query = runner_utils.RunnerSqlGenerator(
+        view=view,
+        encoder=_spark_interpreter.SparkSqlInterpreter(),
+        dataset=f'{self._fhir_dataset}',
+        table_names=self._view_table_names(view),
+    ).build_select_for_summarize_code(code_expr)
+
+    node_type = code_expr.get_node().return_type()
+    if node_type and isinstance(node_type, _fhir_path_data_types.Collection):
+      node_type = list(cast(_fhir_path_data_types.Collection, node_type).types)[
+          0
+      ]
+
+    # Create a counting aggregation for the appropriate code-like structure.
+    if node_type.url == runner_utils.CODEABLE_CONCEPT:
+      count_query = (
+          f'WITH c AS ({expr_array_query}) '
+          'SELECT codings.system, codings.code, '
+          'codings.display, COUNT(*) count '
+          'FROM c '
+          'LATERAL VIEW EXPLODE(c.target) AS concepts '
+          'LATERAL VIEW EXPLODE(concepts.coding) AS codings '
+          'GROUP BY 1, 2, 3 ORDER BY count DESC'
+      )
+    elif node_type.url == runner_utils.CODING:
+      count_query = (
+          f'WITH c AS ({expr_array_query}) '
+          'SELECT codings.system, codings.code, '
+          'codings.display, COUNT(*) count '
+          'FROM c '
+          'LATERAL VIEW EXPLODE(c.target) AS codings '
+          'GROUP BY 1, 2, 3 ORDER BY count DESC'
+      )
+    elif (
+        node_type.url == runner_utils.CODE
+        or node_type.url == runner_utils.STRING
+    ):
+      # Assume simple strings are just code values. Since code is a type of
+      # string, the current expression typing analysis may produce a string
+      # type here so we accept both string and code.
+      count_query = (
+          f'WITH c AS ({expr_array_query}) '
+          'SELECT code, COUNT(*) count '
+          'FROM c LATERAL VIEW EXPLODE(c.target) as code '
+          'GROUP BY 1 ORDER BY count DESC'
+      )
+    else:
+      raise ValueError(
+          'Field must be a FHIR CodeableConcept, Coding, or Code; '
+          f'got {node_type.url}.'
+      )
+
+    return pandas.read_sql_query(sql=count_query, con=self._engine)

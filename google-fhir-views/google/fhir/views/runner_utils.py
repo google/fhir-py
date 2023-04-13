@@ -28,6 +28,11 @@ from google.fhir.core.fhir_path import expressions
 from google.fhir.core.fhir_path import fhir_path
 from google.fhir.views import views
 
+CODEABLE_CONCEPT = 'http://hl7.org/fhir/StructureDefinition/CodeableConcept'
+CODING = 'http://hl7.org/fhir/StructureDefinition/Coding'
+CODE = 'http://hl7.org/fhir/StructureDefinition/Code'
+STRING = 'http://hl7.org/fhirpath/System.String'
+
 
 class RunnerSqlGenerator:
   """Generates SQL for the different encoders."""
@@ -296,6 +301,36 @@ class RunnerSqlGenerator:
       return f'WITH VALUESET_VIEW AS ({rows_expression})\n'
 
     return ''
+
+  def build_select_for_summarize_code(
+      self, code_expr: expressions.Builder
+  ) -> str:
+    """Builds select statement for use in summarize_codes functions for runners."""
+    # TODO(b/239733067): Add constraint filtering to code summarization.
+    if self._view.get_constraint_expressions():
+      raise NotImplementedError(
+          'Summarization of codes with view constraints not yet implemented.'
+      )
+
+    # Workaround for v1 until it gets deprecated.
+    if (
+        len(self._view.get_structdef_urls()) > 1
+        or len(self._table_names.keys()) != 1
+    ):
+      raise NotImplementedError(
+          'Summarization of codes with multiple resource views not yet'
+          ' implemented.'
+      )
+
+    select_expression = self._encode(
+        builder=code_expr, select_scalars_as_array=True
+    )
+
+    url = list(self._view.get_structdef_urls())[0]
+    return (
+        f'SELECT {select_expression} as target '
+        f'FROM `{self._dataset}`.{self._table_names[url]}'
+    )
 
   def _encode(
       self,

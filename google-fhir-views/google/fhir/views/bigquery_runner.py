@@ -38,11 +38,6 @@ from google.fhir.r4.terminology import value_sets
 from google.fhir.views import runner_utils
 from google.fhir.views import views
 
-_CODEABLE_CONCEPT = 'http://hl7.org/fhir/StructureDefinition/CodeableConcept'
-_CODING = 'http://hl7.org/fhir/StructureDefinition/Coding'
-_CODE = 'http://hl7.org/fhir/StructureDefinition/Code'
-_STRING = 'http://hl7.org/fhirpath/System.String'
-
 
 class BigQueryRunner:
   """FHIR Views runner used to perform queries against BigQuery."""
@@ -176,37 +171,14 @@ class BigQueryRunner:
           f'v2. {view.get_structdef_urls()}'
       )
 
-    fhir_context = view.get_fhir_path_context()
-    url = list(view.get_structdef_urls())[0]
-    struct_def = fhir_context.get_structure_definition(url)
-    deps = fhir_context.get_dependency_definitions(url)
-    deps.append(struct_def)
-    encoder = fhir_path.FhirPathStandardSqlEncoder(
-        deps,
-        options=fhir_path.SqlGenerationOptions(
-            value_set_codes_table='VALUESET_VIEW'
-        ),
-    )
-    if internal_v2:
-      encoder = _bigquery_interpreter.BigQuerySqlInterpreter(
-          value_set_codes_table='VALUESET_VIEW',
-      )
+    sql_generator = self._build_sql_generator(internal_v2, view)
+    sql_statement = sql_generator.build_sql_statement(include_patient_id_col)
 
-    # URLs to various expressions and tables:
-    dataset = f'{self._fhir_dataset.project}.{self._fhir_dataset.dataset_id}'
-    table_names = self._view_table_names(view)
     view_table_name = (
         f'{self._value_set_codes_table.project}'
         f'.{self._value_set_codes_table.dataset_id}'
         f'.{self._value_set_codes_table.table_id}'
     )
-
-    sql_generator = runner_utils.RunnerSqlGenerator(
-        view, encoder, dataset, table_names
-    )
-
-    sql_statement = sql_generator.build_sql_statement(include_patient_id_col)
-
     # Build the expression containing valueset content, which may be empty.
     valuesets_clause = sql_generator.build_valueset_expression(view_table_name)
 
@@ -299,58 +271,18 @@ class BigQueryRunner:
 
       The datframe is ordered by count is in descending order.
     """
+    expr_array_query = self._build_sql_generator(
+        internal_v2=False, view=view
+    ).build_select_for_summarize_code(code_expr)
+
     node_type = code_expr.get_node().return_type()
     if node_type and isinstance(node_type, _fhir_path_data_types.Collection):
       node_type = list(cast(_fhir_path_data_types.Collection, node_type).types)[
           0
       ]
 
-    # TODO(b/239733067): Add constraint filtering to code summarization.
-    if view.get_constraint_expressions():
-      raise NotImplementedError(
-          'Summarization of codes with view constraints not yet implemented.'
-      )
-
-    fhir_context = view.get_fhir_path_context()
-    # Workaround for v1 until it gets deprecated.
-    if len(view.get_structdef_urls()) > 1:
-      raise NotImplementedError(
-          'Summarization of codes with multiple resource views not yet'
-          ' implemented.'
-      )
-
-    url = list(view.get_structdef_urls())[0]
-    struct_def = fhir_context.get_structure_definition(url)
-    elem_def = next(
-        elem
-        for elem in struct_def.snapshot.element
-        if elem.path.value == struct_def.name.value
-    )
-
-    deps = fhir_context.get_dependency_definitions(url)
-    deps.append(struct_def)
-    encoder = fhir_path.FhirPathStandardSqlEncoder(deps)
-
-    select_expression = encoder.encode(
-        structure_definition=struct_def,
-        element_definition=elem_def,
-        fhir_path_expression=code_expr.fhir_path,
-        select_scalars_as_array=True,
-    )
-
-    # Build the select expression from the FHIR resource table.
-    table_names = self._view_table_names(view)
-    dataset = f'{self._fhir_dataset.project}.{self._fhir_dataset.dataset_id}'
-
-    if len(table_names.keys()) == 1:
-      # Query to get the array of code-like fields we will aggregate by.
-      expr_array_query = (
-          f'SELECT {select_expression} as target '
-          f'FROM `{dataset}`.{table_names[url]}'
-      )
-
     # Create a counting aggregation for the appropriate code-like structure.
-    if node_type.url == _CODEABLE_CONCEPT:
+    if node_type.url == runner_utils.CODEABLE_CONCEPT:
       count_query = (
           f'WITH c AS ({expr_array_query}) '
           'SELECT codings.system, codings.code, '
@@ -359,7 +291,7 @@ class BigQueryRunner:
           'UNNEST(c.target) concepts, UNNEST(concepts.coding) as codings '
           'GROUP BY 1, 2, 3 ORDER BY count DESC'
       )
-    elif node_type.url == _CODING:
+    elif node_type.url == runner_utils.CODING:
       count_query = (
           f'WITH c AS ({expr_array_query}) '
           'SELECT codings.system, codings.code, '
@@ -368,7 +300,10 @@ class BigQueryRunner:
           'UNNEST(c.target) codings '
           'GROUP BY 1, 2, 3 ORDER BY count DESC'
       )
-    elif node_type.url == _CODE or node_type.url == _STRING:
+    elif (
+        node_type.url == runner_utils.CODE
+        or node_type.url == runner_utils.STRING
+    ):
       # Assume simple strings are just code values. Since code is a type of
       # string, the current expression typing analysis may produce a string
       # type here so we accept both string and code.
@@ -407,6 +342,29 @@ class BigQueryRunner:
     table = bigquery.Table(self._value_set_codes_table, schema=schema)
     table.clustering_fields = ['valueseturi', 'code']
     return self._client.create_table(table, exists_ok=True)
+
+  def _build_sql_generator(self, internal_v2: bool, view: views.View):
+    """Build a RunnerSqlGenerator depending on the runner version."""
+    fhir_context = view.get_fhir_path_context()
+    url = list(view.get_structdef_urls())[0]
+    struct_def = fhir_context.get_structure_definition(url)
+    deps = fhir_context.get_dependency_definitions(url)
+    deps.append(struct_def)
+    encoder = fhir_path.FhirPathStandardSqlEncoder(
+        deps,
+        options=fhir_path.SqlGenerationOptions(
+            value_set_codes_table='VALUESET_VIEW'
+        ),
+    )
+    if internal_v2:
+      encoder = _bigquery_interpreter.BigQuerySqlInterpreter(
+          value_set_codes_table='VALUESET_VIEW',
+      )
+
+    # URLs to various expressions and tables:
+    dataset = f'{self._fhir_dataset.project}.{self._fhir_dataset.dataset_id}'
+    table_names = self._view_table_names(view)
+    return runner_utils.RunnerSqlGenerator(view, encoder, dataset, table_names)
 
   # TODO(b/201107372): Update FHIR-agnostic types to a protocol.
   def materialize_value_sets(

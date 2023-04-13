@@ -249,6 +249,32 @@ class RunnerUtilsTest(absltest.TestCase):
         """)
     self.assertMultiLineEqual(expected_output, sql_statement)
 
+  def testBuildSelectForSummarizeCode_succeeds(self):
+    """Tests summarizing codes."""
+    observation = self._views.view_of('Observation')
+    encoder = _bigquery_interpreter.BigQuerySqlInterpreter(
+        value_set_codes_table='VALUESET_VIEW'
+    )
+    returned_sql = runner_utils.RunnerSqlGenerator(
+        view=observation,
+        encoder=encoder,
+        dataset='test_project.test_dataset',
+        table_names={
+            'http://hl7.org/fhir/StructureDefinition/Observation': 'Observation'
+        },
+    ).build_select_for_summarize_code(observation.category)
+
+    # Ensure expected SQL was passed to BigQuery and the dataframe was returned
+    # up the stack.
+    expected_sql = (
+        'SELECT ARRAY(SELECT category_element_\n'
+        'FROM (SELECT category_element_\nFROM UNNEST(category) AS '
+        'category_element_ WITH OFFSET AS element_offset)\n'
+        'WHERE category_element_ IS NOT NULL) as target FROM '
+        '`test_project.test_dataset`.Observation'
+    )
+    self.assertEqual(expected_sql, returned_sql)
+
   def testCleanDataFrame_forPatient_succeeds(self):
     """Test to_dataframe()."""
     patient = self._views.view_of('Patient')
