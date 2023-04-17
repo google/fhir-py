@@ -203,7 +203,7 @@ injury_conds =  cond.select({
     'codes': cond.code}
     ).where(cond.code.memberOf(injury_value_set_url))
 
-runner.create_bigquery_view(injury_conds, 'injury_conditions')
+runner.create_database_view(injury_conds, 'injury_conditions')
 ```
 
 ## Saving FHIR Views as BigQuery Views
@@ -213,14 +213,14 @@ it's often useful to create such flattened views in BigQuery itself. They can be
 easily queried with much simpler SQL, or used by a variety of business
 intelligence or other data analysis tools.
 
-For this reason, the BigQueryRunner offers a `create_bigquery_view` method that
+For this reason, the BigQueryRunner offers a `create_database_view` method that
 will convert the view definition into a
 [BigQuery View](https://cloud.google.com/bigquery/docs/views), which can then
 just be consumed as if it was a first-class table that is updated when the
 underlying data is updated. Here's an example:
 
 ```py
-runner.create_bigquery_view(ldl_obs, 'ldl_observations')
+runner.create_database_view(ldl_obs, 'ldl_observations')
 ```
 
 By default the view is created in the fhir_dataset used by the runner, but this

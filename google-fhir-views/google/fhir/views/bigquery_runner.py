@@ -206,7 +206,7 @@ class BigQueryRunner:
     df = self.run_query(view, limit).result().to_dataframe()
     return runner_utils.clean_dataframe(df, view.get_select_expressions())
 
-  def create_bigquery_view(self, view: views.View, view_name: str) -> None:
+  def create_database_view(self, view: views.View, view_name: str) -> None:
     """Creates a BigQuery view with the given name in the runner's view_dataset.
 
     Args:

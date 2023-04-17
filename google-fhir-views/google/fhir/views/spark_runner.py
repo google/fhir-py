@@ -235,3 +235,16 @@ class SparkRunner:
       )
 
     return pandas.read_sql_query(sql=count_query, con=self._engine)
+
+  def create_database_view(self, view: views.View, view_name: str) -> None:
+    """Creates a Spark view with the given name in the runner's view_dataset.
+
+    Args:
+      view: the FHIR view that creates
+      view_name: the view name passed to the CREATE OR REPLACE VIEW statement.
+    """
+    view_sql = (
+        f'CREATE OR REPLACE VIEW {self._view_dataset}.{view_name} AS\n'
+        f'{self.to_sql(view, include_patient_id_col=False)}'
+    )
+    self._engine.execute(view_sql).fetchall()

@@ -580,7 +580,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     mock_job = mock.create_autospec(bigquery.QueryJob, instance=True)
     self.mock_bigquery_client.query.return_value = mock_job
 
-    self.runner.create_bigquery_view(statin_meds, 'statin_meds_view')
+    self.runner.create_database_view(statin_meds, 'statin_meds_view')
 
     # Ensure expected SQL was passed to BigQuery and job was returned.
     expected_sql = textwrap.dedent(
@@ -623,7 +623,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     mock_job = mock.create_autospec(bigquery.QueryJob, instance=True)
     self.mock_bigquery_client.query.return_value = mock_job
 
-    self.runner.create_bigquery_view(simple_view, 'simple_patient_view')
+    self.runner.create_database_view(simple_view, 'simple_patient_view')
 
     # Ensure expected SQL was passed to BigQuery and job was returned.
     expected_sql = (

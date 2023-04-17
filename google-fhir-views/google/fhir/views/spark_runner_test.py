@@ -342,6 +342,19 @@ class SparkRunnerTest(parameterized.TestCase):
     with self.assertRaises(ValueError):
       self.runner.summarize_codes(obs, obs.referenceRange)
 
+  def testCreateView_forPatient_succeeds(self):
+    """Tests creating a view for a Patient."""
+    pat = self._views.view_of('Patient')
+    simple_view = pat.select(
+        {'name': pat.name.given, 'birthDate': pat.birthDate}
+    )
+    self.runner.create_database_view(simple_view, 'simple_patient_view')
+    expected_sql = (
+        'CREATE OR REPLACE VIEW '
+        'default.simple_patient_view AS\n'
+        f'{self.runner.to_sql(simple_view, include_patient_id_col=False)}'
+    )
+    self.mock_spark_engine.execute.assert_called_once_with(expected_sql)
 
 if __name__ == '__main__':
   absltest.main()
