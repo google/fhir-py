@@ -2235,6 +2235,16 @@ class FhirPathExpressionsTest(
         self.builder('Patient').active.exists().debug_string(),
     )
 
+    # Indexing
+    self.assertMultiLineEqual(
+        textwrap.dedent("""\
+        + address[0] <IndexerNode> (
+        | + address <InvokeExpressionNode> (
+        | | + Patient <RootMessageNode> ())
+        | + 0 <LiteralNode> ())"""),
+        self.builder('Patient').address[0].debug_string(),
+    )
+
     # Multiple arguments
     self.assertMultiLineEqual(
         textwrap.dedent(

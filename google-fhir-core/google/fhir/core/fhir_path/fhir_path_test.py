@@ -1115,6 +1115,34 @@ class FhirPathStandardSqlEncoderTest(
     )
 
   @parameterized.named_parameters(
+      dict(
+          testcase_name='_indexField',
+          fhir_path_expression='codeFlavors[0]',
+          expected_sql_expression=textwrap.dedent("""\
+          ARRAY(SELECT indexed_codeFlavors_element_
+          FROM (SELECT codeFlavors_element_ AS indexed_codeFlavors_element_
+          FROM (SELECT ROW_NUMBER() OVER() AS row_,
+          codeFlavors_element_
+          FROM (SELECT codeFlavors_element_
+          FROM UNNEST(codeFlavors) AS codeFlavors_element_ WITH OFFSET AS element_offset)) AS inner_tbl
+          WHERE (inner_tbl.row_ - 1) = 0)
+          WHERE indexed_codeFlavors_element_ IS NOT NULL)"""),
+      ),
+  )
+  def testEncode_withFhirPathIndexField_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
+    actual_sql_expression = self.fhir_path_encoder.encode(
+        structure_definition=self.foo,
+        element_definition=self.foo_root,
+        fhir_path_expression=fhir_path_expression,
+    )
+    self.assertEqual(actual_sql_expression, expected_sql_expression)
+    self.assertEvaluationNodeSqlCorrect(
+        self.foo, fhir_path_expression, expected_sql_expression
+    )
+
+  @parameterized.named_parameters(
       dict(testcase_name='_withExists', fhir_path_expression='exists()'),
       dict(testcase_name='_withNot', fhir_path_expression='not()'),
       dict(testcase_name='_withEmpty', fhir_path_expression='empty()'),

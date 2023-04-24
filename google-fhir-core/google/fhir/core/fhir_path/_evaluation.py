@@ -524,7 +524,10 @@ class IndexerNode(ExpressionNode):
       )
     self._collection = collection
     self._index = index
-    super().__init__(fhir_context, collection.return_type())
+    return_type = collection.return_type().get_new_cardinality_type(
+        _fhir_path_data_types.Cardinality.SCALAR
+    )
+    super().__init__(fhir_context, return_type)
 
   def get_resource_nodes(self) -> List[ExpressionNode]:
     return (
@@ -549,7 +552,7 @@ class IndexerNode(ExpressionNode):
     return f'{self._collection.to_fhir_path()}[{self.index.to_fhir_path()}]'
 
   def operands(self) -> List[ExpressionNode]:
-    return [self._collection]  # pytype: disable=attribute-error
+    return [self.collection, self.index]
 
   def replace_operand(
       self, expression_to_replace: str, replacement: 'ExpressionNode'
@@ -1401,9 +1404,9 @@ class ExpressionNodeBaseVisitor(abc.ABC):
   def visit(self, node: ExpressionNode) -> Any:
     return node.accept(self)
 
-  def visit_children(self, node: ExpressionNode) -> Any:
+  def visit_operands(self, node: ExpressionNode) -> Any:
     result: List[Any] = []
-    for c in node.children():  # pytype: disable=attribute-error
+    for c in node.operands():
       result.append(c.accept(self))
     return result
 
