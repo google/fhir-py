@@ -31,6 +31,7 @@ from google.fhir.r4.proto.core import datatypes_pb2
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
 from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core import fhir_errors
+# TODO(b/268404151): Remove copybara once core/execution is supported.
 from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _structure_definitions as sdefs
 from google.fhir.core.fhir_path import fhir_path
@@ -38,7 +39,10 @@ from google.fhir.core.fhir_path import fhir_path_options
 from google.fhir.core.fhir_path import fhir_path_test_base
 from google.fhir.core.fhir_path import fhir_path_validator
 from google.fhir.core.fhir_path import fhir_path_validator_v2
+# TODO(b/268404151): Remove copybara once core/execution is supported.
 from google.fhir.r4 import primitive_handler
+
+
 # TODO(b/244184211): Make FHIR-version agnostic (e.g. parameterize on module?)
 # TODO(b/197976399): Move unit tests to snapshot testing framework.
 
@@ -57,6 +61,7 @@ class FhirPathStandardSqlEncoderTest(
       fhir_path_expression: str,
       expected_sql_expression: str,
       select_scalars_as_array: bool = True,
+      check_elm_nodes: bool = False,
       **bq_interpreter_args,
   ) -> None:
     builder = self.create_builder_from_str(structdef, fhir_path_expression)
@@ -334,6 +339,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT literal_
           FROM (SELECT SAFE_CAST('1970-01-01' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
       dict(
           testcase_name='_withDateYearMonth',
@@ -342,6 +348,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT literal_
           FROM (SELECT SAFE_CAST('1970-01-01' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
       dict(
           testcase_name='_withDateYearMonthDay',
@@ -350,6 +357,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT literal_
           FROM (SELECT SAFE_CAST('1970-01-01' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHours',
@@ -358,6 +366,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT literal_
           FROM (SELECT SAFE_CAST('2015-02-04T14:00:00+00:00' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutes',
@@ -366,6 +375,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT literal_
           FROM (SELECT SAFE_CAST('2015-02-04T14:34:00+00:00' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutesSeconds',
@@ -374,6 +384,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT literal_
           FROM (SELECT SAFE_CAST('2015-02-04T14:34:28+00:00' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutesSecondsMilli',
@@ -382,6 +393,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT literal_
           FROM (SELECT SAFE_CAST('2015-02-04T14:34:28.123000+00:00' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
       dict(
           testcase_name='_withDateTimeYearMonthDayHoursMinutesSecondsMilliTz',
@@ -390,6 +402,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT literal_
           FROM (SELECT SAFE_CAST('2015-02-04T14:34:28.123000+09:00' AS TIMESTAMP) AS literal_)
           WHERE literal_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
       dict(
           testcase_name='_withTimeHours',
@@ -398,6 +411,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT literal_
           FROM (SELECT '14' AS literal_)
           WHERE literal_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
       dict(
           testcase_name='_withTimeHoursMinutes',
@@ -406,6 +420,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT literal_
           FROM (SELECT '14:34' AS literal_)
           WHERE literal_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
       dict(
           testcase_name='_withTimeHoursMinutesSeconds',
@@ -414,6 +429,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT literal_
           FROM (SELECT '14:34:28' AS literal_)
           WHERE literal_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
       dict(
           testcase_name='_withTimeHoursMinutesSecondsMilli',
@@ -422,6 +438,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT literal_
           FROM (SELECT '14:34:28.123' AS literal_)
           WHERE literal_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
       dict(
           testcase_name='_withQuantity',
@@ -438,6 +455,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT eq_
           FROM (SELECT (SAFE_CAST('2015-02-04T14:34:28+00:00' AS TIMESTAMP) = SAFE_CAST('2015-02-04T14:00:00+00:00' AS TIMESTAMP)) AS eq_)
           WHERE eq_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
       dict(
           testcase_name='_withDateTimeEquivalent',
@@ -446,13 +464,20 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT eq_
           FROM (SELECT (SAFE_CAST('2015-02-04T14:34:28+00:00' AS TIMESTAMP) = SAFE_CAST('2015-02-04T14:00:00+00:00' AS TIMESTAMP)) AS eq_)
           WHERE eq_ IS NOT NULL)"""),
+          check_elm_nodes=False,
       ),
   )
   def testEncode_withFhirPathV2DateTimeLiteral_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str
+      self,
+      fhir_path_expression: str,
+      expected_sql_expression: str,
+      check_elm_nodes: bool = True,
   ):
     self.assertEvaluationNodeSqlCorrect(
-        None, fhir_path_expression, expected_sql_expression
+        None,
+        fhir_path_expression,
+        expected_sql_expression,
+        check_elm_nodes=check_elm_nodes,
     )
 
   def testEncode_withFhirPathV2SelectScalarsAsArrayFalseForLiteral_succeeds(
@@ -465,6 +490,7 @@ class FhirPathStandardSqlEncoderTest(
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=False,
+        check_elm_nodes=True,
     )
 
   def testEncode_SelectScalarsAsArrayFalseForLiteral_succeeds(self):
@@ -643,7 +669,10 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        None, fhir_path_expression, expected_sql_expression
+        None,
+        fhir_path_expression,
+        expected_sql_expression,
+        check_elm_nodes=True,
     )
 
   @parameterized.named_parameters(
@@ -658,6 +687,7 @@ class FhirPathStandardSqlEncoderTest(
       dict(
           testcase_name='_withIntegerGreaterThan',
           fhir_path_expression='4 > 3',
+          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT comparison_
           FROM (SELECT (4 > 3) AS comparison_)
@@ -666,6 +696,7 @@ class FhirPathStandardSqlEncoderTest(
       dict(
           testcase_name='_withIntegerLessThan',
           fhir_path_expression='3 < 4',
+          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT comparison_
           FROM (SELECT (3 < 4) AS comparison_)
@@ -674,6 +705,7 @@ class FhirPathStandardSqlEncoderTest(
       dict(
           testcase_name='_withIntegerLessThanOrEqualTo',
           fhir_path_expression='3 <= 4',
+          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT comparison_
           FROM (SELECT (3 <= 4) AS comparison_)
@@ -683,6 +715,7 @@ class FhirPathStandardSqlEncoderTest(
           testcase_name='_withDateLessThan',
           fhir_path_expression='dateField < @2000-01-01',
           different_from_v2=True,
+          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT comparison_
           FROM (SELECT (SAFE_CAST(dateField AS TIMESTAMP) < SAFE_CAST('2000-01-01' AS TIMESTAMP)) AS comparison_)
@@ -692,6 +725,7 @@ class FhirPathStandardSqlEncoderTest(
           testcase_name='_dateComparedWithTimestamp',
           fhir_path_expression='dateField < @2000-01-01T14:34',
           different_from_v2=True,
+          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT comparison_
           FROM (SELECT (SAFE_CAST(dateField AS TIMESTAMP) < SAFE_CAST('2000-01-01T14:34:00+00:00' AS TIMESTAMP)) AS comparison_)
@@ -727,6 +761,7 @@ class FhirPathStandardSqlEncoderTest(
       fhir_path_expression: str,
       expected_sql_expression: str,
       different_from_v2: bool = False,
+      check_elm_nodes: bool = True,
   ):
     if not different_from_v2:
       actual_sql_expression = self.fhir_path_encoder.encode(
@@ -736,7 +771,10 @@ class FhirPathStandardSqlEncoderTest(
       )
       self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.foo, fhir_path_expression, expected_sql_expression
+        self.foo,
+        fhir_path_expression,
+        expected_sql_expression,
+        check_elm_nodes=check_elm_nodes,
     )
 
   # TODO(b/191895721): Verify order-dependence of equivalence vs. equality
@@ -1247,6 +1285,7 @@ class FhirPathStandardSqlEncoderTest(
           testcase_name='_withScalarComparisonAndScalarsAsArrayFalse',
           fhir_path_expression="inline.value = 'abc'",
           select_scalars_as_array=False,
+          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           (SELECT (inline.value = 'abc') AS eq_)"""),
       ),
@@ -1254,6 +1293,7 @@ class FhirPathStandardSqlEncoderTest(
           testcase_name='_withScalarComplexComparisonAndScalarsAsArrayFalse',
           fhir_path_expression="bar.bats.struct.value = ('abc' | '123')",
           select_scalars_as_array=False,
+          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           (SELECT NOT EXISTS(
           SELECT lhs_.*
@@ -1276,6 +1316,7 @@ class FhirPathStandardSqlEncoderTest(
       fhir_path_expression: str,
       expected_sql_expression: str,
       select_scalars_as_array: Optional[bool],
+      check_elm_nodes: bool = True,
   ):
     """Ensures the select_scalars_as_array flag is respected."""
     kwargs = {}
@@ -1290,7 +1331,11 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.foo, fhir_path_expression, expected_sql_expression, **kwargs
+        self.foo,
+        fhir_path_expression,
+        expected_sql_expression,
+        check_elm_nodes=check_elm_nodes,
+        **kwargs,
     )
 
   @parameterized.named_parameters(
