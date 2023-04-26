@@ -695,7 +695,7 @@ class FhirProfileStandardSqlEncoder:
     # Sometimes a struct_def can specify requirements for their descendants.
     # Encode them as a part of its children.
     required_descendants = builder.return_type.required_descendants
-    for name, desc_message in required_descendants.items():
+    for name, desc_message in required_descendants:
       containing_type_builder = builder
       child_builder = containing_type_builder
       paths = name.split('.')

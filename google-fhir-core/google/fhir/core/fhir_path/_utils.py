@@ -15,6 +15,7 @@
 """Utilities used across functions in the fhir_path module."""
 
 import itertools
+import re
 from typing import Any, List, Optional, cast
 
 from google.protobuf import message
@@ -24,16 +25,6 @@ from google.fhir.core.utils import proto_utils
 StructureDefinition = message.Message
 ElementDefinition = message.Message
 Constraint = message.Message
-
-
-def trim_name(raw_name: str) -> str:
-  # Trim choice field annotation if present.
-  if raw_name.endswith('[x]'):
-    raw_name = raw_name[:-3]
-  # Trim extension field annotation if present.
-  if raw_name.startswith('extension:'):
-    raw_name = raw_name[10:]
-  return raw_name
 
 
 def is_root_element(element_definition: ElementDefinition) -> bool:
@@ -101,6 +92,9 @@ def slice_element_urls(element_definition: ElementDefinition) -> List[str]:
   return result
 
 
+_SLICE_ON_EXTENSION_ID_RE = re.compile(r'(^|.)extension:')
+
+
 def is_slice_on_extension(element_definition: message.Message) -> bool:
   """Returns `True` if the given element is describing a slice on an extension.
 
@@ -111,7 +105,13 @@ def is_slice_on_extension(element_definition: message.Message) -> bool:
     element_definition: The element definition (element) that we are checking.
   """
   type_codes = element_type_codes(element_definition)
-  return 'Extension' in type_codes and is_slice_element(element_definition)
+  return (
+      'Extension' in type_codes
+      and _SLICE_ON_EXTENSION_ID_RE.search(
+          cast(Any, element_definition).id.value
+      )
+      is not None
+  )
 
 
 def is_slice_element(element_definition: message.Message) -> bool:

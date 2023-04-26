@@ -23,8 +23,9 @@ provided by the caller.
 import abc
 import copy
 import enum
+import re
 
-from typing import Any, Dict, Optional, Set, cast, Collection as CollectionType
+from typing import Any, Dict, Optional, Sequence, Set, Tuple, cast, Collection as CollectionType
 from google.protobuf import message
 from google.fhir.core.fhir_path import _utils
 
@@ -569,23 +570,48 @@ class StructureDataType(FhirPathDataType):
     self._children = {}
     # If there are specified descendants of the structdef then save them as
     # well.
-    self._required_descendants = {}
+    self._required_descendants = []
     for elem in self._struct_def.snapshot.element:
-      if elem.id.value == qualified_path:
+      is_slice = _utils.is_slice_element(elem)
+      is_slice_on_extension = _utils.is_slice_on_extension(elem)
+      if is_slice_on_extension:
+        # Slices on extension will have ids like
+        # 'Foo.extension:someExtension' but paths like 'Foo.extension'
+        # We want to treat these paths as 'Foo.someExtension' so we
+        # use the id rather than the path and strip the 'extension:'
+        # part below.
+        path = elem.id.value
+        path = re.sub(r'^extension:', '', path)
+        path = re.sub(r'\.extension:', '.', path)
+      else:
+        # In other cases, the path is just the path!
+        path = elem.path.value
+
+      path = path.replace('[x]', '')
+
+      if path == qualified_path:
         self._root_element_definition = elem
         continue
-      # Paths that look like a.elemValue when qualified_path=a.elem get
-      # misidentified as being a child of a.elem
-      if elem.id.value.startswith(qualified_path + '.'):
-        relative_path = elem.id.value[len(qualified_path) + 1 :]
-        if not relative_path:
-          continue
-        if '.' not in relative_path:
-          name = _utils.trim_name(relative_path)
-          self._children[name] = elem
-        else:
-          names = [_utils.trim_name(n) for n in relative_path.split('.')]
-          self._required_descendants['.'.join(names)] = elem
+
+      if re.search(rf'^{qualified_path}\.\w+', path):
+        relative_path = path[len(qualified_path) + 1 :]
+
+        # One path may have multiple element definitions due to
+        # slices. The path will have one element definition providing
+        # its base definition and additional element definitions for
+        # each slice of that path. We only place the base element
+        # definition in the children dictionary, as callers currently
+        # expect to be able to find these definitions in this
+        # dictionary.
+        direct_child = '.' not in relative_path
+        if (not is_slice or is_slice_on_extension) and direct_child:
+          assert relative_path not in self._children, (
+              f'{relative_path} found twice among children in structure'
+              f' definition {self._struct_def.url.value}'
+          )
+          self._children[relative_path] = elem
+        elif not direct_child:
+          self._required_descendants.append((relative_path, elem))
 
     if not self._root_element_definition:
       raise ValueError(
@@ -611,7 +637,7 @@ class StructureDataType(FhirPathDataType):
     return self._children
 
   @property
-  def required_descendants(self) -> Dict[str, message.Message]:
+  def required_descendants(self) -> Sequence[Tuple[str, message.Message]]:
     return self._required_descendants
 
 

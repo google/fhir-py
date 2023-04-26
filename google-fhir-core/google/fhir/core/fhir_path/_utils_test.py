@@ -145,6 +145,15 @@ class IsSliceOnExtensionElementTest(parameterized.TestCase):
           ),
           expected=False,
       ),
+      dict(
+          testcase_name='_withSliceOnNonExtensionElementOfTypeExtension',
+          element=sdefs.build_element_definition(
+              id_='Observation.code:loinc.extension',
+              type_codes=['Extension'],
+              cardinality=sdefs.Cardinality(min=0, max='1'),
+          ),
+          expected=False,
+      ),
   )
   def testIsSliceOnExtensionElement_succeeds(self, element, expected):
     self.assertEqual(_utils.is_slice_on_extension(element), expected)
