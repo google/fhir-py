@@ -71,7 +71,8 @@ def element_type_codes(element_definition: ElementDefinition) -> List[str]:
   result: List[str] = []
   if proto_utils.field_is_set(element_definition, 'type'):
     type_refs: List[StructureDefinition] = proto_utils.get_value_at_field(
-        element_definition, 'type')
+        element_definition, 'type'
+    )
     result.extend([cast(Any, t).code.value for t in type_refs])
   return result
 
@@ -89,7 +90,8 @@ def slice_element_urls(element_definition: ElementDefinition) -> List[str]:
   result: List[str] = []
   if proto_utils.field_is_set(element_definition, 'type'):
     type_refs: List[StructureDefinition] = proto_utils.get_value_at_field(
-        element_definition, 'type')
+        element_definition, 'type'
+    )
     profile_lists = [cast(Any, t).profile for t in type_refs]
     urls = [
         cast(Any, profile).value
@@ -158,8 +160,11 @@ def get_absolute_uri_for_structure(uri_value: str) -> str:
   Returns:
     An absolute URI to the data type or resource.
   """
-  if (uri_value.startswith('http:') or uri_value.startswith('https:') or
-      uri_value.startswith('urn:')):
+  if (
+      uri_value.startswith('http:')
+      or uri_value.startswith('https:')
+      or uri_value.startswith('urn:')
+  ):
     return uri_value  # No-op
   return f'http://hl7.org/fhir/StructureDefinition/{uri_value}'
 
@@ -182,15 +187,18 @@ def is_repeated_element(element_definition: ElementDefinition) -> bool:
   return max_value != '0' and max_value != '1'
 
 
-def get_element(structdef: StructureDefinition,
-                path: str) -> Optional[ElementDefinition]:
+def get_element(
+    structdef: StructureDefinition, path: str
+) -> Optional[ElementDefinition]:
   """Returns the ElementDefintion proto for a path."""
   struct_id = cast(Any, structdef).id.value
   qualified_path = struct_id + '.' + path if path else struct_id
   qualified_choice_path = qualified_path + '[x]'
   for elem in cast(Any, structdef).snapshot.element:
-    if (elem.id.value == qualified_path or
-        elem.id.value == qualified_choice_path):
+    if (
+        elem.id.value == qualified_path
+        or elem.id.value == qualified_choice_path
+    ):
       return elem
 
   return None
@@ -208,7 +216,8 @@ def is_polymorphic_element(elem: ElementDefinition) -> bool:
 
 
 def get_patient_reference_element_paths(
-    structdef: StructureDefinition) -> List[str]:
+    structdef: StructureDefinition,
+) -> List[str]:
   """Returns all the top level patient elements for a given Reference.
 
   Args:
@@ -224,13 +233,14 @@ def get_patient_reference_element_paths(
     for t in elem.type:
       for tp in t.target_profile:
         if tp.value.endswith('Patient'):
-          results.append(elem.id.value[len(struct_id) + 1:])
+          results.append(elem.id.value[len(struct_id) + 1 :])
 
   return results
 
 
-def get_backbone_element_fields(structdef: StructureDefinition,
-                                path: str) -> List[str]:
+def get_backbone_element_fields(
+    structdef: StructureDefinition, path: str
+) -> List[str]:
   """Returns the field under the path to the given FHIR backbone element.
 
   Args:
@@ -246,7 +256,7 @@ def get_backbone_element_fields(structdef: StructureDefinition,
 
   for elem in cast(Any, structdef).snapshot.element:
     if elem.id.value.startswith(qualified_path):
-      relative_path = elem.id.value[len(qualified_path) + 1:]
+      relative_path = elem.id.value[len(qualified_path) + 1 :]
       if relative_path and '.' not in relative_path:
         # Trim choice field annotation if present.
         if relative_path.endswith('[x]'):
@@ -257,16 +267,19 @@ def get_backbone_element_fields(structdef: StructureDefinition,
 
 
 def get_root_element_definition(
-    structure_definition: StructureDefinition) -> ElementDefinition:
+    structure_definition: StructureDefinition,
+) -> ElementDefinition:
   """Returns the root element definition in a given structure definition."""
 
   root_element: ElementDefinition = None
   for element_definition in cast(Any, structure_definition).snapshot.element:
     if is_root_element(element_definition):
       if root_element is not None:
-        raise ValueError('Expected a single root ElementDefinition but got: '
-                         f'{cast(Any, root_element).id.value!r} and '
-                         f'{cast(Any, element_definition).id.value!r}.')
+        raise ValueError(
+            'Expected a single root ElementDefinition but got: '
+            f'{cast(Any, root_element).id.value!r} and '
+            f'{cast(Any, element_definition).id.value!r}.'
+        )
       root_element = element_definition
 
   return root_element

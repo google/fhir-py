@@ -32,6 +32,7 @@ class Cardinality:
     min: The minimum cardinality.
     max: The maximum cardinality. A number or *.
   """
+
   min: int
   max: str
 
@@ -43,8 +44,9 @@ def build_element_definition(
     cardinality: Cardinality,
     path: Optional[str] = None,
     base_path: Optional[str] = None,
-    constraints: Optional[List[
-        datatypes_pb2.ElementDefinition.Constraint]] = None,
+    constraints: Optional[
+        List[datatypes_pb2.ElementDefinition.Constraint]
+    ] = None,
     content_reference: Optional[str] = None,
     profiles: Optional[List[str]] = None,
 ) -> datatypes_pb2.ElementDefinition:
@@ -75,12 +77,15 @@ def build_element_definition(
   path = id_ if path is None else path
   base_path = id_ if base_path is None else base_path
   type_codes = [] if type_codes is None else type_codes
-  profiles = [] if profiles is None else [
-      datatypes_pb2.Canonical(value=profile) for profile in profiles
-  ]
+  profiles = (
+      []
+      if profiles is None
+      else [datatypes_pb2.Canonical(value=profile) for profile in profiles]
+  )
   type_ = [
       datatypes_pb2.ElementDefinition.TypeRef(
-          code=datatypes_pb2.Uri(value=code_value), profile=profiles)
+          code=datatypes_pb2.Uri(value=code_value), profile=profiles
+      )
       for code_value in type_codes
   ]
   return datatypes_pb2.ElementDefinition(
@@ -90,9 +95,11 @@ def build_element_definition(
       min=datatypes_pb2.UnsignedInt(value=cardinality.min),
       max=datatypes_pb2.String(value=cardinality.max),
       base=datatypes_pb2.ElementDefinition.Base(
-          path=datatypes_pb2.String(value=base_path)),
+          path=datatypes_pb2.String(value=base_path)
+      ),
       content_reference=datatypes_pb2.Uri(value=content_reference),
-      type=type_)
+      type=type_,
+  )
 
 
 def build_structure_definition(
@@ -109,19 +116,24 @@ def build_structure_definition(
       id=datatypes_pb2.Id(value=os.path.basename(url)),
       url=datatypes_pb2.Uri(value=url),
       kind=structure_definition_pb2.StructureDefinition.KindCode(
-          value=codes_pb2.StructureDefinitionKindCode.RESOURCE),
+          value=codes_pb2.StructureDefinitionKindCode.RESOURCE
+      ),
       fhir_version=structure_definition_pb2.StructureDefinition.FhirVersionCode(
-          value=codes_pb2.FHIRVersionCode.V_4_0_1),
+          value=codes_pb2.FHIRVersionCode.V_4_0_1
+      ),
       type=datatypes_pb2.Uri(value=type_),
       derivation=structure_definition_pb2.StructureDefinition.DerivationCode(
-          value=derivation_code),
+          value=derivation_code
+      ),
       name=datatypes_pb2.String(value=name),
       abstract=datatypes_pb2.Boolean(value=False),
       base_definition=datatypes_pb2.Canonical(value=base_definition),
       snapshot=structure_definition_pb2.StructureDefinition.Snapshot(
-          element=element_definitions),
+          element=element_definitions
+      ),
       status=structure_definition_pb2.StructureDefinition.StatusCode(
-          value=codes_pb2.PublicationStatusCode.ACTIVE),
+          value=codes_pb2.PublicationStatusCode.ACTIVE
+      ),
   )
 
 
