@@ -3900,7 +3900,10 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(error_reporter.warnings)
     self.assertEmpty(error_reporter.errors)
     self.assertLen(actual_bindings, 2)
-    self.assertEqual(actual_bindings[0].fhir_path_expression, '4 + 5')
+    self.assertCountEqual(
+        [binding.fhir_path_expression for binding in actual_bindings],
+        ['2 + 3', '4 + 5'],
+    )
 
     # Test with v2
     encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
@@ -3915,7 +3918,10 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(error_reporter.errors)
     self.assertLen(actual_bindings, 2)
 
-    self.assertEqual(actual_bindings[0].fhir_path_expression, '4 + 5')
+    self.assertCountEqual(
+        [binding.fhir_path_expression for binding in actual_bindings],
+        ['2 + 3', '4 + 5'],
+    )
 
   def testEncode_withReplacement_andNoElementPath_replacesConstraint(self):
     first_constraint = self.build_constraint(
@@ -4494,16 +4500,16 @@ class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
     # stopped recursing before visiting
     # RiskAssessment.basedOn.identifier.assigner.identifier
     self.assertLen(actual_bindings, 2)
-    self.assertListEqual(
+    self.assertCountEqual(
         [binding.element_path for binding in actual_bindings],
         [
             'RiskAssessment.basedOn.identifier',
             'RiskAssessment.basedOn.identifier.assigner',
         ],
     )
-    self.assertListEqual(
+    self.assertCountEqual(
         [binding.fhir_path_key for binding in actual_bindings],
-        ['from-reference', 'from-identifier'],
+        ['from-identifier', 'from-reference'],
     )
 
 

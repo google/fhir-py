@@ -1456,6 +1456,9 @@ class FhirProfileStandardSqlEncoder:
               requirement.sql_expression: requirement for requirement in result
           }.values()
       )
+      # Sort so the results are consistent for diff tests.
+      result.sort(key=operator.attrgetter('column_name'))
+
     finally:
       self._ctx.clear()
       self._in_progress.clear()
