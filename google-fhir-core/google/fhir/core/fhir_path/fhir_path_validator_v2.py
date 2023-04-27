@@ -19,7 +19,7 @@ import functools
 import itertools
 import operator
 import traceback
-from typing import Any, Collection, Iterable, List, Optional, Set, cast, Dict
+from typing import Any, Collection, Iterable, List, Optional, Set, Tuple, cast, Dict
 
 from google.cloud import bigquery
 
@@ -348,19 +348,26 @@ class FhirProfileStandardSqlEncoder:
     self._regex_columns_generated = set()
     # Used to track duplicate requirements.
     self._requirement_column_names: Set[str] = set()
+    # Used to avoid visiting the same element definitions multiple times.
+    self._visited_element_definitions: Set[Tuple[str, str]] = set()
 
   def _get_new_child_builder(
-      self, builder: expressions.Builder, name: str
+      self, builder: expressions.Builder, path: str
   ) -> Optional[expressions.Builder]:
-    try:
-      return builder.__getattr__(name)
-    except (AttributeError, ValueError) as e:
-      self._error_reporter.report_fhir_path_error(
-          self._abs_path_invocation(builder),
-          f'{builder}.{name}',
-          str(e),
-      )
-    return None
+    """Creates a new builder by following `path` from `builder`."""
+    child_builder = builder
+    for path_element in path.split('.'):
+      try:
+        child_builder = child_builder.__getattr__(path_element)
+      except (AttributeError, ValueError) as e:
+        self._error_reporter.report_fhir_path_error(
+            self._abs_path_invocation(builder),
+            f'{child_builder}.{path_element}',
+            str(e),
+        )
+        return None
+
+    return child_builder
 
   def _abs_path_invocation(self, builder: expressions.Builder) -> str:
     """Returns the absolute path invocation given the traversal context."""
@@ -1145,10 +1152,10 @@ class FhirProfileStandardSqlEncoder:
 
     encoded_requirements: List[validation_pb2.SqlRequirement] = []
     for name, child_message in builder.return_type.iter_children():
+      child = cast(Any, child_message)
+
       if _utils.is_slice_but_not_on_extension(child_message):
         continue
-
-      child = cast(Any, child_message)
 
       # TODO(b/190679571): Handle choice types, which may have more than one
       # `type.code` value present.
@@ -1294,7 +1301,7 @@ class FhirProfileStandardSqlEncoder:
       ):
         return result
 
-      for child, elem in struct_type.iter_children():
+      for child, elem in struct_type.iter_all_descendants():
         # TODO(b/200575760): Add support for more complicated fields
         if (
             ':' in child
@@ -1307,6 +1314,13 @@ class FhirProfileStandardSqlEncoder:
         new_builder = self._get_new_child_builder(builder, child)
         if not new_builder:
           continue
+
+        # Ensure we don't visit the same element via the same FHIR
+        # path multiple times.
+        elem_visit = (self._abs_path_invocation(new_builder), elem.id.value)
+        if elem_visit in self._visited_element_definitions:
+          continue
+        self._visited_element_definitions.add(elem_visit)
 
         # TODO(b/200575760): Add support polymorphic choice types
         if not new_builder.return_type.root_element_definition:
@@ -1323,6 +1337,7 @@ class FhirProfileStandardSqlEncoder:
         is_struct_def = isinstance(
             new_builder.return_type, _fhir_path_data_types.StructureDataType
         )
+
         if not is_slice and is_struct_def:
           result += self._encode_structure_definition(new_builder, elem)
         elif not is_struct_def:
@@ -1478,6 +1493,7 @@ class FhirProfileStandardSqlEncoder:
       self._ctx.clear()
       self._in_progress.clear()
       self._requirement_column_names.clear()
+      self._visited_element_definitions.clear()
       self._element_id_to_regex_map.clear()
       self._regex_columns_generated.clear()
     return result
