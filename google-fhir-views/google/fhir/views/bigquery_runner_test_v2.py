@@ -26,6 +26,7 @@ from google.fhir.core.fhir_path import context
 from google.fhir.core.utils import fhir_package
 from google.fhir.r4 import r4_package
 from google.fhir.r4.terminology import terminology_service_client
+from google.fhir.r4.terminology import value_set_tables
 from google.fhir.r4.terminology import value_sets
 from google.fhir.views import bigquery_runner
 from google.fhir.views import r4
@@ -1001,7 +1002,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     )
 
   @mock.patch.object(
-      bigquery_runner.value_set_tables,
+      value_set_tables,
       'valueset_codes_insert_statement_for',
       autospec=True,
   )
@@ -1044,7 +1045,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.assertEqual(kwargs['batch_size'], 500)
 
   @mock.patch.object(
-      bigquery_runner.value_set_tables,
+      value_set_tables,
       'valueset_codes_insert_statement_for',
       autospec=True,
   )
@@ -1099,7 +1100,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     )
 
   @mock.patch.object(
-      bigquery_runner.value_set_tables,
+      value_set_tables,
       'valueset_codes_insert_statement_for',
       autospec=True,
   )
