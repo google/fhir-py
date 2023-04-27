@@ -285,7 +285,9 @@ class Builder:
       An expression that returns True if all items in the parent meet the
       criteria.
     """
-    param_nodes = self._function_args_to_nodes(self._node, [criteria])
+    param_nodes = self._function_args_to_nodes(
+        self._node, [criteria], element_of_array=True
+    )
     return Builder(
         _evaluation.AllFunction(self._node.context, self._node, param_nodes),
         self._handler,
@@ -454,7 +456,9 @@ class Builder:
     Returns:
       An expression that contains the items that match the given criteria.
     """
-    param_nodes = self._function_args_to_nodes(self._node, [criteria])
+    param_nodes = self._function_args_to_nodes(
+        self._node, [criteria], element_of_array=True
+    )
     return self._builder(
         _evaluation.WhereFunction(self._node.context, self._node, param_nodes)
     )
@@ -496,7 +500,10 @@ class Builder:
     )
 
   def _function_args_to_nodes(
-      self, operand_node: _evaluation.ExpressionNode, args: List[Any]
+      self,
+      operand_node: _evaluation.ExpressionNode,
+      args: List[Any],
+      element_of_array: bool = False,
   ) -> List[_evaluation.ExpressionNode]:
     """Converts builder args to FHIRPath expressions into evaluation nodes."""
     params: List[_evaluation.ExpressionNode] = []
@@ -530,7 +537,11 @@ class Builder:
         localized = arg.get_node().deepcopy()
         localized.replace_operand(
             operand_node.to_fhir_path(),
-            _evaluation.ReferenceNode(self._node.context, operand_node),
+            _evaluation.ReferenceNode(
+                self._node.context,
+                operand_node,
+                element_of_array=element_of_array,
+            ),
         )
         params.append(localized)
       else:

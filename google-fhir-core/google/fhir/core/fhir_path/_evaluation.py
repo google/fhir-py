@@ -46,6 +46,12 @@ QUANTITY_URL = 'http://hl7.org/fhir/StructureDefinition/Quantity'
 ElementDefinition = message.Message
 
 
+_MAPPING_FUNCTIONS = frozenset([
+    _ast.Function.Name.ALL,
+    _ast.Function.Name.WHERE,
+])
+
+
 @dataclasses.dataclass(frozen=True, order=True)
 class CodeValue:
   """An immutable code,value tuple for local use and set operations."""
@@ -1251,19 +1257,44 @@ class ComparisonNode(CoercibleBinaryExpressionNode):
 
 
 class ReferenceNode(ExpressionNode):
-  """Implementation of $this keyword and relative paths."""
+  """Implementation of $this keyword and relative paths.
+
+  ReferenceNodes are used as a way to indicate that the FHIRPath has already
+  been used in a previous context in the FHIRPath. For example, in the FHIRPath
+    Patient.name.all(Patient.name.matches('regex'))
+
+  The second Patient.name gets internally substituted for a ReferenceNode to
+  Patient.name. The interpreter can then recognize that Patient.name has already
+  been resolved and does not need to reresolved if it so chooses.
+
+  An optional argument `element_of_array` will also set the cardinality of the
+  return type to be a CHILD_OF_COLLECTION if the original operand returns a
+  collection because some functions inherently map the expression in the params
+  to each element of the operand. In the above example, Patient.name is a
+  collection according to the FHIR spec, but matches only operates on scalars.
+  In order to check the match of each value in name, all() is used on
+  Patient.name, the second Patient.name is then an unnested reference to the
+  original Patient.name.
+  """
 
   def __init__(
       self,
       fhir_context: context.FhirPathContext,
       reference_node: ExpressionNode,
+      element_of_array: bool = False,
   ) -> None:
     self._reference_node = reference_node
     # If the reference node/caller is a function, then the actual node being
     # referenced is the first non-function caller.
     while isinstance(self._reference_node, FunctionNode):
       self._reference_node = self._reference_node.get_parent_node()
-    super().__init__(fhir_context, reference_node.return_type())
+
+    return_type = reference_node.return_type()
+    if element_of_array and return_type.returns_collection():
+      return_type = return_type.get_new_cardinality_type(
+          _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION
+      )
+    super().__init__(fhir_context, return_type)
 
   def get_resource_nodes(self) -> List[ExpressionNode]:
     return self._reference_node.get_resource_nodes()
@@ -1573,6 +1604,9 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
       )
 
   def visit_identifier(self, identifier: _ast.Identifier) -> Any:
+    if identifier.value == '$this':
+      return self._node_context[-1]
+
     return InvokeExpressionNode(
         self._context, identifier.value, self._node_context[-1]
     )
@@ -1685,9 +1719,18 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
         self.visit(operand) if operand is not None else self._node_context[-1]
     )
     params: List[ExpressionNode] = []
+    # Mapping function like all() and where are functions that apply the params
+    # to each element of the operand if the operand is a collection so the
+    # return type of the reference would be a reference to an element of the
+    # array rather than the whole array itself..
+    element_of_array = function_name in _MAPPING_FUNCTIONS
     # For functions, the identifiers can be relative to the operand of the
     # function; not the root FHIR type.
-    self._node_context.append(ReferenceNode(self._context, operand_node))
+    self._node_context.append(
+        ReferenceNode(
+            self._context, operand_node, element_of_array=element_of_array
+        )
+    )
     for param in function.params:
       new_param = self.visit(param)
       params.append(new_param)

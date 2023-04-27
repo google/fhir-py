@@ -126,7 +126,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     # If the identifier is `$this`, we assume that the repeated field has been
     # unnested upstream so we only need to reference it with its alias:
     # `{}_element_`.
-    if _fhir_path_data_types.is_collection(reference.return_type()):
+    if _fhir_path_data_types.returns_collection(reference.return_type()):
       sql_alias = f'{sql_alias}_element_'
 
     sql_data_type = _sql_data_types.get_standard_sql_data_type(
@@ -594,7 +594,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     if isinstance(
         lhs_result.sql_data_type, _sql_data_types.Struct
     ) or isinstance(rhs_result.sql_data_type, _sql_data_types.Struct):
-      raise TypeError(
+      raise ValueError(
           f'Unsupported `STRUCT` union between {lhs_result}, {rhs_result}.'
       )
 

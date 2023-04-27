@@ -14,9 +14,8 @@
 # limitations under the License.
 """Module for encapsulating  synthetic resources for FHIRPath traversal."""
 
-from typing import List
+from typing import List, Optional
 
-from google.protobuf import message
 from google.fhir.r4.proto.core import codes_pb2
 from google.fhir.r4.proto.core import datatypes_pb2
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
@@ -49,6 +48,8 @@ class FhirPathTestBase:
     CodeFlavor codeFlavor;
     repeated CodeFlavor codeFlavors;
     repeated bool boolList;
+    repeated string stringList;
+    repeated Coding codingList;
 
     ChoiceType choiceExample['string', 'integer', 'CodeableConcept']
     repeated ChoiceType multipleChoiceExample['string', 'integer',
@@ -101,6 +102,17 @@ class FhirPathTestBase:
       element_definitions=[
           sdefs.build_element_definition(
               id_='string',
+              type_codes=None,
+              cardinality=sdefs.Cardinality(min=0, max='1'),
+          )
+      ],
+  )
+  # integer datatype
+  integer_datatype = sdefs.build_resource_definition(
+      id_='integer',
+      element_definitions=[
+          sdefs.build_element_definition(
+              id_='integer',
               type_codes=None,
               cardinality=sdefs.Cardinality(min=0, max='1'),
           )
@@ -231,6 +243,16 @@ class FhirPathTestBase:
       type_codes=['boolean'],
       cardinality=sdefs.Cardinality(min=0, max='*'),
   )
+  string_list_definition = sdefs.build_element_definition(
+      id_='Foo.stringList',
+      type_codes=['string'],
+      cardinality=sdefs.Cardinality(min=0, max='*'),
+  )
+  coding_list_definition = sdefs.build_element_definition(
+      id_='Foo.codingList',
+      type_codes=['Coding'],
+      cardinality=sdefs.Cardinality(min=0, max='*'),
+  )
   foo = sdefs.build_resource_definition(
       id_='Foo',
       element_definitions=[
@@ -247,6 +269,8 @@ class FhirPathTestBase:
           code_flavor_element_definition,
           code_flavors_element_definition,
           bool_list_definition,
+          string_list_definition,
+          coding_list_definition,
       ],
   )
 
@@ -436,6 +460,7 @@ class FhirPathTestBase:
 
   # Set resources for test
   resources = [
+      integer_datatype,
       string_datatype,
       reference_datatype,
       patient_datatype,
@@ -463,15 +488,38 @@ class FhirPathTestBase:
   div_root = div_root_element_definition
 
   def create_builder_from_str(
-      self, structdef: message.Message, fhir_path_expression: str
+      self,
+      structdef_name: str,
+      fhir_path_expression: str,
+      fhir_context: Optional[context_lib.FhirPathContext] = None,
   ) -> expressions.Builder:
+    """Creates an expression Builder from a FHIRPath string.
+
+    Args:
+      structdef_name: Name of the resource for the fhir_path_expression.
+        Structure Definition is fetched from the fhir_context.
+      fhir_path_expression: A FHIR path string to parse.
+      fhir_context: An optional context to use. If not specified, will use
+        self.context by default.
+
+    Returns:
+      An equivalent expressions.Builder to the fhir_path_expression.
+    """
     structdef_type = None
-    if structdef:
-      structdef_type = _fhir_path_data_types.StructureDataType(structdef)
+    if not fhir_context:
+      fhir_context = self.context
+
+    structdef = fhir_context.get_structure_definition(structdef_name)
+    if not structdef:
+      raise ValueError(
+          f'Structdef {structdef_name} was not found in the provided context.'
+      )
+
+    structdef_type = _fhir_path_data_types.StructureDataType(structdef)
 
     return expressions.from_fhir_path_expression(
         fhir_path_expression,
-        self.context,
+        fhir_context,
         structdef_type,
         primitive_handler.PrimitiveHandler(),
     )

@@ -14,7 +14,6 @@
 # limitations under the License.
 """Tests Python FHIRPath functionality for Spark."""
 
-from google.protobuf import message
 from absl.testing import absltest
 from absl.testing import parameterized
 from google.fhir.core.fhir_path import _spark_interpreter
@@ -1153,12 +1152,12 @@ class FhirPathSparkSqlEncoderTest(
 
   def assertEvaluationNodeSqlCorrect(
       self,
-      structdef: message.Message,
+      structdef_name: str,
       fhir_path_expression: str,
       expected_sql_expression: str,
       select_scalars_as_array: bool = True,
   ) -> None:
-    builder = self.create_builder_from_str(structdef, fhir_path_expression)
+    builder = self.create_builder_from_str(structdef_name, fhir_path_expression)
 
     actual_sql_expression = _spark_interpreter.SparkSqlInterpreter().encode(
         builder, select_scalars_as_array=select_scalars_as_array
@@ -1174,7 +1173,7 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
-        None, fhir_path_expression, expected_sql_expression
+        'Foo', fhir_path_expression, expected_sql_expression
     )
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES)
@@ -1182,7 +1181,7 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
-        structdef=None,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True,
@@ -1193,7 +1192,7 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
-        structdef=None,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True,
@@ -1204,7 +1203,7 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
-        structdef=None,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True,
@@ -1215,7 +1214,7 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
-        structdef=self.foo,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True,
@@ -1226,13 +1225,13 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
-        structdef=None,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True,
     )
     self.assertEvaluationNodeSqlCorrect(
-        structdef=self.foo,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True,
@@ -1246,7 +1245,7 @@ class FhirPathSparkSqlEncoderTest(
       select_scalars_as_array=True,
   ):
     self.assertEvaluationNodeSqlCorrect(
-        structdef=self.foo,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=select_scalars_as_array,
@@ -1257,7 +1256,7 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
-        structdef=None,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True,
@@ -1270,7 +1269,7 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
-        structdef=self.foo,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True,
@@ -1283,7 +1282,7 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
-        structdef=self.foo,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True,
@@ -1296,7 +1295,7 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
-        structdef=self.foo,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=True,
@@ -1309,7 +1308,7 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str
   ):
     with self.assertRaises(ValueError):
-      builder = self.create_builder_from_str(self.foo, fhir_path_expression)
+      builder = self.create_builder_from_str('Foo', fhir_path_expression)
       _spark_interpreter.SparkSqlInterpreter().encode(builder)
 
   @parameterized.named_parameters(
@@ -1319,7 +1318,7 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str
   ):
     with self.assertRaises(ValueError):
-      builder = self.create_builder_from_str(self.foo, fhir_path_expression)
+      builder = self.create_builder_from_str('Foo', fhir_path_expression)
       self.spark_interpreter.encode(builder)
 
   def testEncode_withFhirPathV2SelectScalarsAsArrayFalseForLiteral_succeeds(
@@ -1328,7 +1327,7 @@ class FhirPathSparkSqlEncoderTest(
     fhir_path_expression = 'true'
     expected_sql_expression = '(SELECT TRUE AS literal_)'
     self.assertEvaluationNodeSqlCorrect(
-        structdef=self.foo,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=False,
@@ -1341,9 +1340,10 @@ class FhirPathSparkSqlEncoderTest(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
-        structdef=self.foo,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
-        select_scalars_as_array=True)
+        select_scalars_as_array=True,
+    )
 if __name__ == '__main__':
   absltest.main()

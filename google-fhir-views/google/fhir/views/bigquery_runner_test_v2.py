@@ -286,6 +286,29 @@ class BigqueryRunnerTest(parameterized.TestCase):
         telecom,
     )
 
+  def testSimpleSelectWithAllMatches_forPatient_succeeds(self):
+    """Tests selecting an array of dates."""
+    pat = self._views.view_of('Patient')
+    telecom = pat.select(
+        {'name': pat.name.given.all(pat.name.given.matches('regex'))}
+    )
+
+    self.AstAndExpressionTreeTestRunner(
+        textwrap.dedent(
+            """\
+        SELECT *, (SELECT IFNULL(
+        LOGICAL_AND(
+        IFNULL(
+        (SELECT REGEXP_CONTAINS(
+        given_element_, 'regex') AS all_), FALSE)), TRUE) AS all_
+        FROM (SELECT name_element_
+        FROM (SELECT Patient),
+        UNNEST(Patient.name) AS name_element_ WITH OFFSET AS element_offset),
+        UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset) AS name FROM (SELECT (SELECT id) AS __patientId__,Patient FROM `test_project.test_dataset`.Patient Patient)"""
+        ),
+        telecom,
+    )
+
   def testQueryToDataFrame_forPatient_succeeds(self):
     """Test to_dataframe()."""
     pat = self._views.view_of('Patient')

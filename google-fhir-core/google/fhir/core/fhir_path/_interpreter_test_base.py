@@ -87,8 +87,11 @@ class FhirPathExpressionsTest(
       resource: message.Message,
       expected_result: Union[bool, str, float, int],
   ):
-    # Confirm the expressions themselves match.
-    self.assertEqual(parsed_expression.fhir_path, builder.fhir_path)
+    # $this syntax isn't supported in the builder so skip the fhir path
+    # expression check.
+    if '$this' not in parsed_expression.fhir_path:
+      # Confirm the expressions themselves match.
+      self.assertEqual(parsed_expression.fhir_path, builder.fhir_path)
 
     # Evaluate both the built and parsed expressions and ensure they
     # produce the same result.
@@ -1853,6 +1856,17 @@ class FhirPathExpressionsTest(
         pat.address.all(pat.address.use == 'home'),
         patient,
         False,
+    )
+
+    # All items match parent reference.
+    pat = self.builder('Patient')
+    self.assert_expression_result(
+        self.compile_expression(
+            'Patient', "address.city.all($this.matches('[a-zA-Z]* City'))"
+        ),
+        pat.address.city.all(pat.address.city.matches('[a-zA-Z]* City')),
+        patient,
+        True,
     )
 
     # All items match.

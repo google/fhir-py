@@ -359,6 +359,17 @@ class _MatchesFunction(_FhirPathFunctionStandardSqlEncoder):
     if operand_result is None:
       raise ValueError('matches() cannot be called without an operand.')
 
+    # If the input collection contains multiple items, the evaluation of the
+    # expression will end and signal an error to the calling environment.
+    # https://build.fhir.org/ig/HL7/FHIRPath/#matchesregex-string-boolean
+    if _fhir_path_data_types.is_collection(
+        function.parent_node().return_type()
+    ):
+      raise ValueError(
+          'matches() cannot be called on a collection type. '
+          'Must either be scalar or unnested with a function '
+          'like all()'
+      )
     sql_alias = 'matches_'
     sql_data_type = _sql_data_types.Boolean
 

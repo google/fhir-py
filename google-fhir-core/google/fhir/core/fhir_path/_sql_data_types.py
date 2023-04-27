@@ -737,11 +737,11 @@ def coerce(
     The resulting coerced datatype, if successful.
 
   Raises:
-    TypeError: In the event that coercion is not supported.
-    ValueError: In the event that a coercion cycle is detected.
+    ValueError: In the event that a coercion cycle is detected or coercion is
+      not supported.
   """
   if not is_coercible(lhs, rhs):
-    raise TypeError(
+    raise ValueError(
         f'Unsupported Standard SQL coercion between {lhs} and {rhs}.'
     )
 

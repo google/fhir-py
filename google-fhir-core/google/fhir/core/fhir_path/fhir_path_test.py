@@ -21,7 +21,6 @@ import unittest.mock
 
 from google.cloud import bigquery
 
-from google.protobuf import message
 from absl.testing import absltest
 from absl.testing import parameterized
 from google.fhir.core.proto import fhirpath_replacement_list_pb2
@@ -34,6 +33,7 @@ from google.fhir.core import fhir_errors
 # TODO(b/268404151): Remove copybara once core/execution is supported.
 from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _structure_definitions as sdefs
+from google.fhir.core.fhir_path import context as context_lib
 from google.fhir.core.fhir_path import fhir_path
 from google.fhir.core.fhir_path import fhir_path_options
 from google.fhir.core.fhir_path import fhir_path_test_base
@@ -57,14 +57,14 @@ class FhirPathStandardSqlEncoderTest(
 
   def assertEvaluationNodeSqlCorrect(
       self,
-      structdef: message.Message,
+      structdef_name: str,
       fhir_path_expression: str,
       expected_sql_expression: str,
       select_scalars_as_array: bool = True,
       check_elm_nodes: bool = False,
       **bq_interpreter_args,
   ) -> None:
-    builder = self.create_builder_from_str(structdef, fhir_path_expression)
+    builder = self.create_builder_from_str(structdef_name, fhir_path_expression)
 
     actual_sql_expression = _bigquery_interpreter.BigQuerySqlInterpreter(
         **bq_interpreter_args
@@ -75,7 +75,7 @@ class FhirPathStandardSqlEncoderTest(
   def testElementDefs_inBuilder(self):
     """Tests passing element defs to children identifiers."""
     fhir_path_expression = 'bar.bats.struct.value'
-    builder = self.create_builder_from_str(self.foo, fhir_path_expression)
+    builder = self.create_builder_from_str('Foo', fhir_path_expression)
 
     expected_element_def = sdefs.build_element_definition(
         id_='Struct.value',
@@ -89,7 +89,7 @@ class FhirPathStandardSqlEncoderTest(
   def testElementDefs_notInBuilder(self):
     """Tests that element defs will not exist if a function is called on the builder."""
     fhir_path_expression = 'bar.bats.struct'
-    builder = self.create_builder_from_str(self.foo, fhir_path_expression)
+    builder = self.create_builder_from_str('Foo', fhir_path_expression)
     expected_element_def = sdefs.build_element_definition(
         id_='Struct',
         type_codes=None,
@@ -474,7 +474,7 @@ class FhirPathStandardSqlEncoderTest(
       check_elm_nodes: bool = True,
   ):
     self.assertEvaluationNodeSqlCorrect(
-        None,
+        'Foo',
         fhir_path_expression,
         expected_sql_expression,
         check_elm_nodes=check_elm_nodes,
@@ -486,7 +486,7 @@ class FhirPathStandardSqlEncoderTest(
     fhir_path_expression = 'true'
     expected_sql_expression = '(SELECT TRUE AS literal_)'
     self.assertEvaluationNodeSqlCorrect(
-        structdef=self.foo,
+        structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
         select_scalars_as_array=False,
@@ -515,7 +515,7 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.foo,
+        'Foo',
         fhir_path_expression,
         expected_sql_expression,
         select_scalars_as_array=False,
@@ -669,7 +669,7 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        None,
+        'Foo',
         fhir_path_expression,
         expected_sql_expression,
         check_elm_nodes=True,
@@ -771,7 +771,7 @@ class FhirPathStandardSqlEncoderTest(
       )
       self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.foo,
+        'Foo',
         fhir_path_expression,
         expected_sql_expression,
         check_elm_nodes=check_elm_nodes,
@@ -844,7 +844,7 @@ class FhirPathStandardSqlEncoderTest(
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     if not different_from_v2:
       self.assertEvaluationNodeSqlCorrect(
-          None, fhir_path_expression, expected_sql_expression
+          'Foo', fhir_path_expression, expected_sql_expression
       )
 
   @parameterized.named_parameters(
@@ -915,7 +915,7 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.div, fhir_path_expression, expected_sql_expression
+        'Div', fhir_path_expression, expected_sql_expression
     )
 
   @parameterized.named_parameters(
@@ -948,7 +948,7 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        None, fhir_path_expression, expected_sql_expression
+        'Foo', fhir_path_expression, expected_sql_expression
     )
 
   @parameterized.named_parameters(
@@ -1003,7 +1003,7 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.foo, fhir_path_expression, expected_sql_expression
+        'Foo', fhir_path_expression, expected_sql_expression
     )
 
   @parameterized.named_parameters(
@@ -1098,7 +1098,7 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        None, fhir_path_expression, expected_sql_expression
+        'Foo', fhir_path_expression, expected_sql_expression
     )
 
   @parameterized.named_parameters(
@@ -1149,7 +1149,7 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.foo, fhir_path_expression, expected_sql_expression
+        'Foo', fhir_path_expression, expected_sql_expression
     )
 
   @parameterized.named_parameters(
@@ -1177,7 +1177,7 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.foo, fhir_path_expression, expected_sql_expression
+        'Foo', fhir_path_expression, expected_sql_expression
     )
 
   @parameterized.named_parameters(
@@ -1204,7 +1204,7 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression=fhir_path_expression,
       )
 
-    builder = self.create_builder_from_str(self.foo, fhir_path_expression)
+    builder = self.create_builder_from_str('Foo', fhir_path_expression)
     with self.assertRaises(ValueError):
       _bigquery_interpreter.BigQuerySqlInterpreter().encode(builder)
 
@@ -1230,7 +1230,7 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.foo, fhir_path_expression, expected_sql_expression
+        'Foo', fhir_path_expression, expected_sql_expression
     )
 
   @parameterized.named_parameters(
@@ -1331,7 +1331,7 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.foo,
+        'Foo',
         fhir_path_expression,
         expected_sql_expression,
         check_elm_nodes=check_elm_nodes,
@@ -1434,6 +1434,21 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
           FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset)
           WHERE ofType_ IS NOT NULL) AS exists_)"""),
+      ),
+      dict(
+          testcase_name='_ArrayMatchsAll',
+          fhir_path_expression="inline.numbers.all($this.matches('regex'))",
+          select_scalars_as_array=False,
+          expected_sql_expression=textwrap.dedent(
+              """\
+              (SELECT IFNULL(
+              LOGICAL_AND(
+              IFNULL(
+              (SELECT REGEXP_CONTAINS(
+              numbers_element_, 'regex') AS all_), FALSE)), TRUE) AS all_
+              FROM (SELECT inline),
+              UNNEST(inline.numbers) AS numbers_element_ WITH OFFSET AS element_offset)"""
+          ),
       ),
       dict(
           testcase_name='_ArrayWithMessageChoice_andIdentifier',
@@ -1539,7 +1554,7 @@ class FhirPathStandardSqlEncoderTest(
     if not only_works_in_v2:
       self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.foo, fhir_path_expression, expected_sql_expression, **kwargs
+        'Foo', fhir_path_expression, expected_sql_expression, **kwargs
     )
 
   @parameterized.named_parameters(
@@ -1584,7 +1599,7 @@ class FhirPathStandardSqlEncoderTest(
 
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.foo, fhir_path_expression, expected_sql_expression
+        'Foo', fhir_path_expression, expected_sql_expression
     )
 
   def testEncode_ToIntegerValidation_withParamsProvided_raisesError(self):
@@ -1596,7 +1611,7 @@ class FhirPathStandardSqlEncoderTest(
       )
 
     with self.assertRaises(ValueError):
-      self.create_builder_from_str(self.foo, 'bat.struct.value.toInteger(123)')
+      self.create_builder_from_str('Foo', 'bat.struct.value.toInteger(123)')
 
   @parameterized.named_parameters(
       dict(
@@ -1616,7 +1631,7 @@ class FhirPathStandardSqlEncoderTest(
 
   def testEncode_withUnsupportedExistsParameter(self):
     builder = self.create_builder_from_str(
-        self.foo, 'bar.bats.struct.exists(true)'
+        'Foo', 'bar.bats.struct.exists(true)'
     )
     with self.assertRaisesRegex(ValueError, 'Unsupported FHIRPath expression'):
       _bigquery_interpreter.BigQuerySqlInterpreter().encode(
@@ -1711,7 +1726,7 @@ class FhirPathStandardSqlEncoderTest(
       self.assertEqual(actual_sql_expression, expected_sql_expression)
 
     self.assertEvaluationNodeSqlCorrect(
-        self.foo, fhir_path_expression, expected_sql_expression
+        'Foo', fhir_path_expression, expected_sql_expression
     )
 
   @parameterized.named_parameters(
@@ -2129,7 +2144,7 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        self.foo,
+        'Foo',
         fhir_path_expression,
         expected_sql_expression,
         value_set_codes_table='VALUESET_VIEW',
@@ -2238,7 +2253,7 @@ class FhirPathStandardSqlEncoderTest(
     self.assertEqual(actual_sql_expression, expected_sql_expression)
 
     self.assertEvaluationNodeSqlCorrect(
-        self.foo,
+        'Foo',
         fhir_path_expression,
         expected_sql_expression,
         # Build a mock package manager which returns resources for the value
@@ -2562,7 +2577,7 @@ class FhirPathStandardSqlEncoderTest(
     if not different_in_v2:
       expected_sql_expression_v2 = expected_sql_expression
     self.assertEvaluationNodeSqlCorrect(
-        self.foo, fhir_path_expression, expected_sql_expression_v2
+        'Foo', fhir_path_expression, expected_sql_expression_v2
     )
 
   @parameterized.named_parameters(
@@ -2611,6 +2626,10 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression='bar.bats = bar.bats.struct',
       ),
       dict(
+          testcase_name='_withMatchesFunctionAndRepeatedOperand',
+          fhir_path_expression="bar.bats.matches('[a-zA-Z0-9]*')",
+      ),
+      dict(
           testcase_name='_withInvalidEqualityBetweenStructLiteral',
           fhir_path_expression='bar.bats = 2',
       ),
@@ -2642,10 +2661,11 @@ class FhirPathStandardSqlEncoderTest(
       dict(
           testcase_name='_withReferenceTypeLackingIdFor',
           fhir_path_expression='ref',
+          only_v1=True,
       ),
   )
   def testEncode_withUnsupportedFhirPathExpression_raisesTypeError(
-      self, fhir_path_expression: str
+      self, fhir_path_expression: str, only_v1: bool = False
   ):
     """Tests FHIRPath expressions that are unsupported for Standard SQL."""
     with self.assertRaises(TypeError) as te:
@@ -2656,6 +2676,95 @@ class FhirPathStandardSqlEncoderTest(
       )
     self.assertIsInstance(te.exception, TypeError)
 
+    if only_v1:
+      return
+
+    # V2 test
+    with self.assertRaises(ValueError) as te:
+      builder = self.create_builder_from_str('Foo', fhir_path_expression)
+      _ = _bigquery_interpreter.BigQuerySqlInterpreter().encode(builder)
+    self.assertIsInstance(te.exception, ValueError)
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='_withAllAndMatches',
+          invalid_fhir_path_expression="stringList.matches('regex')",
+          fhir_path_expression="stringList.all($this.matches('regex'))",
+          expected_sql_expression=textwrap.dedent("""\
+            ARRAY(SELECT all_
+            FROM (SELECT IFNULL(
+            LOGICAL_AND(
+            IFNULL(
+            (SELECT REGEXP_CONTAINS(
+            stringList_element_, 'regex') AS all_), FALSE)), TRUE) AS all_
+            FROM UNNEST(stringList) AS stringList_element_ WITH OFFSET AS element_offset)
+            WHERE all_ IS NOT NULL)"""),
+      ),
+      dict(
+          testcase_name='_withAllNestedArithmeticLogic',
+          invalid_fhir_path_expression='inline.numbers + 3 > 4',
+          fhir_path_expression='inline.numbers.all($this + 3 > 4)',
+          expected_sql_expression=textwrap.dedent("""\
+            ARRAY(SELECT all_
+            FROM (SELECT IFNULL(
+            LOGICAL_AND(
+            IFNULL(
+            (SELECT ((numbers_element_ + 3) > 4) AS all_), FALSE)), TRUE) AS all_
+            FROM (SELECT inline),
+            UNNEST(inline.numbers) AS numbers_element_ WITH OFFSET AS element_offset)
+            WHERE all_ IS NOT NULL)"""),
+      ),
+      dict(
+          testcase_name='_withWhereAndMemberOf',
+          invalid_fhir_path_expression=(
+              "codingList.memberOf('http://value.set/id'))"
+          ),
+          fhir_path_expression=(
+              "codingList.where($this.memberOf('http://value.set/id'))"
+          ),
+          expected_sql_expression=textwrap.dedent("""\
+            ARRAY(SELECT codingList_element_
+            FROM (SELECT codingList_element_
+            FROM UNNEST(codingList) AS codingList_element_ WITH OFFSET AS element_offset
+            WHERE (SELECT matches.element_offset IS NOT NULL AS memberof_
+            FROM (SELECT element_offset
+            FROM None) AS all_
+            LEFT JOIN (SELECT element_offset
+            FROM UNNEST(ARRAY(SELECT element_offset FROM (
+            SELECT element_offset
+            FROM None
+            INNER JOIN `VALUESET_VIEW` vs ON
+            vs.valueseturi='http://value.set/id'
+            AND vs.system=codingList_element_.system
+            AND vs.code=codingList_element_.code
+            ))) AS element_offset
+            ) AS matches
+            ON all_.element_offset=matches.element_offset
+            ORDER BY all_.element_offset))
+            WHERE codingList_element_ IS NOT NULL)"""),
+      ),
+  )
+  def testEncode_withArray_succeeds(
+      self,
+      invalid_fhir_path_expression: str,
+      fhir_path_expression: str,
+      expected_sql_expression: str,
+  ):
+    # V2 test
+    with self.assertRaises(ValueError) as te:
+      builder = self.create_builder_from_str(
+          'Foo', invalid_fhir_path_expression
+      )
+      _ = _bigquery_interpreter.BigQuerySqlInterpreter().encode(builder)
+    self.assertIsInstance(te.exception, ValueError)
+
+    self.assertEvaluationNodeSqlCorrect(
+        'Foo',
+        fhir_path_expression,
+        expected_sql_expression,
+        value_set_codes_table='VALUESET_VIEW',
+    )
+
   @parameterized.named_parameters(
       dict(
           testcase_name='_withWhereFunctionAndNoCriteria',
@@ -2664,10 +2773,6 @@ class FhirPathStandardSqlEncoderTest(
       dict(
           testcase_name='_withWhereFunctionAndNonBoolCriteria',
           fhir_path_expression='bat.struct.where(value)',
-      ),
-      dict(
-          testcase_name='_withMatchesFunctionAndRepeatedOperand',
-          fhir_path_expression="bar.bats.matches('*')",
       ),
       dict(
           testcase_name='_withAllFunctionAndNoCriteria',
@@ -2703,6 +2808,11 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression=fhir_path_expression,
       )
     self.assertIsInstance(te.exception, TypeError)
+
+    # V2 test
+    with self.assertRaises(ValueError) as te:
+      _ = self.create_builder_from_str('Foo', fhir_path_expression)
+    self.assertIsInstance(te.exception, ValueError)
 
   @parameterized.named_parameters(
       dict(
@@ -2817,6 +2927,11 @@ class FhirPathStandardSqlEncoderTest(
       )
     self.assertIsInstance(ve.exception, ValueError)
 
+    # V2 test
+    with self.assertRaises(ValueError) as te:
+      _ = self.create_builder_from_str('Foo', fhir_path_expression)
+    self.assertIsInstance(te.exception, ValueError)
+
   @parameterized.named_parameters(
       dict(
           testcase_name='_withInvalidInvocationInternalExpression',
@@ -2842,6 +2957,11 @@ class FhirPathStandardSqlEncoderTest(
       )
     self.assertIsInstance(ve.exception, ValueError)
 
+    # V2 test
+    with self.assertRaises(ValueError) as te:
+      _ = self.create_builder_from_str('Foo', fhir_path_expression)
+    self.assertIsInstance(te.exception, ValueError)
+
   @parameterized.named_parameters(
       dict(
           testcase_name='_withWhereFunctionAndNoCriteria',
@@ -2853,7 +2973,7 @@ class FhirPathStandardSqlEncoderTest(
       ),
       dict(
           testcase_name='_withMatchesFunctionAndRepeatedOperand',
-          fhir_path_expression="bar.bats.matches('*')",
+          fhir_path_expression="bar.bats.matches('regex')",
       ),
       dict(
           testcase_name='_withMemberOfFunctionAndNoValueSet',
@@ -2937,7 +3057,16 @@ class FhirPathStandardSqlEncoderTest(
           element_definition=root,
           fhir_path_expression='bar.exists()',
       )
+
     self.assertIsInstance(ve.exception, ValueError)
+
+    # V2 test
+    mock_context = context_lib.MockFhirPathContext([resource])
+    with self.assertRaises(ValueError) as te:
+      _ = self.create_builder_from_str(
+          'Foo', 'bar.exists()', fhir_context=mock_context
+      )
+    self.assertIsInstance(te.exception, ValueError)
 
   def testEncode_withInlineProfiledElement_succeeds(self):
     """Creates a simple one-off resource graph with an inline profile.
