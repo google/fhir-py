@@ -539,6 +539,9 @@ class FhirProfileStandardSqlEncoder:
       A list of `SqlRequirement`s expressing FHIRPath constraints defined on the
       `element_definition` and `builder` if applicable.
     """
+    if _utils.is_slice_but_not_on_extension(element_definition):
+      return []
+
     result: List[validation_pb2.SqlRequirement] = []
     constraints: List[Constraint] = cast(Any, element_definition).constraint
     root_constraints: List[Constraint] = []
@@ -680,22 +683,14 @@ class FhirProfileStandardSqlEncoder:
       return []
 
     encoded_requirements: List[validation_pb2.SqlRequirement] = []
-    children = builder.return_type.children()
-    for name, child_message in children.items():
-      child_builder = self._get_new_child_builder(builder, name)
-      if not child_builder:
+
+    # Sometimes a struct_def can specify requirements for their
+    # descendants, so we look through all descendant element
+    # definitions, not just the direct children.
+    for name, desc_message in builder.return_type.iter_all_descendants():
+      if _utils.is_slice_but_not_on_extension(desc_message):
         continue
 
-      requirement = self._encode_required_field(
-          name, builder, child_builder, child_message
-      )
-      if requirement:
-        encoded_requirements.append(requirement)
-
-    # Sometimes a struct_def can specify requirements for their descendants.
-    # Encode them as a part of its children.
-    required_descendants = builder.return_type.required_descendants
-    for name, desc_message in required_descendants:
       containing_type_builder = builder
       child_builder = containing_type_builder
       paths = name.split('.')
@@ -813,7 +808,7 @@ class FhirProfileStandardSqlEncoder:
     return requirement
 
   def _encode_choice_type_exclusivity(
-      self, builder: expressions.Builder
+      self, builder: expressions.Builder, element_definition: ElementDefinition
   ) -> List[validation_pb2.SqlRequirement]:
     """Encodes a constraint ensuring the choice type has only one value set.
 
@@ -823,12 +818,17 @@ class FhirProfileStandardSqlEncoder:
 
     Args:
       builder: The builder representing a path to a choice type.
+      element_definition: The element definition describing the field referenced
+        by the `builder`.
 
     Returns:
       An empty sequence if `builder` is not a path to a choice type or the
       constraint can not be encoded for other reasons. Otherwise, a sequence
       containing a single `SqlRequirement` for the choice type.
     """
+    if _utils.is_slice_but_not_on_extension(element_definition):
+      return []
+
     # Ensure this is a choice type.
     if not builder.return_type.returns_polymorphic():
       return []
@@ -899,6 +899,9 @@ class FhirProfileStandardSqlEncoder:
       A constraint enforcing the above requirements for the given reference
       type.
     """
+    if _utils.is_slice_but_not_on_extension(elem):
+      return []
+
     field_name = _last_path_token(builder)
     constraint_key = f'{field_name}-resource-type-exclusivity'
     if constraint_key in self._options.skip_keys:
@@ -1007,7 +1010,7 @@ class FhirProfileStandardSqlEncoder:
     )  # maybe memoize this.
 
     # Get the value element from the slice's children.
-    value_element = slice_builder.return_type.children().get('value')
+    value_element = slice_builder.return_type.child_defs.get('value')
 
     if value_element is None or _is_disabled(value_element):
       # At this point, the current element is a slice on an extension that has
@@ -1141,8 +1144,10 @@ class FhirProfileStandardSqlEncoder:
       return []
 
     encoded_requirements: List[validation_pb2.SqlRequirement] = []
-    children = builder.return_type.children()
-    for name, child_message in children.items():
+    for name, child_message in builder.return_type.iter_children():
+      if _utils.is_slice_but_not_on_extension(child_message):
+        continue
+
       child = cast(Any, child_message)
 
       # TODO(b/190679571): Handle choice types, which may have more than one
@@ -1264,7 +1269,9 @@ class FhirProfileStandardSqlEncoder:
 
     result += self._encode_constraints(builder, parent_element_definition)
     result += self._encode_required_fields(builder)
-    result += self._encode_choice_type_exclusivity(builder)
+    result += self._encode_choice_type_exclusivity(
+        builder, parent_element_definition
+    )
 
     if self._options.add_primitive_regexes:
       result += self._encode_primitive_regexes(builder)
@@ -1287,7 +1294,7 @@ class FhirProfileStandardSqlEncoder:
       ):
         return result
 
-      for child, elem in struct_type.children().items():
+      for child, elem in struct_type.iter_children():
         # TODO(b/200575760): Add support for more complicated fields
         if (
             ':' in child
@@ -1309,11 +1316,16 @@ class FhirProfileStandardSqlEncoder:
           # Early-exit if Root element definition of child is None.
           return result
 
-        if isinstance(
+        # Avoid recursing into slices on structure definitions, as we
+        # will have already visited its structure definition when
+        # visiting the element definition for the field being sliced.
+        is_slice = _utils.is_slice_but_not_on_extension(elem)
+        is_struct_def = isinstance(
             new_builder.return_type, _fhir_path_data_types.StructureDataType
-        ):
+        )
+        if not is_slice and is_struct_def:
           result += self._encode_structure_definition(new_builder, elem)
-        else:
+        elif not is_struct_def:
           result += self._encode_element_definition_of_builder(
               new_builder, elem
           )
@@ -1324,6 +1336,9 @@ class FhirProfileStandardSqlEncoder:
       self, builder: expressions.Builder, element_definition: ElementDefinition
   ) -> List[validation_pb2.SqlRequirement]:
     """Encode .memberOf calls implied by elements bound to value sets."""
+    if _utils.is_slice_but_not_on_extension(element_definition):
+      return []
+
     if isinstance(
         builder.return_type, _fhir_path_data_types.PolymorphicDataType
     ):

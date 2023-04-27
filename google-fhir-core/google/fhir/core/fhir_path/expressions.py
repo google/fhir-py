@@ -705,7 +705,7 @@ class Builder:
 
     children = cast(
         _fhir_path_data_types.StructureDataType, node_type
-    ).children()
+    ).child_defs
     choice_fields = collections.defaultdict(list)
     for name, elem_def in children.items():
       # Include field and type codes for choice types (fields with > 1 type),

@@ -247,10 +247,10 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       return possible_types[json_name.casefold()]
 
     if isinstance(parent, _fhir_path_data_types.StructureDataType):
-      elem = parent.children().get(json_name)
+      elem = parent.child_defs.get(json_name)
       if elem is None:
         raise ValueError(
-            f'Identifier {json_name} not in {parent.children().keys()}'
+            f'Identifier {json_name} not in {parent.child_defs.keys()}'
         )
       return self.fhir_data_type_generator(elem, json_name, parent)
     else:

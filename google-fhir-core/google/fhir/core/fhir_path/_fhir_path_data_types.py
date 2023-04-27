@@ -23,9 +23,10 @@ provided by the caller.
 import abc
 import copy
 import enum
+import itertools
 import re
 
-from typing import Any, Dict, Optional, Sequence, Set, Tuple, cast, Collection as CollectionType
+from typing import Any, Dict, Iterable, Mapping, Optional, Set, Tuple, cast, Collection as CollectionType
 from google.protobuf import message
 from google.fhir.core.fhir_path import _utils
 
@@ -105,6 +106,9 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
     supported_coercion: A set of `FhirPathDataType`s depicting allowable
       implicit conversion.
     url: The canonical URL reference to the data type.
+    child_defs: A mapping of name to element definition for each child element
+      of the structure definition, including slices on extension. Empty for
+      other data types.
   """
 
   _cardinality: Cardinality = Cardinality.SCALAR
@@ -167,7 +171,8 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
   def fields(self) -> Set[str]:
     return set()
 
-  def children(self) -> Dict[str, message.Message]:
+  @property
+  def child_defs(self) -> Mapping[str, message.Message]:
     return {}
 
   @property
@@ -566,11 +571,10 @@ class StructureDataType(FhirPathDataType):
         else self._element_type
     )
 
-    # Store the children elements of the structdef.
-    self._children = {}
-    # If there are specified descendants of the structdef then save them as
-    # well.
-    self._required_descendants = []
+    self._child_defs = {}
+    self._direct_children = []
+    self._other_descendants = []
+
     for elem in self._struct_def.snapshot.element:
       is_slice = _utils.is_slice_element(elem)
       is_slice_on_extension = _utils.is_slice_on_extension(elem)
@@ -605,13 +609,16 @@ class StructureDataType(FhirPathDataType):
         # dictionary.
         direct_child = '.' not in relative_path
         if (not is_slice or is_slice_on_extension) and direct_child:
-          assert relative_path not in self._children, (
+          assert relative_path not in self.child_defs, (
               f'{relative_path} found twice among children in structure'
               f' definition {self._struct_def.url.value}'
           )
-          self._children[relative_path] = elem
-        elif not direct_child:
-          self._required_descendants.append((relative_path, elem))
+          self._child_defs[relative_path] = elem
+
+        if direct_child:
+          self._direct_children.append((relative_path, elem))
+        else:
+          self._other_descendants.append((relative_path, elem))
 
     if not self._root_element_definition:
       raise ValueError(
@@ -631,14 +638,27 @@ class StructureDataType(FhirPathDataType):
     return f'<StructureFhirPathDataType(url={self.url})>'
 
   def fields(self) -> Set[str]:
-    return set(self._children.keys())
-
-  def children(self) -> Dict[str, message.Message]:
-    return self._children
+    return set(self._child_defs.keys())
 
   @property
-  def required_descendants(self) -> Sequence[Tuple[str, message.Message]]:
-    return self._required_descendants
+  def child_defs(self) -> Mapping[str, message.Message]:
+    return self._child_defs
+
+  def iter_children(self) -> Iterable[Tuple[str, message.Message]]:
+    """Returns an iterator over all direct child element definitions.
+
+    Contains all entries in `child_defs`, as well as additional element
+    definitions for slices.
+    """
+    return iter(self._direct_children)
+
+  def iter_all_descendants(self) -> Iterable[Tuple[str, message.Message]]:
+    """Returns an iterator over all element definitions.
+
+    Contains all entries in `iter_children`, as well as additional element
+    definitions for elements describing descendants deepr than direct children.
+    """
+    return itertools.chain(self._direct_children, self._other_descendants)
 
 
 class QuantityStructureDataType(StructureDataType, _Quantity):

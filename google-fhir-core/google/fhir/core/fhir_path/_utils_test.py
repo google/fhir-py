@@ -159,6 +159,41 @@ class IsSliceOnExtensionElementTest(parameterized.TestCase):
     self.assertEqual(_utils.is_slice_on_extension(element), expected)
 
 
+class IsSliceButNotOnExtensionElementTest(parameterized.TestCase):
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='_withSliceOnExtensionElement',
+          element=sdefs.build_element_definition(
+              id_='Foo.extension:slice',
+              type_codes=['Extension'],
+              cardinality=sdefs.Cardinality(min=0, max='1'),
+          ),
+          expected=False,
+      ),
+      dict(
+          testcase_name='_withNonSlice',
+          element=sdefs.build_element_definition(
+              id_='Foo.nonSlice',
+              type_codes=['string'],
+              cardinality=sdefs.Cardinality(min=0, max='1'),
+          ),
+          expected=False,
+      ),
+      dict(
+          testcase_name='_withSliceOnNonExtensionElement',
+          element=sdefs.build_element_definition(
+              id_='Observation.code:loinc',
+              type_codes=['Code'],
+              cardinality=sdefs.Cardinality(min=0, max='1'),
+          ),
+          expected=True,
+      ),
+  )
+  def testIsSliceButNotOnExtensionElement_succeeds(self, element, expected):
+    self.assertEqual(_utils.is_slice_but_not_on_extension(element), expected)
+
+
 class IsRecursiveElementTest(absltest.TestCase):
 
   def testRecursiveElement_returnsTrue_withRecursiveElement(self):

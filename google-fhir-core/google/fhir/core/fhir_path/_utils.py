@@ -127,6 +127,19 @@ def is_slice_element(element_definition: message.Message) -> bool:
   return ':' in id_value
 
 
+def is_slice_but_not_on_extension(
+    element_definition: message.Message,
+) -> bool:
+  """Returns `True` if the `element_definition` is a slice not on extension.
+
+  Args:
+    element_definition: The element definition that we are checking.
+  """
+  return is_slice_element(element_definition) and not is_slice_on_extension(
+      element_definition
+  )
+
+
 def is_recursive_element(element_definition: message.Message) -> bool:
   """Returns `True` if the `element_definition` describes a recursive element.
 
