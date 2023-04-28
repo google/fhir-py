@@ -103,7 +103,7 @@ def valueset_codes_insert_statement_for(
     codes = sqlalchemy.union_all(*code_literals).alias('codes')
     # Filter the codes to those not already present in `table` with a LEFT JOIN.
     new_codes = (
-        sqlalchemy.select((codes,))
+        sqlalchemy.select(codes)
         .select_from(
             codes.outerjoin(
                 table,
@@ -124,7 +124,7 @@ def valueset_codes_insert_statement_for(
             )
         )
     )
-    yield table.insert().from_select(new_codes.columns, new_codes)
+    yield table.insert().from_select(new_codes.subquery().columns, new_codes)
 
 
 def get_num_code_systems_per_value_set(
@@ -195,12 +195,12 @@ def _code_as_select_literal(
     code: value_set_pb2.ValueSet.Expansion.Contains,
 ) -> sqlalchemy.select:
   """Builds a SELECT statement for the literals in the given code."""
-  return sqlalchemy.select((
+  return sqlalchemy.select(
       _literal_or_null(value_set.url.value).label('valueseturi'),
       _literal_or_null(value_set.version.value).label('valuesetversion'),
       _literal_or_null(code.system.value).label('system'),
       _literal_or_null(code.code.value).label('code'),
-  ))
+  )
 
 
 def _literal_or_null(val: str) -> sqlalchemy.sql.elements.ColumnElement:

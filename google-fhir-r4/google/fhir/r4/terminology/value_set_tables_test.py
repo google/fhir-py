@@ -164,8 +164,8 @@ class ValueSetsTest(absltest.TestCase):
   def testGeNumCodeSystemsPerValueSet_withQueryResults_returnsCorrectCounts(
       self,
   ):
-    # Construct named tuples to act in the place of SQLAlchemy RowProxy objects.
-    # RowProxy objects are quite similar to named tuples.
+    # Construct named tuples to act in the place of SQLAlchemy Row objects.
+    # Row objects are quite similar to named tuples.
     Row = collections.namedtuple(
         'Row', ['valueseturi', 'valuesetversion', 'systems']
     )
