@@ -131,7 +131,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
     )
     _ = self.visit(ast, walker=walker)
 
-  def visit_literal(
+  def visit_literal(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self, literal: _ast.Literal,
       walker: _navigation.FhirStructureDefinitionWalker
   ) -> _fhir_path_data_types.FhirPathDataType:
@@ -162,7 +162,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
 
   # TODO(b/190679571): Handle choice types, which may have more than one
   # `type.code` value present.
-  def visit_identifier(
+  def visit_identifier(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self, identifier: _ast.Identifier,
       walker: _navigation.FhirStructureDefinitionWalker
   ) -> _fhir_path_data_types.FhirPathDataType:
@@ -205,7 +205,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
 
   # TODO(b/215533268): Add support in semant.py's visit_indexer for multiple
   # types.
-  def visit_indexer(
+  def visit_indexer(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self, indexer: _ast.Indexer,
       walker: _navigation.FhirStructureDefinitionWalker
   ) -> _fhir_path_data_types.FhirPathDataType:
@@ -253,7 +253,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
 
     return _set_and_return_type(indexer, subject_type)
 
-  def visit_arithmetic(
+  def visit_arithmetic(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self, arithmetic: _ast.Arithmetic,
       walker: _navigation.FhirStructureDefinitionWalker
   ) -> _fhir_path_data_types.FhirPathDataType:
@@ -299,7 +299,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
     return _set_and_return_type(arithmetic, _fhir_path_data_types.Empty)
 
   # TODO(b/210038841): Add support for non-primitive types such as Quantity.
-  def visit_type_expression(
+  def visit_type_expression(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self, type_expression: _ast.TypeExpression,
       walker: _navigation.FhirStructureDefinitionWalker
   ) -> _fhir_path_data_types.FhirPathDataType:
@@ -351,7 +351,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
           f'... {type_expression.op} ...')
       return _set_and_return_type(type_expression, _fhir_path_data_types.Empty)
 
-  def visit_equality(
+  def visit_equality(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self, equality: _ast.EqualityRelation,
       walker: _navigation.FhirStructureDefinitionWalker
   ) -> _fhir_path_data_types.FhirPathDataType:
@@ -408,7 +408,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
         f'{equality.op} {rhs}.')
     return _set_and_return_type(equality, _fhir_path_data_types.Empty)
 
-  def visit_comparison(
+  def visit_comparison(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self, comparison: _ast.Comparison,
       walker: _navigation.FhirStructureDefinitionWalker
   ) -> _fhir_path_data_types.FhirPathDataType:
@@ -475,7 +475,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
         f' {comparison.op} {rhs}.')
     return _set_and_return_type(comparison, _fhir_path_data_types.Empty)
 
-  def visit_boolean_logic(
+  def visit_boolean_logic(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self, boolean_logic: _ast.BooleanLogic,
       walker: _navigation.FhirStructureDefinitionWalker
   ) -> _fhir_path_data_types.FhirPathDataType:
@@ -531,7 +531,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
     # https://hl7.org/fhirpath/#boolean-logic at runtime.
     return _set_and_return_type(boolean_logic, _fhir_path_data_types.Boolean)
 
-  def visit_membership(
+  def visit_membership(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self, membership: _ast.MembershipRelation,
       walker: _navigation.FhirStructureDefinitionWalker
   ) -> _fhir_path_data_types.FhirPathDataType:
@@ -579,7 +579,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
 
     return _set_and_return_type(membership, _fhir_path_data_types.Boolean)
 
-  def visit_union(
+  def visit_union(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self, union: _ast.UnionOp,
       walker: _navigation.FhirStructureDefinitionWalker
   ) -> _fhir_path_data_types.FhirPathDataType:
@@ -619,7 +619,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
     return _set_and_return_type(
         union, _fhir_path_data_types.Collection(types=final_type_set))
 
-  def visit_polarity(
+  def visit_polarity(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self, polarity: _ast.Polarity,
       walker: _navigation.FhirStructureDefinitionWalker
   ) -> _fhir_path_data_types.FhirPathDataType:
@@ -646,7 +646,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
         f'Expected numeric operand but got: {polarity.op} {operand}.')
     return _set_and_return_type(polarity, _fhir_path_data_types.Empty)
 
-  def visit_invocation(
+  def visit_invocation(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self, invocation: _ast.Invocation,
       walker: _navigation.FhirStructureDefinitionWalker
   ) -> _fhir_path_data_types.FhirPathDataType:
@@ -716,7 +716,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
         f' in the context of leading expression: {invocation.lhs!r}.')
     return _set_and_return_type(invocation, _fhir_path_data_types.Empty)
 
-  def visit_function(
+  def visit_function(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self,
       function: _ast.Function,
       walker: _navigation.FhirStructureDefinitionWalker,
