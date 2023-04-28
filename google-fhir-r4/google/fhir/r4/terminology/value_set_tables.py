@@ -30,7 +30,8 @@ from google.fhir.r4.proto.core.resources import value_set_pb2
 def valueset_codes_insert_statement_for(
     expanded_value_sets: Iterable[value_set_pb2.ValueSet],
     table: sqlalchemy.sql.expression.TableClause,
-    batch_size: int = 500) -> Iterable[sqlalchemy.sql.dml.Insert]:
+    batch_size: int = 500,
+) -> Iterable[sqlalchemy.sql.dml.Insert]:
   """Builds INSERT statements for placing value sets' codes into a given table.
 
   The INSERT may be used to build a valueset_codes table as described by:
@@ -62,16 +63,26 @@ def valueset_codes_insert_statement_for(
   expected_cols = ('valueseturi', 'valuesetversion', 'system', 'code')
   missing_cols = [col for col in expected_cols if col not in table.columns]
   if missing_cols:
-    raise ValueError('Table %s missing expected columns: %s' %
-                     (table, ', '.join(missing_cols)))
+    raise ValueError(
+        'Table %s missing expected columns: %s'
+        % (table, ', '.join(missing_cols))
+    )
 
-  def value_set_codes() -> Iterable[Tuple[
-      value_set_pb2.ValueSet, value_set_pb2.ValueSet.Expansion.Contains]]:
+  def value_set_codes() -> (
+      Iterable[
+          Tuple[
+              value_set_pb2.ValueSet, value_set_pb2.ValueSet.Expansion.Contains
+          ]
+      ]
+  ):
     """Yields (value_set, code) tuples for each code in each value set."""
     for value_set in expanded_value_sets:
       if not value_set.expansion.contains:
-        logging.warning('Value set: %s version: %s has no expanded codes',
-                        value_set.url.value, value_set.version.value)
+        logging.warning(
+            'Value set: %s version: %s has no expanded codes',
+            value_set.url.value,
+            value_set.version.value,
+        )
       for code in value_set.expansion.contains:
         yield value_set, code
 
@@ -91,27 +102,35 @@ def valueset_codes_insert_statement_for(
     # UNION each SELECT to build a single select subquery for all codes.
     codes = sqlalchemy.union_all(*code_literals).alias('codes')
     # Filter the codes to those not already present in `table` with a LEFT JOIN.
-    new_codes = sqlalchemy.select((codes,)).select_from(
-        codes.outerjoin(
-            table,
-            sqlalchemy.and_(
-                codes.c.valueseturi == table.c.valueseturi,
-                codes.c.valuesetversion == table.c.valuesetversion,
-                codes.c.system == table.c.system,
-                codes.c.code == table.c.code,
-            ))).where(
+    new_codes = (
+        sqlalchemy.select((codes,))
+        .select_from(
+            codes.outerjoin(
+                table,
                 sqlalchemy.and_(
-                    table.c.valueseturi.is_(None),
-                    table.c.valuesetversion.is_(None),
-                    table.c.system.is_(None),
-                    table.c.code.is_(None),
-                ))
+                    codes.c.valueseturi == table.c.valueseturi,
+                    codes.c.valuesetversion == table.c.valuesetversion,
+                    codes.c.system == table.c.system,
+                    codes.c.code == table.c.code,
+                ),
+            )
+        )
+        .where(
+            sqlalchemy.and_(
+                table.c.valueseturi.is_(None),
+                table.c.valuesetversion.is_(None),
+                table.c.system.is_(None),
+                table.c.code.is_(None),
+            )
+        )
+    )
     yield table.insert().from_select(new_codes.columns, new_codes)
 
 
 def get_num_code_systems_per_value_set(
     engine: sqlalchemy.engine.base.Engine,
-    table: sqlalchemy.sql.expression.TableClause) -> Dict[str, int]:
+    table: sqlalchemy.sql.expression.TableClause,
+) -> Dict[str, int]:
   """Queries `table` for the code systems referenced by each value set.
 
   Looks up the code systems referenced by each value set decribed in the
@@ -133,13 +152,15 @@ def get_num_code_systems_per_value_set(
   query = sqlalchemy.select([
       table.c.valueseturi,
       table.c.valuesetversion,
-      sqlalchemy.func.array_agg(sqlalchemy.distinct(
-          table.c.system)).label('systems'),
+      sqlalchemy.func.array_agg(sqlalchemy.distinct(table.c.system)).label(
+          'systems'
+      ),
   ]).group_by(table.c.valueseturi, table.c.valuesetversion)
   with engine.connect() as connection:
     systems_per_value_set = connection.execute(query)
     return _query_results_to_code_system_counts(
-        systems_per_value_set.fetchall())
+        systems_per_value_set.fetchall()
+    )
 
 
 def _query_results_to_code_system_counts(
@@ -150,8 +171,9 @@ def _query_results_to_code_system_counts(
   systems_per_value_set: Dict[str, Dict[str, Collection[str]]] = {}
   for row in query_results:
     value_set_version = row.valuesetversion or ''
-    systems_per_value_set.setdefault(row.valueseturi,
-                                     {})[value_set_version] = row.systems
+    systems_per_value_set.setdefault(row.valueseturi, {})[
+        value_set_version
+    ] = row.systems
 
   # Convert the above map to {value_set_url|version: num_codes_systems}
   # Rows without versions inherit code systems from all value sets with the same
@@ -163,13 +185,15 @@ def _query_results_to_code_system_counts(
         num_systems_per_url['%s|%s' % (value_set_url, version)] = len(systems)
       # Also add a lookup for the version-less URL.
       num_systems_per_url[value_set_url] = len(
-          set(itertools.chain.from_iterable(systems_per_version.values())))
+          set(itertools.chain.from_iterable(systems_per_version.values()))
+      )
   return num_systems_per_url
 
 
 def _code_as_select_literal(
     value_set: value_set_pb2.ValueSet,
-    code: value_set_pb2.ValueSet.Expansion.Contains) -> sqlalchemy.select:
+    code: value_set_pb2.ValueSet.Expansion.Contains,
+) -> sqlalchemy.select:
   """Builds a SELECT statement for the literals in the given code."""
   return sqlalchemy.select((
       _literal_or_null(value_set.url.value).label('valueseturi'),

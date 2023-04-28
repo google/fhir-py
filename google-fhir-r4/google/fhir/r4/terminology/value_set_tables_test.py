@@ -36,29 +36,30 @@ class ValueSetsTest(absltest.TestCase):
 
     table = build_valueset_codes_table()
 
-    result = value_set_tables.valueset_codes_insert_statement_for([value_set],
-                                                                  table)
+    result = value_set_tables.valueset_codes_insert_statement_for(
+        [value_set], table
+    )
     query = list(result)[0]
     query_string = str(query.compile(compile_kwargs={'literal_binds': True}))
-    self.assertEqual(query_string, (
-        'INSERT INTO valueset_codes (valueseturi, valuesetversion, system, code) '
-        'SELECT codes.valueseturi, codes.valuesetversion, codes.system, codes.code '
-        '\nFROM ('
-        "SELECT 'vs-url' AS valueseturi, 'vs-version' AS valuesetversion, 's1' AS system, 'c1' AS code "
-        'UNION ALL '
-        "SELECT 'vs-url' AS valueseturi, 'vs-version' AS valuesetversion, 's2' AS system, 'c2' AS code "
-        'UNION ALL '
-        "SELECT 'vs-url' AS valueseturi, 'vs-version' AS valuesetversion, 's3' AS system, 'c3' AS code"
-        ') AS codes '
-        'LEFT OUTER JOIN valueset_codes '
-        'ON codes.valueseturi = valueset_codes.valueseturi '
-        'AND codes.valuesetversion = valueset_codes.valuesetversion '
-        'AND codes.system = valueset_codes.system '
-        'AND codes.code = valueset_codes.code '
-        '\nWHERE valueset_codes.valueseturi IS NULL '
-        'AND valueset_codes.valuesetversion IS NULL '
-        'AND valueset_codes.system IS NULL '
-        'AND valueset_codes.code IS NULL'))
+    self.assertEqual(
+        query_string,
+        (
+            'INSERT INTO valueset_codes (valueseturi, valuesetversion, system,'
+            ' code) SELECT codes.valueseturi, codes.valuesetversion,'
+            " codes.system, codes.code \nFROM (SELECT 'vs-url' AS valueseturi,"
+            " 'vs-version' AS valuesetversion, 's1' AS system, 'c1' AS code"
+            " UNION ALL SELECT 'vs-url' AS valueseturi, 'vs-version' AS"
+            " valuesetversion, 's2' AS system, 'c2' AS code UNION ALL SELECT"
+            " 'vs-url' AS valueseturi, 'vs-version' AS valuesetversion, 's3' AS"
+            " system, 'c3' AS code) AS codes LEFT OUTER JOIN valueset_codes ON"
+            ' codes.valueseturi = valueset_codes.valueseturi AND'
+            ' codes.valuesetversion = valueset_codes.valuesetversion AND'
+            ' codes.system = valueset_codes.system AND codes.code ='
+            ' valueset_codes.code \nWHERE valueset_codes.valueseturi IS NULL'
+            ' AND valueset_codes.valuesetversion IS NULL AND'
+            ' valueset_codes.system IS NULL AND valueset_codes.code IS NULL'
+        ),
+    )
 
   def testValueSetToInsertStatement_withBatches_buildsBatchedInserts(self):
     value_set = value_set_pb2.ValueSet()
@@ -72,9 +73,9 @@ class ValueSetsTest(absltest.TestCase):
 
     table = build_valueset_codes_table()
 
-    result = value_set_tables.valueset_codes_insert_statement_for([value_set],
-                                                                  table,
-                                                                  batch_size=2)
+    result = value_set_tables.valueset_codes_insert_statement_for(
+        [value_set], table, batch_size=2
+    )
     expected_1 = (
         'INSERT INTO valueset_codes '
         '(valueseturi, valuesetversion, system, code) '
@@ -95,7 +96,8 @@ class ValueSetsTest(absltest.TestCase):
         '\nWHERE valueset_codes.valueseturi IS NULL '
         'AND valueset_codes.valuesetversion IS NULL '
         'AND valueset_codes.system IS NULL '
-        'AND valueset_codes.code IS NULL')
+        'AND valueset_codes.code IS NULL'
+    )
 
     expected_2 = (
         'INSERT INTO valueset_codes '
@@ -114,7 +116,8 @@ class ValueSetsTest(absltest.TestCase):
         '\nWHERE valueset_codes.valueseturi IS NULL '
         'AND valueset_codes.valuesetversion IS NULL '
         'AND valueset_codes.system IS NULL '
-        'AND valueset_codes.code IS NULL')
+        'AND valueset_codes.code IS NULL'
+    )
 
     result_queries = [
         str(query.compile(compile_kwargs={'literal_binds': True}))
@@ -131,32 +134,27 @@ class ValueSetsTest(absltest.TestCase):
 
     table = build_valueset_codes_table()
 
-    result = value_set_tables.valueset_codes_insert_statement_for([value_set],
-                                                                  table)
+    result = value_set_tables.valueset_codes_insert_statement_for(
+        [value_set], table
+    )
     query = list(result)[0]
     query_string = str(query.compile(compile_kwargs={'literal_binds': True}))
     self.assertEqual(
         query_string,
-        ('INSERT INTO valueset_codes '
-         '(valueseturi, valuesetversion, system, code) '
-         'SELECT '
-         'codes.valueseturi, codes.valuesetversion, codes.system, codes.code \n'
-         'FROM (SELECT '
-         "'vs-url' AS valueseturi, "
-         'NULL AS valuesetversion, '
-         'NULL AS system, '
-         "'code' AS code"
-         ') AS codes '
-         'LEFT OUTER JOIN valueset_codes ON '
-         'codes.valueseturi = valueset_codes.valueseturi AND '
-         'codes.valuesetversion = valueset_codes.valuesetversion AND '
-         'codes.system = valueset_codes.system AND '
-         'codes.code = valueset_codes.code \n'
-         'WHERE '
-         'valueset_codes.valueseturi IS NULL AND '
-         'valueset_codes.valuesetversion IS NULL AND '
-         'valueset_codes.system IS NULL AND '
-         'valueset_codes.code IS NULL'))
+        (
+            'INSERT INTO valueset_codes (valueseturi, valuesetversion, system,'
+            ' code) SELECT codes.valueseturi, codes.valuesetversion,'
+            " codes.system, codes.code \nFROM (SELECT 'vs-url' AS valueseturi,"
+            " NULL AS valuesetversion, NULL AS system, 'code' AS code) AS codes"
+            ' LEFT OUTER JOIN valueset_codes ON codes.valueseturi ='
+            ' valueset_codes.valueseturi AND codes.valuesetversion ='
+            ' valueset_codes.valuesetversion AND codes.system ='
+            ' valueset_codes.system AND codes.code = valueset_codes.code'
+            ' \nWHERE valueset_codes.valueseturi IS NULL AND'
+            ' valueset_codes.valuesetversion IS NULL AND valueset_codes.system'
+            ' IS NULL AND valueset_codes.code IS NULL'
+        ),
+    )
 
   def testValueSetToInsertStatement_withBadTable_raisesError(self):
     table = sqlalchemy.table('missing_columns')
@@ -164,11 +162,13 @@ class ValueSetsTest(absltest.TestCase):
       list(value_set_tables.valueset_codes_insert_statement_for([], table))
 
   def testGeNumCodeSystemsPerValueSet_withQueryResults_returnsCorrectCounts(
-      self):
+      self,
+  ):
     # Construct named tuples to act in the place of SQLAlchemy RowProxy objects.
     # RowProxy objects are quite similar to named tuples.
-    Row = collections.namedtuple('Row',
-                                 ['valueseturi', 'valuesetversion', 'systems'])
+    Row = collections.namedtuple(
+        'Row', ['valueseturi', 'valuesetversion', 'systems']
+    )
     results = [
         Row('http://value.set/1', '1.0', ['a', 'b']),
         Row('http://value.set/1', '2.0', ['b', 'c', 'd']),
@@ -178,14 +178,16 @@ class ValueSetsTest(absltest.TestCase):
     ]
     counts = value_set_tables._query_results_to_code_system_counts(results)
     self.assertDictEqual(
-        counts, {
+        counts,
+        {
             'http://value.set/1|1.0': 2,
             'http://value.set/1|2.0': 3,
             'http://value.set/1': 5,
             'http://value.set/2': 2,
             'http://value.set/3|1.0': 1,
             'http://value.set/3': 1,
-        })
+        },
+    )
 
 
 def build_valueset_codes_table() -> sqlalchemy.sql.expression.TableClause:
