@@ -49,6 +49,7 @@ def build_element_definition(
     ] = None,
     content_reference: Optional[str] = None,
     profiles: Optional[List[str]] = None,
+    slice_name: Optional[str] = None,
 ) -> datatypes_pb2.ElementDefinition:
   """Returns an `ElementDefinition` for testing FHIRPath encoding.
 
@@ -69,6 +70,7 @@ def build_element_definition(
     constraints: An optional list of `ElementDefinition.Constraint`
     content_reference: An optional FHIR content reference for the element.
     profiles: An optional list of profile URLs of the `ElementDefinition`.
+    slice_name: An optional value for the slice_name attribute.
 
   Returns:
     An `ElementDefintion` for use as part of a snapshot composition within a
@@ -88,18 +90,22 @@ def build_element_definition(
       )
       for code_value in type_codes
   ]
-  return datatypes_pb2.ElementDefinition(
-      id=datatypes_pb2.String(value=id_),
-      path=datatypes_pb2.String(value=path),
-      constraint=constraints,
-      min=datatypes_pb2.UnsignedInt(value=cardinality.min),
-      max=datatypes_pb2.String(value=cardinality.max),
-      base=datatypes_pb2.ElementDefinition.Base(
+  kwargs = {
+      'id': datatypes_pb2.String(value=id_),
+      'path': datatypes_pb2.String(value=path),
+      'constraint': constraints,
+      'min': datatypes_pb2.UnsignedInt(value=cardinality.min),
+      'max': datatypes_pb2.String(value=cardinality.max),
+      'base': datatypes_pb2.ElementDefinition.Base(
           path=datatypes_pb2.String(value=base_path)
       ),
-      content_reference=datatypes_pb2.Uri(value=content_reference),
-      type=type_,
-  )
+      'content_reference': datatypes_pb2.Uri(value=content_reference),
+      'type': type_,
+  }
+  if slice_name is not None:
+    kwargs['slice_name'] = datatypes_pb2.String(value=slice_name)
+
+  return datatypes_pb2.ElementDefinition(**kwargs)
 
 
 def build_structure_definition(

@@ -21,14 +21,15 @@ provided by the caller.
 """
 
 import abc
+import collections
 import copy
+import dataclasses
 import enum
 import itertools
 import re
 
-from typing import Any, Dict, Iterable, Mapping, Optional, Set, Tuple, cast, Collection as CollectionType
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Sequence, Tuple, cast, Collection as CollectionType
 from google.protobuf import message
-from google.fhir.core.fhir_path import _utils
 
 # Tokens that are keywords in FHIRPath.
 # If used as identifier tokens in FHIRPath expressions, they must be escaped
@@ -89,6 +90,46 @@ class Cardinality(enum.Enum):
 
 
 # TODO(b/202892821): Consolidate with `_sql_data_types.py` functionality.
+
+
+@dataclasses.dataclass(frozen=True)
+class Slice:
+  """A container for all element definitions describing a slice.
+
+  https://build.fhir.org/profiling.html#slicing
+
+  Attributes:
+    slice_def: The element definition describing the slice itself.
+    relative_path: The path to the sliced collection relative to the structure
+      definition defining the slice.
+    slice_rules: Tuples of (relative_path, element_definition) for the element
+      definitions describing the contents of the slice and the path to them
+      relaitve to the structure definition defining the slice.
+  """
+
+  slice_def: message.Message
+  relative_path: str
+  slice_rules: Sequence[Tuple[str, message.Message]]
+
+
+@dataclasses.dataclass
+class _SliceBuilder:
+  """An internal class used to incerementally build Slice instances.
+
+  Its attributes are Optional because the _SliceBuilder class is built
+  incrementally. These attributes are not always available
+  initially. A _SliceBuilder instance should be converted to a Slice
+  instance and then provided to callers.
+  """
+
+  slice_def: Optional[message.Message]
+  relative_path: Optional[str]
+  slice_rules: List[Tuple[str, message.Message]]
+
+  def to_slice(self) -> Slice:
+    assert self.slice_def is not None, 'slice_def is unexpectedly None'
+    assert self.relative_path is not None, 'relative_path is unexpectedly None'
+    return Slice(self.slice_def, self.relative_path, self.slice_rules)
 
 
 class FhirPathDataType(metaclass=abc.ABCMeta):
@@ -565,6 +606,8 @@ class StructureDataType(FhirPathDataType):
     self._element_type = element_type if element_type else self._base_type
     self._backbone_element_path = backbone_element_path
 
+    # For backbone elements, prepend their paths with the path to the
+    # root of the backbone element.
     qualified_path = (
         f'{self._element_type}.{self._backbone_element_path}'
         if self._backbone_element_path
@@ -574,24 +617,14 @@ class StructureDataType(FhirPathDataType):
     self._child_defs = {}
     self._direct_children = []
     self._other_descendants = []
+    # A map of slice ID (e.g. some.path:SomeSlice) to the _SliceBuilder
+    # object representing that slice.
+    slices: dict[str, _SliceBuilder] = collections.defaultdict(
+        lambda: _SliceBuilder(None, None, [])
+    )
 
     for elem in self._struct_def.snapshot.element:
-      is_slice = _utils.is_slice_element(elem)
-      is_slice_on_extension = _utils.is_slice_on_extension(elem)
-      if is_slice_on_extension:
-        # Slices on extension will have ids like
-        # 'Foo.extension:someExtension' but paths like 'Foo.extension'
-        # We want to treat these paths as 'Foo.someExtension' so we
-        # use the id rather than the path and strip the 'extension:'
-        # part below.
-        path = elem.id.value
-        path = re.sub(r'^extension:', '', path)
-        path = re.sub(r'\.extension:', '.', path)
-      else:
-        # In other cases, the path is just the path!
-        path = elem.path.value
-
-      path = path.replace('[x]', '')
+      path = _get_analytic_path(elem.path.value, elem.id.value)
 
       if path == qualified_path:
         self._root_element_definition = elem
@@ -607,15 +640,41 @@ class StructureDataType(FhirPathDataType):
         # definition in the children dictionary, as callers currently
         # expect to be able to find these definitions in this
         # dictionary.
+
+        # Check to see if the element id contains a slice ID
+        # (e.g. some.path:SomeSlice) but not a slice on extension.
+        # Capture the slice ID, e.g. 'some.path:SomeSlice' given an id
+        # like 'some.path:SomeSlice.field' so we can later group all
+        # elements describing the same slice together. We use the
+        # closest_slice_ancestor below to aggregate element
+        # definitions describing the same slice. We do not need to do
+        # this for slices on extensions, as they have a unique field
+        # in the analytic schema, and thus are treated as fields
+        # rather than slices.
+        closest_slice_ancestor = re.search(
+            rf'^{qualified_path}\.(.+(?<!.extension):\w+)(?:$|\.)',
+            elem.id.value,
+        )
         direct_child = '.' not in relative_path
-        if (not is_slice or is_slice_on_extension) and direct_child:
+        if direct_child and closest_slice_ancestor is None:
           assert relative_path not in self.child_defs, (
               f'{relative_path} found twice among children in structure'
               f' definition {self._struct_def.url.value}'
           )
           self._child_defs[relative_path] = elem
 
-        if direct_child:
+        if closest_slice_ancestor is not None:
+          # Gather all the element definitions which describe the same
+          # slice into a single data structure.
+          slice_def = slices[closest_slice_ancestor[1]]
+          if elem.slice_name.value:
+            # This is the definition for the slice itself, e.g. Foo.bar:baz.
+            slice_def.slice_def = elem
+            slice_def.relative_path = relative_path
+          else:
+            # This is a constraint describing the slice, e.g. Foo.bar:baz.quux.
+            slice_def.slice_rules.append((relative_path, elem))
+        elif direct_child:
           self._direct_children.append((relative_path, elem))
         else:
           self._other_descendants.append((relative_path, elem))
@@ -625,6 +684,8 @@ class StructureDataType(FhirPathDataType):
           f'StructureDataType {self._url} searching on {qualified_path} '
           f' missing root element definition. {self._struct_def}'
       )
+
+    self._slices = tuple(slice_def.to_slice() for slice_def in slices.values())
 
   def __eq__(self, o) -> bool:
     if isinstance(o, StructureDataType):
@@ -647,8 +708,7 @@ class StructureDataType(FhirPathDataType):
   def iter_children(self) -> Iterable[Tuple[str, message.Message]]:
     """Returns an iterator over all direct child element definitions.
 
-    Contains all entries in `child_defs`, as well as additional element
-    definitions for slices.
+    Contains all entries in `child_defs`. Does not contain slices.
     """
     return iter(self._direct_children)
 
@@ -656,9 +716,18 @@ class StructureDataType(FhirPathDataType):
     """Returns an iterator over all element definitions.
 
     Contains all entries in `iter_children`, as well as additional element
-    definitions for elements describing descendants deepr than direct children.
+    definitions for elements describing descendants deeper than direct children.
+    Does not contain slices.
     """
     return itertools.chain(self._direct_children, self._other_descendants)
+
+  def iter_slices(self) -> Iterable[Slice]:
+    """Returns an iterator over all slices.
+
+    Contains both direction children and descendants deeper than direct
+    children.
+    """
+    return iter(self._slices)
 
 
 class QuantityStructureDataType(StructureDataType, _Quantity):
@@ -961,3 +1030,54 @@ def returns_collection(return_type: FhirPathDataType) -> bool:
 
 def is_collection(return_type: FhirPathDataType) -> bool:
   return return_type and return_type.cardinality == Cardinality.COLLECTION
+
+
+# Captures the names appearing after 'extension:' stanzas in IDs.
+_EXTENSION_SLICE_NAMES_RE = re.compile(r'(?:^|\.)extension:(\w+)(?=$|\.)')
+# Captures the word 'extension' in dotted paths.
+_EXTENSION_PATH_ELEMENTS_RE = re.compile(r'(?:^|\.)(extension)(?=$|\.)')
+
+
+def _get_analytic_path(path: str, elem_id: str) -> str:
+  """Builds a usable FHIRPath given an element path and id.
+
+  Removes choice type indicators '[x]'
+
+  Some element definitions reference attributes from extension slices. These
+  elements will have ids like 'Foo.extension:someExtension' but
+  paths like 'Foo.extension' We want to treat these paths as
+  'Foo.someExtension' so we replace the 'extension' part of the
+  path with the slice name.
+
+  Args:
+    path: The path attribute from the element definition to clean.
+    elem_id: The id attribute from the element definition to clean.
+
+  Returns:
+    The cleaned path name.
+  """
+  # Use a regex to find all extension slice names in the id.
+  extension_slice_names = _EXTENSION_SLICE_NAMES_RE.findall(elem_id)
+  if extension_slice_names:
+    # Replace each .extension element of the path with the extension
+    # slice name. Use a regex to find the indices of each .extension
+    # part of the path.
+    extension_path_elements = _EXTENSION_PATH_ELEMENTS_RE.finditer(path)
+    index_adjustment = 0
+    for slice_name, path_element in zip(
+        extension_slice_names, extension_path_elements
+    ):
+      # Replace the extension elements with the slice name.
+      start = path_element.start(1) + index_adjustment
+      end = path_element.end(1) + index_adjustment
+      path = path[:start] + slice_name + path[end:]
+
+      # Because we're changing the length of the `path` by
+      # replacing 'extension' with the slice name, we'll need to
+      # take that into account when referencing future indices.
+      index_adjustment += len(slice_name) - 9  # 9 is len('extension')
+
+  # Remove choice type indicators from the path.
+  path = path.replace('[x]', '')
+
+  return path

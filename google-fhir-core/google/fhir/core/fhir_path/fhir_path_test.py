@@ -3046,6 +3046,7 @@ class FhirPathStandardSqlEncoderTest(
         path='Foo.bar',
         type_codes=['Bar'],
         cardinality=sdefs.Cardinality(0, '*'),
+        slice_name='softDelete',
     )
     resource = sdefs.build_resource_definition(
         id_='Foo', element_definitions=[root, soft_delete_slice]
