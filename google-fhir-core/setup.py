@@ -106,6 +106,7 @@ def main():
           # TODO(b/276635321): Fix compatibility issue with protobuf 4.x
           'protobuf~=3.19',
           'python-dateutil~=2.8',
+          'stringcase==1.2.0',
       ],
       # Include proto files so consuming libraries can build protos that
       # use them.

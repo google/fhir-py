@@ -27,8 +27,10 @@ import dataclasses
 import enum
 import itertools
 import re
-
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Sequence, Tuple, cast, Collection as CollectionType
+
+import stringcase
+
 from google.protobuf import message
 
 # Tokens that are keywords in FHIRPath.
@@ -67,6 +69,10 @@ RESERVED_FHIR_PATH_KEYWORDS = frozenset([
     'years',
     'second',
 ])
+
+# Given a type code like http://hl7.org/fhirpath/System.String
+# captures 'String'
+_TYPE_CODE_URI_RE = re.compile(r'^http://hl7.org/fhirpath/System\.(.+)')
 
 
 @enum.unique
@@ -927,6 +933,23 @@ def primitive_type_from_type_code(type_code: str) -> Optional[FhirPathDataType]:
   return _PRIMITIVE_TYPES_BY_CODE.get(type_code.casefold())
 
 
+def is_type_code_primitive(type_code: str) -> bool:
+  """Indicates if `type_code` refers to a primitive type.
+
+  Args:
+    type_code: The FHIR type code to look up. Could be a value like 'Boolean' or
+      URL like 'http://hl7.org/fhirpath/System.Boolean'
+
+  Returns:
+    True if the type code represents a FHIR primitive and False otherwise.
+  """
+  url_type_code = _TYPE_CODE_URI_RE.search(type_code)
+  if url_type_code is not None:
+    type_code = url_type_code[1]
+
+  return type_code.casefold() in _PRIMITIVE_TYPES_BY_CODE
+
+
 def is_numeric(fhir_type: FhirPathDataType) -> bool:
   return (
       isinstance(fhir_type, _Integer) or isinstance(fhir_type, _Decimal)
@@ -1081,3 +1104,25 @@ def _get_analytic_path(path: str, elem_id: str) -> str:
   path = path.replace('[x]', '')
 
   return path
+
+
+def fixed_field_for_type_code(type_code: str) -> str:
+  """Retrieves the `ElementDefinition.fixed.choice` oneof field for `type_code`.
+
+  Args:
+    type_code: The FHIR type code to look up. Could be a value like 'boolean' or
+      URL like 'http://hl7.org/fhirpath/System.Boolean'
+
+  Returns:
+    The attribute corresponding to this type code on the
+    ElementDefinition.FixedX.choice oneof.
+  """
+  url_type_code = _TYPE_CODE_URI_RE.search(type_code)
+  if url_type_code is not None:
+    type_code = url_type_code[1]
+
+  # Lower-case the first character to avoid leading _ characters from
+  # snake case-ing.
+  fixed_field = stringcase.snakecase(type_code[:1].lower() + type_code[1:])
+  # We special-case 'string' as 'string_value' in the proto.
+  return 'string_value' if fixed_field == 'string' else fixed_field

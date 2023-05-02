@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from absl.testing import absltest
+from absl.testing import parameterized
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _structure_definitions as sdefs
 
@@ -201,6 +202,75 @@ class StructureDataTypeTest(absltest.TestCase):
                 ],
             ),
         ],
+    )
+
+
+class FhirPathDataTypeTest(parameterized.TestCase):
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='_withTypeCode_returnsCorrectFieldName',
+          type_code='boolean',
+          expected_field_name='boolean',
+      ),
+      dict(
+          testcase_name='_withSpecialCasedTypeCode_returnsCorrectFieldName',
+          type_code='string',
+          expected_field_name='string_value',
+      ),
+      dict(
+          testcase_name='_withUrl_returnsCorrectFieldName',
+          type_code='http://hl7.org/fhirpath/System.String',
+          expected_field_name='string_value',
+      ),
+      dict(
+          testcase_name='_withNumberInTypeName_returnsCorrectFieldName',
+          type_code='base64Binary',
+          expected_field_name='base64_binary',
+      ),
+      dict(
+          testcase_name='_withNonPrimitive_returnsCorrectFieldName',
+          type_code='Address',
+          expected_field_name='address',
+      ),
+      dict(
+          testcase_name='_withSnakeCasedNonPrimitive_returnsCorrectFieldName',
+          type_code='CodeableConcept',
+          expected_field_name='codeable_concept',
+      ),
+  )
+  def testFixedFieldForTypeCode(self, type_code, expected_field_name):
+    self.assertEqual(
+        _fhir_path_data_types.fixed_field_for_type_code(type_code),
+        expected_field_name,
+    )
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='_withPrimitive_returnsTrue',
+          type_code='boolean',
+          expected_result=True,
+      ),
+      dict(
+          testcase_name='_withNonPrimitive_returnsFalse',
+          type_code='Observation',
+          expected_result=False,
+      ),
+      dict(
+          testcase_name='_withUrlPrimitive_returnsTrue',
+          type_code='http://hl7.org/fhirpath/System.String',
+          expected_result=True,
+      ),
+      dict(
+          testcase_name='_withUrlNonPrimitive_returnsFalse',
+          type_code='http://hl7.org/fhirpath/Observation',
+          expected_result=False,
+      ),
+  )
+  def testIsTypeCodePrimitive(self, type_code, expected_result):
+    self.assertEqual(
+        _fhir_path_data_types.is_type_code_primitive(type_code),
+        expected_result,
     )
 
 
