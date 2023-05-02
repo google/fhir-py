@@ -77,7 +77,16 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   def visit_root(
       self, root: _evaluation.RootMessageNode
   ) -> Optional[_sql_data_types.IdentifierSelect]:
-    """Translates a FHIRPath root to Standard SQL."""
+    """Translates a FHIRPath root to Spark SQL."""
+    if self._use_resource_alias:
+      return _sql_data_types.IdentifierSelect(
+          _sql_data_types.Identifier(
+              _escape_identifier(root.to_fhir_path()),
+              _sql_data_types.OpaqueStruct,
+          ),
+          from_part=None,
+      )
+    return None
 
   def visit_reference(self, reference: _evaluation.ExpressionNode) -> Any:
     """Translates a FHIRPath reference to Standard SQL."""
