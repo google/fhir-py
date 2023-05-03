@@ -18,6 +18,7 @@ import dataclasses
 import functools
 import itertools
 import operator
+import re
 import traceback
 from typing import Any, Collection, Iterable, List, Optional, Set, Tuple, cast, Dict
 
@@ -177,9 +178,12 @@ def _last_path_token(builder: expressions.Builder) -> str:
   return builder.get_node().to_path_token()
 
 
+_PERIOD_OR_COLON_RE = re.compile(r'(\.|:)')
+
+
 def _path_to_sql_column_name(path: str) -> str:
   """Given a path to an `ElementDefinition`, returns a SQL column name."""
-  return path.lower().replace('.', '_')
+  return _PERIOD_OR_COLON_RE.sub('_', path.lower())
 
 
 def _key_to_sql_column_name(key: str) -> str:
@@ -878,6 +882,160 @@ class FhirProfileStandardSqlEncoder:
         )
     ]
 
+  def _encode_slice_definition(
+      self,
+      root_builder: expressions.Builder,
+      slice_: _fhir_path_data_types.Slice,
+  ) -> List[validation_pb2.SqlRequirement]:
+    """Encodes constraints for slices.
+
+    Args:
+      root_builder: The builder representing a path to the structure definition
+        defining the slice.
+      slice_: A slice defined by the structure definition at `root_builder`.
+
+    Returns:
+      A constraint enforcing the cardinality of `slice_` if `slice_` imposes a
+      non-zero or non-* min or max cardinality. Otherwise, an empty list.
+    """
+    slice_builder = self._get_new_child_builder(
+        root_builder, slice_.relative_path
+    )
+    if slice_builder is None:
+      return []
+
+    # Find any fixed values set by the slice's element definitions.
+    element_constraints = []
+    for rule_path, rule_def in slice_.slice_rules:
+      constraint = self._constraint_from_slice_element(
+          root_builder, rule_path, rule_def
+      )
+      if constraint is not None:
+        element_constraints.append(constraint)
+
+    # If the slice has no fixed values, there's no constraint to build.
+    if not element_constraints:
+      return []
+
+    # 'and' together each of the fixed value constraints.
+    element_predicate = functools.reduce(operator.and_, element_constraints)
+    elements_in_slice = slice_builder.where(element_predicate)
+
+    # Ensure the number of elements in the slice is between min and max.
+    slice_constraints = []
+
+    min_size = cast(Any, slice_.slice_def).min.value
+    if min_size == 1:
+      slice_constraints.append(elements_in_slice.exists())
+    elif min_size > 1:
+      slice_constraints.append(elements_in_slice.count() >= min_size)
+
+    # max_size may be '*' or the string representation of an integer.
+    max_size = cast(Any, slice_.slice_def).max.value
+    if max_size.isdigit():
+      slice_constraints.append(elements_in_slice.count() <= int(max_size))
+
+    # If neither min nor max size are set, there's no constraint to build.
+    if not slice_constraints:
+      return []
+
+    # 'and' together the min and max size constraints.
+    slice_constraint = functools.reduce(operator.and_, slice_constraints)
+    constraint_sql = self._encode_fhir_path_builder_constraint(
+        slice_constraint, root_builder
+    )
+    if constraint_sql is None:
+      return []
+
+    slice_id = cast(Any, slice_.slice_def).id.value
+    slice_path = self._abs_path_invocation(root_builder)
+    slice_name = cast(Any, slice_.slice_def).slice_name.value
+    column_name = (
+        f'{_path_to_sql_column_name(slice_path)}'
+        f'_{_path_to_sql_column_name(slice_id)}'
+        '_slice_cardinality'
+    )
+    description = (
+        f'Slice {slice_id} requires at least {min_size} and at most'
+        f' {max_size} elements in {slice_builder} to conform to slice'
+        f' {slice_name}.'
+    )
+    return [
+        validation_pb2.SqlRequirement(
+            column_name=column_name,
+            sql_expression=constraint_sql.sql,
+            severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
+            type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
+            element_path=slice_path,
+            description=description,
+            fhir_path_key=column_name.replace('_', '-'),
+            fhir_path_expression=slice_constraint.fhir_path,
+            fields_referenced_by_expression=_fields_referenced_by_expression(
+                slice_constraint.fhir_path
+            ),
+        )
+    ]
+
+  def _constraint_from_slice_element(
+      self,
+      root_builder: expressions.Builder,
+      rule_path: str,
+      rule_def: ElementDefinition,
+  ) -> Optional[expressions.Builder]:
+    """Creates a constraint for the component slice element definition.
+
+    If the element definition contains a 'fixed' value, stating that members of
+    the slice must have a value for that field with a given value, returns an
+    expression stating that the element definition's field must be that fixed
+    value.
+
+    Args:
+      root_builder: The builder representing a path to the structure definition
+        defining the slice.
+      rule_path: The path to the element definition `rule_def` relative to
+        `root_builder`.
+      rule_def: An element definition representing one rule describing slice
+        membership.
+
+    Returns:
+      An expression stating the constraint or None if the `rule_def` does not
+      contain a constraint.
+    """
+    rule_def = cast(Any, rule_def)
+
+    # If the slice isn't fixing a value, there's no constraint to generate.
+    if not rule_def.HasField('fixed'):
+      return None
+
+    rule_builder = self._get_new_child_builder(root_builder, rule_path)
+    if rule_builder is None:
+      return None
+
+    type_codes = _utils.element_type_codes(rule_def)
+    if len(type_codes) > 1:
+      self._error_reporter.report_conversion_error(
+          self._abs_path_invocation(rule_builder),
+          f'Slice {rule_def.id.value} on choice type unsupported.',
+      )
+      return None
+
+    element_type = type_codes[0]
+    if not _fhir_path_data_types.is_type_code_primitive(element_type):
+      self._error_reporter.report_fhir_path_warning(
+          self._abs_path_invocation(rule_builder),
+          rule_def.id.value,
+          (
+              f'Slice fixing value of type {element_type} not yet supported.'
+              ' Only slices fixing primitive types are currently supported.'
+          ),
+      )
+      return None
+
+    fixed_field = _fhir_path_data_types.fixed_field_for_type_code(element_type)
+    fixed_value = getattr(rule_def.fixed, fixed_field).value
+    expression: expressions.Builder = rule_builder == fixed_value
+    return expression
+
   def _encode_reference_type_constraints(
       self, builder: expressions.Builder, elem: message.Message
   ) -> List[validation_pb2.SqlRequirement]:
@@ -1319,6 +1477,9 @@ class FhirProfileStandardSqlEncoder:
           result += self._encode_element_definition_of_builder(
               new_builder, elem
           )
+
+      for slice_def in struct_type.iter_slices():
+        result += self._encode_slice_definition(builder, slice_def)
 
     return result
 

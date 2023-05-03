@@ -1473,7 +1473,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE ofType_ IS NOT NULL) AS exists_)"""),
       ),
       dict(
-          testcase_name='_ArrayMatchsAll',
+          testcase_name='_ArrayMatchesAll',
           fhir_path_expression="inline.numbers.all($this.matches('regex'))",
           select_scalars_as_array=False,
           expected_sql_expression=textwrap.dedent(
@@ -4431,6 +4431,121 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
         ],
     )
 
+    # Definitions needed for slices on codeable concept tests.
+    coding = sdefs.build_resource_definition(
+        id_='Coding',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='Coding',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=1, max='1'),
+            ),
+            sdefs.build_element_definition(
+                id_='Coding.system',
+                type_codes=['uri'],
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
+            sdefs.build_element_definition(
+                id_='Coding.code',
+                type_codes=['code'],
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
+            sdefs.build_element_definition(
+                id_='Coding.version',
+                type_codes=['string'],
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
+        ],
+    )
+
+    codeable_concept = sdefs.build_resource_definition(
+        id_='CodeableConcept',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='CodeableConcept',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=1, max='1'),
+            ),
+            sdefs.build_element_definition(
+                id_='CodeableConcept.coding',
+                type_codes=['Coding'],
+                cardinality=sdefs.Cardinality(min=0, max='*'),
+            ),
+        ],
+    )
+
+    codeable_concept_slice_test = sdefs.build_resource_definition(
+        id_='CodeableConceptSliceTest',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='CodeableConceptSliceTest',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=1, max='1'),
+            ),
+            sdefs.build_element_definition(
+                id_='CodeableConceptSliceTest.code',
+                type_codes=['CodeableConcept'],
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            ),
+            # Define a required slice on code.coding named 'SolarSystem'
+            sdefs.build_element_definition(
+                id_='CodeableConceptSliceTest.code.coding:SolarSystem',
+                path='CodeableConceptSliceTest.code.coding',
+                type_codes=['Coding'],
+                cardinality=sdefs.Cardinality(min=1, max='1'),
+                slice_name='SolarSystem',
+            ),
+            # code can be anything.
+            sdefs.build_element_definition(
+                id_='CodeableConceptSliceTest.code.coding:SolarSystem.code',
+                path='CodeableConceptSliceTest.code.coding.code',
+                type_codes=['code'],
+                cardinality=sdefs.Cardinality(min=1, max='1'),
+            ),
+            # Fix a 'system' attribute on the slice.
+            sdefs.build_element_definition(
+                id_='CodeableConceptSliceTest.code.coding:SolarSystem.system',
+                path='CodeableConceptSliceTest.code.coding.system',
+                type_codes=['uri'],
+                cardinality=sdefs.Cardinality(min=1, max='1'),
+                fixed=datatypes_pb2.ElementDefinition.FixedX(
+                    uri=datatypes_pb2.Uri(value='milky_way')
+                ),
+            ),
+            # Fix a 'version' attribute on the slice.
+            sdefs.build_element_definition(
+                id_='CodeableConceptSliceTest.code.coding:SolarSystem.version',
+                path='CodeableConceptSliceTest.code.coding.version',
+                type_codes=['string'],
+                cardinality=sdefs.Cardinality(min=1, max='1'),
+                fixed=datatypes_pb2.ElementDefinition.FixedX(
+                    string_value=datatypes_pb2.String(value='final_frontier')
+                ),
+            ),
+            # Define another slice on code.coding named 'Whatever.'
+            # The slice has a min cardinality of 0, so it should not
+            # generate any constraints.
+            sdefs.build_element_definition(
+                id_='CodeableConceptSliceTest.code.coding:Whatever',
+                path='CodeableConceptSliceTest.code.coding',
+                type_codes=['Coding'],
+                cardinality=sdefs.Cardinality(min=0, max='*'),
+                slice_name='SolarSystem',
+            ),
+            # Fix a 'system' attribute on the slice, but it doesn't
+            # matter because the slice itself is not required.
+            sdefs.build_element_definition(
+                id_='CodeableConceptSliceTest.code.coding:Whatever.system',
+                path='CodeableConceptSliceTest.code.coding.system',
+                type_codes=['uri'],
+                cardinality=sdefs.Cardinality(min=1, max='1'),
+                fixed=datatypes_pb2.ElementDefinition.FixedX(
+                    uri=datatypes_pb2.Uri(value='whatever')
+                ),
+            ),
+        ],
+    )
+
     all_resources = [
         choice_test,
         nested_choice_test,
@@ -4440,6 +4555,9 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
         reference_datatype,
         reference_test,
         repeated_reference_test,
+        coding,
+        codeable_concept,
+        codeable_concept_slice_test,
     ]
     cls.resources = {resource.url.value: resource for resource in all_resources}
 
@@ -4525,6 +4643,64 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
               bar_element_.patientId IS NOT NULL AS INT64)) <= 1) AS all_), FALSE)), TRUE) AS all_
               FROM UNNEST(bar) AS bar_element_ WITH OFFSET AS element_offset)
               WHERE all_ IS NOT NULL)) AS result_)"""),
+      ),
+      dict(
+          testcase_name='_withCodeableConceptSlice_encodesSystemRequirement',
+          base_id='CodeableConceptSliceTest',
+          context_element_path='CodeableConceptSliceTest',
+          fields_referenced_by_expression=[
+              'code.coding',
+              'code.coding.system',
+              'code.coding.version',
+          ],
+          fhir_path_expression=(
+              "code.coding.where(system = 'milky_way' and version ="
+              " 'final_frontier').exists() and code.coding.where(system ="
+              " 'milky_way' and version = 'final_frontier').count() <= 1"
+          ),
+          expected_sql_expression=textwrap.dedent("""\
+              (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
+              FROM UNNEST(ARRAY(SELECT logic_
+              FROM (SELECT (EXISTS(
+              SELECT coding_element_
+              FROM (SELECT coding_element_
+              FROM (SELECT code),
+              UNNEST(code.coding) AS coding_element_ WITH OFFSET AS element_offset
+              WHERE (NOT EXISTS(
+              SELECT lhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, system
+              FROM (SELECT system)) AS lhs_
+              EXCEPT DISTINCT
+              SELECT rhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
+              FROM (SELECT 'milky_way' AS literal_)) AS rhs_) AND NOT EXISTS(
+              SELECT lhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, version
+              FROM (SELECT version)) AS lhs_
+              EXCEPT DISTINCT
+              SELECT rhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
+              FROM (SELECT 'final_frontier' AS literal_)) AS rhs_)))
+              WHERE coding_element_ IS NOT NULL) AND ((SELECT COUNT(
+              coding_element_) AS count_
+              FROM (SELECT code),
+              UNNEST(code.coding) AS coding_element_ WITH OFFSET AS element_offset
+              WHERE (NOT EXISTS(
+              SELECT lhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, system
+              FROM (SELECT system)) AS lhs_
+              EXCEPT DISTINCT
+              SELECT rhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
+              FROM (SELECT 'milky_way' AS literal_)) AS rhs_) AND NOT EXISTS(
+              SELECT lhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, version
+              FROM (SELECT version)) AS lhs_
+              EXCEPT DISTINCT
+              SELECT rhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
+              FROM (SELECT 'final_frontier' AS literal_)) AS rhs_))) <= 1)) AS logic_)
+              WHERE logic_ IS NOT NULL)) AS result_)"""),
       ),
   )
   def testEncode(
@@ -4676,7 +4852,7 @@ class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
     )
     self.assertCountEqual(
         [binding.fhir_path_key for binding in actual_bindings],
-        ['from-identifier', 'from-reference'],
+        ['from-reference', 'from-identifier'],
     )
 
 
