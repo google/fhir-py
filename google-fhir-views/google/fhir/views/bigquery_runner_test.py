@@ -27,10 +27,8 @@ from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core.fhir_path import context
 from google.fhir.core.utils import fhir_package
 from google.fhir.r4 import r4_package
-from google.fhir.r4.terminology import terminology_service_client
-from google.fhir.r4.terminology import value_set_tables
-from google.fhir.r4.terminology import value_sets
 from google.fhir.views import bigquery_runner
+from google.fhir.views import bigquery_value_set_manager
 from google.fhir.views import r4
 from google.fhir.views import views
 
@@ -121,6 +119,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
         value_set_codes_table=value_set_codes_table,
     )
     self.assertEqual(runner._value_set_codes_table, expected_table_name)
+    self.assertEqual(runner._value_set_manager.value_set_codes_table,  # pylint: disable=protected-access
+                     expected_table_name)
 
   def testNestedSingleFieldInNestedArray_forPatient_returnsArray(self):
     pat = self._views.view_of('Patient')
@@ -766,160 +766,39 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.assertEqual(expected_mock_df, returned_df)
 
   @mock.patch.object(
-      value_set_tables,
-      'valueset_codes_insert_statement_for',
+      bigquery_value_set_manager.BigQueryValueSetManager,
+      'materialize_value_sets',
       autospec=True,
   )
-  def testMaterializeValueSet_withValueSetObject_insertsData(
-      self, mock_valueset_codes_insert_statement_for
+  def testMaterializeValueSet_delegatesToManager(
+      self, mock_materialize_value_sets
   ):
+    """Tests inserting data through mock call."""
     mock_value_sets = [mock.MagicMock(), mock.MagicMock()]
-    mock_insert_statements = [mock.MagicMock(), mock.MagicMock()]
-    mock_valueset_codes_insert_statement_for.return_value = (
-        mock_insert_statements
+
+    self.runner.materialize_value_sets(mock_value_sets, 100)
+
+    mock_materialize_value_sets.assert_called_once_with(
+        mock.ANY, mock_value_sets, 100
     )
-    self.mock_bigquery_client.create_table.return_value = _BqValuesetCodesTable(
-        'vs_project.vs_dataset.vs_table'
-    )
-
-    self.runner.materialize_value_sets(mock_value_sets)
-
-    # Ensure we tried to create the table
-    self.mock_bigquery_client.create_table.assert_called_once()
-
-    # Ensure we called query with the rendered SQL for the two mock queries and
-    # called .result() on the returned job.
-    self.mock_bigquery_client.query.assert_has_calls([
-        mock.call(str(mock_insert_statements[0].compile())),
-        mock.call().result(),
-        mock.call(str(mock_insert_statements[1].compile())),
-        mock.call().result(),
-    ])
-
-    # Ensure we called valueset_codes_insert_statement_for with the
-    # given value sets.
-    args, kwargs = mock_valueset_codes_insert_statement_for.call_args_list[0]
-    expanded_value_sets, table = args
-    self.assertEqual(list(expanded_value_sets), mock_value_sets)
-
-    self.assertEqual(table.name, 'vs_project.vs_dataset.vs_table')
-    for col in ('valueseturi', 'valuesetversion', 'system', 'code'):
-      self.assertIn(col, table.columns)
-    self.assertEqual(kwargs['batch_size'], 500)
 
   @mock.patch.object(
-      value_set_tables,
-      'valueset_codes_insert_statement_for',
+      bigquery_value_set_manager.BigQueryValueSetManager,
+      'materialize_value_set_expansion',
       autospec=True,
   )
-  def testMaterializeValueSetExpansion_withValueSetUrls_performsExpansionsAndInserts(
-      self, mock_valueset_codes_insert_statement_for
+  def testMaterializeValueSetExpansion_delegatesToManager(
+      self, mock_materialize_value_set_expansion
   ):
-    mock_insert_statements = [mock.MagicMock(), mock.MagicMock()]
-    mock_valueset_codes_insert_statement_for.return_value = (
-        mock_insert_statements
-    )
+    """Tests materialize through mock calls."""
     mock_expander = mock.MagicMock()
-    self.mock_bigquery_client.create_table.return_value = _BqValuesetCodesTable(
-        'vs_project.vs_dataset.vs_table'
-    )
 
     self.runner.materialize_value_set_expansion(
-        ['url-1', 'url-2'], mock_expander
+        ['url-1', 'url-2'], mock_expander, None, 100
     )
 
-    # Ensure we tried to create the table
-    self.mock_bigquery_client.create_table.assert_called_once()
-
-    # Ensure we called query with the rendered SQL for the two mock queries and
-    # called .result() on the returned job.
-    self.mock_bigquery_client.query.assert_has_calls([
-        mock.call(str(mock_insert_statements[0].compile())),
-        mock.call().result(),
-        mock.call(str(mock_insert_statements[1].compile())),
-        mock.call().result(),
-    ])
-    # Ensure we called valueset_codes_insert_statement_for with the value set
-    # expansions for both URLs and with an appropriate table object.
-    args, kwargs = mock_valueset_codes_insert_statement_for.call_args_list[0]
-    expanded_value_sets, table = args
-    self.assertEqual(
-        list(expanded_value_sets),
-        [
-            mock_expander.expand_value_set_url(),
-            mock_expander.expand_value_set_url(),
-        ],
-    )
-    self.assertEqual(table.name, 'vs_project.vs_dataset.vs_table')
-    for col in ('valueseturi', 'valuesetversion', 'system', 'code'):
-      self.assertIn(col, table.columns)
-    self.assertEqual(kwargs['batch_size'], 500)
-
-    # Ensure we call expand_value_set_url with the two URLs.
-    mock_expander.expand_value_set_url.reset()
-    mock_expander.expand_value_set_url.assert_has_calls(
-        [mock.call('url-1'), mock.call('url-2')]
-    )
-
-  @mock.patch.object(
-      value_set_tables,
-      'valueset_codes_insert_statement_for',
-      autospec=True,
-  )
-  def testMaterializeValueSetExpansion_withTerminologyServiceUrl_usesGivenTerminologyServiceUrl(
-      self, mock_valueset_codes_insert_statement_for
-  ):
-    mock_expander = mock.MagicMock(
-        spec=terminology_service_client.TerminologyServiceClient
-    )
-    self.mock_bigquery_client.create_table.return_value = _BqValuesetCodesTable(
-        'vs_project.vs_dataset.vs_table'
-    )
-
-    self.runner.materialize_value_set_expansion(
-        ['url-1', 'url-2'],
-        mock_expander,
-        terminology_service_url='http://my-service.com',
-    )
-
-    # Ensure we called valueset_codes_insert_statement_for with the value set
-    # expansions for both URLs and with an appropriate table object.
-    args, _ = mock_valueset_codes_insert_statement_for.call_args_list[0]
-    expanded_value_sets, table = args
-    self.assertEqual(
-        list(expanded_value_sets),
-        [
-            mock_expander.expand_value_set_url_using_service(),
-            mock_expander.expand_value_set_url_using_service(),
-        ],
-    )
-    self.assertEqual(table.name, 'vs_project.vs_dataset.vs_table')
-
-    # Ensure we call expand_value_set_url_using_service with the right URLs.
-    mock_expander.expand_value_set_url.reset()
-    mock_expander.expand_value_set_url_using_service.assert_has_calls([
-        mock.call('url-1', 'http://my-service.com'),
-        mock.call('url-2', 'http://my-service.com'),
-    ])
-
-  def testMaterializeValueSetExpansion_withTerminologyServiceUrlAndValueSetResolver_raisesError(
-      self,
-  ):
-    mock_expander = mock.MagicMock(spec=value_sets.ValueSetResolver)
-
-    with self.assertRaises(TypeError):
-      self.runner.materialize_value_set_expansion(
-          ['url-1', 'url-2'],
-          mock_expander,
-          terminology_service_url='http://my-service.com',
-      )
-
-  def testCreateValusetCodesTableIfNotExists_callsClientCorrectly(self):
-    self.runner._create_valueset_codes_table_if_not_exists()
-
-    expected_table = _BqValuesetCodesTable('vs_project.vs_dataset.vs_table')
-    self.mock_bigquery_client.create_table.assert_called_once_with(
-        expected_table, exists_ok=True
+    mock_materialize_value_set_expansion.assert_called_once_with(
+        mock.ANY, ['url-1', 'url-2'], mock_expander, None, 100
     )
 
   # TODO(b/250691318): Fix an issue where the bq_intepreter generates literals
@@ -1153,19 +1032,6 @@ ORDER BY all_.element_offset))
 WHERE _anyTrue IS NOT NULL)) AS logic_)""",
         self.runner.to_sql(eob_outpatient_codes),
     )
-
-
-def _BqValuesetCodesTable(name: str) -> bigquery.table.Table:
-  """Builds a BigQuery client table representation of a value set codes table."""
-  schema = [
-      bigquery.SchemaField('valueseturi', 'STRING', mode='REQUIRED'),
-      bigquery.SchemaField('valuesetversion', 'STRING', mode='NULLABLE'),
-      bigquery.SchemaField('system', 'STRING', mode='REQUIRED'),
-      bigquery.SchemaField('code', 'STRING', mode='REQUIRED'),
-  ]
-  table = bigquery.Table(name, schema=schema)
-  table.clustering_fields = ['valueseturi', 'code']
-  return table
 
 
 if __name__ == '__main__':

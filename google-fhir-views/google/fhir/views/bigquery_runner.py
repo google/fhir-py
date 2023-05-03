@@ -24,8 +24,6 @@ from typing import Iterable, Optional, Union, cast, Dict
 
 from google.cloud import bigquery
 import pandas
-import sqlalchemy
-import sqlalchemy_bigquery
 
 from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core.fhir_path import _bigquery_interpreter
@@ -33,8 +31,8 @@ from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import expressions
 from google.fhir.core.fhir_path import fhir_path
 from google.fhir.r4.terminology import terminology_service_client
-from google.fhir.r4.terminology import value_set_tables
 from google.fhir.r4.terminology import value_sets
+from google.fhir.views import bigquery_value_set_manager
 from google.fhir.views import runner_utils
 from google.fhir.views import views
 
@@ -122,6 +120,12 @@ class BigQueryRunner:
       )
     else:
       self._value_set_codes_table = value_set_codes_table
+
+    self._value_set_manager = (
+        bigquery_value_set_manager.BigQueryValueSetManager(
+            client, self._value_set_codes_table
+        )
+    )
 
   def _view_table_names(self, view: views.View) -> Dict[str, str]:
     """Generates the table names for each resource in the view."""
@@ -321,28 +325,6 @@ class BigQueryRunner:
 
     return self._client.query(count_query).result().to_dataframe()
 
-  def _create_valueset_codes_table_if_not_exists(self) -> bigquery.table.Table:
-    """Creates a table for storing value set code mappings.
-
-    Creates a table named after the `value_set_codes_table` provided at class
-    initialization as described by
-    https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md#valueset-support
-
-    If the table already exists, no action is taken.
-
-    Returns:
-      An bigquery.Table object representing the created table.
-    """
-    schema = [
-        bigquery.SchemaField('valueseturi', 'STRING', mode='REQUIRED'),
-        bigquery.SchemaField('valuesetversion', 'STRING', mode='NULLABLE'),
-        bigquery.SchemaField('system', 'STRING', mode='REQUIRED'),
-        bigquery.SchemaField('code', 'STRING', mode='REQUIRED'),
-    ]
-    table = bigquery.Table(self._value_set_codes_table, schema=schema)
-    table.clustering_fields = ['valueseturi', 'code']
-    return self._client.create_table(table, exists_ok=True)
-
   def _build_sql_generator(self, internal_v2: bool, view: views.View):
     """Build a RunnerSqlGenerator depending on the runner version."""
     fhir_context = view.get_fhir_path_context()
@@ -394,22 +376,7 @@ class BigQueryRunner:
       value_set_protos: An iterable of FHIR ValueSet protos.
       batch_size: The maximum number of rows to insert in a single query.
     """
-    bq_table = self._create_valueset_codes_table_if_not_exists()
-
-    sa_table = _bq_table_to_sqlalchemy_table(bq_table)
-    queries = value_set_tables.valueset_codes_insert_statement_for(
-        value_set_protos, sa_table, batch_size=batch_size
-    )
-
-    # Render the query objects as strings and use the client to execute them.
-    for query in queries:
-      query_string = str(
-          query.compile(
-              dialect=(sqlalchemy_bigquery.BigQueryDialect()),
-              compile_kwargs={'literal_binds': True},
-          )
-      )
-      self._client.query(query_string).result()
+    self._value_set_manager.materialize_value_sets(value_set_protos, batch_size)
 
   def materialize_value_set_expansion(
       self,
@@ -458,33 +425,6 @@ class BigQueryRunner:
       TypeError: If a `terminology_service_url` is given but `expander` is not a
       TerminologyServiceClient.
     """
-    if terminology_service_url is not None and not isinstance(
-        expander, terminology_service_client.TerminologyServiceClient
-    ):
-      raise TypeError(
-          '`terminology_service_url` can only be given if `expander` is a '
-          'TerminologyServiceClient'
-      )
-
-    if terminology_service_url is not None and isinstance(
-        expander, terminology_service_client.TerminologyServiceClient
-    ):
-      expanded_value_sets = (
-          expander.expand_value_set_url_using_service(
-              url, terminology_service_url
-          )
-          for url in urls
-      )
-    else:
-      expanded_value_sets = (expander.expand_value_set_url(url) for url in urls)
-
-    self.materialize_value_sets(expanded_value_sets, batch_size=batch_size)
-
-
-def _bq_table_to_sqlalchemy_table(
-    bq_table: bigquery.table.Table,
-) -> sqlalchemy.sql.selectable.TableClause:
-  """Converts a BigQuery client Table to an sqlalchemy Table."""
-  table_name = f'{bq_table.project}.{bq_table.dataset_id}.{bq_table.table_id}'
-  columns = [sqlalchemy.column(column.name) for column in bq_table.schema]
-  return sqlalchemy.table(table_name, *columns)
+    self._value_set_manager.materialize_value_set_expansion(
+        urls, expander, terminology_service_url, batch_size
+    )
