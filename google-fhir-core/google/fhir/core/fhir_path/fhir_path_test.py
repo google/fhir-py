@@ -687,7 +687,6 @@ class FhirPathStandardSqlEncoderTest(
       dict(
           testcase_name='_withIntegerGreaterThan',
           fhir_path_expression='4 > 3',
-          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT comparison_
           FROM (SELECT (4 > 3) AS comparison_)
@@ -696,7 +695,6 @@ class FhirPathStandardSqlEncoderTest(
       dict(
           testcase_name='_withIntegerLessThan',
           fhir_path_expression='3 < 4',
-          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT comparison_
           FROM (SELECT (3 < 4) AS comparison_)
@@ -705,7 +703,6 @@ class FhirPathStandardSqlEncoderTest(
       dict(
           testcase_name='_withIntegerLessThanOrEqualTo',
           fhir_path_expression='3 <= 4',
-          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT comparison_
           FROM (SELECT (3 <= 4) AS comparison_)
@@ -745,6 +742,14 @@ class FhirPathStandardSqlEncoderTest(
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT logic_
           FROM (SELECT (TRUE <> FALSE) AS logic_)
+          WHERE logic_ IS NOT NULL)"""),
+      ),
+      dict(
+          testcase_name='_withBooleanImplies',
+          fhir_path_expression='true implies false',
+          expected_sql_expression=textwrap.dedent("""\
+          ARRAY(SELECT logic_
+          FROM (SELECT (NOT TRUE OR FALSE) AS logic_)
           WHERE logic_ IS NOT NULL)"""),
       ),
       dict(
@@ -799,6 +804,7 @@ class FhirPathStandardSqlEncoderTest(
           testcase_name='_withDateTimeEqual',
           fhir_path_expression='@2015-02-04T14:34:28 = @2015-02-04T14',
           different_from_v2=True,
+          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT eq_
           FROM (SELECT ('2015-02-04T14:34:28' = '2015-02-04T14') AS eq_)
@@ -808,6 +814,7 @@ class FhirPathStandardSqlEncoderTest(
           testcase_name='_withDateTimeEquivalent',
           fhir_path_expression='@2015-02-04T14:34:28 ~ @2015-02-04T14',
           different_from_v2=True,
+          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT eq_
           FROM (SELECT ('2015-02-04T14:34:28' = '2015-02-04T14') AS eq_)
@@ -835,6 +842,7 @@ class FhirPathStandardSqlEncoderTest(
       fhir_path_expression: str,
       expected_sql_expression: str,
       different_from_v2: bool = True,
+      check_elm_nodes: bool = True,
   ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.foo,
@@ -844,7 +852,10 @@ class FhirPathStandardSqlEncoderTest(
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     if not different_from_v2:
       self.assertEvaluationNodeSqlCorrect(
-          'Foo', fhir_path_expression, expected_sql_expression
+          'Foo',
+          fhir_path_expression,
+          expected_sql_expression,
+          check_elm_nodes=check_elm_nodes,
       )
 
   @parameterized.named_parameters(
@@ -891,6 +902,7 @@ class FhirPathStandardSqlEncoderTest(
       dict(
           testcase_name='_withIsNotNullOperator',
           fhir_path_expression='text.exists() = true',
+          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT eq_
           FROM (SELECT ((text IS NOT NULL) = TRUE) AS eq_)
@@ -899,6 +911,7 @@ class FhirPathStandardSqlEncoderTest(
       dict(
           testcase_name='_withIsNullOperator',
           fhir_path_expression='text.empty() = true',
+          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT eq_
           FROM (SELECT ((text IS NULL) = TRUE) AS eq_)
@@ -906,7 +919,10 @@ class FhirPathStandardSqlEncoderTest(
       ),
   )
   def testEncode_withFhirPathEqualityRelation_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str
+      self,
+      fhir_path_expression: str,
+      expected_sql_expression: str,
+      check_elm_nodes: bool = True,
   ):
     actual_sql_expression = self.fhir_path_encoder.encode(
         structure_definition=self.div,
@@ -915,7 +931,10 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     self.assertEvaluationNodeSqlCorrect(
-        'Div', fhir_path_expression, expected_sql_expression
+        'Div',
+        fhir_path_expression,
+        expected_sql_expression,
+        check_elm_nodes=check_elm_nodes,
     )
 
   @parameterized.named_parameters(
@@ -1285,9 +1304,27 @@ class FhirPathStandardSqlEncoderTest(
           testcase_name='_withScalarComparisonAndScalarsAsArrayFalse',
           fhir_path_expression="inline.value = 'abc'",
           select_scalars_as_array=False,
-          check_elm_nodes=False,
           expected_sql_expression=textwrap.dedent("""\
           (SELECT (inline.value = 'abc') AS eq_)"""),
+      ),
+      dict(
+          testcase_name='_withArrayEqualityAsArrayFalse',
+          fhir_path_expression='bar.bats.struct.value = stringList',
+          select_scalars_as_array=False,
+          expected_sql_expression=textwrap.dedent(
+              """\
+          (SELECT NOT EXISTS(
+          SELECT lhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, value
+          FROM (SELECT bats_element_.struct.value
+          FROM (SELECT bar),
+          UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset)) AS lhs_
+          EXCEPT DISTINCT
+          SELECT rhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, stringList_element_
+          FROM (SELECT stringList_element_
+          FROM UNNEST(stringList) AS stringList_element_ WITH OFFSET AS element_offset)) AS rhs_) AS eq_)"""
+          ),
       ),
       dict(
           testcase_name='_withScalarComplexComparisonAndScalarsAsArrayFalse',
