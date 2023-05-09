@@ -88,12 +88,32 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       )
     return None
 
-  def visit_reference(self, reference: _evaluation.ExpressionNode) -> Any:
-    """Translates a FHIRPath reference to Standard SQL."""
+  def visit_reference(
+      self, reference: _evaluation.ExpressionNode
+  ) -> _sql_data_types.IdentifierSelect:
+    """Translates a FHIRPath reference to Spark SQL."""
+    # When $this is used, we need the last identifier from the operand.
+    sql_alias = reference.to_fhir_path().split('.')[-1]
+    # If the identifier is `$this`, we assume that the repeated field has been
+    # unnested upstream so we only need to reference it with its alias:
+    # `{}_element_`.
+    if _fhir_path_data_types.returns_collection(reference.return_type()):
+      sql_alias = f'{sql_alias}_element_'
+
+    sql_data_type = _sql_data_types.get_standard_sql_data_type(
+        reference.return_type()
+    )
+    return _sql_data_types.IdentifierSelect(
+        select_part=_sql_data_types.Identifier(
+            _escape_identifier(sql_alias), sql_data_type
+        ),
+        from_part=None,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
+    )
 
   def visit_literal(
       self, literal: _evaluation.LiteralNode) -> _sql_data_types.RawExpression:
-    """Translates a FHIRPath literal to Standard SQL."""
+    """Translates a FHIRPath literal to Spark SQL."""
 
     if (literal.return_type() is None or
         isinstance(literal.return_type(), _fhir_path_data_types._Empty)):  # pylint: disable=protected-access
@@ -175,8 +195,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       else:
         sql_alias = f'{sql_alias}_element_'
         if parent_result:
-          parent_identifier_str = parent_result.sql_alias
-          identifier_str = f'{parent_identifier_str}.{raw_identifier_str}'
+          identifier_str = f'{parent_result.sql_alias}.{raw_identifier_str}'
         else:
           # Identifiers need to be escaped if they are referenced directly.
           identifier_str = f'{_escape_identifier(raw_identifier_str)}'
@@ -202,24 +221,24 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             from_part=from_part,
             sql_dialect=_sql_data_types.SqlDialect.SPARK,
         )
-    else:  # Scalar
-      # Append the current identifier to the path chain being selected if there
-      # is a parent. Includes the from & where clauses of the parent.
-      if parent_result:
-        return dataclasses.replace(
-            parent_result,
-            select_part=parent_result.select_part.dot(
-                raw_identifier_str,
-                sql_data_type,
-                sql_alias=_escape_identifier(sql_alias),
-            ))
-      else:
-        return _sql_data_types.IdentifierSelect(
-            select_part=_sql_data_types.Identifier(
-                _escape_identifier(identifier_str), sql_data_type),
-            from_part=parent_result,
-            sql_dialect=_sql_data_types.SqlDialect.SPARK,
-        )
+
+    # Scalar
+    select_part = _sql_data_types.Identifier(
+        _escape_identifier(identifier_str), sql_data_type
+    )
+    if parent_result:
+      select_part = parent_result.select_part.dot(
+          raw_identifier_str,
+          sql_data_type,
+          sql_alias=_escape_identifier(sql_alias),
+      )
+      return dataclasses.replace(parent_result, select_part=select_part)
+
+    return _sql_data_types.IdentifierSelect(
+        select_part=select_part,
+        from_part=None,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
+    )
 
   def visit_indexer(self,
                     indexer: _evaluation.IndexerNode) -> _sql_data_types.Select:
@@ -524,7 +543,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """Translates a FHIRPath union to Spark SQL."""
     lhs_result = self.visit(union.left)
     rhs_result = self.visit(union.right)
-    # Supported in FHIRPath, but currently generates invalid Standard SQL.
+    # Supported in FHIRPath, but currently generates invalid Spark SQL.
     if isinstance(
         lhs_result.sql_data_type, _sql_data_types.Struct
     ) or isinstance(rhs_result.sql_data_type, _sql_data_types.Struct):

@@ -1079,6 +1079,71 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
             'WHERE exists_ IS NOT NULL)'
         ),
     },
+    {
+        'testcase_name': '_withAllAndIdentifier',
+        'fhir_path_expression': "bat.struct.all(anotherValue = '')",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(all_) FROM (SELECT IFNULL( BOOL_AND( IFNULL('
+            " (SELECT (`struct`.anotherValue = '') AS all_), FALSE)), TRUE) AS"
+            ' all_ FROM (SELECT bat.struct)) WHERE all_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withAllAndRepeatedSubfieldPrimitiveOnlyComparison',
+        'fhir_path_expression': "bar.bats.struct.all( value = '' )",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(all_) FROM (SELECT IFNULL( BOOL_AND( IFNULL('
+            ' (SELECT (SELECT NOT EXISTS( ARRAY_EXCEPT((SELECT value), (SELECT'
+            " ARRAY(''))), x -> x IS NOT NULL) AS eq_ FROM (SELECT"
+            ' COLLECT_LIST(*) AS value FROM struct_element_.value)) AS all_),'
+            ' FALSE)), TRUE) AS all_ FROM (SELECT bats_element_.struct FROM'
+            ' (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS'
+            ' index_bats_element_, bats_element_)) WHERE all_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withAllAndRepeatedOperandUsesExistFunction',
+        'fhir_path_expression': 'bar.all( bats.exists() )',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(all_) FROM (SELECT IFNULL( BOOL_AND( IFNULL('
+            ' (SELECT (SELECT CASE WHEN COUNT(*) = 0 THEN FALSE ELSE TRUE END'
+            ' AS exists_ FROM (SELECT bats_element_ FROM (SELECT bar) LATERAL'
+            ' VIEW POSEXPLODE(bar.bats) AS index_bats_element_, bats_element_)'
+            ' WHERE bats_element_ IS NOT NULL) AS all_), FALSE)), TRUE) AS all_'
+            ' FROM (SELECT bar)) WHERE all_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withAllAndRepeatedParent',
+        'fhir_path_expression': 'bar.bats.all(struct.exists() )',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(all_) FROM (SELECT IFNULL( BOOL_AND( IFNULL('
+            ' (SELECT (SELECT CASE WHEN COUNT(*) = 0 THEN FALSE ELSE TRUE END'
+            ' AS exists_ FROM (SELECT bats_element_.struct) WHERE `struct` IS'
+            ' NOT NULL) AS all_), FALSE)), TRUE) AS all_ FROM (SELECT bar)'
+            ' LATERAL VIEW POSEXPLODE(bar.bats) AS index_bats_element_,'
+            ' bats_element_) WHERE all_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withAllWithNoOperand',
+        'fhir_path_expression': 'all(bar.exists())',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(all_) FROM (SELECT TRUE AS all_) WHERE all_'
+            ' IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_ArrayMatchesAll',
+        'fhir_path_expression': "inline.numbers.all($this.matches('regex'))",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(all_) FROM (SELECT IFNULL( BOOL_AND( IFNULL('
+            " (SELECT REGEXP( numbers_element_, 'regex') AS all_), FALSE)),"
+            ' TRUE) AS all_ FROM (SELECT inline) LATERAL VIEW'
+            ' POSEXPLODE(inline.numbers) AS index_numbers_element_,'
+            ' numbers_element_) WHERE all_ IS NOT NULL)'
+        ),
+    },
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
@@ -1090,6 +1155,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
     {'testcase_name': '_withMatches', 'fhir_path_expression': 'matches()'},
     {'testcase_name': '_withOfType', 'fhir_path_expression': 'ofType()'},
     {'testcase_name': '_withIdFor', 'fhir_path_expression': 'idFor()'},
+    {'testcase_name': '_withAll', 'fhir_path_expression': 'all()'},
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_EXISTS_WITH_PARAM_RAISES_ERROR = [

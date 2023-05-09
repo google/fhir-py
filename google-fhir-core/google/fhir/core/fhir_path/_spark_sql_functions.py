@@ -405,6 +405,93 @@ def id_for_function(
   )
 
 
+def all_function(
+    function: _evaluation.AllFunction,
+    operand_result: Optional[_sql_data_types.IdentifierSelect],
+    params_result: Collection[_sql_data_types.StandardSqlExpression],
+) -> _sql_data_types.Select:
+  """Generates Spark SQL representing the FHIRPath all() function.
+
+  Returns true if criteria evaluates to true for every item in its operand.
+
+  This function takes one param (`criteria`) in addition to its operand. If
+  operand is not provided, it returns True.
+
+  Args:
+    function: The FHIRPath AST `AllFunction` node
+    operand_result: The expression which is being evaluated
+    params_result: The parameter passed in to function
+
+  Returns:
+    A compiled Spark SQL expression.
+  """
+  sql_alias = 'all_'
+  sql_data_type = _sql_data_types.Boolean
+
+  # If operand or params is not given, return TRUE.
+  if not operand_result or not params_result:
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            'TRUE',
+            _sql_alias=sql_alias,
+            _sql_data_type=_sql_data_types.Boolean,
+        ),
+        from_part=None,
+    )
+  else:
+    criteria = list(params_result)[0]
+
+    # There is an edge case where if the operand(context elemenet) is a
+    # repeated field then using the whole subquery causes a value error.
+    # Because the whole subquery includes `SELECT repeated_field_alias...`
+    # which causes any future reference to a field in repeated_field_alias to
+    # fail, thus we extract and use just the from_clause.
+    context_sql = None
+    where_part = None
+    if _fhir_path_data_types.is_collection(
+        function.parent_node().return_type()
+    ):
+      context_sql = operand_result.from_part
+      where_part = operand_result.where_part
+    else:
+      context_sql = str(operand_result.to_subquery())
+
+    criteria_sql = _sql_data_types.RawExpression(
+        criteria.as_operand(),
+        _sql_alias=sql_alias,
+        _sql_data_type=sql_data_type,
+    ).to_subquery()
+
+    internal_if_null_call = _sql_data_types.FunctionCall(
+        'IFNULL',
+        [criteria_sql, 'FALSE'],
+        _sql_alias=sql_alias,
+        _sql_data_type=sql_data_type,
+    )
+
+    logical_and_call = _sql_data_types.FunctionCall(
+        'BOOL_AND',
+        (internal_if_null_call,),
+        _sql_alias=sql_alias,
+        _sql_data_type=sql_data_type,
+    )
+
+    # Constructs and returns the following sql:
+    # `IF_NULL(LOGICAL_AND(IF_NULL(criteria, False)), True)`.
+    # We need the internal IF_NULL because the all function returns True if
+    # the input param / criteria is NULL
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.FunctionCall(
+            'IFNULL',
+            [logical_and_call, 'TRUE'],
+            _sql_alias=sql_alias,
+            _sql_data_type=sql_data_type,
+        ),
+        from_part=context_sql,
+        where_part=where_part,
+    )
+
+
 FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
     immutabledict.immutabledict({
         _evaluation.CountFunction.NAME: count_function,
@@ -415,5 +502,6 @@ FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
         _evaluation.MatchesFunction.NAME: matches_function,
         _evaluation.OfTypeFunction.NAME: of_type_function,
         _evaluation.IdForFunction.NAME: id_for_function,
+        _evaluation.AllFunction.NAME: all_function,
     })
 )
