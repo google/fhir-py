@@ -377,6 +377,34 @@ def of_type_function(
   )
 
 
+def id_for_function(
+    function: _evaluation.IdForFunction,
+    operand_result: Optional[_sql_data_types.IdentifierSelect],
+    params_result: Collection[_sql_data_types.StandardSqlExpression],
+) -> _sql_data_types.Select:
+  """Returns the raw ID for a given resource type."""
+  if operand_result is None:
+    raise ValueError('idFor() cannot be called without an operand.')
+
+  if len(params_result) != 1:
+    raise ValueError('IdForFunction must have a resource type parameter.')
+
+  # As described in
+  # https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md,
+  # this is a special case where the name of the field is based on the desired
+  # reference target, e.g. patientId or organizationId.
+  resource_type = function.base_type_str
+  # Make the first character lowercase to match the column names.
+  resource_type = resource_type[:1].lower() + resource_type[1:]
+
+  return dataclasses.replace(
+      operand_result,
+      select_part=operand_result.select_part.dot(
+          f'{resource_type}Id', _sql_data_types.String, sql_alias='idFor_'
+      ),
+  )
+
+
 FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
     immutabledict.immutabledict({
         _evaluation.CountFunction.NAME: count_function,
@@ -385,6 +413,7 @@ FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
         _evaluation.FirstFunction.NAME: first_function,
         _evaluation.HasValueFunction.NAME: has_value_function,
         _evaluation.MatchesFunction.NAME: matches_function,
-        _evaluation.OfTypeFunction.NAME: of_type_function
+        _evaluation.OfTypeFunction.NAME: of_type_function,
+        _evaluation.IdForFunction.NAME: id_for_function,
     })
 )

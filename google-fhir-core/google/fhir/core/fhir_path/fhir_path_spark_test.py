@@ -1089,6 +1089,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
     {'testcase_name': '_withHasValue', 'fhir_path_expression': 'hasValue()'},
     {'testcase_name': '_withMatches', 'fhir_path_expression': 'matches()'},
     {'testcase_name': '_withOfType', 'fhir_path_expression': 'ofType()'},
+    {'testcase_name': '_withIdFor', 'fhir_path_expression': 'idFor()'},
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_EXISTS_WITH_PARAM_RAISES_ERROR = [
@@ -1345,6 +1346,16 @@ class FhirPathSparkSqlEncoderTest(
         fhir_path_expression='Foo.bar',
         expected_sql_expression=expected_sql_expression,
         use_resource_alias=True,
+    )
+
+  def testEncode_withFhirPathMemberV2IdFor_succeeds(self):
+    self.assertEvaluationNodeSqlCorrect(
+        structdef_name='Foo',
+        fhir_path_expression="bar.idFor('Bats')",
+        expected_sql_expression=(
+            '(SELECT COLLECT_LIST(idFor_) FROM (SELECT bar.batsId AS'
+            ' idFor_) WHERE idFor_ IS NOT NULL)'
+        ),
     )
 
 
