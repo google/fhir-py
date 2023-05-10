@@ -90,7 +90,9 @@ class SparkRunner:
     Returns:
       The SQL used to run the given view.
     """
-    encoder = _spark_interpreter.SparkSqlInterpreter()
+    encoder = _spark_interpreter.SparkSqlInterpreter(
+        value_set_codes_table='VALUESET_VIEW',
+    )
 
     dataset = f'{self._fhir_dataset}'
     table_names = self._view_table_names(view)

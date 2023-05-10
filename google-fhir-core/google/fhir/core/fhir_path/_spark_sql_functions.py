@@ -16,13 +16,18 @@
 
 import copy
 import dataclasses
+import functools
+import operator
 from typing import Callable, Collection, Mapping, Optional
 
 import immutabledict
 
+from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _sql_data_types
+from google.fhir.core.utils import url_utils
+from google.fhir.r4.terminology import local_value_set_resolver
 
 
 def count_function(
@@ -405,6 +410,336 @@ def id_for_function(
   )
 
 
+def member_of_function(
+    function: _evaluation.MemberOfFunction,
+    operand_result: _sql_data_types.IdentifierSelect,
+    params_result: Collection[_sql_data_types.StandardSqlExpression],
+    value_set_codes_table: Optional[str] = None,
+    value_set_resolver: Optional[local_value_set_resolver.LocalResolver] = None,
+) -> _sql_data_types.Select:
+  """Generates Spark SQL representing the FHIRPath memberOf() function.
+
+  Returns `TRUE` if the operand is a value in the given valueset.
+
+  See the memberOf function in https://build.fhir.org/fhirpath.html#functions
+  for the full specification.
+
+  The generated SQL assumes the existence of a value set codes table as defined
+  here:
+  https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md#valueset-support
+
+  By default, the generated SQL will refer to a value set codes table named
+  VALUESET_VIEW. A value_set_codes_table argument may be supplied to use a
+  different table name. The process executing the generated SQL must have
+  permission to read this table.
+
+  This function takes one param (`valueset`) in addition to the operand. The
+  valueset must be a URI referring to a valueset known in a VALUESET_VIEW table
+  or view so the generator can expand it appropriately.
+
+  The operand may be a String, Code, Coding or CodeableConcept.
+
+  The returned SQL expression is a table of cardinality 1 for non-repeated
+  fields and of cardinality matching the number of elements in repeated fields
+  or fields with repeated parents. The table's value is of `BOOL` type.
+
+  Args:
+    function: The FHIRPath AST `MemberOfFunction` node
+    operand_result: The expression which is being evaluated
+    params_result: The parameter passed in to function
+    value_set_codes_table: The value set codes table to refer to
+    value_set_resolver: The resolver to expand value sets.
+
+  Returns:
+    A compiled Spark SQL expression.
+
+  Raises:
+    ValueError: When the function is called without an operand
+  """
+  del params_result  # Unused parameter in this function
+  operand_node = function.parent_node()
+  operand_type = operand_node.return_type()
+  sql_alias = 'memberof_'
+
+  # See if the value set has a simple definition we can expand
+  # ourselves. If so, expand the value set and generate an IN
+  # expression validating if the codes in the column are members of
+  # the value set.
+  if value_set_resolver is not None:
+    expanded_value_set = value_set_resolver.expand_value_set_url(
+        function.value_set_url
+    )
+    if expanded_value_set is not None:
+      return _member_of_sql_against_inline_value_sets(
+          sql_alias,
+          operand_result,
+          operand_type,
+          expanded_value_set,
+      )
+
+  # If we can't expand the value set ourselves, we fall back to
+  # JOIN-ing against an external value sets table.
+  if value_set_codes_table is not None:
+    return _member_of_sql_against_remote_value_set_table(
+        sql_alias,
+        operand_result,
+        operand_node,
+        operand_type,
+        function.value_set_url,
+        value_set_codes_table,
+    )
+
+  raise ValueError(
+      'Unable to expand value set %s locally and no value set'
+      ' definitions table provided. Unable to generate memberOf SQL.'
+      % function.value_set_url,
+  )
+
+
+def _member_of_sql_against_inline_value_sets(
+    sql_alias: str,
+    operand_result: _sql_data_types.IdentifierSelect,
+    operand_type: _fhir_path_data_types.FhirPathDataType,
+    expanded_value_set: value_set_pb2.ValueSet,
+) -> _sql_data_types.Select:
+  """Generates memberOf SQL using an IN statement."""
+  if isinstance(operand_type, _fhir_path_data_types.String.__class__):
+    # For strings and codes, we can just generate SQL like
+    # SELECT code IN (code1, code2...)
+    params = [
+        _sql_data_types.RawExpression(
+            '"%s"' % concept.code.value, _sql_data_types.String
+        )
+        for concept in expanded_value_set.expansion.contains
+    ]
+
+    return dataclasses.replace(
+        operand_result,
+        select_part=operand_result.select_part.is_null().or_(
+            operand_result.select_part.in_(params), _sql_alias=sql_alias
+        ),
+    )
+  if _fhir_path_data_types.is_coding(operand_type):
+    # Codings include a code system in addition to the code value,
+    # so we have to generate more complex SQL like:
+    # SELECT (system = system1 AND code IN (code1, code2)) OR
+    #        (system = system2 AND code IN (code3, code4))
+    predicate = _build_predicate_for_coding_in_value_set(
+        expanded_value_set, operand_result.select_part
+    )
+    return dataclasses.replace(
+        operand_result,
+        select_part=operand_result.select_part.is_null().or_(
+            predicate, _sql_alias=sql_alias
+        ),
+    )
+
+  if _fhir_path_data_types.is_codeable_concept(operand_type):
+    # Codeable concepts are an array of codings. We need to check if
+    # any of the codings in the array match one of the value set's
+    # bound codings. We generate SQL like:
+    # SELECT EXISTS(
+    #   SELECT 1
+    #   FROM UNNEST(codeable_concept)
+    #   WHERE (system = system1 AND code IN (code1, code2)) OR
+    #         (system = system2 AND code IN (code3, code4))
+    #
+    coding_column = operand_result.select_part.dot(
+        'coding', _sql_data_types.String
+    )
+    predicate = _build_predicate_for_coding_in_value_set(
+        expanded_value_set
+    )
+    return dataclasses.replace(
+        operand_result,
+        select_part=coding_column.is_null().or_(
+            _sql_data_types.RawExpression(
+                (
+                    'EXISTS( ('
+                    'SELECT 1 '
+                    f'FROM EXPLODE({coding_column}) '
+                    f'WHERE {predicate}), x -> x IS NOT NULL)'
+                ),
+                _sql_data_type=_sql_data_types.Boolean,
+            ),
+            _sql_alias=sql_alias,
+        ),
+    )
+
+  raise ValueError(
+      'Unexpected type %s and structure definition %s encountered'
+      % (operand_type, operand_type.url)
+  )
+
+
+def _build_predicate_for_coding_in_value_set(
+    expanded_value_set: value_set_pb2.ValueSet,
+    coding_column: Optional[_sql_data_types.Identifier] = None,
+) -> _sql_data_types.StandardSqlExpression:
+  """Builds a predicate asserting the coding column is bound to the value_set.
+
+  Ensures that the codings contained in `coding_column` are codings found in
+  `expanded_value_set`.
+  Produces SQL like:
+  (`coding_column`.system = system1 AND `coding_column`.code IN (
+    code1, code2)) OR
+  (`coding_column`.system = system2 AND `coding_column`.code IN (
+    code3, code4))
+
+  Args:
+    expanded_value_set: The expanded value set containing the coding values to
+      assert membership against.
+    coding_column: The column containing the coding values. If given, columns
+      `coding_column`.system and `coding_column`.code will be referenced in
+      the predicate. If not given, columns 'system' and 'code' will be
+      referenced.
+
+  Returns:
+    The SQL for the value set binding predicate.
+  """
+  # Group codes per code system.
+  codes_per_system = {}
+  for concept in expanded_value_set.expansion.contains:
+    codes_per_system.setdefault(concept.system.value, []).append(
+        concept.code.value
+    )
+
+  # Sort the code system entries to ensure we build stable SQL.
+  codes_per_system = list(codes_per_system.items())
+  codes_per_system.sort(key=operator.itemgetter(0))
+  for _, codes in codes_per_system:
+    codes.sort()
+
+  # Build a 'system = system AND code IN (codes)' expression per code system
+  if coding_column is None:
+    code_col = _sql_data_types.Identifier('code', _sql_data_types.String)
+    system_col = _sql_data_types.Identifier('system', _sql_data_types.String)
+  else:
+    code_col = coding_column.dot('code', _sql_data_types.String)
+    system_col = coding_column.dot('system', _sql_data_types.String)
+
+  code_system_predicates = []
+  for system, codes in codes_per_system:
+    system = _sql_data_types.RawExpression(
+        '"%s"' % system, _sql_data_types.String
+    )
+    codes = [
+        _sql_data_types.RawExpression('"%s"' % code, _sql_data_types.String)
+        for code in codes
+    ]
+    code_system_predicates.append(
+        system_col.eq_(system).and_(code_col.in_(codes))
+    )
+
+  # OR each of the above predicates.
+  return functools.reduce(
+      lambda acc, pred: acc.or_(pred), code_system_predicates
+  )
+
+
+def _member_of_sql_against_remote_value_set_table(
+    sql_alias: str,
+    operand_result: _sql_data_types.IdentifierSelect,
+    operand_node: _evaluation.ExpressionNode,
+    operand_type: _fhir_path_data_types.FhirPathDataType,
+    value_set_param: str,
+    value_set_codes_table: str,
+) -> _sql_data_types.Select:
+  """Generates memberOf SQL using a JOIN against a terminology table.."""
+  is_collection = _fhir_path_data_types.returns_collection(
+      operand_node.return_type()
+  )
+  is_string_or_code = isinstance(
+      operand_type, _fhir_path_data_types.String.__class__
+  )
+  is_coding = _fhir_path_data_types.is_coding(operand_type)
+  is_codeable_concept = _fhir_path_data_types.is_codeable_concept(
+      operand_type
+  )
+
+  value_set_uri, value_set_version = url_utils.parse_url_version(
+      value_set_param
+  )
+
+  value_set_uri_expr = f"'{value_set_uri}'"
+  if value_set_version:
+    value_set_version_predicate = (
+        f"AND vs.valuesetversion='{value_set_version}' "
+    )
+  else:
+    value_set_version_predicate = ''
+
+  if is_string_or_code and not is_collection:
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            sql_expr=f'ISNOTNULL({sql_alias})',
+            _sql_data_type=_sql_data_types.Boolean,
+            _sql_alias=sql_alias,
+        ),
+        from_part=(
+            f'(SELECT 1 AS {sql_alias} '
+            f'FROM `{value_set_codes_table}` vs '
+            f'WHERE '
+            f'vs.valueseturi={value_set_uri_expr} '
+            f'{value_set_version_predicate} '
+            f'AND vs.code={operand_result.select_part}) '
+        ),
+        where_part=operand_result.where_part,
+    )
+  elif is_string_or_code and is_collection:
+    raise NotImplementedError('Not yet implemented for Spark')
+
+  elif is_coding and not is_collection:
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            sql_expr=f'ISNOTNULL({sql_alias})',
+            _sql_data_type=_sql_data_types.Boolean,
+            _sql_alias=sql_alias,
+        ),
+        from_part=(
+            f'(SELECT 1 AS {sql_alias} '
+            f'FROM `{value_set_codes_table}` vs '
+            'WHERE '
+            f'vs.valueseturi={value_set_uri_expr} '
+            f'{value_set_version_predicate} '
+            f'AND vs.system={operand_result.select_part}.system '
+            f'AND vs.code={operand_result.select_part}.code)'
+        ),
+        where_part=operand_result.where_part,
+    )
+  elif is_coding and is_collection:
+    raise NotImplementedError('Not yet implemented for Spark')
+
+  elif is_codeable_concept and not is_collection:
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            sql_expr=f'ISNOTNULL({sql_alias})',
+            _sql_data_type=_sql_data_types.Boolean,
+            _sql_alias=sql_alias,
+        ),
+        from_part=(
+            f'(SELECT 1 AS {sql_alias} '
+            f'FROM (SELECT EXPLODE({operand_result.sql_alias}.coding) '
+            'AS codings '
+            f'FROM {operand_result.to_subquery()} ) '
+            f'INNER JOIN `{value_set_codes_table}` vs '
+            f'ON vs.valueseturi={value_set_uri_expr} '
+            f'{value_set_version_predicate} '
+            'AND vs.system=codings.system '
+            'AND vs.code=codings.code)'
+        ),
+        where_part=operand_result.where_part,
+    )
+  elif is_codeable_concept and is_collection:
+    raise NotImplementedError('Not yet implemented for Spark')
+
+  else:
+    raise ValueError(
+        'Unexpected type %s and structure definition %s encountered'
+        % (operand_type, operand_type.url)
+    )
+
+
 def all_function(
     function: _evaluation.AllFunction,
     operand_result: Optional[_sql_data_types.IdentifierSelect],
@@ -502,6 +837,7 @@ FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
         _evaluation.MatchesFunction.NAME: matches_function,
         _evaluation.OfTypeFunction.NAME: of_type_function,
         _evaluation.IdForFunction.NAME: id_for_function,
+        _evaluation.MemberOfFunction.NAME: member_of_function,
         _evaluation.AllFunction.NAME: all_function,
     })
 )

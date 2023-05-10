@@ -14,10 +14,19 @@
 # limitations under the License.
 """Tests Python FHIRPath functionality for Spark."""
 
+from typing import Optional
+import unittest.mock
+
 from absl.testing import absltest
 from absl.testing import parameterized
+
+from google.fhir.r4.proto.core.resources import value_set_pb2
+
 from google.fhir.core.fhir_path import _spark_interpreter
 from google.fhir.core.fhir_path import fhir_path_test_base
+
+
+from google.fhir.core.utils import fhir_package
 
 
 _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
@@ -1144,6 +1153,85 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
             ' numbers_element_) WHERE all_ IS NOT NULL)'
         ),
     },
+    {
+        'testcase_name': '_withScalarCodeMemberOf',
+        'fhir_path_expression': (
+            "codeFlavor.code.memberOf('http://value.set/id')"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(memberof_) FROM (SELECT ISNOTNULL(memberof_)'
+            ' AS memberof_ FROM (SELECT 1 AS memberof_ FROM `VALUESET_VIEW` vs'
+            " WHERE vs.valueseturi='http://value.set/id'  AND"
+            ' vs.code=codeFlavor.code) ) WHERE memberof_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withScalarCodeMemberOfValueSetVersion',
+        'fhir_path_expression': (
+            "codeFlavor.code.memberOf('http://value.set/id|1.0')"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(memberof_) FROM (SELECT ISNOTNULL(memberof_)'
+            ' AS memberof_ FROM (SELECT 1 AS memberof_ FROM `VALUESET_VIEW` vs'
+            " WHERE vs.valueseturi='http://value.set/id' AND"
+            " vs.valuesetversion='1.0'  AND vs.code=codeFlavor.code) ) WHERE"
+            ' memberof_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withScalarCodingMemberOf',
+        'fhir_path_expression': (
+            "codeFlavor.coding.memberOf('http://value.set/id')"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(memberof_) FROM (SELECT ISNOTNULL(memberof_)'
+            ' AS memberof_ FROM (SELECT 1 AS memberof_ FROM `VALUESET_VIEW` vs'
+            " WHERE vs.valueseturi='http://value.set/id'  AND"
+            ' vs.system=codeFlavor.coding.system AND'
+            ' vs.code=codeFlavor.coding.code)) WHERE memberof_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withScalarCodingMemberOfValueSetVersion',
+        'fhir_path_expression': (
+            "codeFlavor.coding.memberOf('http://value.set/id|1.0')"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(memberof_) FROM (SELECT ISNOTNULL(memberof_)'
+            ' AS memberof_ FROM (SELECT 1 AS memberof_ FROM `VALUESET_VIEW` vs'
+            " WHERE vs.valueseturi='http://value.set/id' AND"
+            " vs.valuesetversion='1.0'  AND vs.system=codeFlavor.coding.system"
+            ' AND vs.code=codeFlavor.coding.code)) WHERE memberof_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withScalarCodeableConceptMemberOf',
+        'fhir_path_expression': (
+            "codeFlavor.codeableConcept.memberOf('http://value.set/id')"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(memberof_) FROM (SELECT ISNOTNULL(memberof_)'
+            ' AS memberof_ FROM (SELECT 1 AS memberof_ FROM (SELECT'
+            ' EXPLODE(codeableConcept.coding) AS codings FROM (SELECT'
+            ' codeFlavor.codeableConcept) ) INNER JOIN `VALUESET_VIEW` vs ON'
+            " vs.valueseturi='http://value.set/id'  AND"
+            ' vs.system=codings.system AND vs.code=codings.code)) WHERE'
+            ' memberof_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withScalarOfTypeCodeableConceptMemberOf',
+        'fhir_path_expression': "codeFlavor.ofType('codeableConcept').memberOf('http://value.set/id')",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(memberof_) FROM (SELECT ISNOTNULL(memberof_)'
+            ' AS memberof_ FROM (SELECT 1 AS memberof_ FROM (SELECT'
+            ' EXPLODE(ofType_.coding) AS codings FROM (SELECT'
+            ' codeFlavor.codeableConcept AS ofType_) ) INNER JOIN'
+            " `VALUESET_VIEW` vs ON vs.valueseturi='http://value.set/id'  AND"
+            ' vs.system=codings.system AND vs.code=codings.code)) WHERE'
+            ' memberof_ IS NOT NULL)'
+        ),
+    },
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
@@ -1156,6 +1244,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
     {'testcase_name': '_withOfType', 'fhir_path_expression': 'ofType()'},
     {'testcase_name': '_withIdFor', 'fhir_path_expression': 'idFor()'},
     {'testcase_name': '_withAll', 'fhir_path_expression': 'all()'},
+    {'testcase_name': '_withMemberOf', 'fhir_path_expression': 'memberOf()'},
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_EXISTS_WITH_PARAM_RAISES_ERROR = [
@@ -1211,6 +1300,98 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_UNION_FUNCTION_SUCCEEDS_CASES = [
     },
 ]
 
+_WITH_FHIRPATH_V2_FHIRPATH_MEMBER_OF_VECTOR_EXPRESSIONS_RAISES_ERROR = [
+    {
+        'testcase_name': '_withVectorCodeMemberOf',
+        'fhir_path_expression': (
+            "codeFlavors.code.memberOf('http://value.set/id')"
+        ),
+    },
+    {
+        'testcase_name': '_withVectorCodeableConceptMemberOf',
+        'fhir_path_expression': (
+            "codeFlavors.codeableConcept.memberOf('http://value.set/id')"
+        ),
+    },
+    {
+        'testcase_name': '_withVectorCodingMemberOf',
+        'fhir_path_expression': (
+            "codeFlavors.coding.memberOf('http://value.set/id')"
+        ),
+    },
+    {
+        'testcase_name': '_withVectorOfTypeCodeableConceptMemberOf',
+        'fhir_path_expression': "codeFlavors.ofType('codeableConcept').memberOf('http://value.set/id')",
+    },
+]
+
+_WITH_FHIRPATH_V2_MEMBER_OF_AGAINST_LOCAL_VALUESET_DEFINITIONS_SUCCEEDS_CASES = [
+    {
+        'testcase_name': '_withScalarCodeMemberOf',
+        'fhir_path_expression': (
+            "codeFlavor.code.memberOf('http://value.set/1')"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(memberof_) FROM (SELECT (codeFlavor.code IS'
+            ' NULL) OR (codeFlavor.code IN ("code_1", "code_2")) AS memberof_)'
+            ' WHERE memberof_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withScalarCodeMemberOfAnotherValueSet',
+        'fhir_path_expression': (
+            "codeFlavor.code.memberOf('http://value.set/2')"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(memberof_) FROM (SELECT (codeFlavor.code IS'
+            ' NULL) OR (codeFlavor.code IN ("code_3", "code_4", "code_5")) AS'
+            ' memberof_) WHERE memberof_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withVectorCodeMemberOf',
+        'fhir_path_expression': (
+            "codeFlavors.code.memberOf('http://value.set/1')"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(memberof_) FROM (SELECT'
+            ' (codeFlavors_element_.code IS NULL) OR (codeFlavors_element_.code'
+            ' IN ("code_1", "code_2")) AS memberof_ FROM (SELECT'
+            ' EXPLODE(codeFlavors_element_) AS codeFlavors_element_ FROM'
+            ' (SELECT codeFlavors AS codeFlavors_element_))) WHERE memberof_ IS'
+            ' NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withScalarCodingMemberOf',
+        'fhir_path_expression': (
+            "codeFlavor.coding.memberOf('http://value.set/2')"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(memberof_) FROM (SELECT (codeFlavor.coding IS'
+            ' NULL) OR (((codeFlavor.coding.system = "system_3") AND'
+            ' (codeFlavor.coding.code IN ("code_3", "code_4"))) OR'
+            ' ((codeFlavor.coding.system = "system_5") AND'
+            ' (codeFlavor.coding.code IN ("code_5")))) AS memberof_) WHERE'
+            ' memberof_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withScalarCodeableConceptMemberOf',
+        'fhir_path_expression': (
+            "codeFlavor.codeableConcept.memberOf('http://value.set/2')"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(memberof_) FROM (SELECT'
+            ' (codeFlavor.codeableConcept.coding IS NULL) OR EXISTS( (SELECT 1'
+            ' FROM EXPLODE(codeFlavor.codeableConcept.coding) WHERE'
+            ' ((system = "system_3") AND (code IN ("code_3", "code_4"))) OR'
+            ' ((system = "system_5") AND (code IN ("code_5")))), x -> x IS NOT'
+            ' NULL) AS memberof_) WHERE memberof_ IS NOT NULL)'
+        ),
+    },
+]
+
 
 class FhirPathSparkSqlEncoderTest(
     fhir_path_test_base.FhirPathTestBase, parameterized.TestCase
@@ -1224,10 +1405,16 @@ class FhirPathSparkSqlEncoderTest(
       expected_sql_expression: str,
       select_scalars_as_array: bool = True,
       use_resource_alias: bool = False,
+      value_set_codes_definitions: Optional[
+          fhir_package.FhirPackageManager
+      ] = None,
   ) -> None:
     builder = self.create_builder_from_str(structdef_name, fhir_path_expression)
 
-    actual_sql_expression = _spark_interpreter.SparkSqlInterpreter().encode(
+    actual_sql_expression = _spark_interpreter.SparkSqlInterpreter(
+        value_set_codes_table='VALUESET_VIEW',
+        value_set_codes_definitions=value_set_codes_definitions,
+    ).encode(
         builder,
         select_scalars_as_array=select_scalars_as_array,
         use_resource_alias=use_resource_alias,
@@ -1357,6 +1544,54 @@ class FhirPathSparkSqlEncoderTest(
         structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
+        select_scalars_as_array=True,
+    )
+
+  @parameterized.named_parameters(
+      _WITH_FHIRPATH_V2_MEMBER_OF_AGAINST_LOCAL_VALUESET_DEFINITIONS_SUCCEEDS_CASES
+  )
+  def testEncode_withFhirPathV2MemberFunctionAgainstLocalValueSetDefinitions_succeeds(
+      self, fhir_path_expression: str, expected_sql_expression: str
+  ):
+    expanded_value_set_1 = value_set_pb2.ValueSet()
+    expanded_value_set_1.url.value = 'http://value.set/1'
+
+    code_1 = expanded_value_set_1.expansion.contains.add()
+    code_1.code.value = 'code_1'
+    code_1.system.value = 'system_1'
+
+    code_2 = expanded_value_set_1.expansion.contains.add()
+    code_2.code.value = 'code_2'
+    code_2.system.value = 'system_2'
+
+    expanded_value_set_2 = value_set_pb2.ValueSet()
+    expanded_value_set_2.url.value = 'http://value.set/2'
+
+    # The following two codes are in the same code system.
+    code_3 = expanded_value_set_2.expansion.contains.add()
+    code_3.code.value = 'code_3'
+    code_3.system.value = 'system_3'
+
+    code_4 = expanded_value_set_2.expansion.contains.add()
+    code_4.code.value = 'code_4'
+    code_4.system.value = 'system_3'
+
+    code_4 = expanded_value_set_2.expansion.contains.add()
+    code_4.code.value = 'code_5'
+    code_4.system.value = 'system_5'
+
+    self.assertEvaluationNodeSqlCorrect(
+        'Foo',
+        fhir_path_expression,
+        expected_sql_expression,
+        # Build a mock package manager which returns resources for the value
+        # sets above.
+        value_set_codes_definitions=unittest.mock.Mock(
+            get_resource={
+                expanded_value_set_1.url.value: expanded_value_set_1,
+                expanded_value_set_2.url.value: expanded_value_set_2,
+            }.get
+        ),
     )
 
   @parameterized.named_parameters(
@@ -1378,6 +1613,18 @@ class FhirPathSparkSqlEncoderTest(
     with self.assertRaises(ValueError):
       builder = self.create_builder_from_str('Foo', fhir_path_expression)
       self.spark_interpreter.encode(builder)
+
+  @parameterized.named_parameters(
+      _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_OF_VECTOR_EXPRESSIONS_RAISES_ERROR
+  )
+  def testEncode_withFhirPathV2MemberOfFunctionWithVectorExpression_raisesError(
+      self, fhir_path_expression: str
+  ):
+    with self.assertRaises(NotImplementedError):
+      builder = self.create_builder_from_str('Foo', fhir_path_expression)
+      _spark_interpreter.SparkSqlInterpreter(
+          value_set_codes_table='VALUESET_VIEW'
+      ).encode(builder)
 
   def testEncode_withFhirPathV2SelectScalarsAsArrayFalseForLiteral_succeeds(
       self,
