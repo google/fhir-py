@@ -4546,6 +4546,57 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
         ],
     )
 
+    backbone_resource = sdefs.build_resource_definition(
+        id_='BackboneElement',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='BackboneElement',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=0, max='1'),
+            )
+        ],
+    )
+
+    codeable_concept_backbone_slice_test = sdefs.build_resource_definition(
+        id_='CodeableConceptBackboneSliceTest',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='CodeableConceptBackboneSliceTest',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=1, max='1'),
+            ),
+            # Define a backbone element named 'contact.'
+            sdefs.build_element_definition(
+                id_='CodeableConceptBackboneSliceTest.contact',
+                type_codes=['BackboneElement'],
+                cardinality=sdefs.Cardinality(0, '*'),
+            ),
+            sdefs.build_element_definition(
+                id_='CodeableConceptBackboneSliceTest.contact.name',
+                type_codes=['string'],
+                cardinality=sdefs.Cardinality(0, '1'),
+            ),
+            # Define a slice off the collection of 'contact' backbone elements.
+            sdefs.build_element_definition(
+                id_='CodeableConceptBackboneSliceTest.contact:BackboneSlice',
+                path='CodeableConceptBackboneSliceTest.contact',
+                type_codes=['BackboneElement'],
+                cardinality=sdefs.Cardinality(2, '*'),
+                slice_name='BackboneSlice',
+            ),
+            # Fix the names in this slice.
+            sdefs.build_element_definition(
+                id_='CodeableConceptBackboneSliceTest.contact:BackboneSlice.name',
+                path='CodeableConceptBackboneSliceTest.contact.name',
+                type_codes=['string'],
+                cardinality=sdefs.Cardinality(1, '1'),
+                fixed=datatypes_pb2.ElementDefinition.FixedX(
+                    string_value=datatypes_pb2.String(value='skeleton')
+                ),
+            ),
+        ],
+    )
+
     all_resources = [
         choice_test,
         nested_choice_test,
@@ -4558,6 +4609,8 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
         coding,
         codeable_concept,
         codeable_concept_slice_test,
+        backbone_resource,
+        codeable_concept_backbone_slice_test,
     ]
     cls.resources = {resource.url.value: resource for resource in all_resources}
 
@@ -4702,6 +4755,28 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
               FROM (SELECT 'final_frontier' AS literal_)) AS rhs_))) <= 1)) AS logic_)
               WHERE logic_ IS NOT NULL)) AS result_)"""),
       ),
+      dict(
+          testcase_name=(
+              '_withCodeableConceptBackboneSlice_encodesSystemRequirement'
+          ),
+          base_id='CodeableConceptBackboneSliceTest',
+          context_element_path='CodeableConceptBackboneSliceTest.contact',
+          fields_referenced_by_expression=['contact', 'contact.name'],
+          fhir_path_expression="contact.where(name = 'skeleton').count() >= 2",
+          expected_sql_expression=textwrap.dedent("""\
+          (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
+          FROM (SELECT ARRAY(SELECT comparison_
+          FROM (SELECT ((SELECT COUNT(
+          where_clause_) AS count_
+          FROM (SELECT NULL AS where_clause_)) >= 2) AS comparison_)
+          WHERE comparison_ IS NOT NULL) AS subquery_
+          FROM (SELECT AS VALUE ctx_element_
+          FROM UNNEST(ARRAY(SELECT contact_element_
+          FROM (SELECT contact_element_
+          FROM UNNEST(contact) AS contact_element_ WITH OFFSET AS element_offset)
+          WHERE contact_element_ IS NOT NULL)) AS ctx_element_)),
+          UNNEST(subquery_) AS result_)"""),
+      ),
   )
   def testEncode(
       self,
@@ -4718,6 +4793,9 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
         unittest.mock.Mock(iter_structure_definitions=lambda: all_resources),
         primitive_handler.PrimitiveHandler(),
         error_reporter_v2,
+        options=fhir_path_validator_v2.SqlGenerationOptions(
+            verbose_error_reporting=True
+        ),
     )
 
     resource = self.resources[

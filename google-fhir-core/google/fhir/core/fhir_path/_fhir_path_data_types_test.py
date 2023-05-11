@@ -29,6 +29,12 @@ class StructureDataTypeTest(absltest.TestCase):
             cardinality=sdefs.Cardinality(min=1, max='1'),
         ),
         sdefs.build_element_definition(
+            id_='Test.id',
+            path='Test.id',
+            type_codes=['string'],
+            cardinality=sdefs.Cardinality(min=0, max='1'),
+        ),
+        sdefs.build_element_definition(
             id_='Test.field',
             type_codes=['string'],
             cardinality=sdefs.Cardinality(min=0, max='1'),
@@ -106,6 +112,19 @@ class StructureDataTypeTest(absltest.TestCase):
             type_codes=['string'],
             cardinality=sdefs.Cardinality(min=0, max='1'),
         ),
+        sdefs.build_element_definition(
+            id_='Test:rootSlice',
+            path='Test',
+            type_codes=['string'],
+            cardinality=sdefs.Cardinality(min=0, max='*'),
+            slice_name='rootSlice',
+        ),
+        sdefs.build_element_definition(
+            id_='Test:rootSlice.id',
+            path='Test.id',
+            type_codes=['string'],
+            cardinality=sdefs.Cardinality(min=0, max='1'),
+        ),
     ]
     element_definitions_by_id = {
         elem.id.value: elem for elem in element_definitions
@@ -120,6 +139,7 @@ class StructureDataTypeTest(absltest.TestCase):
     self.assertCountEqual(
         list(structure_definition.iter_children()),
         [
+            ('id', element_definitions_by_id['Test.id']),
             ('field', element_definitions_by_id['Test.field']),
             ('collection', element_definitions_by_id['Test.collection']),
             (
@@ -131,6 +151,7 @@ class StructureDataTypeTest(absltest.TestCase):
     self.assertCountEqual(
         list(structure_definition.iter_all_descendants()),
         [
+            ('id', element_definitions_by_id['Test.id']),
             ('field', element_definitions_by_id['Test.field']),
             ('field.deeper', element_definitions_by_id['Test.field.deeper']),
             ('collection', element_definitions_by_id['Test.collection']),
@@ -198,6 +219,16 @@ class StructureDataTypeTest(absltest.TestCase):
                         element_definitions_by_id[
                             'Test.extension:extension_field.collection:AnotherSlice.field'
                         ],
+                    ),
+                ],
+            ),
+            _fhir_path_data_types.Slice(
+                element_definitions_by_id['Test:rootSlice'],
+                '',
+                [
+                    (
+                        'id',
+                        element_definitions_by_id['Test:rootSlice.id'],
                     ),
                 ],
             ),

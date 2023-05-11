@@ -633,7 +633,15 @@ class StructureDataType(FhirPathDataType):
       path = _get_analytic_path(elem.path.value, elem.id.value)
 
       if path == qualified_path:
-        self._root_element_definition = elem
+        if elem.slice_name.value:
+          # This is a slice definition at `qualified_path`, i.e. a
+          # path like <qualified_path>:Slice'
+          slice_def = slices[f':{elem.slice_name.value}']
+          slice_def.slice_def = elem
+          slice_def.relative_path = ''
+        else:
+          self._root_element_definition = elem
+
         continue
 
       if re.search(rf'^{qualified_path}\.\w+', path):
@@ -658,7 +666,7 @@ class StructureDataType(FhirPathDataType):
         # in the analytic schema, and thus are treated as fields
         # rather than slices.
         closest_slice_ancestor = re.search(
-            rf'^{qualified_path}\.(.+(?<!.extension):\w+)(?:$|\.)',
+            rf'^{qualified_path}[\.]?(.*(?<!.extension):\w+)(?:$|\.)',
             elem.id.value,
         )
         direct_child = '.' not in relative_path

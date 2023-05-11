@@ -354,6 +354,8 @@ class FhirProfileStandardSqlEncoder:
     self._requirement_column_names: Set[str] = set()
     # Used to avoid visiting the same element definitions multiple times.
     self._visited_element_definitions: Set[Tuple[str, str]] = set()
+    # Likewise for slices.
+    self._visited_slices: Set[Tuple[str, str]] = set()
 
   def _get_new_child_builder(
       self, builder: expressions.Builder, path: str
@@ -898,9 +900,13 @@ class FhirProfileStandardSqlEncoder:
       A constraint enforcing the cardinality of `slice_` if `slice_` imposes a
       non-zero or non-* min or max cardinality. Otherwise, an empty list.
     """
-    slice_builder = self._get_new_child_builder(
-        root_builder, slice_.relative_path
-    )
+    if slice_.relative_path:
+      slice_builder = self._get_new_child_builder(
+          root_builder, slice_.relative_path
+      )
+    else:
+      slice_builder = root_builder
+
     if slice_builder is None:
       return []
 
@@ -1479,6 +1485,16 @@ class FhirProfileStandardSqlEncoder:
           )
 
       for slice_def in struct_type.iter_slices():
+        # Ensure we don't visit the same slice via the same FHIR path
+        # multiple times.
+        slice_visit = (
+            self._abs_path_invocation(new_builder),
+            slice_def.slice_def.id.value,
+        )
+        if slice_visit in self._visited_slices:
+          continue
+        self._visited_slices.add(slice_visit)
+
         result += self._encode_slice_definition(builder, slice_def)
 
     return result
@@ -1627,6 +1643,7 @@ class FhirProfileStandardSqlEncoder:
       self._in_progress.clear()
       self._requirement_column_names.clear()
       self._visited_element_definitions.clear()
+      self._visited_slices.clear()
       self._element_id_to_regex_map.clear()
       self._regex_columns_generated.clear()
     return result
