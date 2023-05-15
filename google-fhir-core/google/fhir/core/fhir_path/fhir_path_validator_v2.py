@@ -1122,67 +1122,6 @@ class FhirProfileStandardSqlEncoder:
         )
     ]
 
-  def get_type_codes_from_slice_element(
-      self, element_definition: ElementDefinition
-  ) -> List[str]:
-    """Returns the type codes of slice elements."""
-    element_definition_path = _get_analytic_path(element_definition)
-
-    # This function currently only supports getting type codes from slices on
-    # extensions.
-    if not _utils.is_slice_on_extension(element_definition):
-      self._error_reporter.report_conversion_error(
-          element_definition_path,
-          (
-              'Attempted to get type code from slice of non-extension.'
-              ' Which is not supported.'
-          ),
-      )
-      return []
-
-    urls = _utils.slice_element_urls(element_definition)
-    # TODO(b/190679571): Handle choice types.
-    if not urls:
-      raise ValueError(
-          'Unable to get url for slice on extension with id: '
-          f'{_get_analytic_path(element_definition)}'
-      )
-
-    if len(urls) > 1:
-      raise ValueError(
-          'Expected element with only one url but got: '
-          f'{urls}, is this a choice type?'
-      )
-
-    url = urls[0]
-    slice_struct_def = self._context.get_structure_definition(url)
-    if not slice_struct_def:
-      raise ValueError(f'Expected a structure definition for {url}.')
-    slice_builder = expressions.Builder(
-        _evaluation.RootMessageNode(
-            self._context,
-            _fhir_path_data_types.StructureDataType(slice_struct_def),
-        ),
-        self._primitive_handler,
-    )  # maybe memoize this.
-
-    # Get the value element from the slice's children.
-    value_element = slice_builder.return_type.child_defs.get('value')
-
-    if value_element is None or _is_disabled(value_element):
-      # At this point, the current element is a slice on an extension that has
-      # no valid `Extension.value[x]` element, so we assume it is a complex
-      # extension.
-      # TODO(b/200575760): Handle complex extensions.
-      self._error_reporter.report_fhir_path_error(
-          self._abs_path_invocation(slice_builder),
-          str(slice_builder),
-          'Current element is a complex extension not supported yet.',
-      )
-      return []
-    else:
-      return _utils.element_type_codes(value_element)
-
   # TODO(b/207690471): Move important ElementDefinition (and other) functions
   # to their respective utility modules and unit test their public facing apis .
   def _get_regex_from_element(
@@ -1190,23 +1129,16 @@ class FhirProfileStandardSqlEncoder:
   ) -> Optional[_RegexInfo]:
     """Returns the regex of this element_definition if available."""
     element_definition = cast(Any, elem)
-    type_codes = _utils.element_type_codes(element_definition)
-
-    if _utils.is_slice_on_extension(element_definition):
-      type_codes = self.get_type_codes_from_slice_element(element_definition)
-
-    if not _is_elem_supported(element_definition):
-      return None
+    type_codes = _utils.element_type_codes(
+        builder.return_type.root_element_definition
+    )
 
     if not type_codes:
       return None
     if len(type_codes) > 1:
-      raise ValueError(
-          'Expected element with only one type code but got: '
-          f'{type_codes}, is this a choice type?'
-      )
-    current_type_code = type_codes[0]
+      raise ValueError(f'Expected 1 type code, got {type_codes} for {builder}')
 
+    current_type_code = type_codes[0]
     element_id: str = element_definition.id.value
     # TODO(b/208620019): Look more into how this section handles multithreading.
     # If we have memoised the regex of this element, then just return it.
@@ -1278,7 +1210,6 @@ class FhirProfileStandardSqlEncoder:
       A list of `SqlRequirement`s representing requirements generated from
       primitive fields on the element that have regexes .
     """
-
     element_definition_path = self._abs_path_invocation(builder)
     # TODO(b/206986228): Remove this key after we start taking profiles into
     # account when encoding constraints for fields.
@@ -1304,12 +1235,7 @@ class FhirProfileStandardSqlEncoder:
     for name, child_message in builder.return_type.iter_children():
       child = cast(Any, child_message)
 
-      # TODO(b/190679571): Handle choice types, which may have more than one
-      # `type.code` value present.
-      # If this element is a choice type, a slice (that is not on an extension)
-      # or is disabled, then don't encode requirements for it.
-      # TODO(b/202564733): Properly handle slices on non-simple extensions.
-      if '[x]' in _get_analytic_path(child) or _is_disabled(child):
+      if _is_disabled(child):
         continue
 
       if not _is_elem_supported(child):
@@ -1319,9 +1245,22 @@ class FhirProfileStandardSqlEncoder:
       if not child_builder:
         continue
 
+      # TODO(b/190679571): Handle choice types, which may have more than one
+      # `type.code` value present.
+      # TODO(b/202564733): Properly handle slices on non-simple extensions.
+      if child_builder.return_type.returns_polymorphic():
+        self._error_reporter.report_fhir_path_error(
+            self._abs_path_invocation(child_builder),
+            str(child_builder),
+            f'Element `{child_builder}` is a choice type which is not currently'
+            ' supported.',
+        )
+        continue
+
       primitive_regex_info = self._get_regex_from_element(
           child_builder, child_message
       )
+
       if primitive_regex_info is None:
         continue  # Unable to find primitive regexes for this child element.
 

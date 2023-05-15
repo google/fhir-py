@@ -3746,10 +3746,42 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         id_='Foo', element_definitions=[foo_root, extension_slice]
     )
 
+    # Extension resource.
+    extension_root_element = sdefs.build_element_definition(
+        id_='Extension',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    value_element_definition = sdefs.build_element_definition(
+        id_='Extension.value[x]',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    extension = sdefs.build_resource_definition(
+        id_='Extension',
+        element_definitions=[
+            extension_root_element,
+            value_element_definition,
+        ],
+    )
+
     # Stand up encoder
     error_reporter = fhir_errors.ListErrorReporter()
     encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(iter_structure_definitions=lambda: [foo]),
+        error_reporter,
+    )
+
+    actual_bindings = encoder.encode(foo)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertEmpty(error_reporter.errors)
+    self.assertLen(actual_bindings, 1)
+
+    # Stand up v2 encoder
+    error_reporter = fhir_errors.ListErrorReporter()
+    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(iter_structure_definitions=lambda: [foo, extension]),
+        primitive_handler.PrimitiveHandler(),
         error_reporter,
     )
 
@@ -3831,6 +3863,41 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         ],
     )
     self.assertEmpty(actual_bindings)
+
+    error_reporter = fhir_errors.ListErrorReporter()
+    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(
+            iter_structure_definitions=lambda: [  # pylint: disable=g-long-lambda
+                foo,
+                custom_extension,
+                string_struct,
+            ]
+        ),
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
+        options=fhir_path_validator_v2.SqlGenerationOptions(
+            add_primitive_regexes=True
+        ),
+    )
+
+    actual_bindings = encoder.encode(foo)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertEqual(
+        error_reporter.errors,
+        [
+            # Adding `+` to get rid of `implicit-str-concat` inside list
+            # warning.
+            'FHIR Path Error: Foo.softDelete; softDelete; Element '
+            + '`softDelete` is a choice type which is not currently supported.'
+        ],
+    )
+    # Check that the only binding is over the choice type.
+    self.assertLen(actual_bindings, 1)
+    self.assertEqual(
+        actual_bindings[0].fhir_path_expression,
+        "softDelete.ofType('string').exists().toInteger() + "
+        "softDelete.ofType('int').exists().toInteger() <= 1",
+    )
 
   def testNonChoiceType_thatIsAlso_sliceOnExtension_makesRegexValidation(self):
     # Set up resource.

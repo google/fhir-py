@@ -13,11 +13,12 @@
 # limitations under the License.
 """Tests for FHIRPath context."""
 
+from typing import BinaryIO
+
 import requests
 import requests_mock
 
 from absl.testing import absltest
-
 # TODO(b/229908551): Eliminate R4-specific tests from this package.
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
 from google.fhir.core.fhir_path import _fhir_path_data_types
@@ -36,7 +37,10 @@ class FhirPathContextTest(absltest.TestCase):
   def setUpClass(cls):
     super().setUpClass()
     cls._package = r4_package.load_base_r4()
-    cls._package_manager = fhir_package.FhirPackageManager([cls._package])
+    us_core = []
+    cls._package_manager = fhir_package.FhirPackageManager(
+        [cls._package, us_core]
+    )
 
   def testStructDefLoad_FromFhirPackage_succeeds(self):
     test_context = context.LocalFhirPathContext(self._package)

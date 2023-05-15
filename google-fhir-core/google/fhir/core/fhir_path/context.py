@@ -252,7 +252,33 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
         raise ValueError(
             f'Identifier {json_name} not in {parent.child_defs.keys()}'
         )
-      return self.fhir_data_type_generator(elem, json_name, parent)
+      return_type = self.fhir_data_type_generator(elem, json_name, parent)
+      # If the element is a slice on an extension, the element definition for
+      # the slice will actually be on the slice definition instead which is
+      # stored in the value field of the child. This is essentially a shortcut
+      # for Foo.bar:slice.value when accessing Foo.bar.slice.
+      if _utils.is_slice_on_extension(elem):
+        # Complex slices may have its own extensions on it and so will not have
+        # a value field.
+        if 'value' not in return_type.child_defs:
+          return return_type
+        slice_elem = return_type.child_defs['value']
+        return_type = self.fhir_data_type_generator(
+            slice_elem, json_name, parent
+        )
+        # If there is only one type, then extract the type and return it on its
+        # lonesome. This logic only applies to extensions as they will alwyas
+        # have a field called Extension.value[x] regardless if the actual value
+        # is just a single type code. These fields with single type codes get
+        # encoded in BigQuery just the field itself instead of field.value.
+        if (
+            isinstance(return_type, _fhir_path_data_types.PolymorphicDataType)
+            and len(return_type.urls) == 1
+        ):
+          return_type = next(iter(return_type.types().values()))
+
+      return return_type
+
     else:
       raise ValueError(f'Parent {parent} does not contain children.')
 
