@@ -396,7 +396,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       )
       sql_expr = (
           f'ARRAY_EXCEPT('
-          f'(SELECT {lhs_result.sql_alias}), '
+          f'(SELECT ARRAY({lhs_result.sql_alias})), '
           f'(SELECT {nested_query})'
           ')'
       )
@@ -412,11 +412,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
               _sql_data_type=sql_data_type,
               _sql_alias=sql_alias,
           ),
-          from_part=(
-              '(SELECT COLLECT_LIST(*) AS'
-              f' {lhs_result.sql_alias} FROM'
-              f' {lhs_result.as_operand()})'
-          ),
+          from_part=f'(SELECT {lhs_result.as_operand()})',
           sql_dialect=_sql_data_types.SqlDialect.SPARK,
       )
 
@@ -430,7 +426,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       )
       sql_expr = (
           'ARRAY_EXCEPT('
-          f'(SELECT {rhs_result.sql_alias}), '
+          f'(SELECT ARRAY({rhs_result.sql_alias})), '
           f'(SELECT {nested_query})'
           ')'
       )
@@ -446,11 +442,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
               _sql_data_type=sql_data_type,
               _sql_alias=sql_alias,
           ),
-          from_part=(
-              '(SELECT COLLECT_LIST(*) AS'
-              f' {rhs_result.sql_alias} FROM'
-              f' {rhs_result.as_operand()})'
-          ),
+          from_part=f'(SELECT {rhs_result.as_operand()})',
+
           sql_dialect=_sql_data_types.SqlDialect.SPARK,
       )
     else:

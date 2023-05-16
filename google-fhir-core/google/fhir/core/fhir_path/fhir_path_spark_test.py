@@ -683,14 +683,11 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         'testcase_name': '_withScalarComplexComparisonRightSideScalar',
         'fhir_path_expression': "bar.bats.struct.value = '123'",
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(eq_) '
-            'FROM (SELECT NOT EXISTS('
-            " ARRAY_EXCEPT((SELECT value), (SELECT ARRAY('123'))),"
-            ' x -> x IS NOT NULL) AS eq_ '
-            'FROM (SELECT COLLECT_LIST(*) AS value '
-            'FROM (SELECT bats_element_.struct.value '
-            'FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) '
-            'AS index_bats_element_, bats_element_)))'
+            '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
+            " ARRAY_EXCEPT((SELECT ARRAY(value)), (SELECT ARRAY('123'))), x ->"
+            ' x IS NOT NULL) AS eq_ FROM (SELECT (SELECT'
+            ' bats_element_.struct.value FROM (SELECT bar) LATERAL VIEW'
+            ' POSEXPLODE(bar.bats) AS index_bats_element_, bats_element_)))'
             ' WHERE eq_ IS NOT NULL)'
         ),
     },
@@ -698,14 +695,11 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         'testcase_name': '_withScalarComplexComparisonLeftSideScalar',
         'fhir_path_expression': " '123' = bar.bats.struct.value",
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(eq_) '
-            'FROM (SELECT NOT EXISTS('
-            " ARRAY_EXCEPT((SELECT value), (SELECT ARRAY('123'))),"
-            ' x -> x IS NOT NULL) AS eq_ '
-            'FROM (SELECT COLLECT_LIST(*) AS value '
-            'FROM (SELECT bats_element_.struct.value '
-            'FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) '
-            'AS index_bats_element_, bats_element_)))'
+            '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
+            " ARRAY_EXCEPT((SELECT ARRAY(value)), (SELECT ARRAY('123'))), x ->"
+            ' x IS NOT NULL) AS eq_ FROM (SELECT (SELECT'
+            ' bats_element_.struct.value FROM (SELECT bar) LATERAL VIEW'
+            ' POSEXPLODE(bar.bats) AS index_bats_element_, bats_element_)))'
             ' WHERE eq_ IS NOT NULL)'
         ),
     },
@@ -713,38 +707,29 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         'testcase_name': '_withScalarComplexComparisonRightSideUnion',
         'fhir_path_expression': "bar.bats.struct.value = ('abc' | '123')",
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(eq_) '
-            'FROM (SELECT NOT EXISTS('
-            ' ARRAY_EXCEPT((SELECT value), (SELECT ARRAY_AGG(union_) '
-            'FROM (SELECT lhs_.literal_ AS union_ '
-            "FROM (SELECT 'abc' AS literal_) AS lhs_ "
-            'UNION DISTINCT SELECT rhs_.literal_ AS union_ '
-            "FROM (SELECT '123' AS literal_) AS rhs_))),"
-            ' x -> x IS NOT NULL) AS eq_ '
-            'FROM (SELECT COLLECT_LIST(*) AS value '
-            'FROM (SELECT bats_element_.struct.value '
-            'FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) '
-            'AS index_bats_element_, bats_element_)))'
-            ' WHERE eq_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
+            ' ARRAY_EXCEPT((SELECT ARRAY(value)), (SELECT ARRAY_AGG(union_)'
+            " FROM (SELECT lhs_.literal_ AS union_ FROM (SELECT 'abc' AS"
+            ' literal_) AS lhs_ UNION DISTINCT SELECT rhs_.literal_ AS union_'
+            " FROM (SELECT '123' AS literal_) AS rhs_))), x -> x IS NOT NULL)"
+            ' AS eq_ FROM (SELECT (SELECT bats_element_.struct.value FROM'
+            ' (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS'
+            ' index_bats_element_, bats_element_))) WHERE eq_ IS NOT NULL)'
         ),
     },
     {
         'testcase_name': '_withScalarComplexComparisonLeftSideUnion',
         'fhir_path_expression': "('abc' | '123') = bar.bats.struct.value",
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(eq_) '
-            'FROM (SELECT NOT EXISTS('
-            ' ARRAY_EXCEPT((SELECT value), (SELECT ARRAY_AGG(union_) '
-            'FROM (SELECT lhs_.literal_ AS union_ '
-            "FROM (SELECT 'abc' AS literal_) AS lhs_ "
-            'UNION DISTINCT SELECT rhs_.literal_ AS union_ '
-            "FROM (SELECT '123' AS literal_) AS rhs_))),"
-            ' x -> x IS NOT NULL) AS eq_ '
-            'FROM (SELECT COLLECT_LIST(*) AS value '
-            'FROM (SELECT bats_element_.struct.value '
-            'FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) '
-            'AS index_bats_element_, bats_element_)))'
-            ' WHERE eq_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
+            ' ARRAY_EXCEPT((SELECT ARRAY(value)), (SELECT ARRAY_AGG(union_)'
+            " FROM (SELECT lhs_.literal_ AS union_ FROM (SELECT 'abc' AS"
+            ' literal_) AS lhs_ UNION DISTINCT SELECT rhs_.literal_ AS union_'
+            " FROM (SELECT '123' AS literal_) AS rhs_))), x -> x IS NOT NULL)"
+            ' AS eq_ FROM (SELECT (SELECT bats_element_.struct.value FROM'
+            ' (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS'
+            ' index_bats_element_, bats_element_))) WHERE eq_ IS NOT'
+            ' NULL)'
         ),
     },
 ]
@@ -922,9 +907,9 @@ _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
         ),
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
-            " ARRAY_EXCEPT((SELECT system), (SELECT ARRAY('test'))), x -> x IS"
-            ' NOT NULL) AS eq_ FROM (SELECT COLLECT_LIST(*) AS system FROM'
-            ' (SELECT coding_element_.system FROM (SELECT'
+            " ARRAY_EXCEPT((SELECT ARRAY(system)), (SELECT ARRAY('test'))), x"
+            ' -> x IS NOT NULL) AS eq_ FROM (SELECT (SELECT'
+            ' coding_element_.system FROM (SELECT'
             ' multipleChoiceExample_element_.CodeableConcept AS ofType_ FROM'
             ' (SELECT EXPLODE(multipleChoiceExample_element_) AS'
             ' multipleChoiceExample_element_ FROM (SELECT multipleChoiceExample'
@@ -1102,12 +1087,12 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         'fhir_path_expression': "bar.bats.struct.all( value = '' )",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(all_) FROM (SELECT IFNULL( BOOL_AND( IFNULL('
-            ' (SELECT (SELECT NOT EXISTS( ARRAY_EXCEPT((SELECT value), (SELECT'
-            " ARRAY(''))), x -> x IS NOT NULL) AS eq_ FROM (SELECT"
-            ' COLLECT_LIST(*) AS value FROM struct_element_.value)) AS all_),'
-            ' FALSE)), TRUE) AS all_ FROM (SELECT bats_element_.struct FROM'
-            ' (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS'
-            ' index_bats_element_, bats_element_)) WHERE all_ IS NOT NULL)'
+            ' (SELECT (SELECT NOT EXISTS( ARRAY_EXCEPT((SELECT ARRAY(value)),'
+            " (SELECT ARRAY(''))), x -> x IS NOT NULL) AS eq_ FROM (SELECT"
+            ' struct_element_.value)) AS all_), FALSE)), TRUE) AS all_ FROM'
+            ' (SELECT bats_element_.struct FROM (SELECT bar) LATERAL VIEW'
+            ' POSEXPLODE(bar.bats) AS index_bats_element_, bats_element_))'
+            ' WHERE all_ IS NOT NULL)'
         ),
     },
     {
