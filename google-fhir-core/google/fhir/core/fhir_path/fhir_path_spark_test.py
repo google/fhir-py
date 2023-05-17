@@ -966,6 +966,54 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
+        'testcase_name': '_withMemberExistsNot',
+        'fhir_path_expression': 'bar.exists().not()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(not_) FROM (SELECT NOT( bar IS NOT NULL) AS'
+            ' not_) WHERE not_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withNestedMemberExistsNot',
+        'fhir_path_expression': 'bar.bats.exists().not()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(not_) FROM (SELECT NOT( CASE WHEN COUNT(*) ='
+            ' 0 THEN FALSE ELSE TRUE END) AS not_ FROM (SELECT bats_element_'
+            ' FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS'
+            ' index_bats_element_, bats_element_) WHERE bats_element_ IS NOT'
+            ' NULL) WHERE not_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withDeepestNestedMemberSqlKeywordExistsNot',
+        'fhir_path_expression': 'bar.bats.struct.exists().not()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(not_) FROM (SELECT NOT( CASE WHEN COUNT(*) ='
+            ' 0 THEN FALSE ELSE TRUE END) AS not_ FROM (SELECT'
+            ' bats_element_.struct FROM (SELECT bar) LATERAL VIEW'
+            ' POSEXPLODE(bar.bats) AS index_bats_element_, bats_element_) WHERE'
+            ' `struct` IS NOT NULL) WHERE not_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withLogicOnExists',
+        'fhir_path_expression': (
+            '(bar.bats.struct.value.exists() and'
+            ' bar.bats.struct.anotherValue.exists()).not()'
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(not_) FROM (SELECT NOT( (SELECT CASE WHEN'
+            ' COUNT(*) = 0 THEN FALSE ELSE TRUE END AS exists_ FROM (SELECT'
+            ' bats_element_.struct.value FROM (SELECT bar) LATERAL VIEW'
+            ' POSEXPLODE(bar.bats) AS index_bats_element_, bats_element_) WHERE'
+            ' value IS NOT NULL) AND (SELECT CASE WHEN COUNT(*) = 0 THEN FALSE'
+            ' ELSE TRUE END AS exists_ FROM (SELECT'
+            ' bats_element_.struct.anotherValue FROM (SELECT bar) LATERAL VIEW'
+            ' POSEXPLODE(bar.bats) AS index_bats_element_, bats_element_) WHERE'
+            ' anotherValue IS NOT NULL)) AS not_) WHERE not_ IS NOT NULL)'
+        ),
+    },
+    {
         'testcase_name': '_withFirst',
         'fhir_path_expression': 'bar.bats.first()',
         'expected_sql_expression': (
@@ -1375,6 +1423,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
     {'testcase_name': '_withIdFor', 'fhir_path_expression': 'idFor()'},
     {'testcase_name': '_withAll', 'fhir_path_expression': 'all()'},
     {'testcase_name': '_withMemberOf', 'fhir_path_expression': 'memberOf()'},
+    {'testcase_name': '_withNot', 'fhir_path_expression': 'not()'},
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_VALUE_ERROR = [

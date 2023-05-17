@@ -884,6 +884,65 @@ def where_function(
       where_part=where_part,
   )
 
+
+def not_function(
+    function: _evaluation.NotFunction,
+    operand_result: Optional[_sql_data_types.Select],
+    params_result: Collection[_sql_data_types.StandardSqlExpression],
+) -> _sql_data_types.Select:
+  """Generates Spark SQL representing the FHIRPath not() function.
+
+  Returns `TRUE` if the input collection evaluates to `FALSE`.
+
+  The operand is expected to be a table subquery of cardinality 1, whose value
+  is a `BOOL` type. By default, `_NotFunction` will return `FALSE` if given no
+  operator.
+
+  Args:
+    function: The FHIRPath AST `NotFunction` node
+    operand_result: The expression which is being evaluated
+    params_result: The parameter passed in to function
+
+  Returns:
+    A compiled Spark SQL expression.
+
+  Raises:
+    ValueError: When the function is called without an operand
+  """
+  del function, params_result  # Unused parameters in this function
+
+  if operand_result is None:
+    raise ValueError('not() cannot be called without an operand.')
+
+  # TODO(b/234478081):
+  # The spec says: "Returns true if the input collection evaluates to false,
+  # and false if it evaluates to true. Otherwise, the result is empty ({ })"
+  # https://hl7.org/fhirpath/#not-boolean
+  #
+  # For collections, we are returning one value per element in the
+  # collection rather than aggregating the collection elements into a single
+  # boolean value.
+  #
+  # The spec describes how to evaluate collections as single boolean values:
+  # "For all boolean operators, the collections passed as operands are first
+  # evaluated as Booleans (as described in Singleton Evaluation of
+  # Collections). The operators then use three-valued logic to propagate
+  # empty operands.
+  # https://hl7.org/fhirpath/#boolean-logic
+  #
+  # More information here:
+  # https://hl7.org/fhirpath/#singleton-evaluation-of-collections
+  return dataclasses.replace(
+      operand_result,
+      select_part=_sql_data_types.FunctionCall(
+          'NOT',
+          (operand_result.select_part,),
+          _sql_alias='not_',
+          _sql_data_type=_sql_data_types.Boolean,
+      ),
+  )
+
+
 FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
     immutabledict.immutabledict({
         _evaluation.CountFunction.NAME: count_function,
@@ -893,6 +952,7 @@ FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
         _evaluation.HasValueFunction.NAME: has_value_function,
         _evaluation.MatchesFunction.NAME: matches_function,
         _evaluation.OfTypeFunction.NAME: of_type_function,
+        _evaluation.NotFunction.NAME: not_function,
         _evaluation.IdForFunction.NAME: id_for_function,
         _evaluation.MemberOfFunction.NAME: member_of_function,
         _evaluation.AllFunction.NAME: all_function,
