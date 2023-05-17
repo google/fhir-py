@@ -827,6 +827,63 @@ def all_function(
     )
 
 
+def where_function(
+    function: _evaluation.WhereFunction,
+    operand_result: Optional[_sql_data_types.Select],
+    params_result: Collection[_sql_data_types.Select],
+) -> _sql_data_types.Select:
+
+  """Returns a collection of all the items that match the criteria expression.
+
+  This function takes one param (`criteria`) in addition to the operand.
+
+  If the operand is not provided the matches function returns the empty set
+  which in this function translates to NULL.
+
+  Returns an error in the event that the `criteria` param is not provided or its
+  data type is not bool.
+
+
+  Args:
+    function: The FHIRPath AST `WhereFunction` node
+    operand_result: The expression which is being evaluated
+    params_result: The parameter passed in to function
+
+  Returns:
+    A compiled Spark SQL expression.
+  """
+  del function
+  if not operand_result:
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            'NULL',
+            _sql_alias='where_clause_',
+            _sql_data_type=_sql_data_types.Undefined,
+        ),
+        from_part=None,
+    )
+  criteria = list(params_result)[0]
+  where_part = (
+      f'{operand_result.where_part} AND {criteria.as_operand()}'
+      if operand_result.where_part
+      else criteria.as_operand()
+  )
+
+  # Queries without a FROM clause cannot have a WHERE clause. So we create a
+  # dummy FROM clause here if needed.
+  if operand_result.from_part:
+    from_part = operand_result.from_part
+  # Include the asterix in the dummy from clause if the element is a
+  # STRUCT, because it's fields may be accessed in the where clause.
+  elif isinstance(operand_result.sql_data_type, _sql_data_types.Struct):
+    from_part = f'(SELECT {operand_result.select_part}.*)'
+
+  return _sql_data_types.Select(
+      select_part=operand_result.select_part,
+      from_part=from_part,
+      where_part=where_part,
+  )
+
 FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
     immutabledict.immutabledict({
         _evaluation.CountFunction.NAME: count_function,
@@ -839,5 +896,7 @@ FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
         _evaluation.IdForFunction.NAME: id_for_function,
         _evaluation.MemberOfFunction.NAME: member_of_function,
         _evaluation.AllFunction.NAME: all_function,
+        _evaluation.WhereFunction.NAME: where_function,
     })
 )
+

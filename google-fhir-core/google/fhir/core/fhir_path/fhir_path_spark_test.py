@@ -1217,6 +1217,151 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
             ' memberof_ IS NOT NULL)'
         ),
     },
+    {
+        'testcase_name': '_withWhereAndNoOperand',
+        'fhir_path_expression': 'where(true)',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(where_clause_) '
+            'FROM (SELECT NULL AS where_clause_) '
+            'WHERE where_clause_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withWhere',
+        'fhir_path_expression': "bat.struct.where(value='')",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(`struct`) '
+            'FROM (SELECT bat.struct '
+            'FROM (SELECT bat.struct.*) '
+            "WHERE (`struct`.value = '')) "
+            'WHERE `struct` IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withWhereAndEmpty',
+        'fhir_path_expression': "bat.struct.where(value='').empty())",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(empty_) '
+            'FROM (SELECT bat.struct IS NULL AS empty_ '
+            'FROM (SELECT bat.struct.*) '
+            "WHERE (`struct`.value = '')) "
+            'WHERE empty_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withChainedWhere',
+        'fhir_path_expression': (
+            "bat.struct.where(value='').where(anotherValue='')"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(`struct`) '
+            'FROM (SELECT bat.struct '
+            'FROM (SELECT bat.struct.*) '
+            "WHERE (`struct`.value = '') "
+            "AND (`struct`.anotherValue = '')) "
+            'WHERE `struct` IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withComplexWhere',
+        'fhir_path_expression': (
+            "bat.struct.where(value='' and anotherValue=''))"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(`struct`) '
+            'FROM (SELECT bat.struct '
+            'FROM (SELECT bat.struct.*) '
+            "WHERE (`struct`.value = '') "
+            "AND (`struct`.anotherValue = '')) "
+            'WHERE `struct` IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withWhereAndRepeated',
+        'fhir_path_expression': 'bar.bats.where( struct.exists() )',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(bats_element_) FROM (SELECT bats_element_'
+            ' FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS'
+            ' index_bats_element_, bats_element_ WHERE (SELECT CASE WHEN'
+            ' COUNT(*) = 0 THEN FALSE ELSE TRUE END AS exists_ FROM (SELECT'
+            ' bats_element_.struct) WHERE `struct` IS NOT NULL)) WHERE'
+            ' bats_element_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withRetrieveNestedField',
+        'fhir_path_expression': "bat.struct.where(value='').anotherValue",
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(anotherValue) '
+            'FROM (SELECT bat.struct.anotherValue '
+            'FROM (SELECT bat.struct.*) '
+            "WHERE (`struct`.value = '')) "
+            'WHERE anotherValue IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withMultipleWhereClauseAndRetrieveNestedField',
+        'fhir_path_expression': (
+            "bat.struct.where(value='').where(anotherValue='').anotherValue"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(anotherValue) '
+            'FROM (SELECT bat.struct.anotherValue '
+            'FROM (SELECT bat.struct.*) '
+            "WHERE (`struct`.value = '') AND (`struct`.anotherValue = '')) "
+            'WHERE anotherValue IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_withRetrieveNestedFieldExists',
+        'fhir_path_expression': (
+            "bat.struct.where(value='').anotherValue.exists()"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(exists_) '
+            'FROM (SELECT CASE WHEN COUNT(*) = 0 '
+            'THEN FALSE ELSE TRUE END AS exists_ '
+            'FROM (SELECT bat.struct.anotherValue '
+            "FROM (SELECT bat.struct.*) WHERE (`struct`.value = '')) "
+            'WHERE anotherValue IS NOT NULL) '
+            'WHERE exists_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_ArrayWithMessageChoice_andWhere',
+        'fhir_path_expression': (
+            "multipleChoiceExample.ofType('CodeableConcept').coding.where(system"
+            " = 'test')"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(coding_element_) FROM (SELECT coding_element_'
+            ' FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS'
+            ' ofType_ FROM (SELECT EXPLODE(multipleChoiceExample_element_) AS'
+            ' multipleChoiceExample_element_ FROM (SELECT multipleChoiceExample'
+            ' AS multipleChoiceExample_element_))) LATERAL VIEW'
+            ' POSEXPLODE(ofType_.coding) AS index_coding_element_,'
+            ' coding_element_ WHERE (SELECT NOT EXISTS( ARRAY_EXCEPT((SELECT'
+            " ARRAY(system)), (SELECT ARRAY('test'))), x -> x IS NOT NULL) AS"
+            ' eq_ FROM (SELECT coding_element_.system))) WHERE coding_element_'
+            ' IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_ScalarWithRepeatedMessageChoice_andWhere',
+        'fhir_path_expression': (
+            "choiceExample.ofType('CodeableConcept').coding.where(system ="
+            " 'test')"
+        ),
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(coding_element_) FROM (SELECT'
+            ' coding_element_ FROM (SELECT choiceExample.CodeableConcept AS'
+            ' ofType_) LATERAL VIEW POSEXPLODE(ofType_.coding) AS'
+            ' index_coding_element_, coding_element_ WHERE (SELECT NOT EXISTS('
+            " ARRAY_EXCEPT((SELECT ARRAY(system)), (SELECT ARRAY('test'))), x"
+            ' -> x IS NOT NULL) AS eq_ FROM (SELECT coding_element_.system)))'
+            ' WHERE coding_element_ IS NOT NULL)'
+        ),
+    },
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
@@ -1232,10 +1377,25 @@ _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
     {'testcase_name': '_withMemberOf', 'fhir_path_expression': 'memberOf()'},
 ]
 
-_WITH_FHIRPATH_V2_FHIRPATH_EXISTS_WITH_PARAM_RAISES_ERROR = [
+_WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_VALUE_ERROR = [
     {
         'testcase_name': '_withArrayScalarMemberExists',
         'fhir_path_expression': 'bar.exists(struct)'
+    },
+    {
+        'testcase_name': '_withWhereFunctionAndNoCriteria',
+        'fhir_path_expression': 'bat.struct.where()'
+    },
+    {
+        'testcase_name': '_withWhereFunctionAndNonBoolCriteria',
+        'fhir_path_expression': 'bat.struct.where(value)'
+    },
+]
+
+_WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_NOT_IMPLEMENTED_ERROR = [
+    {
+        'testcase_name': '_withWhereAndRepeatedAndExists',
+        'fhir_path_expression': 'bar.bats.where( struct = struct ).exists()'
     },
 ]
 
@@ -1590,14 +1750,24 @@ class FhirPathSparkSqlEncoderTest(
       _spark_interpreter.SparkSqlInterpreter().encode(builder)
 
   @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_FHIRPATH_EXISTS_WITH_PARAM_RAISES_ERROR
+      _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_VALUE_ERROR
   )
-  def testEncode_withFhirPathFunctionExistsWithParam_raisesError(
+  def testEncode_withFhirPathFunctionInvocation_raisesValueError(
       self, fhir_path_expression: str
   ):
     with self.assertRaises(ValueError):
+      self.create_builder_from_str('Foo', fhir_path_expression)
+
+  @parameterized.named_parameters(
+      _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_NOT_IMPLEMENTED_ERROR
+  )
+  def testEncode_withFhirPathFunctionInvocation_raisesNotImplementedError(
+      self, fhir_path_expression: str
+  ):
+    with self.assertRaises(NotImplementedError):
       builder = self.create_builder_from_str('Foo', fhir_path_expression)
-      self.spark_interpreter.encode(builder)
+
+      _spark_interpreter.SparkSqlInterpreter().encode(builder)
 
   @parameterized.named_parameters(
       _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_OF_VECTOR_EXPRESSIONS_RAISES_ERROR
