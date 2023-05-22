@@ -1410,6 +1410,17 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
             ' WHERE coding_element_ IS NOT NULL)'
         ),
     },
+    {
+        'testcase_name': '_withAnyTrue',
+        'fhir_path_expression': 'boolList.anyTrue()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(_anyTrue) FROM (SELECT MAX('
+            ' boolList_element_) AS _anyTrue FROM (SELECT boolList_element_'
+            ' FROM (SELECT EXPLODE(boolList_element_) AS boolList_element_ FROM'
+            ' (SELECT boolList AS boolList_element_)))) WHERE _anyTrue IS NOT'
+            ' NULL)'
+        ),
+    },
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
@@ -1424,6 +1435,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
     {'testcase_name': '_withAll', 'fhir_path_expression': 'all()'},
     {'testcase_name': '_withMemberOf', 'fhir_path_expression': 'memberOf()'},
     {'testcase_name': '_withNot', 'fhir_path_expression': 'not()'},
+    {'testcase_name': '_withAnyTrue', 'fhir_path_expression': 'anyTrue()'},
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_VALUE_ERROR = [

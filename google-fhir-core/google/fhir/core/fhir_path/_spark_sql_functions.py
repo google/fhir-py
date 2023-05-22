@@ -943,6 +943,34 @@ def not_function(
   )
 
 
+def any_true_function(
+    function: _evaluation.AnyTrueFunction,
+    operand_result: Optional[_sql_data_types.Select],
+    params_result: Collection[_sql_data_types.StandardSqlExpression],
+) -> _sql_data_types.Select:
+
+  """Returns true if any value in the operand collection is TRUE."""
+  del function, params_result
+  if operand_result is None:
+    raise ValueError('anyTrue() cannot be called without an operand.')
+
+  sql_alias = '_anyTrue'
+  return _sql_data_types.Select(
+      select_part=_sql_data_types.FunctionCall(
+          'MAX',
+          (
+              _sql_data_types.RawExpression(
+                  operand_result.sql_alias,
+                  _sql_data_type=operand_result.sql_data_type,
+                  ),
+              ),
+          _sql_data_type=_sql_data_types.Boolean,
+          _sql_alias=sql_alias,
+          ),
+      from_part=str(operand_result.to_subquery()),
+      )
+
+
 FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
     immutabledict.immutabledict({
         _evaluation.CountFunction.NAME: count_function,
@@ -957,6 +985,7 @@ FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
         _evaluation.MemberOfFunction.NAME: member_of_function,
         _evaluation.AllFunction.NAME: all_function,
         _evaluation.WhereFunction.NAME: where_function,
+        _evaluation.AnyTrueFunction.NAME: any_true_function,
     })
 )
 
