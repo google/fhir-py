@@ -20,15 +20,19 @@ can be consumed by other tools.
 """
 
 import re
-from typing import Dict, Optional, cast
+from typing import Dict, Iterable, Optional, Union, cast
 
 import pandas
 from sqlalchemy import engine
 
+from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _spark_interpreter
 from google.fhir.core.fhir_path import expressions
+from google.fhir.r4.terminology import terminology_service_client
+from google.fhir.r4.terminology import value_sets
 from google.fhir.views import runner_utils
+from google.fhir.views import spark_value_set_manager
 from google.fhir.views import views
 
 
@@ -72,6 +76,9 @@ class SparkRunner:
         else 'value_set_codes'
     )
     self._snake_case_resource_tables = snake_case_resource_tables
+    self._value_set_manager = spark_value_set_manager.SparkValueSetManager(
+        query_engine, self._value_set_codes_table
+    )
 
   def to_sql(
       self,
@@ -250,3 +257,85 @@ class SparkRunner:
         f'{self.to_sql(view, include_patient_id_col=False)}'
     )
     self._engine.execute(view_sql).fetchall()
+
+  # TODO(b/201107372): Update FHIR-agnostic types to a protocol.
+  def materialize_value_sets(
+      self,
+      value_set_protos: Iterable[value_set_pb2.ValueSet],
+      batch_size: int = 500,
+  ) -> None:
+    """Materialize the given value sets into the value_set_codes_table.
+
+    Then writes these expanded codes into the database
+    named after the `value_set_codes_table` provided at class initialization.
+    Builds a valueset_codes table as described by
+    https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md#valueset-support
+
+    The table will be created if it does not already exist.
+
+    The function will avoid inserting duplicate rows if some of the codes are
+    already present in the given table. It will not attempt to perform an
+    'upsert' or modify any existing rows.
+
+    Note that value sets provided to this function should already be expanded,
+    in that they contain the code values to write. Users should also see
+    `materialize_value_set_expansion` below to retrieve an expanded set from
+    a terminology server.
+
+    Args:
+      value_set_protos: An iterable of FHIR ValueSet protos.
+      batch_size: The maximum number of rows to insert in a single query.
+    """
+    self._value_set_manager.materialize_value_sets(value_set_protos, batch_size)
+
+  def materialize_value_set_expansion(
+      self,
+      urls: Iterable[str],
+      expander: Union[
+          terminology_service_client.TerminologyServiceClient,
+          value_sets.ValueSetResolver,
+      ],
+      terminology_service_url: Optional[str] = None,
+      batch_size: int = 500,
+  ) -> None:
+    """Expands a sequence of value set and materializes their expanded codes.
+
+    Expands the given value set URLs to obtain the set of codes they describe.
+    Then writes these expanded codes into the database
+    named after the `value_set_codes_table` provided at class initialization.
+    Builds a valueset_codes table as described by
+    https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md#valueset-support
+
+    The table will be created if it does not already exist.
+
+    The function will avoid inserting duplicate rows if some of the codes are
+    already present in the given table. It will not attempt to perform an
+    'upsert' or modify any existing rows.
+
+    Provided as a utility function for user convenience. If `urls` is a large
+    set of URLs, callers may prefer to use multi-processing and/or
+    multi-threading to perform expansion and table insertion of the URLs
+    concurrently. This function performs all expansions and table insertions
+    serially.
+
+    Args:
+      urls: The urls for value sets to expand and materialize.
+      expander: The ValueSetResolver or TerminologyServiceClient to perform
+        value set expansion. A ValueSetResolver may be used to attempt to avoid
+        some network requests by expanding value sets locally. A
+        TerminologyServiceClient will use external terminology services to
+        perform all value set expansions.
+      terminology_service_url: If `expander` is a TerminologyServiceClient, the
+        URL of the terminology service to use when expanding value set URLs. If
+        not given, the client will attempt to infer the correct terminology
+        service to use for each value set URL based on its domain.
+      batch_size: The maximum number of rows to insert in a single query.
+
+    Raises:
+      TypeError: If a `terminology_service_url` is given but `expander` is not a
+      TerminologyServiceClient.
+    """
+    self._value_set_manager.materialize_value_set_expansion(
+        urls, expander, terminology_service_url, batch_size
+    )
+

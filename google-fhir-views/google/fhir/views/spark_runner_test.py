@@ -28,6 +28,7 @@ from google.fhir.core.fhir_path import context
 from google.fhir.r4 import r4_package
 from google.fhir.views import r4
 from google.fhir.views import spark_runner
+from google.fhir.views import spark_value_set_manager
 from google.fhir.views import views
 
 
@@ -355,6 +356,43 @@ class SparkRunnerTest(parameterized.TestCase):
         f'{self.runner.to_sql(simple_view, include_patient_id_col=False)}'
     )
     self.mock_spark_engine.execute.assert_called_once_with(expected_sql)
+
+  @mock.patch.object(
+      spark_value_set_manager.SparkValueSetManager,
+      'materialize_value_sets',
+      autospec=True,
+  )
+  def testMaterializeValueSet_delegatesToManager(
+      self, mock_materialize_value_sets
+  ):
+    """Tests inserting data through mock call."""
+    mock_value_sets = [mock.MagicMock(), mock.MagicMock()]
+
+    self.runner.materialize_value_sets(mock_value_sets, 100)
+
+    mock_materialize_value_sets.assert_called_once_with(
+        mock.ANY, mock_value_sets, 100
+    )
+
+  @mock.patch.object(
+      spark_value_set_manager.SparkValueSetManager,
+      'materialize_value_set_expansion',
+      autospec=True,
+  )
+  def testMaterializeValueSetExpansion_delegatesToManager(
+      self, mock_materialize_value_set_expansion
+  ):
+    """Tests materialize through mock calls."""
+    mock_expander = mock.MagicMock()
+
+    self.runner.materialize_value_set_expansion(
+        ['url-1', 'url-2'], mock_expander, None, 100
+    )
+
+    mock_materialize_value_set_expansion.assert_called_once_with(
+        mock.ANY, ['url-1', 'url-2'], mock_expander, None, 100
+    )
+
 
 if __name__ == '__main__':
   absltest.main()
