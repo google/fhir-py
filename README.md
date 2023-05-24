@@ -15,11 +15,24 @@ These libraries are installed via pip.
 ## From PyPi
 
 Users interested in FHIR Views and the underlying libraries can simply run the
-following to install the views library, BigQuery, and FHIR R4 dependencies:
+following to install the views library, BigQuery, Spark and FHIR R4 dependencies:
+
+```
+pip install google-fhir-views[r4,bigquery,spark]
+```
+
+Users who only need the BigQuery or Spark runners can run:
 
 ```
 pip install google-fhir-views[r4,bigquery]
 ```
+
+or
+
+```
+pip install google-fhir-views[r4,spark]
+```
+respectively, to reduce the installation size.
 
 Note: If installing for use in a Jupyter notebook, it's best `pip install ...` _before_ starting the notebook kernel to avoid dependency version issues.
 
@@ -54,9 +67,9 @@ Once protoc is available, the fhir-py libraries can be installed from source by
 running the following in the fhir-py directory:
 
 ```
-pip install ./google-fhir-core[bigquery]
+pip install ./google-fhir-core[bigquery,spark]
 pip install ./google-fhir-r4
-pip install ./google-fhir-views[r4,bigquery]
+pip install ./google-fhir-views[r4,bigquery,spark]
 ```
 
 See the [Google FHIR Views](google-fhir-views/README.md) documentation for

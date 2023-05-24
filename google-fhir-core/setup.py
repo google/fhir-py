@@ -116,6 +116,11 @@ def main():
               'google-cloud-bigquery~=3.1',
               'sqlalchemy~=1.4',
               'sqlalchemy-bigquery~=1.4',
+          ],
+          'spark': [
+              'sqlalchemy~=1.4',
+              'pandas>=1.5',
+              'pyhive>=0.6',
           ]
       },
       zip_safe=False,

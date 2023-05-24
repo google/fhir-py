@@ -18,6 +18,6 @@
 
 export FHIR_PY_VERSION=`cat VERSION`
 
-pip install ./google-fhir-core[bigquery]
+pip install ./google-fhir-core[bigquery,spark]
 pip install ./google-fhir-r4
-pip install ./google-fhir-views[r4,bigquery]
+pip install ./google-fhir-views[r4,bigquery,spark]
