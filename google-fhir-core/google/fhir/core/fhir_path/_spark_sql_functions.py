@@ -66,6 +66,7 @@ def count_function(
         )),
         from_part=str(operand_result.to_subquery()),
         where_part=operand_result.where_part,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
     )
   else:
     # We don't need a sub-query because we already have a FROM.
@@ -127,6 +128,7 @@ def empty_function(
         ),
         from_part=str(operand_result.to_subquery()),
         where_part=f'{operand_result.sql_alias} IS NOT NULL',
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
     )
 
 
@@ -195,6 +197,7 @@ def exists_function(
         ),
         from_part=str(operand_result.to_subquery()),
         where_part=f'{operand_result.sql_alias} IS NOT NULL',
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
     )
 
 
@@ -220,22 +223,36 @@ def first_function(
   Raises:
     ValueError: When the function is called without an operand
   """
-  del function, params_result  # Unused parameters in this function
+  del params_result  # Unused parameters in this function
   if operand_result is None:
     raise ValueError('first() cannot be called without an operand.')
 
-  # We append a limit 1 to get the first row in row order.
   # Note that if an ARRAY was unnested, row order may not match array order,
   # but for most FHIR this should not matter.
   result = copy.copy(operand_result)
-  return _sql_data_types.Select(
-      select_part=_sql_data_types.RawExpression(
-          sql_expr=f'FIRST({result.sql_alias})',
-          _sql_data_type=result.sql_data_type,
-          _sql_alias=result.sql_alias,
-      ),
-      from_part=f'{result.to_subquery()}',
-  )
+  if _fhir_path_data_types.is_collection(function.parent_node().return_type()):
+    return _sql_data_types.Select(
+        select_part=result.select_part,
+        from_part=(
+            f'(SELECT FIRST({result.sql_alias}) AS {result.sql_alias} FROM'
+            f' {result.to_subquery()})'
+        ),
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
+    )
+  else:
+    new_alias = result.sql_alias
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.Identifier(
+            (new_alias,),
+            _sql_data_type=result.sql_data_type,
+            _sql_alias=new_alias,
+        ),
+        from_part=(
+            f'(SELECT FIRST({new_alias}) AS {new_alias} FROM'
+            f' {result.to_subquery()})'
+        ),
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
+    )
 
 
 def has_value_function(
@@ -327,6 +344,7 @@ def matches_function(
             _sql_data_type=sql_data_type,
         ),
         from_part=None,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
     )
   else:
     param_to_evaluate = [param for param in params_result]
@@ -679,12 +697,13 @@ def _member_of_sql_against_remote_value_set_table(
         from_part=(
             f'(SELECT 1 AS {sql_alias} '
             f'FROM `{value_set_codes_table}` vs '
-            f'WHERE '
+            'WHERE '
             f'vs.valueseturi={value_set_uri_expr} '
             f'{value_set_version_predicate} '
             f'AND vs.code={operand_result.select_part}) '
         ),
         where_part=operand_result.where_part,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
     )
   elif is_string_or_code and is_collection:
     raise NotImplementedError('Not yet implemented for Spark')
@@ -706,6 +725,7 @@ def _member_of_sql_against_remote_value_set_table(
             f'AND vs.code={operand_result.select_part}.code)'
         ),
         where_part=operand_result.where_part,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
     )
   elif is_coding and is_collection:
     raise NotImplementedError('Not yet implemented for Spark')
@@ -729,6 +749,7 @@ def _member_of_sql_against_remote_value_set_table(
             'AND vs.code=codings.code)'
         ),
         where_part=operand_result.where_part,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
     )
   elif is_codeable_concept and is_collection:
     raise NotImplementedError('Not yet implemented for Spark')
@@ -772,6 +793,7 @@ def all_function(
             _sql_data_type=_sql_data_types.Boolean,
         ),
         from_part=None,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
     )
   else:
     criteria = list(params_result)[0]
@@ -824,6 +846,7 @@ def all_function(
         ),
         from_part=context_sql,
         where_part=where_part,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
     )
 
 
@@ -861,6 +884,7 @@ def where_function(
             _sql_data_type=_sql_data_types.Undefined,
         ),
         from_part=None,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
     )
   criteria = list(params_result)[0]
   where_part = (
@@ -882,6 +906,7 @@ def where_function(
       select_part=operand_result.select_part,
       from_part=from_part,
       where_part=where_part,
+      sql_dialect=_sql_data_types.SqlDialect.SPARK,
   )
 
 
@@ -962,13 +987,14 @@ def any_true_function(
               _sql_data_types.RawExpression(
                   operand_result.sql_alias,
                   _sql_data_type=operand_result.sql_data_type,
-                  ),
               ),
+          ),
           _sql_data_type=_sql_data_types.Boolean,
           _sql_alias=sql_alias,
-          ),
+      ),
       from_part=str(operand_result.to_subquery()),
-      )
+      sql_dialect=_sql_data_types.SqlDialect.SPARK,
+  )
 
 
 FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
@@ -988,4 +1014,3 @@ FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
         _evaluation.AnyTrueFunction.NAME: any_true_function,
     })
 )
-

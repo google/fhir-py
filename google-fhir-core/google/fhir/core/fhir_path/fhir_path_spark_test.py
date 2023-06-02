@@ -1017,20 +1017,19 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         'testcase_name': '_withFirst',
         'fhir_path_expression': 'bar.bats.first()',
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(bats_element_) '
-            'FROM (SELECT FIRST(bats_element_) AS bats_element_ '
-            'FROM (SELECT bats_element_ FROM (SELECT bar) '
-            'LATERAL VIEW POSEXPLODE(bar.bats) AS index_bats_element_, '
-            'bats_element_)) WHERE bats_element_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(bats_element_) FROM (SELECT bats_element_'
+            ' FROM (SELECT FIRST(bats_element_) AS bats_element_ FROM (SELECT'
+            ' bats_element_ FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats)'
+            ' AS index_bats_element_, bats_element_))) WHERE bats_element_ IS'
+            ' NOT NULL)'
         ),
     },
     {
         'testcase_name': '_withFirstOnNonCollection',
         'fhir_path_expression': 'bar.first()',
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(bar) '
-            'FROM (SELECT FIRST(bar) AS bar '
-            'FROM (SELECT bar)) WHERE bar IS NOT NULL)'
+            '(SELECT COLLECT_LIST(bar) FROM (SELECT bar FROM (SELECT FIRST(bar)'
+            ' AS bar FROM (SELECT bar))) WHERE bar IS NOT NULL)'
         ),
     },
     {

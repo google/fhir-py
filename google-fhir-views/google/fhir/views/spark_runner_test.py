@@ -15,7 +15,6 @@
 """Tests for spark_runner."""
 
 import datetime
-
 from typing import Optional
 from unittest import mock
 
@@ -244,7 +243,61 @@ class SparkRunnerTest(parameterized.TestCase):
             'WHERE comparison_ IS NOT NULL))'
         ),
         view=born_before_1960,
-        runner=self.runner
+        runner=self.runner,
+    )
+
+  def testSimpleSelectWithComplexFilterToSql_forPatient_succeeds(self):
+    """Tests filtering with a complex filter."""
+    pats = self._views.view_of('Patient')
+
+    current = pats.address.where(pats.address.period.empty()).first()
+
+    simple_pats = pats.select({
+        'id': pats.id,
+        'gender': pats.gender,
+        'birthdate': pats.birthDate,
+        'street': current.line.first(),
+        'city': current.city,
+        'state': current.state,
+        'zip': current.postalCode,
+    })
+
+    self.AstAndExpressionTreeTestRunner(
+        expected_output=(
+            'SELECT (SELECT id) AS id,(SELECT gender) AS gender,(SELECT'
+            ' CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthdate,(SELECT'
+            ' line_element_ FROM (SELECT FIRST(line_element_) AS line_element_'
+            ' FROM (SELECT line_element_ FROM (SELECT address_element_ FROM'
+            ' (SELECT FIRST(address_element_) AS address_element_ FROM (SELECT'
+            ' address_element_ FROM (SELECT EXPLODE(address_element_) AS'
+            ' address_element_ FROM (SELECT address AS address_element_)) WHERE'
+            ' (SELECT CASE WHEN COUNT(*) = 0 THEN TRUE ELSE FALSE END AS empty_'
+            ' FROM (SELECT address_element_.period) WHERE period IS NOT'
+            ' NULL)))) LATERAL VIEW POSEXPLODE(address_element_.line) AS'
+            ' index_line_element_, line_element_))) AS street,(SELECT'
+            ' address_element_.city FROM (SELECT FIRST(address_element_) AS'
+            ' address_element_ FROM (SELECT address_element_ FROM (SELECT'
+            ' EXPLODE(address_element_) AS address_element_ FROM (SELECT'
+            ' address AS address_element_)) WHERE (SELECT CASE WHEN COUNT(*) ='
+            ' 0 THEN TRUE ELSE FALSE END AS empty_ FROM (SELECT'
+            ' address_element_.period) WHERE period IS NOT NULL)))) AS'
+            ' city,(SELECT address_element_.state FROM (SELECT'
+            ' FIRST(address_element_) AS address_element_ FROM (SELECT'
+            ' address_element_ FROM (SELECT EXPLODE(address_element_) AS'
+            ' address_element_ FROM (SELECT address AS address_element_)) WHERE'
+            ' (SELECT CASE WHEN COUNT(*) = 0 THEN TRUE ELSE FALSE END AS empty_'
+            ' FROM (SELECT address_element_.period) WHERE period IS NOT'
+            ' NULL)))) AS state,(SELECT address_element_.postalCode FROM'
+            ' (SELECT FIRST(address_element_) AS address_element_ FROM (SELECT'
+            ' address_element_ FROM (SELECT EXPLODE(address_element_) AS'
+            ' address_element_ FROM (SELECT address AS address_element_)) WHERE'
+            ' (SELECT CASE WHEN COUNT(*) = 0 THEN TRUE ELSE FALSE END AS empty_'
+            ' FROM (SELECT address_element_.period) WHERE period IS NOT'
+            ' NULL)))) AS zip,(SELECT id) AS __patientId__ FROM'
+            ' `default`.Patient'
+        ),
+        view=simple_pats,
+        runner=self.runner,
     )
 
   def testSimpleSelectWithArrayOfDateToSql_forPatient_succeeds(self):
