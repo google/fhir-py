@@ -630,6 +630,13 @@ class StructureDataType(FhirPathDataType):
     )
 
     for elem in self._struct_def.snapshot.element:
+      # Extension.url does not provide any additional meaningful information for
+      # extensions so we will skip it as it also conflicts with
+      # Extension.extension:url if there is a subextension type. More info in
+      # b/284998302
+      if elem.base.path.value == 'Extension.url':
+        continue
+
       path = _get_analytic_path(elem.path.value, elem.id.value)
 
       if path == qualified_path:
@@ -666,14 +673,15 @@ class StructureDataType(FhirPathDataType):
         # in the analytic schema, and thus are treated as fields
         # rather than slices.
         closest_slice_ancestor = re.search(
-            rf'^{qualified_path}[\.]?(.*(?<!.extension):\w+)(?:$|\.)',
+            rf'^{qualified_path}[\.]?(.*(?<!.extension):[\w-]+)(?:$|\.)',
             elem.id.value,
         )
         direct_child = '.' not in relative_path
+
         if direct_child and closest_slice_ancestor is None:
           assert relative_path not in self.child_defs, (
               f'{relative_path} found twice among children in structure'
-              f' definition {self._struct_def.url.value}'
+              f' definition {self._struct_def.url.value}.'
           )
           self._child_defs[relative_path] = elem
 
@@ -1064,7 +1072,7 @@ def is_collection(return_type: FhirPathDataType) -> bool:
 
 
 # Captures the names appearing after 'extension:' stanzas in IDs.
-_EXTENSION_SLICE_NAMES_RE = re.compile(r'(?:^|\.)extension:(\w+)(?=$|\.)')
+_EXTENSION_SLICE_NAMES_RE = re.compile(r'(?:^|\.)extension:([\w-]+)(?=$|\.)')
 # Captures the word 'extension' in dotted paths.
 _EXTENSION_PATH_ELEMENTS_RE = re.compile(r'(?:^|\.)(extension)(?=$|\.)')
 

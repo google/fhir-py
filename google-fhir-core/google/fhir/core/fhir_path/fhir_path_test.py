@@ -3761,6 +3761,115 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(error_reporter.errors)
     self.assertLen(actual_bindings, 1)
 
+  def testSkipSlice_withSliceOnExtensionWithHyphen_andValidResource_isNotSkipped(
+      self,
+  ):
+    # Set up resource with a defined constraint
+    constraint = self.build_constraint(fhir_path_expression='false')
+    foo_root = sdefs.build_element_definition(
+        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
+    extension_slice = sdefs.build_element_definition(
+        id_='Foo.extension:softDelete-hyphen',
+        path='Foo.extension',
+        type_codes=['Extension'],
+        cardinality=sdefs.Cardinality(0, '*'),
+        constraints=[constraint],
+    )
+    foo = sdefs.build_resource_definition(
+        id_='Foo', element_definitions=[foo_root, extension_slice]
+    )
+
+    # Extension resource.
+    extension_root_element = sdefs.build_element_definition(
+        id_='Extension',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    value_element_definition = sdefs.build_element_definition(
+        id_='Extension.value[x]',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    extension = sdefs.build_resource_definition(
+        id_='Extension',
+        element_definitions=[
+            extension_root_element,
+            value_element_definition,
+        ],
+    )
+
+    # Stand up v2 encoder
+    error_reporter = fhir_errors.ListErrorReporter()
+    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(iter_structure_definitions=lambda: [foo, extension]),
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
+    )
+
+    actual_bindings = encoder.encode(foo)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertEmpty(error_reporter.errors)
+    self.assertLen(actual_bindings, 1)
+    self.assertEqual(
+        actual_bindings[0].column_name, 'foo_softdelete_hyphen_key_1'
+    )
+
+  def testSkipExtensionUrlField(self):
+    # Set up resource with a defined constraint
+    constraint = self.build_constraint(fhir_path_expression='false')
+    foo_root = sdefs.build_element_definition(
+        id_='Foo', type_codes=None, cardinality=sdefs.Cardinality(0, '1')
+    )
+    extension_slice = sdefs.build_element_definition(
+        id_='Foo.extension:url',
+        path='Foo.extension',
+        type_codes=['Extension'],
+        cardinality=sdefs.Cardinality(0, '*'),
+        constraints=[constraint],
+    )
+    foo = sdefs.build_resource_definition(
+        id_='Foo', element_definitions=[foo_root, extension_slice]
+    )
+
+    # Extension resource.
+    extension_root_element = sdefs.build_element_definition(
+        id_='Extension',
+        type_codes=None,
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    url_element_definition = sdefs.build_element_definition(
+        id_='Extension.url',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    value_element_definition = sdefs.build_element_definition(
+        id_='Extension.value[x]',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    extension = sdefs.build_resource_definition(
+        id_='Extension',
+        element_definitions=[
+            extension_root_element,
+            value_element_definition,
+            url_element_definition,
+        ],
+    )
+
+    # Stand up v2 encoder
+    error_reporter = fhir_errors.ListErrorReporter()
+    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(iter_structure_definitions=lambda: [foo, extension]),
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
+    )
+
+    actual_bindings = encoder.encode(foo)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertEmpty(error_reporter.errors)
+    self.assertLen(actual_bindings, 1)
+
   def testChoiceType_thatIsAlso_sliceOnExtension_skipsRegexValidation(self):
     # Set up resource.
     foo_root = sdefs.build_element_definition(

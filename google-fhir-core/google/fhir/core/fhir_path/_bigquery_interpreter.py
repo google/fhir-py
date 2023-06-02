@@ -32,7 +32,17 @@ from google.fhir.r4.terminology import local_value_set_resolver
 
 
 def _escape_identifier(identifier_value: str) -> str:
-  """Returns the value surrounded by backticks if it is a keyword."""
+  """Returns the value in a valid column name format.
+
+  Args:
+    identifier_value: Raw identifier string.
+
+  Returns:
+    If the identifier is a keyword, then it will be surrounded by backticks. If
+    the identifier contains a hyphen, the hyphen will be replaced by an
+    underscore.
+  """
+  identifier_value = identifier_value.replace('-', '_')
   # Keywords are case-insensitive
   if identifier_value.upper() in _sql_data_types.STANDARD_SQL_KEYWORDS:
     return f'`{identifier_value}`'

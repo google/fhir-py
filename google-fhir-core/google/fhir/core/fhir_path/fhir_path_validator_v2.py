@@ -178,12 +178,12 @@ def _last_path_token(builder: expressions.Builder) -> str:
   return builder.get_node().to_path_token()
 
 
-_PERIOD_OR_COLON_RE = re.compile(r'(\.|:)')
+_BAD_SQL_CHARACTERS = re.compile(r'(-|\.|:)')
 
 
 def _path_to_sql_column_name(path: str) -> str:
   """Given a path to an `ElementDefinition`, returns a SQL column name."""
-  return _PERIOD_OR_COLON_RE.sub('_', path.lower())
+  return _BAD_SQL_CHARACTERS.sub('_', path.lower())
 
 
 def _key_to_sql_column_name(key: str) -> str:

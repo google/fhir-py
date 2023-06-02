@@ -35,6 +35,12 @@ class StructureDataTypeTest(absltest.TestCase):
             cardinality=sdefs.Cardinality(min=0, max='1'),
         ),
         sdefs.build_element_definition(
+            id_='Test.field-with-hyphen',
+            path='Test.field-with-hyphen',
+            type_codes=['string'],
+            cardinality=sdefs.Cardinality(min=0, max='1'),
+        ),
+        sdefs.build_element_definition(
             id_='Test.field',
             type_codes=['string'],
             cardinality=sdefs.Cardinality(min=0, max='1'),
@@ -140,6 +146,10 @@ class StructureDataTypeTest(absltest.TestCase):
         list(structure_definition.iter_children()),
         [
             ('id', element_definitions_by_id['Test.id']),
+            (
+                'field-with-hyphen',
+                element_definitions_by_id['Test.field-with-hyphen'],
+            ),
             ('field', element_definitions_by_id['Test.field']),
             ('collection', element_definitions_by_id['Test.collection']),
             (
@@ -152,6 +162,10 @@ class StructureDataTypeTest(absltest.TestCase):
         list(structure_definition.iter_all_descendants()),
         [
             ('id', element_definitions_by_id['Test.id']),
+            (
+                'field-with-hyphen',
+                element_definitions_by_id['Test.field-with-hyphen'],
+            ),
             ('field', element_definitions_by_id['Test.field']),
             ('field.deeper', element_definitions_by_id['Test.field.deeper']),
             ('collection', element_definitions_by_id['Test.collection']),
