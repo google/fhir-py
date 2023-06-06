@@ -25,12 +25,12 @@ from google.fhir.core.fhir_path import _utils
 class ElementTypeCodeTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
-      dict(testcase_name='_withSingleTypeCode', type_codes=['Bar']),
+      dict(testcase_name='with_single_type_code', type_codes=['Bar']),
       dict(
-          testcase_name='_withMultipleTypeCodes', type_codes=['string', 'Bar']
+          testcase_name='with_multiple_type_codes', type_codes=['string', 'Bar']
       ),
   )
-  def testElementTypeCodes_succeeds(self, type_codes):
+  def test_element_type_codes_succeeds(self, type_codes):
     element = sdefs.build_element_definition(
         id_='Foo.bar',
         type_codes=type_codes,
@@ -40,7 +40,7 @@ class ElementTypeCodeTest(parameterized.TestCase):
     expected = type_codes
     self.assertEqual(actual, expected)
 
-  def testElementTypeCode_withSingleTypeCode_succeeds(self):
+  def test_element_type_code_with_single_type_code_succeeds(self):
     type_codes = ['Bar']
     element = sdefs.build_element_definition(
         id_='Foo.bar',
@@ -51,7 +51,7 @@ class ElementTypeCodeTest(parameterized.TestCase):
     expected = type_codes[0]
     self.assertEqual(actual, expected)
 
-  def testElementTypeCode_withMultipleTypeCodes_raisesValueError(self):
+  def test_element_type_code_with_multiple_type_codes_raises_value_error(self):
     type_codes = ['string', 'Bar']
     with self.assertRaisesRegex(
         ValueError, 'Add support for more than one type.'
@@ -65,17 +65,17 @@ class ElementTypeCodeTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_withRootElement',
+          testcase_name='with_root_element',
           element_path='Foo',
           is_root=True,
       ),
       dict(
-          testcase_name='_withNoneRootElement',
+          testcase_name='with_none_root_element',
           element_path='Foo.bar',
           is_root=False,
       ),
   )
-  def testIsRootElement_succeeds(self, element_path, is_root):
+  def test_is_root_element_succeeds(self, element_path, is_root):
     element = sdefs.build_element_definition(
         id_=element_path,
         path=element_path,
@@ -89,7 +89,7 @@ class ElementTypeCodeTest(parameterized.TestCase):
 
 class IsSliceElementTest(absltest.TestCase):
 
-  def testIsSliceElement_returnsTrue_withSliceElement(self):
+  def test_is_slice_element_returns_true_with_slice_element(self):
     element = sdefs.build_element_definition(
         id_='slice:',
         type_codes=None,
@@ -97,7 +97,7 @@ class IsSliceElementTest(absltest.TestCase):
     )
     self.assertTrue(_utils.is_slice_element(element))
 
-  def testIsSliceElement_returnsFalse_withNonSliceElement(self):
+  def test_is_slice_element_returns_false_with_non_slice_element(self):
     element = sdefs.build_element_definition(
         id_='not_slice',
         type_codes=None,
@@ -110,7 +110,7 @@ class IsSliceOnExtensionElementTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_withSliceOnExtensionElement',
+          testcase_name='with_slice_on_extension_element',
           element=sdefs.build_element_definition(
               id_='Foo.extension:slice',
               type_codes=['Extension'],
@@ -119,7 +119,7 @@ class IsSliceOnExtensionElementTest(parameterized.TestCase):
           expected=True,
       ),
       dict(
-          testcase_name='_withNonSlice',
+          testcase_name='with_non_slice',
           element=sdefs.build_element_definition(
               id_='Foo.slice',
               type_codes=['Extension'],
@@ -128,7 +128,7 @@ class IsSliceOnExtensionElementTest(parameterized.TestCase):
           expected=False,
       ),
       dict(
-          testcase_name='_withSliceOnNestedExtensionElement',
+          testcase_name='with_slice_on_nested_extension_element',
           element=sdefs.build_element_definition(
               id_='Foo.bar.extension:slice',
               type_codes=['Extension'],
@@ -137,7 +137,7 @@ class IsSliceOnExtensionElementTest(parameterized.TestCase):
           expected=True,
       ),
       dict(
-          testcase_name='_withSliceOnNonExtensionElement',
+          testcase_name='with_slice_on_non_extension_element',
           element=sdefs.build_element_definition(
               id_='Observation.code:loinc',
               type_codes=['Code'],
@@ -146,7 +146,7 @@ class IsSliceOnExtensionElementTest(parameterized.TestCase):
           expected=False,
       ),
       dict(
-          testcase_name='_withSliceOnNonExtensionElementOfTypeExtension',
+          testcase_name='with_slice_on_non_extension_element_of_type_extension',
           element=sdefs.build_element_definition(
               id_='Observation.code:loinc.extension',
               type_codes=['Extension'],
@@ -155,7 +155,7 @@ class IsSliceOnExtensionElementTest(parameterized.TestCase):
           expected=False,
       ),
   )
-  def testIsSliceOnExtensionElement_succeeds(self, element, expected):
+  def test_is_slice_on_extension_element_succeeds(self, element, expected):
     self.assertEqual(_utils.is_slice_on_extension(element), expected)
 
 
@@ -163,7 +163,7 @@ class IsSliceButNotOnExtensionElementTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_withSliceOnExtensionElement',
+          testcase_name='with_slice_on_extension_element',
           element=sdefs.build_element_definition(
               id_='Foo.extension:slice',
               type_codes=['Extension'],
@@ -172,7 +172,7 @@ class IsSliceButNotOnExtensionElementTest(parameterized.TestCase):
           expected=False,
       ),
       dict(
-          testcase_name='_withNonSlice',
+          testcase_name='with_non_slice',
           element=sdefs.build_element_definition(
               id_='Foo.nonSlice',
               type_codes=['string'],
@@ -181,7 +181,7 @@ class IsSliceButNotOnExtensionElementTest(parameterized.TestCase):
           expected=False,
       ),
       dict(
-          testcase_name='_withSliceOnNonExtensionElement',
+          testcase_name='with_slice_on_non_extension_element',
           element=sdefs.build_element_definition(
               id_='Observation.code:loinc',
               type_codes=['Code'],
@@ -190,13 +190,15 @@ class IsSliceButNotOnExtensionElementTest(parameterized.TestCase):
           expected=True,
       ),
   )
-  def testIsSliceButNotOnExtensionElement_succeeds(self, element, expected):
+  def test_is_slice_but_not_on_extension_element_succeeds(
+      self, element, expected
+  ):
     self.assertEqual(_utils.is_slice_but_not_on_extension(element), expected)
 
 
 class IsRecursiveElementTest(absltest.TestCase):
 
-  def testRecursiveElement_returnsTrue_withRecursiveElement(self):
+  def test_recursive_element_returns_true_with_recursive_element(self):
     element = sdefs.build_element_definition(
         id_='recursive_elem',
         path='foo.bar.baz',
@@ -206,7 +208,7 @@ class IsRecursiveElementTest(absltest.TestCase):
     )
     self.assertTrue(_utils.is_recursive_element(element))
 
-  def testIsRecursiveElement_returnsFalse_withNonRecursiveElement(self):
+  def test_is_recursive_element_returns_false_with_non_recursive_element(self):
     element = sdefs.build_element_definition(
         id_='not_recursive_elem',
         path='foo.bar.baz',
@@ -216,7 +218,9 @@ class IsRecursiveElementTest(absltest.TestCase):
     )
     self.assertFalse(_utils.is_recursive_element(element))
 
-  def testIsRecursiveElement_returnsFalse_withNonContentRefElement(self):
+  def test_is_recursive_element_returns_false_with_non_content_ref_element(
+      self,
+  ):
     element = sdefs.build_element_definition(
         id_='not_recursive_elem',
         path='foo.bar.baz',
@@ -274,19 +278,19 @@ class FhirPathUtilitiesTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_withRelativeIdentifier',
+          testcase_name='with_relative_identifier',
           root='Patient',
           identifier='name',
           expected='Patient.name',
       ),
       dict(
-          testcase_name='_withAbsoluteIdentifier',
+          testcase_name='with_absolute_identifier',
           root='',
           identifier='Patient.name',
           expected='Patient.name',
       ),
   )
-  def testGetAbsoluteIdentifier_succeeds(
+  def test_get_absolute_identifier_succeeds(
       self, root: str, identifier: str, expected: str
   ):
     actual: str = _utils.get_absolute_identifier(root, identifier)
@@ -294,23 +298,23 @@ class FhirPathUtilitiesTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_withRelativeUri',
+          testcase_name='with_relative_uri',
           uri='Patient',
           expected='http://hl7.org/fhir/StructureDefinition/Patient',
       ),
       dict(
-          testcase_name='_withAsboluteUri',
+          testcase_name='with_asbolute_uri',
           uri='http://hl7.org/fhir/StructureDefinition/Patient',
           expected='http://hl7.org/fhir/StructureDefinition/Patient',
       ),
   )
-  def testGetAbsoluteUri_succeeds(self, uri: str, expected: str):
+  def test_get_absolute_uri_succeeds(self, uri: str, expected: str):
     actual: str = _utils.get_absolute_uri_for_structure(uri)
     self.assertEqual(actual, expected)
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_withRepeadedElement',
+          testcase_name='with_repeaded_element',
           element=sdefs.build_element_definition(
               id_='value',
               type_codes=None,
@@ -319,7 +323,7 @@ class FhirPathUtilitiesTest(parameterized.TestCase):
           expected=True,
       ),
       dict(
-          testcase_name='_withNonRepeadedElement',
+          testcase_name='with_non_repeaded_element',
           element=sdefs.build_element_definition(
               id_='value',
               type_codes=None,
@@ -328,7 +332,7 @@ class FhirPathUtilitiesTest(parameterized.TestCase):
           expected=False,
       ),
       dict(
-          testcase_name='_withNonRepeadedElement_maxOfZero',
+          testcase_name='with_non_repeaded_element_max_of_zero',
           element=sdefs.build_element_definition(
               id_='value',
               type_codes=None,
@@ -337,11 +341,11 @@ class FhirPathUtilitiesTest(parameterized.TestCase):
           expected=False,
       ),
   )
-  def testIsRepeatedElement_succeeds(self, element, expected):
+  def test_is_repeated_element_succeeds(self, element, expected):
     actual = _utils.is_repeated_element(element)
     self.assertEqual(actual, expected)
 
-  def testListBackboneElementFields_Succeeds(self):
+  def test_list_backbone_element_fields_succeeds(self):
     # Include normal and choice type field to ensure proper conversion.
     self.assertEqual(
         ['name', 'addresses', 'contact', 'deceased'],
@@ -352,7 +356,7 @@ class FhirPathUtilitiesTest(parameterized.TestCase):
         _utils.get_backbone_element_fields(self._patient_structdef, 'contact'),
     )
 
-  def testIsBackboneElement_Succeeds(self):
+  def test_is_backbone_element_succeeds(self):
     self.assertTrue(
         _utils.is_backbone_element(
             _utils.get_element(self._patient_structdef, 'contact')
@@ -364,13 +368,13 @@ class FhirPathUtilitiesTest(parameterized.TestCase):
         )
     )
 
-  def testGetRootElementDefinition_succeeds(self):
+  def test_get_root_element_definition_succeeds(self):
     root_element_def = _utils.get_root_element_definition(
         self._patient_structdef
     )
     self.assertEqual(cast(Any, root_element_def).id, self.patient_root.id)
 
-  def testGetRootElementDefinition_withMultipleRoots_fails(self):
+  def test_get_root_element_definition_with_multiple_roots_fails(self):
     with self.assertRaisesRegex(
         ValueError, 'Expected a single root ElementDefinition'
     ):

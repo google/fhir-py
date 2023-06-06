@@ -56,7 +56,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self._context = context.LocalFhirPathContext(self._fhir_package)
     self._views = r4.from_definitions(self._context)
 
-  def AstAndExpressionTreeTestRunner(
+  def ast_and_expression_tree_test_runner(
       self,
       expected_output: str,
       view: views.View,
@@ -71,28 +71,28 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='None_usesDefaultName',
+          testcase_name='none_uses_default_name',
           value_set_codes_table=None,
           expected_table_name=bigquery.table.TableReference.from_string(
               'test_project.test_dataset.value_set_codes'
           ),
       ),
       dict(
-          testcase_name='String_succeeds',
+          testcase_name='string_succeeds',
           value_set_codes_table='project.dataset.table',
           expected_table_name=bigquery.table.TableReference.from_string(
               'project.dataset.table',
           ),
       ),
       dict(
-          testcase_name='StringWithNoProject_succeeds',
+          testcase_name='string_with_no_project_succeeds',
           value_set_codes_table='dataset.table',
           expected_table_name=bigquery.table.TableReference.from_string(
               'test_project.dataset.table',
           ),
       ),
       dict(
-          testcase_name='TableReference_succeeds',
+          testcase_name='table_reference_succeeds',
           value_set_codes_table=bigquery.table.TableReference.from_string(
               'project.dataset.table'
           ),
@@ -101,7 +101,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
           ),
       ),
       dict(
-          testcase_name='Table_succeeds',
+          testcase_name='table_succeeds',
           value_set_codes_table=bigquery.table.Table(
               bigquery.table.TableReference.from_string('project.dataset.table')
           ),
@@ -110,7 +110,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
           ),
       ),
   )
-  def testInit_withValueSetTableAs(
+  def test_init_with_value_set_table_as(
       self, value_set_codes_table, expected_table_name
   ):
     runner = bigquery_runner.BigQueryRunner(
@@ -122,13 +122,13 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.assertEqual(runner._value_set_manager.value_set_codes_table,  # pylint: disable=protected-access
                      expected_table_name)
 
-  def testNestedSingleFieldInNestedArray_forPatient_returnsArray(self):
+  def test_nested_single_field_in_nested_array_for_patient_returns_array(self):
     pat = self._views.view_of('Patient')
     simple_view = pat.select({
         'family_names': pat.name.family,
     })
 
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         textwrap.dedent(
             """\
           SELECT ARRAY(SELECT family
@@ -139,10 +139,10 @@ class BigqueryRunnerTest(parameterized.TestCase):
         simple_view,
     )
 
-  def testNoSelectToSql_forPatient_succeeds(self):
+  def test_no_select_to_sql_for_patient_succeeds(self):
     """Tests that a view with no select fields succeeds."""
     pat = self._views.view_of('Patient')
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         textwrap.dedent(
             """\
           SELECT *,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
@@ -150,13 +150,13 @@ class BigqueryRunnerTest(parameterized.TestCase):
         pat,
     )
 
-  def testSimpleSelectToSql_forPatient_succeeds(self):
+  def test_simple_select_to_sql_for_patient_succeeds(self):
     pat = self._views.view_of('Patient')
     simple_view = pat.select(
         {'name': pat.name.given, 'birthDate': pat.birthDate}
     )
 
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         textwrap.dedent(
             """\
         SELECT ARRAY(SELECT given_element_
@@ -169,7 +169,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         simple_view,
     )
 
-  def testSnakeCaseTableName_forPatient_succeeds(self):
+  def test_snake_case_table_name_for_patient_succeeds(self):
     snake_case_runner = bigquery_runner.BigQueryRunner(
         self.mock_bigquery_client,
         'test_dataset',
@@ -179,7 +179,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
     pat = self._views.view_of('Patient')
     simple_view = pat.select({'birthDate': pat.birthDate})
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         expected_output=textwrap.dedent(
             """\
           SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.patient"""
@@ -189,7 +189,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     )
 
     med_rec = self._views.view_of('MedicationRequest')
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         textwrap.dedent(
             """\
           SELECT *,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.medication_request"""
@@ -198,7 +198,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         bq_runner=snake_case_runner,
     )
 
-  def testSimpleSelectAndWhereToSql_forPatient_succeeds(self):
+  def test_simple_select_and_where_to_sql_for_patient_succeeds(self):
     pat = self._views.view_of('Patient')
     active_patients_view = pat.select(
         {'name': pat.name.given, 'birthDate': pat.birthDate}
@@ -219,12 +219,12 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM (SELECT active)
         WHERE active IS NOT NULL)) AS logic_)"""
     )
-    self.AstAndExpressionTreeTestRunner(expected_sql, active_patients_view)
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(expected_sql, active_patients_view)
+    self.ast_and_expression_tree_test_runner(
         expected_sql + ' LIMIT 5', active_patients_view, limit=5
     )
 
-  def testInvalidLimit_forPatient_fails(self):
+  def test_invalid_limit_for_patient_fails(self):
     pat = self._views.view_of('Patient')
     patient_names = pat.select({
         'name': pat.name.given,
@@ -232,15 +232,16 @@ class BigqueryRunnerTest(parameterized.TestCase):
     with self.assertRaises(ValueError):
       self.runner.to_dataframe(patient_names, limit=-1)
 
-  def testSimpleSelectAndWhereWithDateFilterToSql_forPatient_succeeds(self):
+  def test_simple_select_and_where_with_date_filter_to_sql_for_patient_succeeds(
+      self,
+  ):
     pat = self._views.view_of('Patient')
     born_before_1960 = pat.select(
         {'name': pat.name.given, 'birthDate': pat.birthDate}
     ).where(pat.birthDate < datetime.date(1960, 1, 1))
 
-    self.AstAndExpressionTreeTestRunner(
-        textwrap.dedent(
-            """\
+    self.ast_and_expression_tree_test_runner(
+        textwrap.dedent("""\
         SELECT ARRAY(SELECT given_element_
         FROM (SELECT given_element_
         FROM (SELECT name_element_
@@ -250,12 +251,11 @@ class BigqueryRunnerTest(parameterized.TestCase):
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT comparison_
         FROM (SELECT (birthDate < '1960-01-01') AS comparison_)
-        WHERE comparison_ IS NOT NULL)) AS logic_)"""
-        ),
+        WHERE comparison_ IS NOT NULL)) AS logic_)"""),
         born_before_1960,
     )
 
-  def testWhereMemberOfToSql_withValuesFromContext_succeeds(self):
+  def test_where_member_of_to_sql_with_values_from_context_succeeds(self):
     pat = self._views.view_of('Patient')
     unmarried_value_set = (
         r4.value_set('urn:test:valueset')
@@ -272,9 +272,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
         )
     )
 
-    self.AstAndExpressionTreeTestRunner(
-        textwrap.dedent(
-            """\
+    self.ast_and_expression_tree_test_runner(
+        textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
         SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
@@ -290,12 +289,13 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""
-        ),
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
         active_patients_view,
     )
 
-  def testWhereMemberOfToSql_withVersionedValuesFromContext_succeeds(self):
+  def test_where_member_of_to_sql_with_versioned_values_from_context_succeeds(
+      self,
+  ):
     pat = self._views.view_of('Patient')
     unmarried_value_set = (
         r4.value_set('urn:test:valueset')
@@ -313,9 +313,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
         )
     )
 
-    self.AstAndExpressionTreeTestRunner(
-        textwrap.dedent(
-            """\
+    self.ast_and_expression_tree_test_runner(
+        textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
         SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
@@ -331,12 +330,13 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""
-        ),
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
         active_patients_view,
     )
 
-  def testWhereMemberOfToSql_withValuesSetInConstraintOperand_succeeds(self):
+  def test_where_member_of_to_sql_with_values_set_in_constraint_operand_succeeds(
+      self,
+  ):
     pat = self._views.view_of('Patient')
     unmarried_value_set = (
         r4.value_set('urn:test:valueset')
@@ -355,9 +355,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
         )
         == True
     )
-    self.AstAndExpressionTreeTestRunner(
-        textwrap.dedent(
-            """\
+    self.ast_and_expression_tree_test_runner(
+        textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
         SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
@@ -373,12 +372,11 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_) = TRUE) AS eq_)
-        WHERE eq_ IS NOT NULL)) AS logic_)"""
-        ),
+        WHERE eq_ IS NOT NULL)) AS logic_)"""),
         active_patients_view,
     )
 
-  def testWhereMemberOfToSql_withLiteralValues_succeeds(self):
+  def test_where_member_of_to_sql_with_literal_values_succeeds(self):
     obs = self._views.view_of('Observation')
 
     # Use a value set proto in the expression, so they are not loaded from
@@ -394,9 +392,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
         'time': obs.issued,
     }).where(obs.code.memberOf(hba1c_value_set))
 
-    self.AstAndExpressionTreeTestRunner(
-        textwrap.dedent(
-            """\
+    self.ast_and_expression_tree_test_runner(
+        textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://loinc.org" as system, "10346-5" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://loinc.org" as system, "10486-9" as code)
         SELECT (SELECT id) AS id,(SELECT status) AS status,PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", (SELECT issued)) AS time,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation
@@ -412,12 +409,11 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""
-        ),
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
         hba1c_obs_view,
     )
 
-  def testWhereMemberOfToSql_withVersionedLiteralValues_succeeds(self):
+  def test_where_member_of_to_sql_with_versioned_literal_values_succeeds(self):
     obs = self._views.view_of('Observation')
 
     # Use a value set proto in the expression, so they are not loaded from
@@ -434,9 +430,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
         'time': obs.issued,
     }).where(obs.code.memberOf(hba1c_value_set))
 
-    self.AstAndExpressionTreeTestRunner(
-        textwrap.dedent(
-            """\
+    self.ast_and_expression_tree_test_runner(
+        textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://loinc.org" as system, "10346-5" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://loinc.org" as system, "10486-9" as code)
         SELECT (SELECT id) AS id,(SELECT status) AS status,PARSE_TIMESTAMP("%Y-%m-%dT%H:%M:%E*S%Ez", (SELECT issued)) AS time,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation
@@ -452,12 +447,11 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""
-        ),
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
         hba1c_obs_view,
     )
 
-  def testWhereMemberOf_fromNestedField_succeeds(self):
+  def test_where_member_of_from_nested_field_succeeds(self):
     next_of_kin_value_set = (
         r4.value_set('urn:test:valueset')
         .with_codes('http://terminology.hl7.org/CodeSystem/v2-0131', ['N'])
@@ -468,9 +462,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
         'name': pat.name.given,
     }).where(pat.contact.relationship.memberOf(next_of_kin_value_set))
 
-    self.AstAndExpressionTreeTestRunner(
-        textwrap.dedent(
-            """\
+    self.ast_and_expression_tree_test_runner(
+        textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://terminology.hl7.org/CodeSystem/v2-0131" as system, "N" as code)
         SELECT ARRAY(SELECT given_element_
         FROM (SELECT given_element_
@@ -500,21 +493,19 @@ class BigqueryRunnerTest(parameterized.TestCase):
         ) AS matches
         ON all_.element_offset=matches.element_offset
         ORDER BY all_.element_offset)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""
-        ),
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
         simple_view,
     )
 
-  def testWhereMemberOfToSql_withValuesFromTable_succeeds(self):
+  def test_where_member_of_to_sql_with_values_from_table_succeeds(self):
     pat = self._views.view_of('Patient')
 
     active_patients_view = pat.select({'birthDate': pat.birthDate}).where(
         pat.maritalStatus.memberOf('http://a-value.set/id')
     )
 
-    self.AstAndExpressionTreeTestRunner(
-        textwrap.dedent(
-            """\
+    self.ast_and_expression_tree_test_runner(
+        textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM vs_project.vs_dataset.vs_table)
         SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
@@ -529,12 +520,11 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""
-        ),
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
         active_patients_view,
     )
 
-  def testWhereMemberOfToSql_withVersionedValueSetUrlAgainstCodesTable_succeeds(
+  def test_where_member_of_to_sql_with_versioned_value_set_url_against_codes_table_succeeds(
       self,
   ):
     pat = self._views.view_of('Patient')
@@ -543,9 +533,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
         pat.maritalStatus.memberOf('http://a-value.set/id|1.0')
     )
 
-    self.AstAndExpressionTreeTestRunner(
-        textwrap.dedent(
-            """\
+    self.ast_and_expression_tree_test_runner(
+        textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM vs_project.vs_dataset.vs_table)
         SELECT PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
@@ -561,12 +550,11 @@ class BigqueryRunnerTest(parameterized.TestCase):
         AND vs.system=codings.system
         AND vs.code=codings.code
         )]))) AS memberof_)
-        WHERE memberof_ IS NOT NULL)) AS logic_)"""
-        ),
+        WHERE memberof_ IS NOT NULL)) AS logic_)"""),
         active_patients_view,
     )
 
-  def testWhereMemberOfToSql_withofTypeCall_succeeds(self):
+  def test_where_member_of_to_sql_withof_type_call_succeeds(self):
     meds = self._views.view_of('MedicationRequest')
 
     statin_meds = meds.select({
@@ -592,7 +580,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
     mock_job.result.assert_called_once()
 
-  def testQueryToJob_forPatient_succeeds(self):
+  def test_query_to_job_for_patient_succeeds(self):
     pat = self._views.view_of('Patient')
     simple_view = pat.select(
         {'name': pat.name.given, 'birthDate': pat.birthDate}
@@ -615,7 +603,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.mock_bigquery_client.query.assert_called_with(limited_sql)
     self.assertEqual(expected_mock_job, limited_job)
 
-  def testCreateView_forPatient_succeeds(self):
+  def test_create_view_for_patient_succeeds(self):
     pat = self._views.view_of('Patient')
     simple_view = pat.select(
         {'name': pat.name.given, 'birthDate': pat.birthDate}
@@ -635,7 +623,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
     mock_job.result.assert_called_once()
 
-  def testSelectRawSubjectId_forPatient_succeeds(self):
+  def test_select_raw_subject_id_for_patient_succeeds(self):
     obs = self._views.view_of('Observation')
 
     obs_with_raw_patient_id_view = obs.select({
@@ -644,7 +632,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         'status': obs.status,
     })
 
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         textwrap.dedent(
             """\
         SELECT (SELECT id) AS id,(SELECT subject.patientId AS idFor_) AS patientId,(SELECT status) AS status,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation"""
@@ -652,14 +640,14 @@ class BigqueryRunnerTest(parameterized.TestCase):
         obs_with_raw_patient_id_view,
     )
 
-  def testValueOf_forObservationString_succeeds(self):
+  def test_value_of_for_observation_string_succeeds(self):
     obs = self._views.view_of('Observation')
 
     obs_with_value = obs.select(
         {'id': obs.id, 'value': obs.value.ofType('string')}
     )
 
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         (
             'SELECT (SELECT id) AS id,'
             '(SELECT value.string AS ofType_) AS value,'
@@ -669,7 +657,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         obs_with_value,
     )
 
-  def testNestValueOf_forObservationQuantity_succeeds(self):
+  def test_nest_value_of_for_observation_quantity_succeeds(self):
     obs = self._views.view_of('Observation')
 
     obs_with_value = obs.select({
@@ -678,7 +666,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         'unit': obs.value.ofType('Quantity').unit,
     })
 
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         (
             'SELECT (SELECT id) AS id,(SELECT value.Quantity.value) AS value,'
             '(SELECT value.Quantity.unit) AS unit,'
@@ -688,7 +676,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         obs_with_value,
     )
 
-  def testSummarizeCodes_forObservationCodeable_succeeds(self):
+  def test_summarize_codes_for_observation_codeable_succeeds(self):
     obs = self._views.view_of('Observation')
 
     mock_job = mock.create_autospec(bigquery.QueryJob, instance=True)
@@ -712,7 +700,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
     self.assertEqual(expected_mock_df, returned_df)
 
-  def testSummarizeCodes_forObservationStatusCode_succeeds(self):
+  def test_summarize_codes_for_observation_status_code_succeeds(self):
     obs = self._views.view_of('Observation')
 
     mock_job = mock.create_autospec(bigquery.QueryJob, instance=True)
@@ -733,12 +721,12 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
     self.assertEqual(expected_mock_df, returned_df)
 
-  def testSummarizeCodes_forObservationNonCodeField_raisesError(self):
+  def test_summarize_codes_for_observation_non_code_field_raises_error(self):
     obs = self._views.view_of('Observation')
     with self.assertRaises(ValueError):
       self.runner.summarize_codes(obs, obs.referenceRange)
 
-  def testSummarizeCodes_forObservationCoding_succeeds(self):
+  def test_summarize_codes_for_observation_coding_succeeds(self):
     obs = self._views.view_of('Observation')
 
     mock_job = mock.create_autospec(bigquery.QueryJob, instance=True)
@@ -770,7 +758,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
       'materialize_value_sets',
       autospec=True,
   )
-  def testMaterializeValueSet_delegatesToManager(
+  def test_materialize_value_set_delegates_to_manager(
       self, mock_materialize_value_sets
   ):
     """Tests inserting data through mock call."""
@@ -787,7 +775,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
       'materialize_value_set_expansion',
       autospec=True,
   )
-  def testMaterializeValueSetExpansion_delegatesToManager(
+  def test_materialize_value_set_expansion_delegates_to_manager(
       self, mock_materialize_value_set_expansion
   ):
     """Tests materialize through mock calls."""
@@ -803,7 +791,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
   # TODO(b/250691318): Fix an issue where the bq_intepreter generates literals
   # with an extra set of quotes.
-  def testFHIRViewsExample_explanationOfBenefit_filteredByValueSet_succeeds(
+  def test_fhir_views_example_explanation_of_benefit_filtered_by_value_set_succeeds(
       self,
   ):
     eob = self._views.view_of('ExplanationOfBenefit')
@@ -848,7 +836,7 @@ WHERE memberof_ IS NOT NULL)) AS logic_)""",
         self.runner.to_sql(eob_pde_codes),
     )
 
-  def testFHIRViewsExample_commonOutPatientProcedures_succeeds(self):
+  def test_fhir_views_example_common_out_patient_procedures_succeeds(self):
     outpatient_claims_valueset = (
         r4.value_set('urn:example:valueset:outpatient_claims')
         .with_codes(
@@ -925,7 +913,7 @@ WHERE comparison_ IS NOT NULL)) AS logic_)""",
         self.runner.to_sql(eob_outpatient_proc_codes_2012),
     )
 
-  def testFHIRViewsExample_outPatientDiagnoses_succeeds(self):
+  def test_fhir_views_example_out_patient_diagnoses_succeeds(self):
     outpatient_claims_valueset = (
         r4.value_set('urn:example:valueset:outpatient_claims')
         .with_codes(

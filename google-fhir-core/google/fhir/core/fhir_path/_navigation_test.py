@@ -91,8 +91,7 @@ class FhirStructureDefinitionWalkerTest(parameterized.TestCase):
 
     cls.env = _navigation._Environment(structure_definitions)
 
-  def testStepCalled_withValidIdentifier_startingFromFoo_succeeds(self):
-
+  def test_step_called_with_valid_identifier_starting_from_foo_succeeds(self):
     walker = _navigation.FhirStructureDefinitionWalker(self.env, self.foo)
     identifier = 'bar'
     expected_new_state_id = 'Foo.bar'
@@ -105,8 +104,7 @@ class FhirStructureDefinitionWalkerTest(parameterized.TestCase):
     actual_containing_type_id = cast(Any, walker.containing_type).id.value
     self.assertEqual(actual_containing_type_id, 'Foo')
 
-  def testStepCalled_withValidIdentifier_startingFromBar_succeeds(self):
-
+  def test_step_called_with_valid_identifier_starting_from_bar_succeeds(self):
     walker = _navigation.FhirStructureDefinitionWalker(self.env, self.bar)
     identifier = 'baz'
     expected_new_state_id = 'Bar.baz'
@@ -119,9 +117,9 @@ class FhirStructureDefinitionWalkerTest(parameterized.TestCase):
     actual_containing_type_id = cast(Any, walker.containing_type).id.value
     self.assertEqual(actual_containing_type_id, 'Bar')
 
-  def testStepCalled_withValidIdentifier_startingFromNonRootElement_succeeds(
-      self):
-
+  def test_step_called_with_valid_identifier_starting_from_non_root_element_succeeds(
+      self,
+  ):
     walker = _navigation.FhirStructureDefinitionWalker(
         self.env, self.foo, self.bar_non_root_element_def)
     identifier = 'baz'
@@ -135,9 +133,9 @@ class FhirStructureDefinitionWalkerTest(parameterized.TestCase):
     actual_containing_type_id = cast(Any, walker.containing_type).id.value
     self.assertEqual(actual_containing_type_id, 'Bar')
 
-  def testStepCalled_withGlobalWalkerMultipleTimes_startingFromFoo_succeeds(
-      self):
-
+  def test_step_called_with_global_walker_multiple_times_starting_from_foo_succeeds(
+      self,
+  ):
     walker = _navigation.FhirStructureDefinitionWalker(self.env, self.foo)
 
     identifier = 'bar'
@@ -220,20 +218,20 @@ class FhirStructureDefinitionWalkerErrorsTest(parameterized.TestCase):
 
     cls.env = _navigation._Environment(structure_definitions)
 
-  def testStepCalled_withInValidIdentifier_raisesValueError(self):
+  def test_step_called_with_in_valid_identifier_raises_value_error(self):
     walker = _navigation.FhirStructureDefinitionWalker(self.env, self.fig)
     with self.assertRaisesRegex(ValueError,
                                 'Unable to find child under containing_type'):
       _ = walker.step('unknownIdentifier')
 
-  def testStepCalled_withInValidTypeCode_raisesValueError(self):
+  def test_step_called_with_in_valid_type_code_raises_value_error(self):
     walker = _navigation.FhirStructureDefinitionWalker(self.env, self.fig,
                                                        self.invalid_typecode)
     with self.assertRaisesRegex(ValueError,
                                 'Unable to find `StructureDefinition` for'):
       _ = walker.step('anyIdentifier')
 
-  def testStepCalled_withInValidStruct_raisesValueError(self):
+  def test_step_called_with_in_valid_struct_raises_value_error(self):
     walker = _navigation.FhirStructureDefinitionWalker(self.env, self.fig,
                                                        self.invalid_struct)
     with self.assertRaisesRegex(ValueError,

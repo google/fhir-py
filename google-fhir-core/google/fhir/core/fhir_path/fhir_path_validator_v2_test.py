@@ -21,7 +21,7 @@ from google.fhir.core.fhir_path import fhir_path_validator_v2
 
 class FhirProfileStandardSqlEncoderTest(absltest.TestCase):
 
-  def testErrorMessageForException_withVerboseErrorReporting_reportsStackTrace(
+  def test_error_message_for_exception_with_verbose_error_reporting_reports_stack_trace(
       self,
   ):
     validator = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
@@ -40,7 +40,7 @@ class FhirProfileStandardSqlEncoderTest(absltest.TestCase):
     self.assertIn('_more_stack()', result)
     self.assertIn('oh no!', result)
 
-  def testErrorMessageForException_withoutVerboseErrorReporting_reportsStackTrace(
+  def test_error_message_for_exception_without_verbose_error_reporting_reports_stack_trace(
       self,
   ):
     validator = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(

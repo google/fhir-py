@@ -31,7 +31,7 @@ from google.fhir.core.utils import fhir_package
 
 _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
     {
-        'testcase_name': '_withNull',
+        'testcase_name': '_with_null',
         'fhir_path_expression': '{ }',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -40,7 +40,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withBooleanTrue',
+        'testcase_name': '_with_boolean_true',
         'fhir_path_expression': 'true',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -49,7 +49,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withBooleanFalse',
+        'testcase_name': '_with_boolean_false',
         'fhir_path_expression': 'false',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -58,7 +58,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withString',
+        'testcase_name': '_with_string',
         'fhir_path_expression': "'Foo'",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -67,7 +67,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withNumberDecimal',
+        'testcase_name': '_with_number_decimal',
         'fhir_path_expression': '3.14',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -76,7 +76,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withNumberLargeDecimal',
+        'testcase_name': '_with_number_large_decimal',
         # 32 decimal places
         'fhir_path_expression': '3.14141414141414141414141414141414',
         'expected_sql_expression': (
@@ -86,7 +86,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withNumberInteger',
+        'testcase_name': '_with_number_integer',
         'fhir_path_expression': '314',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -95,7 +95,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDateYear',
+        'testcase_name': '_with_date_year',
         'fhir_path_expression': '@1970',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -104,7 +104,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDateYearMonth',
+        'testcase_name': '_with_date_year_month',
         'fhir_path_expression': '@1970-02',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -113,7 +113,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDateYearMonthDay',
+        'testcase_name': '_with_date_year_month_day',
         'fhir_path_expression': '@1970-02-03',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -122,7 +122,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDateTimeYearMonthDayHours',
+        'testcase_name': '_with_date_time_year_month_day_hours',
         'fhir_path_expression': '@2015-02-04T14',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -131,7 +131,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDateTimeYearMonthDayHoursMinutes',
+        'testcase_name': '_with_date_time_year_month_day_hours_minutes',
         'fhir_path_expression': '@2015-02-04T14:34',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -140,7 +140,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDateTimeYearMonthDayHoursMinutesSeconds',
+        'testcase_name': '_with_date_time_year_month_day_hours_minutes_seconds',
         'fhir_path_expression': '@2015-02-04T14:34:28',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -149,7 +149,9 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDateTimeYearMonthDayHoursMinutesSecondsMilli',
+        'testcase_name': (
+            '_with_date_time_year_month_day_hours_minutes_seconds_milli'
+        ),
         'fhir_path_expression': '@2015-02-04T14:34:28.123',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -159,7 +161,9 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDateTimeYearMonthDayHoursMinutesSecondsMilliTz',
+        'testcase_name': (
+            '_with_date_time_year_month_day_hours_minutes_seconds_milli_tz'
+        ),
         'fhir_path_expression': '@2015-02-04T14:34:28.123+09:00',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -169,7 +173,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withTimeHours',
+        'testcase_name': '_with_time_hours',
         'fhir_path_expression': '@T14',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -178,7 +182,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withTimeHoursMinutes',
+        'testcase_name': '_with_time_hours_minutes',
         'fhir_path_expression': '@T14:34',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -187,7 +191,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withTimeHoursMinutesSeconds',
+        'testcase_name': '_with_time_hours_minutes_seconds',
         'fhir_path_expression': '@T14:34:28',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -196,7 +200,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withTimeHoursMinutesSecondsMilli',
+        'testcase_name': '_with_time_hours_minutes_seconds_milli',
         'fhir_path_expression': '@T14:34:28.123',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -205,7 +209,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withQuantity',
+        'testcase_name': '_with_quantity',
         'fhir_path_expression': "10 'mg'",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -217,7 +221,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
 
 _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
     {
-        'testcase_name': '_withIntegerAddition',
+        'testcase_name': '_with_integer_addition',
         'fhir_path_expression': '1 + 2',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -226,7 +230,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDecimalAddition',
+        'testcase_name': '_with_decimal_addition',
         'fhir_path_expression': '3.14 + 1.681',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -235,7 +239,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerDivision',
+        'testcase_name': '_with_integer_division',
         'fhir_path_expression': '3 / 2',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -244,7 +248,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDecimalDivision',
+        'testcase_name': '_with_decimal_division',
         'fhir_path_expression': '3.14 / 1.681',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -253,7 +257,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerModularArithmetic',
+        'testcase_name': '_with_integer_modular_arithmetic',
         'fhir_path_expression': '2 mod 5',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -262,7 +266,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerMultiplication',
+        'testcase_name': '_with_integer_multiplication',
         'fhir_path_expression': '2 * 5',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -271,7 +275,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDecimalMultiplication',
+        'testcase_name': '_with_decimal_multiplication',
         'fhir_path_expression': '2.124 * 5.72',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -280,7 +284,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerSubtraction',
+        'testcase_name': '_with_integer_subtraction',
         'fhir_path_expression': '2 - 5',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -289,7 +293,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDecimalSubtraction',
+        'testcase_name': '_with_decimal_subtraction',
         'fhir_path_expression': '2.124 - 5.72',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -298,7 +302,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerTrunctatedDivision',
+        'testcase_name': '_with_integer_trunctated_division',
         'fhir_path_expression': '2 div 5',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -307,7 +311,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDecimalTruncatedDivision',
+        'testcase_name': '_with_decimal_truncated_division',
         'fhir_path_expression': '2.124 div 5.72',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -316,7 +320,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerAdditionAndMultiplication',
+        'testcase_name': '_with_integer_addition_and_multiplication',
         'fhir_path_expression': '(1 + 2) * 3',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -325,7 +329,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerSubtractionAndDivision',
+        'testcase_name': '_with_integer_subtraction_and_division',
         'fhir_path_expression': '(21 - 6) / 3',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -334,7 +338,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerAdditionAndModularArithmetic',
+        'testcase_name': '_with_integer_addition_and_modular_arithmetic',
         'fhir_path_expression': '21 + 6 mod 5',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -343,7 +347,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerAdditionAndTruncatedDivision',
+        'testcase_name': '_with_integer_addition_and_truncated_division',
         'fhir_path_expression': '21 + 6 div 5',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -352,7 +356,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withStringConcatenationAmpersand',
+        'testcase_name': '_with_string_concatenation_ampersand',
         'fhir_path_expression': "'foo' & 'bar'",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -361,7 +365,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withStringConcatenationPlus',
+        'testcase_name': '_with_string_concatenation_plus',
         'fhir_path_expression': "'foo' + 'bar'",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -373,7 +377,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
 
 _WITH_FHIRPATH_V2_INDEXER_SUCCEEDS_CASES = [
     {
-        'testcase_name': '_withIntegerIndexer',
+        'testcase_name': '_with_integer_indexer',
         'fhir_path_expression': '7[0]',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(indexed_literal_) FROM (SELECT '
@@ -382,7 +386,7 @@ _WITH_FHIRPATH_V2_INDEXER_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerIndexerArithmeticIndex',
+        'testcase_name': '_with_integer_indexer_arithmetic_index',
         'fhir_path_expression': '7[0 + 1]',  # Out-of-bounds, empty table
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(indexed_literal_) FROM (SELECT '
@@ -392,7 +396,7 @@ _WITH_FHIRPATH_V2_INDEXER_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withStringIndexer',
+        'testcase_name': '_with_string_indexer',
         'fhir_path_expression': "'foo'[0]",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(indexed_literal_) FROM (SELECT '
@@ -404,7 +408,7 @@ _WITH_FHIRPATH_V2_INDEXER_SUCCEEDS_CASES = [
 
 _WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES = [
     {
-        'testcase_name': '_withBooleanAnd',
+        'testcase_name': '_with_boolean_and',
         'fhir_path_expression': 'true and false',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(logic_) FROM (SELECT TRUE AND FALSE AS '
@@ -412,7 +416,7 @@ _WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withBooleanOr',
+        'testcase_name': '_with_boolean_or',
         'fhir_path_expression': 'true or false',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(logic_) FROM (SELECT TRUE OR FALSE AS '
@@ -420,7 +424,7 @@ _WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withBooleanXor',
+        'testcase_name': '_with_boolean_xor',
         'fhir_path_expression': 'true xor false',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(logic_) FROM (SELECT TRUE <> FALSE AS '
@@ -428,7 +432,7 @@ _WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withBooleanImplies',
+        'testcase_name': '_with_boolean_implies',
         'fhir_path_expression': 'true implies false',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(logic_) FROM (SELECT NOT TRUE OR FALSE AS '
@@ -436,7 +440,7 @@ _WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withBooleanRelationBetweenStringInteger',
+        'testcase_name': '_with_boolean_relation_between_string_integer',
         'fhir_path_expression': "3 and 'true'",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(logic_) FROM (SELECT (3 IS NOT NULL) AND '
@@ -447,7 +451,7 @@ _WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES = [
 
 _WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
     {
-        'testcase_name': '_withIntegerGreaterThan',
+        'testcase_name': '_with_integer_greater_than',
         'fhir_path_expression': '4 > 3',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(comparison_) FROM (SELECT 4 > 3 AS '
@@ -455,7 +459,7 @@ _WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerLessThan',
+        'testcase_name': '_with_integer_less_than',
         'fhir_path_expression': '3 < 4',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(comparison_) FROM (SELECT 3 < 4 AS '
@@ -463,7 +467,7 @@ _WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerLessThanOrEqualTo',
+        'testcase_name': '_with_integer_less_than_or_equal_to',
         'fhir_path_expression': '3 <= 4',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(comparison_) FROM (SELECT 3 <= 4 AS '
@@ -471,7 +475,7 @@ _WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withFloatLessThanOrEqualTo',
+        'testcase_name': '_with_float_less_than_or_equal_to',
         'fhir_path_expression': '3.14159 <= 4.00000',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(comparison_) FROM (SELECT 3.14159 <= 4.00000'
@@ -479,7 +483,7 @@ _WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withStringGreaterThan',
+        'testcase_name': '_with_string_greater_than',
         'fhir_path_expression': " 'a' > 'b'",
         'expected_sql_expression': (
             "(SELECT COLLECT_LIST(comparison_) FROM (SELECT 'a' > 'b' AS "
@@ -487,7 +491,7 @@ _WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDateLessThan',
+        'testcase_name': '_with_date_less_than',
         'fhir_path_expression': 'dateField < @2000-01-01',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(comparison_) '
@@ -497,7 +501,7 @@ _WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_dateComparedWithTimestamp',
+        'testcase_name': '_date_compared_with_timestamp',
         'fhir_path_expression': 'dateField < @2000-01-01T14:34',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(comparison_) '
@@ -510,7 +514,7 @@ _WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
 
 _WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
     {
-        'testcase_name': '_withIntegerPositivePolarity',
+        'testcase_name': '_with_integer_positive_polarity',
         'fhir_path_expression': '+5',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -519,7 +523,7 @@ _WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDecimalPositivePolarity',
+        'testcase_name': '_with_decimal_positive_polarity',
         'fhir_path_expression': '+5.72',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -528,7 +532,7 @@ _WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerNegativePolarity',
+        'testcase_name': '_with_integer_negative_polarity',
         'fhir_path_expression': '-5',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -537,7 +541,7 @@ _WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDecimalNegativePolarity',
+        'testcase_name': '_with_decimal_negative_polarity',
         'fhir_path_expression': '-5.1349',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(literal_) '
@@ -546,7 +550,7 @@ _WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerPositivePolarityAndAddition',
+        'testcase_name': '_with_integer_positive_polarity_and_addition',
         'fhir_path_expression': '+5 + 10',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -555,7 +559,7 @@ _WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerNegativePolarityAndAddition',
+        'testcase_name': '_with_integer_negative_polarity_and_addition',
         'fhir_path_expression': '-5 + 10',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -564,7 +568,9 @@ _WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerNegativePolarityAndModularArithmetic',
+        'testcase_name': (
+            '_with_integer_negative_polarity_and_modular_arithmetic'
+        ),
         'fhir_path_expression': '-5 mod 6',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -573,7 +579,9 @@ _WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerPositivePolarityAndModularArithmetic',
+        'testcase_name': (
+            '_with_integer_positive_polarity_and_modular_arithmetic'
+        ),
         'fhir_path_expression': '+(7 mod 6)',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(pol_) '
@@ -582,7 +590,7 @@ _WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDecimalNegativePolarityAndMultiplication',
+        'testcase_name': '_with_decimal_negative_polarity_and_multiplication',
         'fhir_path_expression': '-(3.79 * 2.124)',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(pol_) '
@@ -591,7 +599,7 @@ _WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDecimalNegativePolarityAndDivision',
+        'testcase_name': '_with_decimal_negative_polarity_and_division',
         'fhir_path_expression': '-3.79 / 2.124',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(arith_) '
@@ -603,7 +611,7 @@ _WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
 
 _WITH_FHIRPATH_V2_MEMBERSHIP_SUCCEEDS_CASES = [
     {
-        'testcase_name': '_withIntegerIn',
+        'testcase_name': '_with_integer_in',
         'fhir_path_expression': '3 in 4',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(mem_) '
@@ -612,7 +620,7 @@ _WITH_FHIRPATH_V2_MEMBERSHIP_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerContains',
+        'testcase_name': '_with_integer_contains',
         'fhir_path_expression': '3 contains 4',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(mem_) '
@@ -624,7 +632,7 @@ _WITH_FHIRPATH_V2_MEMBERSHIP_SUCCEEDS_CASES = [
 
 _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
     {
-        'testcase_name': '_withIntegerEqual',
+        'testcase_name': '_with_integer_equal',
         'fhir_path_expression': '3 = 4',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(eq_) '
@@ -633,7 +641,7 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerEquivalent',
+        'testcase_name': '_with_integer_equivalent',
         'fhir_path_expression': '3 ~ 4',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(eq_) '
@@ -642,7 +650,7 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDateTimeEqual',
+        'testcase_name': '_with_date_time_equal',
         'fhir_path_expression': '@2015-02-04T14:34:28 = @2015-02-04T14',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(eq_) FROM '
@@ -652,7 +660,7 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDateTimeEquivalent',
+        'testcase_name': '_with_date_time_equivalent',
         'fhir_path_expression': '@2015-02-04T14:34:28 ~ @2015-02-04T14',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(eq_) FROM '
@@ -662,7 +670,7 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerNotEqualTo',
+        'testcase_name': '_with_integer_not_equal_to',
         'fhir_path_expression': '3 != 4',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(eq_) '
@@ -671,7 +679,7 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withIntegerNotEquivalentTo',
+        'testcase_name': '_with_integer_not_equivalent_to',
         'fhir_path_expression': '3 !~ 4',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(eq_) '
@@ -680,7 +688,7 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withScalarComplexComparisonRightSideScalar',
+        'testcase_name': '_with_scalar_complex_comparison_right_side_scalar',
         'fhir_path_expression': "bar.bats.struct.value = '123'",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
@@ -692,7 +700,7 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withScalarComplexComparisonLeftSideScalar',
+        'testcase_name': '_with_scalar_complex_comparison_left_side_scalar',
         'fhir_path_expression': " '123' = bar.bats.struct.value",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
@@ -704,7 +712,7 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withScalarComplexComparisonRightSideUnion',
+        'testcase_name': '_with_scalar_complex_comparison_right_side_union',
         'fhir_path_expression': "bar.bats.struct.value = ('abc' | '123')",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
@@ -718,7 +726,7 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withScalarComplexComparisonLeftSideUnion',
+        'testcase_name': '_with_scalar_complex_comparison_left_side_union',
         'fhir_path_expression': "('abc' | '123') = bar.bats.struct.value",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
@@ -736,14 +744,14 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
 
 _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES = [
     {
-        'testcase_name': '_withSingleMemberAccess',
+        'testcase_name': '_with_single_member_access',
         'fhir_path_expression': 'bar',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(bar) FROM (SELECT bar) WHERE bar IS NOT NULL)'
         ),
     },
     {
-        'testcase_name': '_withInlineMemberAccess',
+        'testcase_name': '_with_inline_member_access',
         'fhir_path_expression': 'inline',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(inline) '
@@ -752,7 +760,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withNestedMemberAccess',
+        'testcase_name': '_with_nested_member_access',
         'fhir_path_expression': 'bar.bats',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(bats_element_) '
@@ -764,7 +772,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withInlineNestedMemberAccess',
+        'testcase_name': '_with_inline_nested_member_access',
         'fhir_path_expression': 'inline.value',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(value) '
@@ -773,7 +781,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDeepestNestedMemberSqlKeywordAccess',
+        'testcase_name': '_with_deepest_nested_member_sql_keyword_access',
         'fhir_path_expression': 'bar.bats.struct',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(`struct`) '
@@ -785,7 +793,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDeepestNestedMemberFhirPathKeywordAccess',
+        'testcase_name': '_with_deepest_nested_member_fhir_path_keyword_access',
         'fhir_path_expression': 'bar.bats.`div`',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(div) '
@@ -797,7 +805,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDeepestNestedScalarMemberFhirPathAccess',
+        'testcase_name': '_with_deepest_nested_scalar_member_fhir_path_access',
         'fhir_path_expression': 'bat.struct.anotherStruct.anotherValue',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(anotherValue) '
@@ -806,7 +814,9 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withFirstElementBeingRepeatedMemberFhirPathAccess',
+        'testcase_name': (
+            '_with_first_element_being_repeated_member_fhir_path_access'
+        ),
         'fhir_path_expression': 'boolList',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(boolList_element_) '
@@ -822,7 +832,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
     # TODO(b/262544393): Add examples with exists() and where() once functions
     # are implemented
     {
-        'testcase_name': '_withChoiceNoType',
+        'testcase_name': '_with_choice_no_type',
         'fhir_path_expression': 'choiceExample',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(choiceExample) FROM (SELECT choiceExample)'
@@ -830,7 +840,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withChoiceStringType',
+        'testcase_name': '_with_choice_string_type',
         'fhir_path_expression': "choiceExample.ofType('string')",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(ofType_) FROM (SELECT choiceExample.string AS'
@@ -838,7 +848,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withChoiceIntegerType',
+        'testcase_name': '_with_choice_integer_type',
         'fhir_path_expression': "choiceExample.ofType('integer')",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(ofType_) FROM (SELECT choiceExample.integer'
@@ -846,7 +856,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_ArrayWithChoice',
+        'testcase_name': '_array_with_choice',
         'fhir_path_expression': "multipleChoiceExample.ofType('integer')",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(ofType_) '
@@ -858,7 +868,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_ScalarWithRepeatedMessageChoice',
+        'testcase_name': '_scalar_with_repeated_message_choice',
         'fhir_path_expression': (
             "choiceExample.ofType('CodeableConcept').coding"
         ),
@@ -870,7 +880,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_ArrayWithMessageChoice',
+        'testcase_name': '_array_with_message_choice',
         'fhir_path_expression': (
             "multipleChoiceExample.ofType('CodeableConcept').coding"
         ),
@@ -885,7 +895,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_ArrayWithMessageChoice_andIdentifier',
+        'testcase_name': '_array_with_message_choice_and_identifier',
         'fhir_path_expression': (
             "multipleChoiceExample.ofType('CodeableConcept').coding.system"
         ),
@@ -900,7 +910,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_ArrayWithMessageChoice_andEquality',
+        'testcase_name': '_array_with_message_choice_and_equality',
         'fhir_path_expression': (
             "multipleChoiceExample.ofType('CodeableConcept').coding.system ="
             " 'test'"
@@ -923,7 +933,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
 
 _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
     {
-        'testcase_name': '_withMemberCount',
+        'testcase_name': '_with_member_count',
         'fhir_path_expression': 'bar.count()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(count_) '
@@ -933,7 +943,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDeepestNestedMemberSqlKeywordCount',
+        'testcase_name': '_with_deepest_nested_member_sql_keyword_count',
         'fhir_path_expression': 'bar.bats.struct.count()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(count_) '
@@ -945,7 +955,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withMemberEmpty',
+        'testcase_name': '_with_member_empty',
         'fhir_path_expression': 'bar.empty()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(empty_) '
@@ -954,7 +964,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDeepestNestedMemberSqlKeywordEmpty',
+        'testcase_name': '_with_deepest_nested_member_sql_keyword_empty',
         'fhir_path_expression': 'bar.bats.struct.empty()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(empty_) '
@@ -966,7 +976,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withMemberExistsNot',
+        'testcase_name': '_with_member_exists_not',
         'fhir_path_expression': 'bar.exists().not()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(not_) FROM (SELECT NOT( bar IS NOT NULL) AS'
@@ -974,7 +984,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withNestedMemberExistsNot',
+        'testcase_name': '_with_nested_member_exists_not',
         'fhir_path_expression': 'bar.bats.exists().not()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(not_) FROM (SELECT NOT( CASE WHEN COUNT(*) ='
@@ -985,7 +995,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDeepestNestedMemberSqlKeywordExistsNot',
+        'testcase_name': '_with_deepest_nested_member_sql_keyword_exists_not',
         'fhir_path_expression': 'bar.bats.struct.exists().not()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(not_) FROM (SELECT NOT( CASE WHEN COUNT(*) ='
@@ -996,7 +1006,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withLogicOnExists',
+        'testcase_name': '_with_logic_on_exists',
         'fhir_path_expression': (
             '(bar.bats.struct.value.exists() and'
             ' bar.bats.struct.anotherValue.exists()).not()'
@@ -1014,7 +1024,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withFirst',
+        'testcase_name': '_with_first',
         'fhir_path_expression': 'bar.bats.first()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(bats_element_) FROM (SELECT bats_element_'
@@ -1025,7 +1035,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withFirstOnNonCollection',
+        'testcase_name': '_with_first_on_non_collection',
         'fhir_path_expression': 'bar.first()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(bar) FROM (SELECT bar FROM (SELECT FIRST(bar)'
@@ -1033,7 +1043,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withMemberHasValue',
+        'testcase_name': '_with_member_has_value',
         'fhir_path_expression': 'bar.hasValue()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(has_value_) '
@@ -1042,7 +1052,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDeepestMemberSqlKeywordHasValue',
+        'testcase_name': '_with_deepest_member_sql_keyword_has_value',
         'fhir_path_expression': 'bar.bats.struct.hasValue()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(has_value_) '
@@ -1053,7 +1063,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDeepMemberMatches',
+        'testcase_name': '_with_deep_member_matches',
         'fhir_path_expression': "bar.bats.struct.value.matches('foo_regex')",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(matches_) '
@@ -1064,7 +1074,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDeepMemberMatchesNoPattern',
+        'testcase_name': '_with_deep_member_matches_no_pattern',
         'fhir_path_expression': 'bar.bats.struct.value.matches()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(matches_) '
@@ -1073,7 +1083,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withArrayScalarMemberExists',
+        'testcase_name': '_with_array_scalar_member_exists',
         'fhir_path_expression': 'bar.exists()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(exists_) '
@@ -1082,7 +1092,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDeepestNestedMemberSqlKeywordExists',
+        'testcase_name': '_with_deepest_nested_member_sql_keyword_exists',
         'fhir_path_expression': 'bar.bats.exists()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(exists_) '
@@ -1095,7 +1105,9 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDeepestNestedMemberSqlKeywordStructExists',
+        'testcase_name': (
+            '_with_deepest_nested_member_sql_keyword_struct_exists'
+        ),
         'fhir_path_expression': 'bar.bats.struct.exists()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(exists_) '
@@ -1108,7 +1120,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withDeepestNestedMemberFhirPathKeywordExists',
+        'testcase_name': '_with_deepest_nested_member_fhir_path_keyword_exists',
         'fhir_path_expression': 'bar.bats.`div`.exists()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(exists_) '
@@ -1121,7 +1133,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withAllAndIdentifier',
+        'testcase_name': '_with_all_and_identifier',
         'fhir_path_expression': "bat.struct.all(anotherValue = '')",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(all_) FROM (SELECT IFNULL( BOOL_AND( IFNULL('
@@ -1130,7 +1142,9 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withAllAndRepeatedSubfieldPrimitiveOnlyComparison',
+        'testcase_name': (
+            '_with_all_and_repeated_subfield_primitive_only_comparison'
+        ),
         'fhir_path_expression': "bar.bats.struct.all( value = '' )",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(all_) FROM (SELECT IFNULL( BOOL_AND( IFNULL('
@@ -1143,7 +1157,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withAllAndRepeatedOperandUsesExistFunction',
+        'testcase_name': '_with_all_and_repeated_operand_uses_exist_function',
         'fhir_path_expression': 'bar.all( bats.exists() )',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(all_) FROM (SELECT IFNULL( BOOL_AND( IFNULL('
@@ -1155,7 +1169,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withAllAndRepeatedParent',
+        'testcase_name': '_with_all_and_repeated_parent',
         'fhir_path_expression': 'bar.bats.all(struct.exists() )',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(all_) FROM (SELECT IFNULL( BOOL_AND( IFNULL('
@@ -1167,7 +1181,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withAllWithNoOperand',
+        'testcase_name': '_with_all_with_no_operand',
         'fhir_path_expression': 'all(bar.exists())',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(all_) FROM (SELECT TRUE AS all_) WHERE all_'
@@ -1175,7 +1189,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_ArrayMatchesAll',
+        'testcase_name': '_array_matches_all',
         'fhir_path_expression': "inline.numbers.all($this.matches('regex'))",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(all_) FROM (SELECT IFNULL( BOOL_AND( IFNULL('
@@ -1186,7 +1200,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withScalarCodeMemberOf',
+        'testcase_name': '_with_scalar_code_member_of',
         'fhir_path_expression': (
             "codeFlavor.code.memberOf('http://value.set/id')"
         ),
@@ -1198,7 +1212,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withScalarCodeMemberOfValueSetVersion',
+        'testcase_name': '_with_scalar_code_member_of_value_set_version',
         'fhir_path_expression': (
             "codeFlavor.code.memberOf('http://value.set/id|1.0')"
         ),
@@ -1211,7 +1225,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withScalarCodingMemberOf',
+        'testcase_name': '_with_scalar_coding_member_of',
         'fhir_path_expression': (
             "codeFlavor.coding.memberOf('http://value.set/id')"
         ),
@@ -1224,7 +1238,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withScalarCodingMemberOfValueSetVersion',
+        'testcase_name': '_with_scalar_coding_member_of_value_set_version',
         'fhir_path_expression': (
             "codeFlavor.coding.memberOf('http://value.set/id|1.0')"
         ),
@@ -1237,7 +1251,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withScalarCodeableConceptMemberOf',
+        'testcase_name': '_with_scalar_codeable_concept_member_of',
         'fhir_path_expression': (
             "codeFlavor.codeableConcept.memberOf('http://value.set/id')"
         ),
@@ -1252,7 +1266,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withScalarOfTypeCodeableConceptMemberOf',
+        'testcase_name': '_with_scalar_of_type_codeable_concept_member_of',
         'fhir_path_expression': "codeFlavor.ofType('codeableConcept').memberOf('http://value.set/id')",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(memberof_) FROM (SELECT ISNOTNULL(memberof_)'
@@ -1265,7 +1279,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withWhereAndNoOperand',
+        'testcase_name': '_with_where_and_no_operand',
         'fhir_path_expression': 'where(true)',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(where_clause_) '
@@ -1274,7 +1288,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withWhere',
+        'testcase_name': '_with_where',
         'fhir_path_expression': "bat.struct.where(value='')",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(`struct`) '
@@ -1285,7 +1299,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withWhereAndEmpty',
+        'testcase_name': '_with_where_and_empty',
         'fhir_path_expression': "bat.struct.where(value='').empty())",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(empty_) '
@@ -1296,7 +1310,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withChainedWhere',
+        'testcase_name': '_with_chained_where',
         'fhir_path_expression': (
             "bat.struct.where(value='').where(anotherValue='')"
         ),
@@ -1310,7 +1324,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withComplexWhere',
+        'testcase_name': '_with_complex_where',
         'fhir_path_expression': (
             "bat.struct.where(value='' and anotherValue=''))"
         ),
@@ -1324,7 +1338,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withWhereAndRepeated',
+        'testcase_name': '_with_where_and_repeated',
         'fhir_path_expression': 'bar.bats.where( struct.exists() )',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(bats_element_) FROM (SELECT bats_element_'
@@ -1336,7 +1350,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withRetrieveNestedField',
+        'testcase_name': '_with_retrieve_nested_field',
         'fhir_path_expression': "bat.struct.where(value='').anotherValue",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(anotherValue) '
@@ -1347,7 +1361,9 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withMultipleWhereClauseAndRetrieveNestedField',
+        'testcase_name': (
+            '_with_multiple_where_clause_and_retrieve_nested_field'
+        ),
         'fhir_path_expression': (
             "bat.struct.where(value='').where(anotherValue='').anotherValue"
         ),
@@ -1360,7 +1376,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withRetrieveNestedFieldExists',
+        'testcase_name': '_with_retrieve_nested_field_exists',
         'fhir_path_expression': (
             "bat.struct.where(value='').anotherValue.exists()"
         ),
@@ -1375,7 +1391,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_ArrayWithMessageChoice_andWhere',
+        'testcase_name': '_array_with_message_choice_and_where',
         'fhir_path_expression': (
             "multipleChoiceExample.ofType('CodeableConcept').coding.where(system"
             " = 'test')"
@@ -1394,7 +1410,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_ScalarWithRepeatedMessageChoice_andWhere',
+        'testcase_name': '_scalar_with_repeated_message_choice_and_where',
         'fhir_path_expression': (
             "choiceExample.ofType('CodeableConcept').coding.where(system ="
             " 'test')"
@@ -1410,7 +1426,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withAnyTrue',
+        'testcase_name': '_with_any_true',
         'fhir_path_expression': 'boolList.anyTrue()',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(_anyTrue) FROM (SELECT MAX('
@@ -1423,45 +1439,45 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
-    {'testcase_name': '_withCount', 'fhir_path_expression': 'count()'},
-    {'testcase_name': '_withEmpty', 'fhir_path_expression': 'empty()'},
-    {'testcase_name': '_withExists', 'fhir_path_expression': 'exists()'},
-    {'testcase_name': '_withFirst', 'fhir_path_expression': 'first()'},
-    {'testcase_name': '_withHasValue', 'fhir_path_expression': 'hasValue()'},
-    {'testcase_name': '_withMatches', 'fhir_path_expression': 'matches()'},
-    {'testcase_name': '_withOfType', 'fhir_path_expression': 'ofType()'},
-    {'testcase_name': '_withIdFor', 'fhir_path_expression': 'idFor()'},
-    {'testcase_name': '_withAll', 'fhir_path_expression': 'all()'},
-    {'testcase_name': '_withMemberOf', 'fhir_path_expression': 'memberOf()'},
-    {'testcase_name': '_withNot', 'fhir_path_expression': 'not()'},
-    {'testcase_name': '_withAnyTrue', 'fhir_path_expression': 'anyTrue()'},
+    {'testcase_name': '_with_count', 'fhir_path_expression': 'count()'},
+    {'testcase_name': '_with_empty', 'fhir_path_expression': 'empty()'},
+    {'testcase_name': '_with_exists', 'fhir_path_expression': 'exists()'},
+    {'testcase_name': '_with_first', 'fhir_path_expression': 'first()'},
+    {'testcase_name': '_with_has_value', 'fhir_path_expression': 'hasValue()'},
+    {'testcase_name': '_with_matches', 'fhir_path_expression': 'matches()'},
+    {'testcase_name': '_with_of_type', 'fhir_path_expression': 'ofType()'},
+    {'testcase_name': '_with_id_for', 'fhir_path_expression': 'idFor()'},
+    {'testcase_name': '_with_all', 'fhir_path_expression': 'all()'},
+    {'testcase_name': '_with_member_of', 'fhir_path_expression': 'memberOf()'},
+    {'testcase_name': '_with_not', 'fhir_path_expression': 'not()'},
+    {'testcase_name': '_with_any_true', 'fhir_path_expression': 'anyTrue()'},
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_VALUE_ERROR = [
     {
-        'testcase_name': '_withArrayScalarMemberExists',
-        'fhir_path_expression': 'bar.exists(struct)'
+        'testcase_name': '_with_array_scalar_member_exists',
+        'fhir_path_expression': 'bar.exists(struct)',
     },
     {
-        'testcase_name': '_withWhereFunctionAndNoCriteria',
-        'fhir_path_expression': 'bat.struct.where()'
+        'testcase_name': '_with_where_function_and_no_criteria',
+        'fhir_path_expression': 'bat.struct.where()',
     },
     {
-        'testcase_name': '_withWhereFunctionAndNonBoolCriteria',
-        'fhir_path_expression': 'bat.struct.where(value)'
+        'testcase_name': '_with_where_function_and_non_bool_criteria',
+        'fhir_path_expression': 'bat.struct.where(value)',
     },
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_NOT_IMPLEMENTED_ERROR = [
     {
-        'testcase_name': '_withWhereAndRepeatedAndExists',
-        'fhir_path_expression': 'bar.bats.where( struct = struct ).exists()'
+        'testcase_name': '_with_where_and_repeated_and_exists',
+        'fhir_path_expression': 'bar.bats.where( struct = struct ).exists()',
     },
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_UNION_FUNCTION_SUCCEEDS_CASES = [
     {
-        'testcase_name': '_withIntegerUnion',
+        'testcase_name': '_with_integer_union',
         'fhir_path_expression': '3 | 4',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(union_) '
@@ -1474,7 +1490,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_UNION_FUNCTION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withStringUnion',
+        'testcase_name': '_with_string_union',
         'fhir_path_expression': "'Foo' | 'Bar'",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(union_) '
@@ -1487,19 +1503,19 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_UNION_FUNCTION_SUCCEEDS_CASES = [
         ),
     },
     {
-        'testcase_name': '_withStringNestedUnion',
+        'testcase_name': '_with_string_nested_union',
         'fhir_path_expression': "('Foo' | 'Bar') | ('Bats')",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(union_) '
             'FROM (SELECT lhs_.union_ '
             'FROM (SELECT lhs_.literal_ AS union_ '
-            'FROM (SELECT \'Foo\' AS literal_) AS lhs_ '
+            "FROM (SELECT 'Foo' AS literal_) AS lhs_ "
             'UNION DISTINCT '
             'SELECT rhs_.literal_ AS union_ '
-            'FROM (SELECT \'Bar\' AS literal_) AS rhs_) AS lhs_ '
+            "FROM (SELECT 'Bar' AS literal_) AS rhs_) AS lhs_ "
             'UNION DISTINCT '
             'SELECT rhs_.literal_ AS union_ '
-            'FROM (SELECT \'Bats\' AS literal_) AS rhs_) '
+            "FROM (SELECT 'Bats' AS literal_) AS rhs_) "
             'WHERE union_ IS NOT NULL)'
         ),
     },
@@ -1507,32 +1523,32 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_UNION_FUNCTION_SUCCEEDS_CASES = [
 
 _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_OF_VECTOR_EXPRESSIONS_RAISES_ERROR = [
     {
-        'testcase_name': '_withVectorCodeMemberOf',
+        'testcase_name': '_with_vector_code_member_of',
         'fhir_path_expression': (
             "codeFlavors.code.memberOf('http://value.set/id')"
         ),
     },
     {
-        'testcase_name': '_withVectorCodeableConceptMemberOf',
+        'testcase_name': '_with_vector_codeable_concept_member_of',
         'fhir_path_expression': (
             "codeFlavors.codeableConcept.memberOf('http://value.set/id')"
         ),
     },
     {
-        'testcase_name': '_withVectorCodingMemberOf',
+        'testcase_name': '_with_vector_coding_member_of',
         'fhir_path_expression': (
             "codeFlavors.coding.memberOf('http://value.set/id')"
         ),
     },
     {
-        'testcase_name': '_withVectorOfTypeCodeableConceptMemberOf',
+        'testcase_name': '_with_vector_of_type_codeable_concept_member_of',
         'fhir_path_expression': "codeFlavors.ofType('codeableConcept').memberOf('http://value.set/id')",
     },
 ]
 
 _WITH_FHIRPATH_V2_MEMBER_OF_AGAINST_LOCAL_VALUESET_DEFINITIONS_SUCCEEDS_CASES = [
     {
-        'testcase_name': '_withScalarCodeMemberOf',
+        'testcase_name': '_with_scalar_code_member_of',
         'fhir_path_expression': (
             "codeFlavor.code.memberOf('http://value.set/1')"
         ),
@@ -1543,7 +1559,7 @@ _WITH_FHIRPATH_V2_MEMBER_OF_AGAINST_LOCAL_VALUESET_DEFINITIONS_SUCCEEDS_CASES = 
         ),
     },
     {
-        'testcase_name': '_withScalarCodeMemberOfAnotherValueSet',
+        'testcase_name': '_with_scalar_code_member_of_another_value_set',
         'fhir_path_expression': (
             "codeFlavor.code.memberOf('http://value.set/2')"
         ),
@@ -1554,7 +1570,7 @@ _WITH_FHIRPATH_V2_MEMBER_OF_AGAINST_LOCAL_VALUESET_DEFINITIONS_SUCCEEDS_CASES = 
         ),
     },
     {
-        'testcase_name': '_withVectorCodeMemberOf',
+        'testcase_name': '_with_vector_code_member_of',
         'fhir_path_expression': (
             "codeFlavors.code.memberOf('http://value.set/1')"
         ),
@@ -1568,7 +1584,7 @@ _WITH_FHIRPATH_V2_MEMBER_OF_AGAINST_LOCAL_VALUESET_DEFINITIONS_SUCCEEDS_CASES = 
         ),
     },
     {
-        'testcase_name': '_withScalarCodingMemberOf',
+        'testcase_name': '_with_scalar_coding_member_of',
         'fhir_path_expression': (
             "codeFlavor.coding.memberOf('http://value.set/2')"
         ),
@@ -1582,7 +1598,7 @@ _WITH_FHIRPATH_V2_MEMBER_OF_AGAINST_LOCAL_VALUESET_DEFINITIONS_SUCCEEDS_CASES = 
         ),
     },
     {
-        'testcase_name': '_withScalarCodeableConceptMemberOf',
+        'testcase_name': '_with_scalar_codeable_concept_member_of',
         'fhir_path_expression': (
             "codeFlavor.codeableConcept.memberOf('http://value.set/2')"
         ),
@@ -1631,7 +1647,7 @@ class FhirPathSparkSqlEncoderTest(
   @parameterized.named_parameters(
       _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES
   )
-  def testEncode_withFhirPathV2DateTimeLiteral_succeeds(
+  def test_encode_with_fhir_path_v2_date_time_literal_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1639,7 +1655,7 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES)
-  def testEncode_withFhirPathV2LiteralArithmetic_succeeds(
+  def test_encode_with_fhir_path_v2_literal_arithmetic_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1649,7 +1665,7 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_INDEXER_SUCCEEDS_CASES)
-  def testEncode_withFhirPathV2LiteralIndexer_succeeds(
+  def test_encode_with_fhir_path_v2_literal_indexer_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1659,7 +1675,7 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES)
-  def testEncode_withFhirPathV2LiteralBoolean_succeeds(
+  def test_encode_with_fhir_path_v2_literal_boolean_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1669,7 +1685,7 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES)
-  def testEncode_withFhirPathV2LiteralComparison_succeeds(
+  def test_encode_with_fhir_path_v2_literal_comparison_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1679,7 +1695,7 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES)
-  def testEncode_withFhirPathV2LiteralPolarity_succeeds(
+  def test_encode_with_fhir_path_v2_literal_polarity_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1694,7 +1710,7 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES)
-  def testEncode_withFhirPathV2LiteralEquality_succeeds(
+  def test_encode_with_fhir_path_v2_literal_equality_succeeds(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
@@ -1706,7 +1722,7 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(_WITH_FHIRPATH_V2_MEMBERSHIP_SUCCEEDS_CASES)
-  def testEncode_withFhirPathV2LiteralMembershipRelation_succeeds(
+  def test_encode_with_fhir_path_v2_literal_membership_relation_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1718,7 +1734,7 @@ class FhirPathSparkSqlEncoderTest(
   @parameterized.named_parameters(
       _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES
   )
-  def testEncode_withFhirPathV2MemberAccess_succeeds(
+  def test_encode_with_fhir_path_v2_member_access_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1730,7 +1746,7 @@ class FhirPathSparkSqlEncoderTest(
   @parameterized.named_parameters(
       _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES
   )
-  def testEncode_withFhirPathV2OfTypeInvocation_succeeds(
+  def test_encode_with_fhir_path_v2_of_type_invocation_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1742,7 +1758,7 @@ class FhirPathSparkSqlEncoderTest(
   @parameterized.named_parameters(
       _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES
   )
-  def testEncode_withFhirPathV2FunctionInvocation_succeeds(
+  def test_encode_with_fhir_path_v2_function_invocation_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1755,7 +1771,7 @@ class FhirPathSparkSqlEncoderTest(
   @parameterized.named_parameters(
       _WITH_FHIRPATH_V2_MEMBER_OF_AGAINST_LOCAL_VALUESET_DEFINITIONS_SUCCEEDS_CASES
   )
-  def testEncode_withFhirPathV2MemberFunctionAgainstLocalValueSetDefinitions_succeeds(
+  def test_encode_with_fhir_path_v2_member_function_against_local_value_set_definitions_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     expanded_value_set_1 = value_set_pb2.ValueSet()
@@ -1802,7 +1818,7 @@ class FhirPathSparkSqlEncoderTest(
   @parameterized.named_parameters(
       _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR
   )
-  def testEncode_withFhirPathFunctionNoOperand_raisesError(
+  def test_encode_with_fhir_path_function_no_operand_raises_error(
       self, fhir_path_expression: str
   ):
     with self.assertRaises(ValueError):
@@ -1812,7 +1828,7 @@ class FhirPathSparkSqlEncoderTest(
   @parameterized.named_parameters(
       _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_VALUE_ERROR
   )
-  def testEncode_withFhirPathFunctionInvocation_raisesValueError(
+  def test_encode_with_fhir_path_function_invocation_raises_value_error(
       self, fhir_path_expression: str
   ):
     with self.assertRaises(ValueError):
@@ -1821,7 +1837,7 @@ class FhirPathSparkSqlEncoderTest(
   @parameterized.named_parameters(
       _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_NOT_IMPLEMENTED_ERROR
   )
-  def testEncode_withFhirPathFunctionInvocation_raisesNotImplementedError(
+  def test_encode_with_fhir_path_function_invocation_raises_not_implemented_error(
       self, fhir_path_expression: str
   ):
     with self.assertRaises(NotImplementedError):
@@ -1832,7 +1848,7 @@ class FhirPathSparkSqlEncoderTest(
   @parameterized.named_parameters(
       _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_OF_VECTOR_EXPRESSIONS_RAISES_ERROR
   )
-  def testEncode_withFhirPathV2MemberOfFunctionWithVectorExpression_raisesError(
+  def test_encode_with_fhir_path_v2_member_of_function_with_vector_expression_raises_error(
       self, fhir_path_expression: str
   ):
     with self.assertRaises(NotImplementedError):
@@ -1841,7 +1857,7 @@ class FhirPathSparkSqlEncoderTest(
           value_set_codes_table='VALUESET_VIEW'
       ).encode(builder)
 
-  def testEncode_withFhirPathV2SelectScalarsAsArrayFalseForLiteral_succeeds(
+  def test_encode_with_fhir_path_v2_select_scalars_as_array_false_for_literal_succeeds(
       self,
   ):
     fhir_path_expression = 'true'
@@ -1856,7 +1872,7 @@ class FhirPathSparkSqlEncoderTest(
   @parameterized.named_parameters(
       _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_UNION_FUNCTION_SUCCEEDS_CASES
   )
-  def testEncode_withFhirPathMemberV2LiteralUnion_succeeds(
+  def test_encode_with_fhir_path_member_v2_literal_union_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1865,7 +1881,7 @@ class FhirPathSparkSqlEncoderTest(
         expected_sql_expression=expected_sql_expression,
     )
 
-  def testEncode_withFhirPathMemberV2LiteralRoot_succeeds(self):
+  def test_encode_with_fhir_path_member_v2_literal_root_succeeds(self):
     expected_sql_expression = (
         '(SELECT COLLECT_LIST(bar) FROM (SELECT Foo.bar) WHERE bar IS NOT NULL)'
     )
@@ -1876,7 +1892,7 @@ class FhirPathSparkSqlEncoderTest(
         use_resource_alias=True,
     )
 
-  def testEncode_withFhirPathMemberV2IdFor_succeeds(self):
+  def test_encode_with_fhir_path_member_v2_id_for_succeeds(self):
     self.assertEvaluationNodeSqlCorrect(
         structdef_name='Foo',
         fhir_path_expression="bar.idFor('Bats')",

@@ -46,7 +46,7 @@ class SparkValueSetManagerTest(parameterized.TestCase):
     )
     self._context = context.LocalFhirPathContext(self._fhir_package)
 
-  def testInit_withValueSetTableAs(self):
+  def test_init_with_value_set_table_as(self):
     manager = spark_value_set_manager.SparkValueSetManager(
         self.mock_spark_engine,
         value_set_codes_table='table',
@@ -58,7 +58,7 @@ class SparkValueSetManagerTest(parameterized.TestCase):
       'valueset_codes_insert_statement_for',
       autospec=True,
   )
-  def testMaterializeValueSet_withValueSetObject_insertsData(
+  def test_materialize_value_set_with_value_set_object_inserts_data(
       self, mock_valueset_codes_insert_statement_for
   ):
     mock_value_sets = [mock.MagicMock(), mock.MagicMock()]
@@ -102,7 +102,7 @@ class SparkValueSetManagerTest(parameterized.TestCase):
       'valueset_codes_insert_statement_for',
       autospec=True,
   )
-  def testMaterializeValueSetExpansion_withValueSetUrls_performsExpansionsAndInserts(
+  def test_materialize_value_set_expansion_with_value_set_urls_performs_expansions_and_inserts(
       self, mock_valueset_codes_insert_statement_for
   ):
     mock_insert_statements = [mock.MagicMock(), mock.MagicMock()]
@@ -142,7 +142,7 @@ class SparkValueSetManagerTest(parameterized.TestCase):
       'valueset_codes_insert_statement_for',
       autospec=True,
   )
-  def testMaterializeValueSetExpansion_withTerminologyServiceUrl_usesGivenTerminologyServiceUrl(
+  def test_materialize_value_set_expansion_with_terminology_service_url_uses_given_terminology_service_url(
       self, mock_valueset_codes_insert_statement_for
   ):
     mock_expander = mock.MagicMock(
@@ -178,7 +178,7 @@ class SparkValueSetManagerTest(parameterized.TestCase):
         mock.call('url-2', 'http://my-service.com'),
     ])
 
-  def testMaterializeValueSetExpansion_withTerminologyServiceUrlAndValueSetResolver_raisesError(
+  def test_materialize_value_set_expansion_with_terminology_service_url_and_value_set_resolver_raises_error(
       self,
   ):
     mock_expander = mock.MagicMock(spec=value_sets.ValueSetResolver)
@@ -190,7 +190,9 @@ class SparkValueSetManagerTest(parameterized.TestCase):
           terminology_service_url='http://my-service.com',
       )
 
-  def testCreateValusetCodesTableIfNotExists_callsClientCorrectly(self):
+  def test_create_valuset_codes_table_if_not_exists_calls_client_correctly(
+      self,
+  ):
     self.value_set_manager._create_valueset_codes_table_if_not_exists()
 
     expected_sql = (

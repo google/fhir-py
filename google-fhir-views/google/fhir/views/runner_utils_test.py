@@ -45,7 +45,7 @@ class RunnerUtilsTest(absltest.TestCase):
     self._context = context.LocalFhirPathContext(self._fhir_package)
     self._views = r4.from_definitions(self._context)
 
-  def testBuildSqlStatement_bigQuerySqlInterpreter(self):
+  def test_build_sql_statement_big_query_sql_interpreter(self):
     pat = self._views.view_of('Patient')
     simple_view = pat.select(
         {'name': pat.name.given, 'birthDate': pat.birthDate}
@@ -76,7 +76,7 @@ class RunnerUtilsTest(absltest.TestCase):
     )
     self.assertMultiLineEqual(expected_output, sql_statement)
 
-  def testBuildSqlStatement_fhirPathSqlInterpreter(self):
+  def test_build_sql_statement_fhir_path_sql_interpreter(self):
     pat = self._views.view_of('Patient')
     simple_view = pat.select(
         {'name': pat.name.given, 'birthDate': pat.birthDate}
@@ -115,7 +115,7 @@ class RunnerUtilsTest(absltest.TestCase):
     )
     self.assertMultiLineEqual(expected_output, sql_statement)
 
-  def testBuildSqlStatement_sparkSqlInterpreter(self):
+  def test_build_sql_statement_spark_sql_interpreter(self):
     pat = self._views.view_of('Patient')
     simple_view = pat.select(
         {'name': pat.name.given, 'birthDate': pat.birthDate}
@@ -142,7 +142,7 @@ class RunnerUtilsTest(absltest.TestCase):
     )
     self.assertMultiLineEqual(expected_output, sql_statement)
 
-  def testBuildSqlStatement_forMixedResourceBuilder(self):
+  def test_build_sql_statement_for_mixed_resource_builder(self):
     enc = self._views.view_of('Encounter')
     pat = self._views.view_of('Patient')
 
@@ -190,7 +190,9 @@ class RunnerUtilsTest(absltest.TestCase):
           WHERE comparison_ IS NOT NULL)) AS logic_)""")
     self.assertMultiLineEqual(expected_output, sql_statement)
 
-  def testBuildSqlStatement_forMixedResourceBuilder_SelectBaseBuilder(self):
+  def test_build_sql_statement_for_mixed_resource_builder_select_base_builder(
+      self,
+  ):
     enc = self._views.view_of('Encounter')
     pat = self._views.view_of('Patient')
 
@@ -228,7 +230,7 @@ class RunnerUtilsTest(absltest.TestCase):
         WHERE comparison_ IS NOT NULL)) AS logic_)""")
     self.assertMultiLineEqual(expected_output, sql_statement)
 
-  def testBuildValuesetExpression(self):
+  def test_build_valueset_expression(self):
     pat = self._views.view_of('Patient')
     simple_view = pat.select(
         {'name': pat.name.given, 'birthDate': pat.birthDate}
@@ -249,7 +251,7 @@ class RunnerUtilsTest(absltest.TestCase):
         """)
     self.assertMultiLineEqual(expected_output, sql_statement)
 
-  def testBuildSelectForSummarizeCode_succeeds(self):
+  def test_build_select_for_summarize_code_succeeds(self):
     """Tests summarizing codes."""
     observation = self._views.view_of('Observation')
     encoder = _bigquery_interpreter.BigQuerySqlInterpreter(
@@ -275,7 +277,7 @@ class RunnerUtilsTest(absltest.TestCase):
     )
     self.assertEqual(expected_sql, returned_sql)
 
-  def testCleanDataFrame_forPatient_succeeds(self):
+  def test_clean_data_frame_for_patient_succeeds(self):
     """Test to_dataframe()."""
     patient = self._views.view_of('Patient')
     simple_view = patient.select(
@@ -297,7 +299,7 @@ class RunnerUtilsTest(absltest.TestCase):
     )
     self.assertTrue(expected_df.equals(returned_df))
 
-  def testCleanDataFrame_TrimsStructWithSelect_succeeds(self):
+  def test_clean_data_frame_trims_struct_with_select_succeeds(self):
     """Test structure trimming of explicitly defined columns."""
     patient = self._views.view_of('Patient')
     simple_view = patient.select({
@@ -335,7 +337,7 @@ class RunnerUtilsTest(absltest.TestCase):
         returned_df['maritalStatus'].values,
     )
 
-  def testCleanDataFrame_TrimsStructNoSelect_succeeds(self):
+  def test_clean_data_frame_trims_struct_no_select_succeeds(self):
     """Test the base query directly to ensure struct trimming logic works."""
     fake_df = pd.DataFrame.from_dict({
         'name': ['Bob'],

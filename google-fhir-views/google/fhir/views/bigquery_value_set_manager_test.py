@@ -51,21 +51,21 @@ class BigQueryValueSetManagerTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='String_succeeds',
+          testcase_name='string_succeeds',
           value_set_codes_table='project.dataset.table',
           expected_table_name=bigquery.table.TableReference.from_string(
               'project.dataset.table',
           ),
       ),
       dict(
-          testcase_name='StringWithNoProject_succeeds',
+          testcase_name='string_with_no_project_succeeds',
           value_set_codes_table='dataset.table',
           expected_table_name=bigquery.table.TableReference.from_string(
               'test_project.dataset.table',
           ),
       ),
       dict(
-          testcase_name='TableReference_succeeds',
+          testcase_name='table_reference_succeeds',
           value_set_codes_table=bigquery.table.TableReference.from_string(
               'project.dataset.table'
           ),
@@ -74,7 +74,7 @@ class BigQueryValueSetManagerTest(parameterized.TestCase):
           ),
       ),
       dict(
-          testcase_name='Table_succeeds',
+          testcase_name='table_succeeds',
           value_set_codes_table=bigquery.table.Table(
               bigquery.table.TableReference.from_string('project.dataset.table')
           ),
@@ -83,7 +83,7 @@ class BigQueryValueSetManagerTest(parameterized.TestCase):
           ),
       ),
   )
-  def testInit_withValueSetTableAs(
+  def test_init_with_value_set_table_as(
       self, value_set_codes_table, expected_table_name
   ):
     manager = bigquery_value_set_manager.BigQueryValueSetManager(
@@ -97,7 +97,7 @@ class BigQueryValueSetManagerTest(parameterized.TestCase):
       'valueset_codes_insert_statement_for',
       autospec=True,
   )
-  def testMaterializeValueSet_withValueSetObject_insertsData(
+  def test_materialize_value_set_with_value_set_object_inserts_data(
       self, mock_valueset_codes_insert_statement_for
   ):
     mock_value_sets = [mock.MagicMock(), mock.MagicMock()]
@@ -105,8 +105,8 @@ class BigQueryValueSetManagerTest(parameterized.TestCase):
     mock_valueset_codes_insert_statement_for.return_value = (
         mock_insert_statements
     )
-    self.mock_bigquery_client.create_table.return_value = _BqValuesetCodesTable(
-        'vs_project.vs_dataset.vs_table'
+    self.mock_bigquery_client.create_table.return_value = (
+        _bq_valueset_codes_table('vs_project.vs_dataset.vs_table')
     )
 
     self.value_set_manager.materialize_value_sets(mock_value_sets)
@@ -139,7 +139,7 @@ class BigQueryValueSetManagerTest(parameterized.TestCase):
       'valueset_codes_insert_statement_for',
       autospec=True,
   )
-  def testMaterializeValueSetExpansion_withValueSetUrls_performsExpansionsAndInserts(
+  def test_materialize_value_set_expansion_with_value_set_urls_performs_expansions_and_inserts(
       self, mock_valueset_codes_insert_statement_for
   ):
     mock_insert_statements = [mock.MagicMock(), mock.MagicMock()]
@@ -147,8 +147,8 @@ class BigQueryValueSetManagerTest(parameterized.TestCase):
         mock_insert_statements
     )
     mock_expander = mock.MagicMock()
-    self.mock_bigquery_client.create_table.return_value = _BqValuesetCodesTable(
-        'vs_project.vs_dataset.vs_table'
+    self.mock_bigquery_client.create_table.return_value = (
+        _bq_valueset_codes_table('vs_project.vs_dataset.vs_table')
     )
 
     self.value_set_manager.materialize_value_set_expansion(
@@ -193,14 +193,14 @@ class BigQueryValueSetManagerTest(parameterized.TestCase):
       'valueset_codes_insert_statement_for',
       autospec=True,
   )
-  def testMaterializeValueSetExpansion_withTerminologyServiceUrl_usesGivenTerminologyServiceUrl(
+  def test_materialize_value_set_expansion_with_terminology_service_url_uses_given_terminology_service_url(
       self, mock_valueset_codes_insert_statement_for
   ):
     mock_expander = mock.MagicMock(
         spec=terminology_service_client.TerminologyServiceClient
     )
-    self.mock_bigquery_client.create_table.return_value = _BqValuesetCodesTable(
-        'vs_project.vs_dataset.vs_table'
+    self.mock_bigquery_client.create_table.return_value = (
+        _bq_valueset_codes_table('vs_project.vs_dataset.vs_table')
     )
 
     self.value_set_manager.materialize_value_set_expansion(
@@ -229,7 +229,7 @@ class BigQueryValueSetManagerTest(parameterized.TestCase):
         mock.call('url-2', 'http://my-service.com'),
     ])
 
-  def testMaterializeValueSetExpansion_withTerminologyServiceUrlAndValueSetResolver_raisesError(
+  def test_materialize_value_set_expansion_with_terminology_service_url_and_value_set_resolver_raises_error(
       self,
   ):
     mock_expander = mock.MagicMock(spec=value_sets.ValueSetResolver)
@@ -241,16 +241,18 @@ class BigQueryValueSetManagerTest(parameterized.TestCase):
           terminology_service_url='http://my-service.com',
       )
 
-  def testCreateValusetCodesTableIfNotExists_callsClientCorrectly(self):
+  def test_create_valuset_codes_table_if_not_exists_calls_client_correctly(
+      self,
+  ):
     self.value_set_manager._create_valueset_codes_table_if_not_exists()
 
-    expected_table = _BqValuesetCodesTable('vs_project.vs_dataset.vs_table')
+    expected_table = _bq_valueset_codes_table('vs_project.vs_dataset.vs_table')
     self.mock_bigquery_client.create_table.assert_called_once_with(
         expected_table, exists_ok=True
     )
 
 
-def _BqValuesetCodesTable(name: str) -> bigquery.table.Table:
+def _bq_valueset_codes_table(name: str) -> bigquery.table.Table:
   """Builds a BigQuery client table representation of a value set codes table."""
   schema = [
       bigquery.SchemaField('valueseturi', 'STRING', mode='REQUIRED'),

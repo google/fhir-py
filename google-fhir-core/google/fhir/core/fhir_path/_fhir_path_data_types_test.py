@@ -21,7 +21,9 @@ from google.fhir.core.fhir_path import _structure_definitions as sdefs
 
 class StructureDataTypeTest(absltest.TestCase):
 
-  def testInit_withStructureDefinition_allowsAccessToElementDefinitions(self):
+  def test_init_with_structure_definition_allows_access_to_element_definitions(
+      self,
+  ):
     element_definitions = [
         sdefs.build_element_definition(
             id_='Test',
@@ -254,37 +256,41 @@ class FhirPathDataTypeTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_withTypeCode_returnsCorrectFieldName',
+          testcase_name='with_type_code_returns_correct_field_name',
           type_code='boolean',
           expected_field_name='boolean',
       ),
       dict(
-          testcase_name='_withSpecialCasedTypeCode_returnsCorrectFieldName',
+          testcase_name=(
+              'with_special_cased_type_code_returns_correct_field_name'
+          ),
           type_code='string',
           expected_field_name='string_value',
       ),
       dict(
-          testcase_name='_withUrl_returnsCorrectFieldName',
+          testcase_name='with_url_returns_correct_field_name',
           type_code='http://hl7.org/fhirpath/System.String',
           expected_field_name='string_value',
       ),
       dict(
-          testcase_name='_withNumberInTypeName_returnsCorrectFieldName',
+          testcase_name='with_number_in_type_name_returns_correct_field_name',
           type_code='base64Binary',
           expected_field_name='base64_binary',
       ),
       dict(
-          testcase_name='_withNonPrimitive_returnsCorrectFieldName',
+          testcase_name='with_non_primitive_returns_correct_field_name',
           type_code='Address',
           expected_field_name='address',
       ),
       dict(
-          testcase_name='_withSnakeCasedNonPrimitive_returnsCorrectFieldName',
+          testcase_name=(
+              'with_snake_cased_non_primitive_returns_correct_field_name'
+          ),
           type_code='CodeableConcept',
           expected_field_name='codeable_concept',
       ),
   )
-  def testFixedFieldForTypeCode(self, type_code, expected_field_name):
+  def test_fixed_field_for_type_code(self, type_code, expected_field_name):
     self.assertEqual(
         _fhir_path_data_types.fixed_field_for_type_code(type_code),
         expected_field_name,
@@ -292,27 +298,27 @@ class FhirPathDataTypeTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_withPrimitive_returnsTrue',
+          testcase_name='with_primitive_returns_true',
           type_code='boolean',
           expected_result=True,
       ),
       dict(
-          testcase_name='_withNonPrimitive_returnsFalse',
+          testcase_name='with_non_primitive_returns_false',
           type_code='Observation',
           expected_result=False,
       ),
       dict(
-          testcase_name='_withUrlPrimitive_returnsTrue',
+          testcase_name='with_url_primitive_returns_true',
           type_code='http://hl7.org/fhirpath/System.String',
           expected_result=True,
       ),
       dict(
-          testcase_name='_withUrlNonPrimitive_returnsFalse',
+          testcase_name='with_url_non_primitive_returns_false',
           type_code='http://hl7.org/fhirpath/Observation',
           expected_result=False,
       ),
   )
-  def testIsTypeCodePrimitive(self, type_code, expected_result):
+  def test_is_type_code_primitive(self, type_code, expected_result):
     self.assertEqual(
         _fhir_path_data_types.is_type_code_primitive(type_code),
         expected_result,

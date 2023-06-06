@@ -42,7 +42,7 @@ class FhirPathContextTest(absltest.TestCase):
         [cls._package, us_core]
     )
 
-  def testStructDefLoad_FromFhirPackage_succeeds(self):
+  def test_struct_def_load_from_fhir_package_succeeds(self):
     test_context = context.LocalFhirPathContext(self._package)
     from_unqualified = test_context.get_structure_definition('Patient')
     self.assertEqual(from_unqualified.url.value, _PATIENT_STRUCTDEF_URL)
@@ -51,7 +51,7 @@ class FhirPathContextTest(absltest.TestCase):
     )
     self.assertEqual(from_qualified.url.value, _PATIENT_STRUCTDEF_URL)
 
-  def testStructDefLoad_FromFhirPackageManager_succeeds(self):
+  def test_struct_def_load_from_fhir_package_manager_succeeds(self):
     test_context = context.LocalFhirPathContext(self._package_manager)
     from_unqualified = test_context.get_structure_definition('Patient')
     self.assertEqual(from_unqualified.url.value, _PATIENT_STRUCTDEF_URL)
@@ -60,7 +60,7 @@ class FhirPathContextTest(absltest.TestCase):
     )
     self.assertEqual(from_qualified.url.value, _PATIENT_STRUCTDEF_URL)
 
-  def testStuctDefLoadMissingResource_FromFhirPackage_fails(self):
+  def test_stuct_def_load_missing_resource_from_fhir_package_fails(self):
     test_context = context.LocalFhirPathContext(self._package)
 
     with self.assertRaisesRegex(
@@ -68,7 +68,7 @@ class FhirPathContextTest(absltest.TestCase):
     ):
       test_context.get_structure_definition('BogusResource')
 
-  def testStructDef_LoadDependencies_asExpected(self):
+  def test_struct_def_load_dependencies_as_expected(self):
     test_context = context.LocalFhirPathContext(self._package)
     dependencies = test_context.get_dependency_definitions('Observation')
     dependency_urls = set([dep.url.value for dep in dependencies])
@@ -83,7 +83,7 @@ class FhirPathContextTest(absltest.TestCase):
         dependency_urls,
     )
 
-  def testGetFhirTypeFromString_withReference_succeeds(self):
+  def test_get_fhir_type_from_string_with_reference_succeeds(self):
     test_context = context.LocalFhirPathContext(self._package)
 
     # Grab the element definition for Observation.subject, a reference field.
@@ -127,7 +127,7 @@ class ServerFhirPathContextTest(absltest.TestCase):
         _PRIMITIVE_HANDLER,
     )
 
-  def testStructDefLoad_FromFhirServer_succeeds(self):
+  def test_struct_def_load_from_fhir_server_succeeds(self):
     patient_url = f'{self._mock_server_address}/StructureDefinition?_id={requests.utils.quote(_PATIENT_STRUCTDEF_URL)}'
     with requests_mock.Mocker() as m:
       m.get(
@@ -158,7 +158,7 @@ class ServerFhirPathContextTest(absltest.TestCase):
       patient_structdef = self._test_context.get_structure_definition('Patient')
       self.assertEqual(patient_structdef.url.value, _PATIENT_STRUCTDEF_URL)
 
-  def testStructDefLoad_FromFhirServer_notFound(self):
+  def test_struct_def_load_from_fhir_server_not_found(self):
     bad_resource_id = 'http://hl7.org/fhir/StructureDefinition/NoSuchResource'
     no_resource_url = (
         f'{self._mock_server_address}/StructureDefinition?_id={bad_resource_id}'

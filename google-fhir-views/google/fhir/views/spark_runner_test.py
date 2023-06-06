@@ -33,12 +33,12 @@ from google.fhir.views import views
 
 _WITH_VALUE_SET_TABLE_INIT_SUCCEEDS_CASES = [
     {
-        'testcase_name': 'None_usesDefaultName',
+        'testcase_name': 'none_uses_default_name',
         'value_set_codes_table': None,
         'expected_table_name': 'value_set_codes',
     },
     {
-        'testcase_name': 'String_succeeds',
+        'testcase_name': 'string_succeeds',
         'value_set_codes_table': 'my_custom_table',
         'expected_table_name': 'my_custom_table',
     },
@@ -46,12 +46,12 @@ _WITH_VALUE_SET_TABLE_INIT_SUCCEEDS_CASES = [
 
 _WITH_VIEW_DATASET_INIT_SUCCEEDS_CASES = [
     {
-        'testcase_name': 'None_usesDefaultName',
+        'testcase_name': 'none_uses_default_name',
         'view_dataset': None,
         'expected_dataset_name': 'test_dataset',
     },
     {
-        'testcase_name': 'String_succeeds',
+        'testcase_name': 'string_succeeds',
         'view_dataset': 'my_custom_dataset',
         'expected_dataset_name': 'my_custom_dataset',
     },
@@ -77,7 +77,7 @@ class SparkRunnerTest(parameterized.TestCase):
     self._context = context.LocalFhirPathContext(r4_package.load_base_r4())
     self._views = r4.from_definitions(self._context)
 
-  def AstAndExpressionTreeTestRunner(
+  def ast_and_expression_tree_test_runner(
       self,
       expected_output: str,
       view: views.View,
@@ -89,7 +89,7 @@ class SparkRunnerTest(parameterized.TestCase):
         actual_sql_expression.replace('\n', ' '), expected_output)
 
   @parameterized.named_parameters(_WITH_VALUE_SET_TABLE_INIT_SUCCEEDS_CASES)
-  def testInit_withValueSetTableAs(
+  def test_init_with_value_set_table_as(
       self, value_set_codes_table, expected_table_name
   ):
     """Tests initializing with a valueset table."""
@@ -101,7 +101,7 @@ class SparkRunnerTest(parameterized.TestCase):
     self.assertEqual(runner._value_set_codes_table, expected_table_name)  # pylint: disable=protected-access
 
   @parameterized.named_parameters(_WITH_VIEW_DATASET_INIT_SUCCEEDS_CASES)
-  def testInit_withViewDatasetAs(self, view_dataset, expected_dataset_name):
+  def test_init_with_view_dataset_as(self, view_dataset, expected_dataset_name):
     """Tests initializing with a view dataset."""
     runner = spark_runner.SparkRunner(
         query_engine=self.mock_spark_engine,
@@ -110,14 +110,14 @@ class SparkRunnerTest(parameterized.TestCase):
     )
     self.assertEqual(runner._view_dataset, expected_dataset_name)  # pylint: disable=protected-access
 
-  def testNestedSingleFieldInNestedArray_forPatient_returnsArray(self):
+  def test_nested_single_field_in_nested_array_for_patient_returns_array(self):
     """Tests selecting a single field in a nested array."""
     patient = self._views.view_of('Patient')
     simple_view = patient.select({
         'family_names': patient.name.family,
     })
 
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         expected_output=(
             'SELECT (SELECT COLLECT_LIST(family) '
             'FROM (SELECT name_element_.family FROM '
@@ -130,10 +130,10 @@ class SparkRunnerTest(parameterized.TestCase):
         runner=self.runner,
     )
 
-  def testNoSelectToSql_forPatient_succeeds(self):
+  def test_no_select_to_sql_for_patient_succeeds(self):
     """Tests that a view with no select fields succeeds."""
     patient = self._views.view_of('Patient')
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         expected_output=(
             'SELECT *,(SELECT id) AS __patientId__ FROM `default`.Patient'
         ),
@@ -141,14 +141,14 @@ class SparkRunnerTest(parameterized.TestCase):
         runner=self.runner,
     )
 
-  def testSimpleSelectToSql_forPatient_succeeds(self):
+  def test_simple_select_to_sql_for_patient_succeeds(self):
     """Tests simple select."""
     patient = self._views.view_of('Patient')
     simple_view = patient.select(
         {'name': patient.name.given, 'birthDate': patient.birthDate}
     )
 
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         expected_output=(
             'SELECT (SELECT COLLECT_LIST(given_element_) FROM '
             '(SELECT given_element_ FROM (SELECT name_element_ FROM '
@@ -164,7 +164,7 @@ class SparkRunnerTest(parameterized.TestCase):
         runner=self.runner,
     )
 
-  def testSnakeCaseTableName_forPatient_succeeds(self):
+  def test_snake_case_table_name_for_patient_succeeds(self):
     """Tests snake_case_resource_tables setting."""
     snake_case_runner = spark_runner.SparkRunner(
         self.mock_spark_engine,
@@ -175,7 +175,7 @@ class SparkRunnerTest(parameterized.TestCase):
 
     patient = self._views.view_of('Patient')
     simple_view = patient.select({'birthDate': patient.birthDate})
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         expected_output=(
             'SELECT (SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS '
             'birthDate,(SELECT id) AS __patientId__ FROM `default`.patient'
@@ -184,7 +184,7 @@ class SparkRunnerTest(parameterized.TestCase):
         runner=snake_case_runner,
     )
 
-  def testSimpleSelectAndWhereToSql_forPatient_succeeds(self):
+  def test_simple_select_and_where_to_sql_for_patient_succeeds(self):
     """Test simple select with where."""
     patient = self._views.view_of('Patient')
     active_patients_view = patient.select(
@@ -206,26 +206,28 @@ class SparkRunnerTest(parameterized.TestCase):
         '(SELECT COLLECT_LIST(active) FROM (SELECT active) '
         'WHERE active IS NOT NULL))'
     )
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         expected_output=expected_sql,
         view=active_patients_view,
         runner=self.runner,
     )
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         expected_output=expected_sql + ' LIMIT 5',
         view=active_patients_view,
         runner=self.runner,
         limit=5,
     )
 
-  def testSimpleSelectAndWhereWithDateFilterToSql_forPatient_succeeds(self):
+  def test_simple_select_and_where_with_date_filter_to_sql_for_patient_succeeds(
+      self,
+  ):
     """Tests filtering with a date conditional."""
     pat = self._views.view_of('Patient')
     born_before_1960 = pat.select(
         {'name': pat.name.given, 'birthDate': pat.birthDate}
     ).where(pat.birthDate < datetime.date(1960, 1, 1))
 
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         expected_output=(
             'SELECT (SELECT COLLECT_LIST(given_element_) FROM '
             '(SELECT given_element_ FROM (SELECT name_element_ FROM '
@@ -246,7 +248,7 @@ class SparkRunnerTest(parameterized.TestCase):
         runner=self.runner,
     )
 
-  def testSimpleSelectWithComplexFilterToSql_forPatient_succeeds(self):
+  def test_simple_select_with_complex_filter_to_sql_for_patient_succeeds(self):
     """Tests filtering with a complex filter."""
     pats = self._views.view_of('Patient')
 
@@ -262,7 +264,7 @@ class SparkRunnerTest(parameterized.TestCase):
         'zip': current.postalCode,
     })
 
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         expected_output=(
             'SELECT (SELECT id) AS id,(SELECT gender) AS gender,(SELECT'
             ' CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthdate,(SELECT'
@@ -300,14 +302,14 @@ class SparkRunnerTest(parameterized.TestCase):
         runner=self.runner,
     )
 
-  def testSimpleSelectWithArrayOfDateToSql_forPatient_succeeds(self):
+  def test_simple_select_with_array_of_date_to_sql_for_patient_succeeds(self):
     """Tests selecting an array of dates."""
     pat = self._views.view_of('Patient')
     telecom = pat.select(
         {'name': pat.name.given, 'telecom': pat.telecom.period.start}
     )
 
-    self.AstAndExpressionTreeTestRunner(
+    self.ast_and_expression_tree_test_runner(
         expected_output=(
             'SELECT (SELECT COLLECT_LIST(given_element_) FROM (SELECT'
             ' given_element_ FROM (SELECT name_element_ FROM (SELECT'
@@ -324,7 +326,7 @@ class SparkRunnerTest(parameterized.TestCase):
         runner=self.runner,
     )
 
-  def testQueryToDataFrame_forPatient_succeeds(self):
+  def test_query_to_data_frame_for_patient_succeeds(self):
     """Test to_dataframe()."""
     patient = self._views.view_of('Patient')
     simple_view = patient.select(
@@ -345,7 +347,7 @@ class SparkRunnerTest(parameterized.TestCase):
     returned_df = self.runner.to_dataframe(simple_view)
     self.assertTrue(expected_df.equals(returned_df))
 
-  def testSummarizeCodes_forObservationCodeable_succeeds(self):
+  def test_summarize_codes_for_observation_codeable_succeeds(self):
     obs = self._views.view_of('Observation')
     self.runner.summarize_codes(obs, obs.category)
     expected_sql = (
@@ -362,7 +364,7 @@ class SparkRunnerTest(parameterized.TestCase):
         expected_sql, self.mock_spark_engine
     )
 
-  def testSummarizeCodes_forObservationStatusCode_succeeds(self):
+  def test_summarize_codes_for_observation_status_code_succeeds(self):
     obs = self._views.view_of('Observation')
     self.runner.summarize_codes(obs, obs.status)
     expected_sql = (
@@ -375,7 +377,7 @@ class SparkRunnerTest(parameterized.TestCase):
         expected_sql, self.mock_spark_engine
     )
 
-  def testSummarizeCodes_forObservationCoding_succeeds(self):
+  def test_summarize_codes_for_observation_coding_succeeds(self):
     obs = self._views.view_of('Observation')
     self.runner.summarize_codes(obs, obs.code.coding)
     expected_sql = (
@@ -391,12 +393,12 @@ class SparkRunnerTest(parameterized.TestCase):
         expected_sql, self.mock_spark_engine
     )
 
-  def testSummarizeCodes_forObservationNonCodeField_raisesError(self):
+  def test_summarize_codes_for_observation_non_code_field_raises_error(self):
     obs = self._views.view_of('Observation')
     with self.assertRaises(ValueError):
       self.runner.summarize_codes(obs, obs.referenceRange)
 
-  def testCreateView_forPatient_succeeds(self):
+  def test_create_view_for_patient_succeeds(self):
     """Tests creating a view for a Patient."""
     pat = self._views.view_of('Patient')
     simple_view = pat.select(
@@ -415,7 +417,7 @@ class SparkRunnerTest(parameterized.TestCase):
       'materialize_value_sets',
       autospec=True,
   )
-  def testMaterializeValueSet_delegatesToManager(
+  def test_materialize_value_set_delegates_to_manager(
       self, mock_materialize_value_sets
   ):
     """Tests inserting data through mock call."""
@@ -432,7 +434,7 @@ class SparkRunnerTest(parameterized.TestCase):
       'materialize_value_set_expansion',
       autospec=True,
   )
-  def testMaterializeValueSetExpansion_delegatesToManager(
+  def test_materialize_value_set_expansion_delegates_to_manager(
       self, mock_materialize_value_set_expansion
   ):
     """Tests materialize through mock calls."""

@@ -27,7 +27,7 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
   def get_views(self) -> views.Views:
     raise NotImplementedError('Subclasses *must* implement get_views.')
 
-  def testPythonKeywordAccess_forEncounter_succeeds(self):
+  def test_python_keyword_access_for_encounter_succeeds(self):
     """Tests appending underscores to keyword fields succeeds."""
     enc = self.get_views().view_of('Encounter')
 
@@ -41,7 +41,7 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     self.assertEqual('class', expressions['class'].fhir_path)
     self.assertEqual('class.display', expressions['display'].fhir_path)
 
-  def testCreateSimpleView_forPatient_succeeds(self):
+  def test_create_simple_view_for_patient_succeeds(self):
     """Test minimal view definition."""
     pat = self.get_views().view_of('Patient')
 
@@ -56,7 +56,7 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     self.assertEqual('name.given', expressions['name'].fhir_path)
     self.assertEqual('birthDate', expressions['birthDate'].fhir_path)
 
-  def testViewToString_forPatient_hasExpectedExpressions(self):
+  def test_view_to_string_for_patient_has_expected_expressions(self):
     """Test View object __str__ has expected content."""
     pat = self.get_views().view_of('Patient')
 
@@ -75,14 +75,14 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
             address.count() < 5
           )>"""), str(active_patients))
 
-  def testInvalidWherePredicate_forPatient_fails(self):
+  def test_invalid_where_predicate_for_patient_fails(self):
     """Ensures that non-boolean where expressions raise an error."""
     pat = self.get_views().view_of('Patient')
 
     with self.assertRaises(ValueError):
       pat.where(pat.address)
 
-  def testViewUsesParentFields_forPatient_succeeds(self):
+  def test_view_uses_parent_fields_for_patient_succeeds(self):
     """Tests views with selects expose those fields to child views."""
     # Views without select should have base FHIR fields.
     expected_fields_sample = {'address', 'birthDate', 'telecom', 'contact'}
@@ -113,7 +113,7 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     # building it.
     self.assertEqual('address.first().state', child_select.firstState.fhir_path)
 
-  def testFilteredView_forPatient_succeeds(self):
+  def test_filtered_view_for_patient_succeeds(self):
     """Test adding filter to a view definition."""
     pat = self.get_views().view_of('Patient')
 
@@ -135,7 +135,7 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     self.assertLen(constraint_expressions, 1)
     self.assertEqual('active', constraint_expressions[0].fhir_path)
 
-  def testCreateValueSetView_forPatient_succeeds(self):
+  def test_create_value_set_view_for_patient_succeeds(self):
     """Test use of valuesets in a view definition."""
     pat = self.get_views().view_of('Patient')
 
@@ -149,7 +149,7 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     self.assertEqual("maritalStatus.memberOf('urn:test:married_valueset')",
                      constraints[0].fhir_path)
 
-  def testCreateView_withStructureExpression_succeeds(self):
+  def test_create_view_with_structure_expression_succeeds(self):
     pat = self.get_views().view_of('Patient')
     address = self.get_views().expression_for('Address')
 
@@ -160,7 +160,7 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     self.assertEqual("address.where(use = 'home').postalCode",
                      expressions['zip'].fhir_path)
 
-  def testCrossReference_forPatientAndEncounter_succeeds(self):
+  def test_cross_reference_for_patient_and_encounter_succeeds(self):
     """Test generation of views with two resources."""
     enc = self.get_views().view_of('Encounter')
     pat = self.get_views().view_of('Patient')

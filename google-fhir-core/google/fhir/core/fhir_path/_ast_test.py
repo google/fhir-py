@@ -28,37 +28,37 @@ class FhirPathAstTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_withEmptyLiteral',
+          testcase_name='withEmptyLiteral',
           fhir_path_expression='{ }',
           expected_ast_string='None',
       ),
       dict(
-          testcase_name='_withBooleanLiteral',
+          testcase_name='withBooleanLiteral',
           fhir_path_expression='true',
           expected_ast_string='True',
       ),
       dict(
-          testcase_name='_withStringLiteral',
+          testcase_name='withStringLiteral',
           fhir_path_expression="'foo'",
           expected_ast_string="'foo'",
       ),
       dict(
-          testcase_name='_withQuantityLiteral',
+          testcase_name='withQuantityLiteral',
           fhir_path_expression="10 'mg'",
           expected_ast_string="Quantity(value='10', unit='mg')",
       ),
       dict(
-          testcase_name='_withIntegerLiteral',
+          testcase_name='withIntegerLiteral',
           fhir_path_expression='100',
           expected_ast_string='100',
       ),
       dict(
-          testcase_name='_withDecimalLiteral',
+          testcase_name='withDecimalLiteral',
           fhir_path_expression='3.14',
           expected_ast_string="Decimal('3.14')",
       ),
   )
-  def testBuildAst_withFhirPathLiteral_succeeds(
+  def test_build_ast_with_fhir_path_literal_succeeds(
       self, fhir_path_expression: str, expected_ast_string: str
   ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
@@ -66,52 +66,52 @@ class FhirPathAstTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_withLogicalAnd',
+          testcase_name='withLogicalAnd',
           fhir_path_expression='{} and false',
           expected_ast_string='(and None False)',
       ),
       dict(
-          testcase_name='_withLogicalOr',
+          testcase_name='withLogicalOr',
           fhir_path_expression='true or 2',
           expected_ast_string='(or True 2)',
       ),
       dict(
-          testcase_name='_withLogicalImplies',
+          testcase_name='withLogicalImplies',
           fhir_path_expression="'foo' implies false",
           expected_ast_string="(implies 'foo' False)",
       ),
       dict(
-          testcase_name='_withLogicalXor',
+          testcase_name='withLogicalXor',
           fhir_path_expression="'foo' xor false",
           expected_ast_string="(xor 'foo' False)",
       ),
       dict(
-          testcase_name='_withComparableOperandsLt',
+          testcase_name='withComparableOperandsLt',
           fhir_path_expression='10 < 9',
           expected_ast_string='(< 10 9)',
       ),
       dict(
-          testcase_name='_withComparableOperandsGt',
+          testcase_name='withComparableOperandsGt',
           fhir_path_expression="'foo' > 'bar'",
           expected_ast_string="(> 'foo' 'bar')",
       ),
       dict(
-          testcase_name='_withImplicitlyConvertibleComparableOperandsLe',
+          testcase_name='withImplicitlyConvertibleComparableOperandsLe',
           fhir_path_expression='10 <= 9.0',
           expected_ast_string="(<= 10 Decimal('9.0'))",
       ),
       dict(
-          testcase_name='_withImplicitlyConvertibleComparableOperandsGe',
+          testcase_name='withImplicitlyConvertibleComparableOperandsGe',
           fhir_path_expression='9.0 >= 10',
           expected_ast_string="(>= Decimal('9.0') 10)",
       ),
       dict(
-          testcase_name='_withEmptyOperandEq',
+          testcase_name='withEmptyOperandEq',
           fhir_path_expression='10 = { }',
           expected_ast_string='(= 10 None)',
       ),
   )
-  def testBuildAst_withFhirPathBooleanOperator_succeeds(
+  def test_build_ast_with_fhir_path_boolean_operator_succeeds(
       self, fhir_path_expression: str, expected_ast_string: str
   ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
@@ -119,27 +119,27 @@ class FhirPathAstTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_withIdentifierAccess',
+          testcase_name='withIdentifierAccess',
           fhir_path_expression='patient.id',
           expected_ast_string='(. patient id)',
       ),
       dict(
-          testcase_name='_withFunctionInvocation',
+          testcase_name='withFunctionInvocation',
           fhir_path_expression='patient.exists()',
           expected_ast_string='(. patient (function exists))',
       ),
       dict(
-          testcase_name='_withIdentifierFollowedByFunctionInvocation',
+          testcase_name='withIdentifierFollowedByFunctionInvocation',
           fhir_path_expression='patient.id.exists()',
           expected_ast_string='(. (. patient id) (function exists))',
       ),
       dict(
-          testcase_name='_withFunctionWithParameterInvocation',
+          testcase_name='withFunctionWithParameterInvocation',
           fhir_path_expression="patient.where(id = '123')",
           expected_ast_string="(. patient (function where (= id '123')))",
       ),
   )
-  def testBuildAst_withFhirPathInvocation_succeeds(
+  def test_build_ast_with_fhir_path_invocation_succeeds(
       self, fhir_path_expression: str, expected_ast_string: str
   ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
@@ -222,62 +222,54 @@ class FhirPathAstTest(parameterized.TestCase):
           expected_paths=['telecom', 'telecom.use', 'telecom.value'],
       ),
   )
-  def testPathsReferencedBy_(self, fhir_path_expression, expected_paths):
+  def test_paths_referenced_by_(self, fhir_path_expression, expected_paths):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
     paths = _ast.paths_referenced_by(ast)
     self.assertCountEqual(paths, expected_paths)
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_withIdentifierAccess',
+          testcase_name='withIdentifierAccess',
           fhir_path_expression='patient.id',
-          expected_debug_string=textwrap.dedent(
-              """\
+          expected_debug_string=textwrap.dedent("""\
           Invocation<.>
           | Identifier<patient>
-          | Identifier<id>"""
-          ),
+          | Identifier<id>"""),
       ),
       dict(
-          testcase_name='_withFunctionInvocation',
+          testcase_name='withFunctionInvocation',
           fhir_path_expression='patient.exists()',
-          expected_debug_string=textwrap.dedent(
-              """\
+          expected_debug_string=textwrap.dedent("""\
           Invocation<.>
           | Identifier<patient>
           | Function<function>
-          | | Identifier<exists>"""
-          ),
+          | | Identifier<exists>"""),
       ),
       dict(
-          testcase_name='_withIdentifierFollowedByFunctionInvocation',
+          testcase_name='withIdentifierFollowedByFunctionInvocation',
           fhir_path_expression='patient.id.exists()',
-          expected_debug_string=textwrap.dedent(
-              """\
+          expected_debug_string=textwrap.dedent("""\
           Invocation<.>
           | Invocation<.>
           | | Identifier<patient>
           | | Identifier<id>
           | Function<function>
-          | | Identifier<exists>"""
-          ),
+          | | Identifier<exists>"""),
       ),
       dict(
-          testcase_name='_withFunctionWithParameterInvocation',
+          testcase_name='withFunctionWithParameterInvocation',
           fhir_path_expression="patient.where(id = '123')",
-          expected_debug_string=textwrap.dedent(
-              """\
+          expected_debug_string=textwrap.dedent("""\
           Invocation<.>
           | Identifier<patient>
           | Function<function>
           | | Identifier<where>
           | | EqualityRelation<=>
           | | | Identifier<id>
-          | | | Literal<'123'>"""
-          ),
+          | | | Literal<'123'>"""),
       ),
   )
-  def testDebugString_producesExpectedString(
+  def test_debug_string_produces_expected_string(
       self, fhir_path_expression: str, expected_debug_string: str
   ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
@@ -285,17 +277,17 @@ class FhirPathAstTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='_withBareReference_returnsTrue',
+          testcase_name='withBareReference_returnsTrue',
           fhir_path_expression='reference',
           expected_result=True,
       ),
       dict(
-          testcase_name='_withNestedBareReference_returnsTrue',
+          testcase_name='withNestedBareReference_returnsTrue',
           fhir_path_expression='foo.reference',
           expected_result=True,
       ),
       dict(
-          testcase_name='_withReferenceAndNonIdForFunctionCall_returnsTrue',
+          testcase_name='withReferenceAndNonIdForFunctionCall_returnsTrue',
           fhir_path_expression='reference.exists()',
           expected_result=True,
       ),
@@ -307,12 +299,12 @@ class FhirPathAstTest(parameterized.TestCase):
           expected_result=True,
       ),
       dict(
-          testcase_name='_withReferenceAndIdForCall_returnsFalse',
+          testcase_name='withReferenceAndIdForCall_returnsFalse',
           fhir_path_expression="reference.idFor('Patient')",
           expected_result=False,
       ),
       dict(
-          testcase_name='_withNestedReferenceAndIdForCall_returnsFalse',
+          testcase_name='withNestedReferenceAndIdForCall_returnsFalse',
           fhir_path_expression="foo.reference.idFor('Patient')",
           expected_result=False,
       ),
@@ -331,7 +323,7 @@ class FhirPathAstTest(parameterized.TestCase):
           expected_result=False,
       ),
   )
-  def testContainsReferenceWithoutIdFor(
+  def test_contains_reference_without_id_for(
       self, fhir_path_expression: str, expected_result: bool
   ):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
