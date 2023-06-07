@@ -632,7 +632,7 @@ class PythonInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   def visit_function(
       self, function: _evaluation.FunctionNode
   ) -> List[WorkSpaceMessage]:
-    parent_result = self.visit(function.parent_node())
+    parent_result = self.visit(function.get_parent_node())
     func_name = f'_visit_{function.NAME}'
     if not hasattr(self, func_name):
       raise NotImplementedError(f'{function.NAME} is not supported in python.')

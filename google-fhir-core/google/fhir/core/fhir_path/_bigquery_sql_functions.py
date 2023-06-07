@@ -103,7 +103,7 @@ class _EmptyFunction(_FhirPathFunctionStandardSqlEncoder):
     sql_data_type = _sql_data_types.Boolean
 
     if not _fhir_path_data_types.returns_collection(
-        function.parent_node().return_type()
+        function.get_parent_node().return_type()
     ):
       # We can use a less expensive scalar check.
       return dataclasses.replace(
@@ -167,7 +167,7 @@ class _ExistsFunction(_FhirPathFunctionStandardSqlEncoder):
     # as 'passing validation' in our `sql_expressions_to_view.py`.
     if (
         not _fhir_path_data_types.returns_collection(
-            function.parent_node().return_type()
+            function.get_parent_node().return_type()
         )
         and not operand_result.where_part
     ):
@@ -363,7 +363,7 @@ class _MatchesFunction(_FhirPathFunctionStandardSqlEncoder):
     # expression will end and signal an error to the calling environment.
     # https://build.fhir.org/ig/HL7/FHIRPath/#matchesregex-string-boolean
     if _fhir_path_data_types.is_collection(
-        function.parent_node().return_type()
+        function.get_parent_node().return_type()
     ):
       raise ValueError(
           'matches() cannot be called on a collection type. '
@@ -428,7 +428,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
           local_value_set_resolver.LocalResolver
       ] = None,
   ) -> _sql_data_types.Select:
-    operand_node = function.parent_node()
+    operand_node = function.get_parent_node()
     operand_type = operand_node.return_type()
     sql_alias = 'memberof_'
 
@@ -1007,7 +1007,7 @@ class _AllFunction(_FhirPathFunctionStandardSqlEncoder):
       context_sql = None
       where_part = None
       if _fhir_path_data_types.is_collection(
-          function.parent_node().return_type()
+          function.get_parent_node().return_type()
       ):
         context_sql = operand_result.from_part
         where_part = operand_result.where_part
@@ -1073,7 +1073,7 @@ class _ToIntegerFunction(_FhirPathFunctionStandardSqlEncoder):
     sql_data_type = _sql_data_types.Int64
 
     # Use the AST to figure out the type of the operand.
-    operand_type = function.parent_node().return_type()
+    operand_type = function.get_parent_node().return_type()
 
     # If the input collection contains a single item, this function
     # will return a single integer if:

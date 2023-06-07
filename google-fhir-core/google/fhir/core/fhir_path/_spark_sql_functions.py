@@ -111,7 +111,7 @@ def empty_function(
   sql_data_type = _sql_data_types.Boolean
 
   if not _fhir_path_data_types.returns_collection(
-      function.parent_node().return_type()
+      function.get_parent_node().return_type()
   ):
     # We can use a less expensive scalar check.
     return dataclasses.replace(
@@ -176,7 +176,7 @@ def exists_function(
   # as 'passing validation' in our `sql_expressions_to_view.py`.
   if (
       not _fhir_path_data_types.returns_collection(
-          function.parent_node().return_type()
+          function.get_parent_node().return_type()
       )
       and not operand_result.where_part
   ):
@@ -230,7 +230,9 @@ def first_function(
   # Note that if an ARRAY was unnested, row order may not match array order,
   # but for most FHIR this should not matter.
   result = copy.copy(operand_result)
-  if _fhir_path_data_types.is_collection(function.parent_node().return_type()):
+  if _fhir_path_data_types.is_collection(
+      function.get_parent_node().return_type()
+  ):
     return _sql_data_types.Select(
         select_part=result.select_part,
         from_part=(
@@ -475,7 +477,7 @@ def member_of_function(
     ValueError: When the function is called without an operand
   """
   del params_result  # Unused parameter in this function
-  operand_node = function.parent_node()
+  operand_node = function.get_parent_node()
   operand_type = operand_node.return_type()
   sql_alias = 'memberof_'
 
@@ -806,7 +808,7 @@ def all_function(
     context_sql = None
     where_part = None
     if _fhir_path_data_types.is_collection(
-        function.parent_node().return_type()
+        function.get_parent_node().return_type()
     ):
       context_sql = operand_result.from_part
       where_part = operand_result.where_part

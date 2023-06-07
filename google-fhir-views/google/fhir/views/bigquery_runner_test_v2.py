@@ -297,15 +297,14 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.ast_and_expression_tree_test_runner(
         textwrap.dedent(
             """\
-        SELECT *, (SELECT IFNULL(
-        LOGICAL_AND(
-        IFNULL(
-        (SELECT REGEXP_CONTAINS(
-        given_element_, 'regex') AS all_), FALSE)), TRUE) AS all_
-        FROM (SELECT name_element_
-        FROM (SELECT Patient),
-        UNNEST(Patient.name) AS name_element_ WITH OFFSET AS element_offset),
-        UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset) AS name FROM (SELECT (SELECT id) AS __patientId__,Patient FROM `test_project.test_dataset`.Patient Patient)"""
+          SELECT (SELECT IFNULL(
+          LOGICAL_AND(
+          IFNULL(
+          (SELECT REGEXP_CONTAINS(
+          given_element_, 'regex') AS all_), FALSE)), TRUE) AS all_
+          FROM (SELECT name_element_
+          FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
+          UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset) AS name,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
         ),
         telecom,
     )

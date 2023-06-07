@@ -644,20 +644,19 @@ class FunctionNode(ExpressionNode):
   ) -> None:
     super().__init__(fhir_context, return_type)
     self._operand = operand
-    self._parent_node = operand
     self._params = params
 
   def get_resource_nodes(self) -> List[ExpressionNode]:
-    result = self._parent_node.get_resource_nodes()
+    result = self._operand.get_resource_nodes()
     for p in self._params:
       result += p.get_resource_nodes()
     return result
 
   def get_root_node(self) -> ExpressionNode:
-    return self._parent_node.get_root_node()
+    return self._operand.get_root_node()
 
   def get_parent_node(self) -> ExpressionNode:
-    return self._parent_node
+    return self._operand
 
   def to_fhir_path(self) -> str:
     param_str = ', '.join([param.to_fhir_path() for param in self._params])
@@ -666,9 +665,6 @@ class FunctionNode(ExpressionNode):
       return f'{self.NAME}({param_str})'
     else:
       return f'{self._operand.to_fhir_path()}.{self.NAME}({param_str})'
-
-  def parent_node(self) -> ExpressionNode:
-    return self._operand
 
   def params(self) -> List[ExpressionNode]:
     return self._params

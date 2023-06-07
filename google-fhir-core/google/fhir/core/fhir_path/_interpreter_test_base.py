@@ -2241,16 +2241,14 @@ class FhirPathExpressionsTest(
         == self.builder('Encounter').status
     )
     self.assertMultiLineEqual(
-        textwrap.dedent(
-            """\
+        textwrap.dedent("""\
           + name.first().family = status <EqualityNode> (
           | + name.first().family <InvokeExpressionNode> (
           | | + name.first() <FirstFunction> (
           | | | + name <InvokeExpressionNode> (
           | | | | + Patient <RootMessageNode> ())))
           | + status <InvokeExpressionNode> (
-          | | + Encounter <RootMessageNode> ()))"""
-        ),
+          | | + Encounter <RootMessageNode> ()))"""),
         multi_resource.debug_string(),
     )
 
@@ -2258,6 +2256,74 @@ class FhirPathExpressionsTest(
         ['Patient', 'Encounter'],
         [p.fhir_path for p in multi_resource.get_resource_builders()],
     )
+
+  def test_replace_operand(self):
+    """Tests replace_operand of a builder."""
+    original = self.builder('Patient').name.where(
+        self.builder('Patient').name.given == 'Name'
+    )
+    self.assertSameElements(
+        ['Patient'], [p.fhir_path for p in original.get_resource_builders()]
+    )
+    self.assertEqual(original.fhir_path, "name.where(given = 'Name')")
+    self.assertEqual(
+        textwrap.dedent("""\
+          + name.where(given = 'Name') <WhereFunction> (
+          | + name <InvokeExpressionNode> (
+          | | + Patient <RootMessageNode> ())
+          | + given = 'Name' <EqualityNode> (
+          | | + given <InvokeExpressionNode> (
+          | | | + <ReferenceNode> (&name))
+          | | + 'Name' <LiteralNode> ()))"""),
+        original.debug_string(),
+    )
+
+    # Replace referenced node with another builder.
+    replacement = self.builder('Patient').name.family
+    new_builder = expressions.Builder.replace_with_operand(
+        original, old_path='given', replacement_node=replacement.get_node()
+    )
+
+    self.assertEqual(
+        textwrap.dedent("""\
+          + name.where(name.family = 'Name') <WhereFunction> (
+          | + name <InvokeExpressionNode> (
+          | | + Patient <RootMessageNode> ())
+          | + name.family = 'Name' <EqualityNode> (
+          | | + name.family <InvokeExpressionNode> (
+          | | | + name <InvokeExpressionNode> (
+          | | | | + Patient <RootMessageNode> ()))
+          | | + 'Name' <LiteralNode> ()))"""),
+        new_builder.debug_string(),
+    )
+    self.assertSameElements(
+        ['Patient'], [p.fhir_path for p in new_builder.get_resource_builders()]
+    )
+    self.assertEqual(new_builder.fhir_path, "name.where(name.family = 'Name')")
+
+    # Replace with a builder with a different resource.
+    replacement = self.builder('Encounter').status
+    new_builder = expressions.Builder.replace_with_operand(
+        original, old_path="'Name'", replacement_node=replacement.get_node()
+    )
+
+    self.assertEqual(
+        textwrap.dedent("""\
+          + name.where(given = status) <WhereFunction> (
+          | + name <InvokeExpressionNode> (
+          | | + Patient <RootMessageNode> ())
+          | + given = status <EqualityNode> (
+          | | + given <InvokeExpressionNode> (
+          | | | + <ReferenceNode> (&name))
+          | | + status <InvokeExpressionNode> (
+          | | | + Encounter <RootMessageNode> ())))"""),
+        new_builder.debug_string(),
+    )
+    self.assertSameElements(
+        ['Patient', 'Encounter'],
+        [p.fhir_path for p in new_builder.get_resource_builders()],
+    )
+    self.assertEqual(new_builder.fhir_path, 'name.where(given = status)')
 
   def test_node_debug_string(self):
     """Tests debug_string print functionality."""
@@ -2275,37 +2341,33 @@ class FhirPathExpressionsTest(
     # Indexing
     self.assertMultiLineEqual(
         textwrap.dedent("""\
-        + address[0] <IndexerNode> (
-        | + address <InvokeExpressionNode> (
-        | | + Patient <RootMessageNode> ())
-        | + 0 <LiteralNode> ())"""),
+          + address[0] <IndexerNode> (
+          | + address <InvokeExpressionNode> (
+          | | + Patient <RootMessageNode> ())
+          | + 0 <LiteralNode> ())"""),
         self.builder('Patient').address[0].debug_string(),
     )
 
     # Multiple arguments
     self.assertMultiLineEqual(
-        textwrap.dedent(
-            """\
-        + subject.idFor('patient') <IdForFunction> (
-        | + subject <InvokeExpressionNode> (
-        | | + Encounter <RootMessageNode> ())
-        | + 'patient' <LiteralNode> ())"""
-        ),
+        textwrap.dedent("""\
+          + subject.idFor('patient') <IdForFunction> (
+          | + subject <InvokeExpressionNode> (
+          | | + Encounter <RootMessageNode> ())
+          | + 'patient' <LiteralNode> ())"""),
         self.builder('Encounter').subject.idFor('patient').debug_string(),
     )
 
     # Complicated FHIRView
     self.assertMultiLineEqual(
-        textwrap.dedent(
-            """\
-        + address.all(use = 'home') <AllFunction> (
-        | + address <InvokeExpressionNode> (
-        | | + Patient <RootMessageNode> ())
-        | + use = 'home' <EqualityNode> (
-        | | + use <InvokeExpressionNode> (
-        | | | + <ReferenceNode> (&address))
-        | | + 'home' <LiteralNode> ()))"""
-        ),
+        textwrap.dedent("""\
+          + address.all(use = 'home') <AllFunction> (
+          | + address <InvokeExpressionNode> (
+          | | + Patient <RootMessageNode> ())
+          | + use = 'home' <EqualityNode> (
+          | | + use <InvokeExpressionNode> (
+          | | | + <ReferenceNode> (&address))
+          | | + 'home' <LiteralNode> ()))"""),
         self.builder('Patient')
         .address.all(self.builder('Patient').address.use == 'home')
         .debug_string(),
@@ -2313,16 +2375,14 @@ class FhirPathExpressionsTest(
 
     # Complicated FHIRView with type printing
     self.assertMultiLineEqual(
-        textwrap.dedent(
-            """\
-        + address.all(use = 'home') <AllFunction type=<BooleanFhirPathDataType>> (
-        | + address <InvokeExpressionNode type=[<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (
-        | | + Patient <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Patient)>> ())
-        | + use = 'home' <EqualityNode type=<BooleanFhirPathDataType>> (
-        | | + use <InvokeExpressionNode type=[<StringFhirPathDataType>]> (
-        | | | + <ReferenceNode type=[<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (&address))
-        | | + 'home' <LiteralNode type=<StringFhirPathDataType>> ()))"""
-        ),
+        textwrap.dedent("""\
+          + address.all(use = 'home') <AllFunction type=<BooleanFhirPathDataType>> (
+          | + address <InvokeExpressionNode type=[<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (
+          | | + Patient <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Patient)>> ())
+          | + use = 'home' <EqualityNode type=<BooleanFhirPathDataType>> (
+          | | + use <InvokeExpressionNode type=[<StringFhirPathDataType>]> (
+          | | | + <ReferenceNode type=[<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (&address))
+          | | + 'home' <LiteralNode type=<StringFhirPathDataType>> ()))"""),
         self.builder('Patient')
         .address.all(self.builder('Patient').address.use == 'home')
         .debug_string(with_typing=True),
@@ -2332,8 +2392,8 @@ class FhirPathExpressionsTest(
     self.assertMultiLineEqual(
         textwrap.dedent(
             """\
-      + value <InvokeExpressionNode type=<PolymorphicDataType(types=['quantity: http://hl7.org/fhirpath/System.Quantity', 'codeableconcept: http://hl7.org/fhir/StructureDefinition/CodeableConcept', 'string: http://hl7.org/fhirpath/System.String', 'boolean: http://hl7.org/fhirpath/System.Boolean', 'integer: http://hl7.org/fhirpath/System.Integer', 'range: http://hl7.org/fhir/StructureDefinition/Range', 'ratio: http://hl7.org/fhir/StructureDefinition/Ratio', 'sampleddata: http://hl7.org/fhir/StructureDefinition/SampledData', 'time: http://hl7.org/fhirpath/System.DateTime', 'datetime: http://hl7.org/fhirpath/System.DateTime', 'period: http://hl7.org/fhir/StructureDefinition/Period'])>> (
-      | + Observation <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Observation)>> ())"""
+          + value <InvokeExpressionNode type=<PolymorphicDataType(types=['quantity: http://hl7.org/fhirpath/System.Quantity', 'codeableconcept: http://hl7.org/fhir/StructureDefinition/CodeableConcept', 'string: http://hl7.org/fhirpath/System.String', 'boolean: http://hl7.org/fhirpath/System.Boolean', 'integer: http://hl7.org/fhirpath/System.Integer', 'range: http://hl7.org/fhir/StructureDefinition/Range', 'ratio: http://hl7.org/fhir/StructureDefinition/Ratio', 'sampleddata: http://hl7.org/fhir/StructureDefinition/SampledData', 'time: http://hl7.org/fhirpath/System.DateTime', 'datetime: http://hl7.org/fhirpath/System.DateTime', 'period: http://hl7.org/fhir/StructureDefinition/Period'])>> (
+          | + Observation <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Observation)>> ())"""
         ),
         self.builder('Observation').value.debug_string(with_typing=True),
     )

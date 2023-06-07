@@ -608,7 +608,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
   def visit_function(self, function: _evaluation.FunctionNode) -> Any:
     """Translates a FHIRPath function to Spark SQL."""
-    parent_result = self.visit(function.parent_node())
+    parent_result = self.visit(function.get_parent_node())
     params_result = [self.visit(p) for p in function.params()]
     if isinstance(function, _evaluation.MemberOfFunction):
       kwargs = {}
