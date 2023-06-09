@@ -102,9 +102,9 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       A Standard SQL representation of the provided FHIRPath expression.
     """
     self._use_resource_alias = use_resource_alias
-    result = self.visit(builder.get_node())
+    result = self.visit(builder.node)
     if select_scalars_as_array or _fhir_path_data_types.returns_collection(
-        builder.get_node().return_type()
+        builder.node.return_type
     ):
       return (
           f'ARRAY(SELECT {result.sql_alias}\n'
@@ -136,11 +136,11 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     # If the identifier is `$this`, we assume that the repeated field has been
     # unnested upstream so we only need to reference it with its alias:
     # `{}_element_`.
-    if _fhir_path_data_types.returns_collection(reference.return_type()):
+    if _fhir_path_data_types.returns_collection(reference.return_type):
       sql_alias = f'{sql_alias}_element_'
 
     sql_data_type = _sql_data_types.get_standard_sql_data_type(
-        reference.return_type()
+        reference.return_type
     )
     return _sql_data_types.IdentifierSelect(
         select_part=_sql_data_types.Identifier(
@@ -154,17 +154,17 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   ) -> _sql_data_types.RawExpression:
     """Translates a FHIRPath literal to Standard SQL."""
 
-    if literal.return_type() is None or isinstance(
-        literal.return_type(), _fhir_path_data_types.Empty.__class__
+    if literal.return_type is None or isinstance(
+        literal.return_type, _fhir_path_data_types.Empty.__class__
     ):  # pylint: disable=protected-access
       sql_value = 'NULL'
       sql_data_type = _sql_data_types.Undefined
     # TODO(b/244184211): Make _fhir_path_data_types.FhirPathDataType classes
     # public.
-    elif isinstance(literal.return_type(), _fhir_path_data_types._Boolean):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._Boolean):  # pylint: disable=protected-access
       sql_value = str(literal).upper()
       sql_data_type = _sql_data_types.Boolean
-    elif isinstance(literal.return_type(), _fhir_path_data_types._Quantity):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._Quantity):  # pylint: disable=protected-access
       # Since quantity string literals contain quotes, they are escaped.
       # E.g. '10 \'mg\''.
       quantity_quotes_escaped = str(literal).translate(
@@ -172,29 +172,29 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       )
       sql_value = f"'{quantity_quotes_escaped}'"
       sql_data_type = _sql_data_types.String
-    elif isinstance(literal.return_type(), _fhir_path_data_types._Integer):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._Integer):  # pylint: disable=protected-access
       sql_value = str(literal)
       sql_data_type = _sql_data_types.Int64
-    elif isinstance(literal.return_type(), _fhir_path_data_types._Decimal):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._Decimal):  # pylint: disable=protected-access
       sql_value = str(literal)
       sql_data_type = _sql_data_types.Numeric
-    elif isinstance(literal.return_type(), _fhir_path_data_types._DateTime):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._DateTime):  # pylint: disable=protected-access
       # Date and datetime literals start with an @ and need to be quoted.
       dt = _primitive_time_utils.get_date_time_value(literal.get_value())
       sql_value = f"'{dt.isoformat()}'"
       sql_data_type = _sql_data_types.Timestamp
-    elif isinstance(literal.return_type(), _fhir_path_data_types._Date):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._Date):  # pylint: disable=protected-access
       dt = _primitive_time_utils.get_date_time_value(literal.get_value()).date()
       sql_value = f"'{str(dt)}'"
       sql_data_type = _sql_data_types.Date
-    elif isinstance(literal.return_type(), _fhir_path_data_types._String):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._String):  # pylint: disable=protected-access
       sql_value = str(literal)
       sql_data_type = _sql_data_types.String
     else:
       # LiteralNode constructor ensures that literal has to be one of the above
       # cases. But we error out here in case we enter an illegal state.
       raise ValueError(
-          f'Unsupported literal value: {literal} {literal.return_type()}.'
+          f'Unsupported literal value: {literal} {literal.return_type}.'
       )
 
     return _sql_data_types.RawExpression(
@@ -209,19 +209,19 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """Translates a FHIRPath member identifier to Standard SQL."""
 
     if identifier.identifier == '$this':
-      return self.visit_reference(identifier.operand_node)
+      return self.visit_reference(identifier.parent_node)
 
     raw_identifier_str = identifier.identifier
-    parent_result = self.visit(identifier.operand_node)
+    parent_result = self.visit(identifier.parent_node)
 
     # Map to Standard SQL type. Note that we never map to a type of `ARRAY`,
     # as the member encoding flattens any `ARRAY` members.
     sql_data_type = _sql_data_types.get_standard_sql_data_type(
-        identifier.return_type()
+        identifier.return_type
     )
     sql_alias = raw_identifier_str
     identifier_str = raw_identifier_str
-    if _fhir_path_data_types.is_collection(identifier.return_type()):  # Array
+    if _fhir_path_data_types.is_collection(identifier.return_type):  # Array
       # If the identifier is `$this`, we assume that the repeated field has been
       # unnested upstream so we only need to reference it with its alias:
       # `{}_element_`.
@@ -262,7 +262,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       # Append the current identifier to the path chain being selected if the
       # parent is not a ReferenceNode. If it is a ReferenceNode, we assume that
       # the parent has already been previously unnested.
-      if not isinstance(identifier.operand_node, _evaluation.ReferenceNode):
+      if not isinstance(identifier.parent_node, _evaluation.ReferenceNode):
         select_part = parent_result.select_part.dot(
             raw_identifier_str,
             sql_data_type,
@@ -278,15 +278,15 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   def visit_invoke_reference(
       self, identifier: _evaluation.InvokeReferenceNode
   ) -> _sql_data_types.Select:
-    reference_node = identifier.get_parent_node()
+    reference_node = identifier.parent_node
 
     if not isinstance(
-        reference_node.return_type(),
+        reference_node.return_type,
         _fhir_path_data_types.ReferenceStructureDataType,
     ):
       raise ValueError(
           'visit_reference called on node with return type'
-          f' {reference_node.return_type()}.'
+          f' {reference_node.return_type}.'
       )
 
     # Build a SELECT for the reference struct.
@@ -300,7 +300,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         identifier.context.get_fhir_type_from_string(
             profile=reference, type_code=None, element_definition=None
         ).base_type
-        for reference in reference_node.return_type().target_profiles
+        for reference in reference_node.return_type.target_profiles
     )
 
     # If we have a parent query, append our record access against it.
@@ -437,8 +437,8 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
     # Both sides are scalars.
     if _fhir_path_data_types.is_scalar(
-        equality.left.return_type()
-    ) and _fhir_path_data_types.is_scalar(equality.right.return_type()):
+        equality.left.return_type
+    ) and _fhir_path_data_types.is_scalar(equality.right.return_type):
       # Use the simpler query.
       return _sql_data_types.Select(
           select_part=_sql_data_types.RawExpression(
@@ -631,7 +631,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       self, polarity: _evaluation.NumericPolarityNode
   ) -> _sql_data_types.Select:
     """Translates FHIRPath unary polarity (+/-) to Standard SQL."""
-    operand_result = self.visit(polarity.operand)
+    operand_result = self.visit(polarity.parent_node)
     sql_expr = f'{polarity.op}{operand_result.as_operand()}'
     sql_alias = 'pol_'
     return _sql_data_types.Select(
@@ -645,12 +645,12 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
   def visit_function(self, function: _evaluation.FunctionNode) -> Any:
     """Translates a FHIRPath function to Standard SQL."""
-    parent_result = self.visit(function.get_parent_node())
+    parent_result = self.visit(function.parent_node)
     params_result = [self.visit(p) for p in function.params()]
     # TODO(b/271314993): Support functions acting on polymorphic types beyond
     # OfType.
     if (
-        function.get_parent_node().return_type().returns_polymorphic()
+        function.parent_node.return_type.returns_polymorphic()
         and not isinstance(function, _evaluation.OfTypeFunction)
     ):
       raise ValueError(

@@ -198,7 +198,7 @@ class SparkRunner:
         table_names=self._view_table_names(view),
     ).build_select_for_summarize_code(code_expr)
 
-    node_type = code_expr.get_node().return_type()
+    node_type = code_expr.node.return_type
     if node_type and isinstance(node_type, _fhir_path_data_types.Collection):
       node_type = list(cast(_fhir_path_data_types.Collection, node_type).types)[
           0
@@ -338,4 +338,3 @@ class SparkRunner:
     self._value_set_manager.materialize_value_set_expansion(
         urls, expander, terminology_service_url, batch_size
     )
-

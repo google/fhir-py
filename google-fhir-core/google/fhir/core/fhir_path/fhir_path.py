@@ -988,7 +988,7 @@ def wrap_datetime_sql(expr: expressions.Builder, raw_sql: str) -> str:
   # of the underlying data, but views converts to date and datetime types
   # for ease of use.
 
-  node_type = expr.get_node().return_type()
+  node_type = expr.node.return_type
 
   # Use date format constants drawn from the FHIR Store export conventions
   # for simplicity. If users encounter different formats in practice, we

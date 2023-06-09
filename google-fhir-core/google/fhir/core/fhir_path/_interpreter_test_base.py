@@ -125,7 +125,7 @@ class FhirPathExpressionsTest(
       self.assertEqual(expected_result, built_result.as_string())
       expected_type = _fhir_path_data_types.String
 
-    builder_type = builder.get_node().return_type()
+    builder_type = builder.node.return_type
     if isinstance(builder_type, _fhir_path_data_types.PolymorphicDataType):
       self.assertIn(
           expected_type,
@@ -2109,9 +2109,7 @@ class FhirPathExpressionsTest(
     )
 
     self.assertEqual(builder.fhir_path, 'address.city | name.given')
-    self.assertEqual(
-        builder.get_node().return_type(), _fhir_path_data_types.String
-    )
+    self.assertEqual(builder.node.return_type, _fhir_path_data_types.String)
 
     builder_expr = (
         python_compiled_expressions.PythonCompiledExpression.from_builder(
@@ -2149,7 +2147,7 @@ class FhirPathExpressionsTest(
 
     self.assertEqual(builder.fhir_path, 'telecom.rank | name.given')
     self.assertEqual(
-        builder.get_node().return_type(),
+        builder.node.return_type,
         _fhir_path_data_types.Collection({
             _fhir_path_data_types.String,
             _fhir_path_data_types.Integer,
@@ -2207,9 +2205,7 @@ class FhirPathExpressionsTest(
     fhir_path_expr = self.compile_expression('Patient', 'name.given | {}')
 
     self.assertEqual(builder.fhir_path, 'name.given | {}')
-    self.assertEqual(
-        builder.get_node().return_type(), _fhir_path_data_types.String
-    )
+    self.assertEqual(builder.node.return_type, _fhir_path_data_types.String)
 
     builder_expr = (
         python_compiled_expressions.PythonCompiledExpression.from_builder(
@@ -2281,7 +2277,7 @@ class FhirPathExpressionsTest(
     # Replace referenced node with another builder.
     replacement = self.builder('Patient').name.family
     new_builder = expressions.Builder.replace_with_operand(
-        original, old_path='given', replacement_node=replacement.get_node()
+        original, old_path='given', replacement_node=replacement.node
     )
 
     self.assertEqual(
@@ -2304,7 +2300,7 @@ class FhirPathExpressionsTest(
     # Replace with a builder with a different resource.
     replacement = self.builder('Encounter').status
     new_builder = expressions.Builder.replace_with_operand(
-        original, old_path="'Name'", replacement_node=replacement.get_node()
+        original, old_path="'Name'", replacement_node=replacement.node
     )
 
     self.assertEqual(

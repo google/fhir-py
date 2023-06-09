@@ -131,7 +131,7 @@ class PythonCompiledExpression:
       cls, builder: expressions.Builder
   ) -> 'PythonCompiledExpression':
     return PythonCompiledExpression(
-        builder.get_node(), builder.get_primitive_handler(), builder.fhir_path
+        builder.node, builder.primitive_handler, builder.fhir_path
     )
 
   @classmethod

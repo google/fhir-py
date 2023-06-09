@@ -129,7 +129,7 @@ class Builder:
     Returns:
       A builder with the new expression node tree.
     """
-    localized = old_builder.get_node().deepcopy()
+    localized = old_builder.node.deepcopy()
     localized.replace_operand(old_path, replacement_node)
     return cls(localized, old_builder._handler)  # pylint: disable=protected-access
 
@@ -187,7 +187,7 @@ class Builder:
     if isinstance(operand, Builder):
       # TODO(b/244184211): Add check that operand has the same
       # root resource as self.
-      return operand._node
+      return operand.node
     # pylint: enable=protected-access
     else:  # Should be a primitive type.
       as_message = (
@@ -197,7 +197,7 @@ class Builder:
           type(operand).__name__
       )
       return _evaluation.LiteralNode(
-          self._node.context,
+          self.node.context,
           as_message,
           self._primitive_to_fhir_path(operand),
           primitive_type,
@@ -206,7 +206,7 @@ class Builder:
   @property
   def fhir_path(self) -> str:
     """The FHIRPath expression as a string."""
-    return self._node.to_fhir_path()
+    return self.node.to_fhir_path()
 
   def __getattr__(self, name: str) -> 'Builder':
     # Prevents infinite recursion when Builder is deep copied.
@@ -214,7 +214,7 @@ class Builder:
       raise AttributeError(name)
 
     if isinstance(
-        self._node.return_type(), _fhir_path_data_types.PolymorphicDataType
+        self.node.return_type, _fhir_path_data_types.PolymorphicDataType
     ):
       raise AttributeError(
           'Cannot directly access polymorphic fields. '
@@ -222,11 +222,9 @@ class Builder:
       )
 
     # If a basic FHIR field, simply return it.
-    if name in self._node.fields():
+    if name in self.node.fields():
       return Builder(
-          _evaluation.InvokeExpressionNode(
-              self._node._context, name, self._node
-          ),
+          _evaluation.InvokeExpressionNode(self.node._context, name, self.node),
           self._handler,
       )
 
@@ -243,29 +241,31 @@ class Builder:
         f'Expected something in {self.fhir_path_fields()}',
     ))
 
-  def _builder(self, node: _evaluation.ExpressionNode) -> 'Builder':
-    return Builder(node, self._handler)
-
-  def get_node(self) -> _evaluation.ExpressionNode:
+  @property
+  def node(self) -> _evaluation.ExpressionNode:
     return self._node
-
-  def get_primitive_handler(self) -> primitive_handler.PrimitiveHandler:
-    return self._handler
-
-  def get_parent_builder(self) -> 'Builder':
-    return self._builder(self._node.get_parent_node())
-
-  def get_root_builder(self) -> 'Builder':
-    return self._builder(self._node.get_root_node())
-
-  def get_resource_builders(self) -> List['Builder']:
-    return [
-        self._builder(node) for node in set(self._node.get_resource_nodes())
-    ]
 
   @property
   def return_type(self) -> _fhir_path_data_types.FhirPathDataType:
-    return self._node.return_type()
+    return self.node.return_type
+
+  @property
+  def primitive_handler(self) -> primitive_handler.PrimitiveHandler:
+    return self._handler
+
+  def _to_builder(self, node: _evaluation.ExpressionNode) -> 'Builder':
+    return Builder(node, self._handler)
+
+  def get_parent_builder(self) -> 'Builder':
+    return self._to_builder(self.node.parent_node)
+
+  def get_root_builder(self) -> 'Builder':
+    return self._to_builder(self.node.get_root_node())
+
+  def get_resource_builders(self) -> List['Builder']:
+    return [
+        self._to_builder(node) for node in set(self.node.get_resource_nodes())
+    ]
 
   def all(self, criteria: 'Builder') -> 'Builder':
     """The FHIRPath all() function.
@@ -286,10 +286,10 @@ class Builder:
       criteria.
     """
     param_nodes = self._function_args_to_nodes(
-        self._node, [criteria], element_of_array=True
+        self.node, [criteria], element_of_array=True
     )
     return Builder(
-        _evaluation.AllFunction(self._node.context, self._node, param_nodes),
+        _evaluation.AllFunction(self.node.context, self.node, param_nodes),
         self._handler,
     )
 
@@ -300,8 +300,8 @@ class Builder:
       An expression that returns True if the parent expression evaluates
       to one or more values.
     """
-    return self._builder(
-        _evaluation.ExistsFunction(self._node.context, self._node, [])
+    return self._to_builder(
+        _evaluation.ExistsFunction(self.node.context, self.node, [])
     )
 
   def count(self) -> 'Builder':
@@ -310,8 +310,8 @@ class Builder:
     Returns:
       An expression that evaluates to the count of items in the parent.
     """
-    return self._builder(
-        _evaluation.CountFunction(self._node.context, self._node, [])
+    return self._to_builder(
+        _evaluation.CountFunction(self.node.context, self.node, [])
     )
 
   def empty(self) -> 'Builder':
@@ -320,8 +320,8 @@ class Builder:
     Returns:
       An expression that evaluates to True if the parent evaluates to empty.
     """
-    return self._builder(
-        _evaluation.EmptyFunction(self._node.context, self._node, [])
+    return self._to_builder(
+        _evaluation.EmptyFunction(self.node.context, self.node, [])
     )
 
   def matches(self, regex: str) -> 'Builder':
@@ -334,9 +334,9 @@ class Builder:
       An expression that evaluates to True if the parent matches the given
       regular expression.
     """
-    param_nodes = self._function_args_to_nodes(self._node, [regex])
-    return self._builder(
-        _evaluation.MatchesFunction(self._node.context, self._node, param_nodes)
+    param_nodes = self._function_args_to_nodes(self.node, [regex])
+    return self._to_builder(
+        _evaluation.MatchesFunction(self.node.context, self.node, param_nodes)
     )
 
   def not_(self) -> 'Builder':
@@ -345,8 +345,8 @@ class Builder:
     Returns:
       An expression that evaluates to negation of the parent.
     """
-    return self._builder(
-        _evaluation.NotFunction(self._node.context, self._node, [])
+    return self._to_builder(
+        _evaluation.NotFunction(self.node.context, self.node, [])
     )
 
   def first(self) -> 'Builder':
@@ -356,8 +356,8 @@ class Builder:
       An expression that evaluates to the first element of the parent, or
       empty if the parent has no results.
     """
-    return self._builder(
-        _evaluation.FirstFunction(self._node.context, self._node, [])
+    return self._to_builder(
+        _evaluation.FirstFunction(self.node.context, self.node, [])
     )
 
   def hasValue(self) -> 'Builder':  # pylint: disable=invalid-name
@@ -367,8 +367,8 @@ class Builder:
       An expression that evaluates to True if the parent has a single value
       that is a primitive.
     """
-    return self._builder(
-        _evaluation.HasValueFunction(self._node.context, self._node, [])
+    return self._to_builder(
+        _evaluation.HasValueFunction(self.node.context, self.node, [])
     )
 
   def idFor(self, resource_type: str) -> 'Builder':  # pylint: disable=invalid-name
@@ -384,9 +384,9 @@ class Builder:
     Returns:
       An expression retrieving the resource id.
     """
-    param_nodes = self._function_args_to_nodes(self._node, [resource_type])
-    return self._builder(
-        _evaluation.IdForFunction(self._node.context, self._node, param_nodes)
+    param_nodes = self._function_args_to_nodes(self.node, [resource_type])
+    return self._to_builder(
+        _evaluation.IdForFunction(self.node.context, self.node, param_nodes)
     )
 
   def memberOf(self, value_set: Union[str, message.Message]) -> 'Builder':  # pylint: disable=invalid-name
@@ -411,11 +411,9 @@ class Builder:
       An expression to that evaluates to true if the parent is a member of
       the given value set.
     """
-    param_nodes = self._function_args_to_nodes(self._node, [value_set])
-    return self._builder(
-        _evaluation.MemberOfFunction(
-            self._node.context, self._node, param_nodes
-        )
+    param_nodes = self._function_args_to_nodes(self.node, [value_set])
+    return self._to_builder(
+        _evaluation.MemberOfFunction(self.node.context, self.node, param_nodes)
     )
 
   def ofType(self, fhir_type: str) -> 'Builder':  # pylint: disable=invalid-name
@@ -434,9 +432,9 @@ class Builder:
     Returns:
       The an expression that evaluates to the specified choice type.
     """
-    param_nodes = self._function_args_to_nodes(self._node, [fhir_type])
-    return self._builder(
-        _evaluation.OfTypeFunction(self._node.context, self._node, param_nodes)
+    param_nodes = self._function_args_to_nodes(self.node, [fhir_type])
+    return self._to_builder(
+        _evaluation.OfTypeFunction(self.node.context, self.node, param_nodes)
     )
 
   def where(self, criteria: 'Builder') -> 'Builder':
@@ -457,10 +455,10 @@ class Builder:
       An expression that contains the items that match the given criteria.
     """
     param_nodes = self._function_args_to_nodes(
-        self._node, [criteria], element_of_array=True
+        self.node, [criteria], element_of_array=True
     )
-    return self._builder(
-        _evaluation.WhereFunction(self._node.context, self._node, param_nodes)
+    return self._to_builder(
+        _evaluation.WhereFunction(self.node.context, self.node, param_nodes)
     )
 
   def anyTrue(self) -> 'Builder':  # pylint: disable=invalid-name
@@ -480,8 +478,8 @@ class Builder:
     Returns:
       A boolean indicating if any element in the operand collection is True.
     """
-    return self._builder(
-        _evaluation.AnyTrueFunction(self._node.context, self._node, [])
+    return self._to_builder(
+        _evaluation.AnyTrueFunction(self.node.context, self.node, [])
     )
 
   def toInteger(self) -> 'Builder':  # pylint: disable=invalid-name
@@ -495,8 +493,8 @@ class Builder:
     Returns:
       An integer representation of its operand.
     """
-    return self._builder(
-        _evaluation.ToIntegerFunction(self._node.context, self._node, [])
+    return self._to_builder(
+        _evaluation.ToIntegerFunction(self.node.context, self.node, [])
     )
 
   def _function_args_to_nodes(
@@ -521,7 +519,7 @@ class Builder:
 
         params.append(
             _evaluation.LiteralNode(
-                self._node.context,
+                self.node.context,
                 value_set,
                 fhir_path_str,
                 _fhir_path_data_types.String,
@@ -534,11 +532,11 @@ class Builder:
         # `patient.address.where(patient.address.use = 'home')` is built from
         # patient, but should be evaluated in the context of address.
 
-        localized = arg.get_node().deepcopy()
+        localized = arg.node.deepcopy()
         localized.replace_operand(
             operand_node.to_fhir_path(),
             _evaluation.ReferenceNode(
-                self._node.context,
+                self.node.context,
                 operand_node,
                 element_of_array=element_of_array,
             ),
@@ -553,7 +551,7 @@ class Builder:
         )
         params.append(
             _evaluation.LiteralNode(
-                self._node.context, rhs_message, fhir_path_str, primitive_type
+                self.node.context, rhs_message, fhir_path_str, primitive_type
             )
         )
     return params
@@ -561,25 +559,23 @@ class Builder:
   def contains(self, rhs: BuilderOperand) -> 'Builder':
     return Builder(
         _evaluation.ContainsNode(
-            self._node.context, self._node, self._to_node(rhs)
+            self.node.context, self.node, self._to_node(rhs)
         ),
         self._handler,
     )
 
   def union(self, rhs: BuilderOperand) -> 'Builder':
     return Builder(
-        _evaluation.UnionNode(
-            self._node.context, self._node, self._to_node(rhs)
-        ),
+        _evaluation.UnionNode(self.node.context, self.node, self._to_node(rhs)),
         self._handler,
     )
 
   def __eq__(self, rhs: BuilderOperand) -> 'Builder':
     return Builder(
         _evaluation.EqualityNode(
-            self._node.context,
+            self.node.context,
             _ast.EqualityRelation.Op.EQUAL,
-            self._node,
+            self.node,
             self._to_node(rhs),
         ),
         self._handler,
@@ -588,9 +584,9 @@ class Builder:
   def __ne__(self, rhs: BuilderOperand) -> 'Builder':
     return Builder(
         _evaluation.EqualityNode(
-            self._node.context,
+            self.node.context,
             _ast.EqualityRelation.Op.NOT_EQUAL,
-            self._node,
+            self.node,
             self._to_node(rhs),
         ),
         self._handler,
@@ -599,7 +595,7 @@ class Builder:
   def __or__(self, rhs: 'Builder') -> 'Builder':
     return Builder(
         _evaluation.BooleanOperatorNode(
-            self._node.context, _ast.BooleanLogic.Op.OR, self._node, rhs._node
+            self.node.context, _ast.BooleanLogic.Op.OR, self.node, rhs.node
         ),
         self._handler,
     )
@@ -610,7 +606,7 @@ class Builder:
       return self._arithmetic_node(_ast.Arithmetic.Op.STRING_CONCATENATION, rhs)
     return Builder(
         _evaluation.BooleanOperatorNode(
-            self._node.context, _ast.BooleanLogic.Op.AND, self._node, rhs._node
+            self.node.context, _ast.BooleanLogic.Op.AND, self.node, rhs.node
         ),
         self._handler,
     )
@@ -618,7 +614,7 @@ class Builder:
   def __xor__(self, rhs: 'Builder') -> 'Builder':
     return Builder(
         _evaluation.BooleanOperatorNode(
-            self._node.context, _ast.BooleanLogic.Op.XOR, self._node, rhs._node
+            self.node.context, _ast.BooleanLogic.Op.XOR, self.node, rhs.node
         ),
         self._handler,
     )
@@ -629,10 +625,10 @@ class Builder:
     # pylint: disable=protected-access
     return Builder(
         _evaluation.BooleanOperatorNode(
-            self._node.context,
+            self.node.context,
             _ast.BooleanLogic.Op.IMPLIES,
-            self._node,
-            rhs._node,
+            self.node,
+            rhs.node,
         ),
         self._handler,
     )
@@ -644,7 +640,7 @@ class Builder:
     rhs_node = self._to_node(rhs)
     return Builder(
         _evaluation.ComparisonNode(
-            self._node.context, operator, self._node, rhs_node
+            self.node.context, operator, self.node, rhs_node
         ),
         self._handler,
     )
@@ -666,7 +662,7 @@ class Builder:
   ) -> 'Builder':
     return Builder(
         _evaluation.ArithmeticNode(
-            self._node.context, operator, self._node, self._to_node(rhs)
+            self.node.context, operator, self.node, self._to_node(rhs)
         ),
         self._handler,
     )
@@ -678,13 +674,13 @@ class Builder:
       idx_msg = self._primitive_to_message(key)
       fhir_path_str = self._primitive_to_fhir_path(key)
       index = _evaluation.LiteralNode(
-          self._node.context,
+          self.node.context,
           idx_msg,
           fhir_path_str,
           _fhir_path_data_types.Integer,
       )
       return Builder(
-          _evaluation.IndexerNode(self._node.context, self._node, index),
+          _evaluation.IndexerNode(self.node.context, self.node, index),
           self._handler,
       )
     else:
@@ -710,7 +706,7 @@ class Builder:
 
   def _choice_fields(self) -> Dict[str, List[str]]:
     """Returns a map from the base choice field name to the field types."""
-    node_type = self._node.return_type()
+    node_type = self.node.return_type
     if not isinstance(node_type, _fhir_path_data_types.StructureDataType):
       return {}
 
@@ -739,7 +735,7 @@ class Builder:
       for field_type in types:
         fields.append(f'{base_name}{field_type[0].upper() + field_type[1:]}')
 
-    fields.extend(self._node.fields())
+    fields.extend(self.node.fields())
     fields.sort()
     return fields
 
@@ -752,13 +748,13 @@ class Builder:
     return fields
 
   def __repr__(self):
-    return f'Builder("{self._node.to_fhir_path()}")'
+    return f'Builder("{self.node.to_fhir_path()}")'
 
   def __str__(self):
-    return self._node.to_fhir_path()
+    return self.node.to_fhir_path()
 
   def debug_string(self, with_typing: bool = False) -> str:
-    return self._node.debug_string(with_typing)
+    return self.node.debug_string(with_typing)
 
 
 def from_fhir_path_expression(
@@ -783,7 +779,7 @@ def from_fhir_path_expression(
   """
   ast = _ast.build_fhir_path_ast(fhir_path_expression)
 
-  new_context = root_node_context.get_node() if root_node_context else None
+  new_context = root_node_context.node if root_node_context else None
   visitor = _evaluation.FhirPathCompilerVisitor(
       handler, fhir_context, structdef_type, new_context
   )

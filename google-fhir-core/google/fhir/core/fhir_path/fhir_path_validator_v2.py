@@ -172,10 +172,10 @@ def _last_path_token(builder: expressions.Builder) -> str:
   Args:
     builder: The `builder` whose relative path to return.
   """
-  if isinstance(builder.get_node(), _evaluation.RootMessageNode):
+  if isinstance(builder.node, _evaluation.RootMessageNode):
     return ''
   # The last node will be the last path token.
-  return builder.get_node().to_path_token()
+  return builder.node.to_path_token()
 
 
 _BAD_SQL_CHARACTERS = re.compile(r'(-|\.|:)')
@@ -501,7 +501,7 @@ class FhirProfileStandardSqlEncoder:
     # contains.
 
     if not top_level_constraint or isinstance(
-        top_level_constraint.get_node(), _evaluation.RootMessageNode
+        top_level_constraint.node, _evaluation.RootMessageNode
     ):
       sql_expression = self._encode_fhir_path_builder(builder)
       if sql_expression:
@@ -1523,7 +1523,7 @@ class FhirProfileStandardSqlEncoder:
     """Recursively encodes the provided resource into Standard SQL."""
 
     path_step = _PathStep(
-        field=builder.get_node().to_path_token(),
+        field=builder.node.to_path_token(),
         type_url=builder.return_type.url,
     )
     if path_step in self._in_progress:

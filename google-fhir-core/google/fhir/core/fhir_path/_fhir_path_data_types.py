@@ -182,7 +182,7 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
   def get_new_cardinality_type(
       self, cardinality: Cardinality
   ) -> 'FhirPathDataType':
-    obj_copy = copy.deepcopy(self)
+    obj_copy = copy.copy(self)
     # pylint: disable=protected-access
     obj_copy._cardinality = cardinality
     # pylint: enable=protected-access
@@ -199,7 +199,7 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
     Returns:
       A copy of the original type with the root_element_definition set.
     """
-    obj_copy = copy.deepcopy(self)
+    obj_copy = copy.copy(self)
     # pylint: disable=protected-access
     obj_copy._root_element_definition = root_element_definition
     # pylint: enable=protected-access
@@ -246,6 +246,12 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
 
   def __str__(self) -> str:
     return self._wrap_collection(self._class_name())
+
+  def deepcopy(self) -> 'FhirPathDataType':
+    obj_copy = copy.deepcopy(
+        self, {id(self.root_element_definition): self.root_element_definition}
+    )
+    return obj_copy
 
 
 class _Boolean(FhirPathDataType):

@@ -357,7 +357,7 @@ class PythonInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   def visit_invoke_expression(
       self, identifier: _evaluation.InvokeExpressionNode
   ) -> List[WorkSpaceMessage]:
-    operand_messages = self.visit(identifier.get_parent_node())
+    operand_messages = self.visit(identifier.parent_node)
     results = []
     for operand_message in operand_messages:
       operand_results = get_children_from_message(
@@ -603,7 +603,7 @@ class PythonInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   def visit_polarity(
       self, polarity: _evaluation.NumericPolarityNode
   ) -> List[WorkSpaceMessage]:
-    operand_messages = self.visit(polarity.operand)
+    operand_messages = self.visit(polarity.parent_node)
     if not operand_messages:
       return []
 
@@ -632,7 +632,7 @@ class PythonInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   def visit_function(
       self, function: _evaluation.FunctionNode
   ) -> List[WorkSpaceMessage]:
-    parent_result = self.visit(function.get_parent_node())
+    parent_result = self.visit(function.parent_node)
     func_name = f'_visit_{function.NAME}'
     if not hasattr(self, func_name):
       raise NotImplementedError(f'{function.NAME} is not supported in python.')

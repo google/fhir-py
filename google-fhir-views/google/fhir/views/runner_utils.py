@@ -377,7 +377,7 @@ def _memberof_nodes_from_view(
   for builder in itertools.chain(
       view.get_select_expressions().values(), view.get_constraint_expressions()
   ):
-    nodes.extend(_memberof_nodes_from_node(builder.get_node()))
+    nodes.extend(_memberof_nodes_from_node(builder.node))
 
   return nodes
 
@@ -392,7 +392,7 @@ def _memberof_nodes_from_node(
 
   # Recursively get valuesets from operands, which will terminate at
   # primitive leafs or message-level nodes.
-  for operand_node in node.operands():
+  for operand_node in node.operands:
     nodes.extend(_memberof_nodes_from_node(operand_node))
 
   return nodes

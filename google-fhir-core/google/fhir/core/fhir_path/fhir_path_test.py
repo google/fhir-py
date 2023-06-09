@@ -55,7 +55,7 @@ class FhirPathStandardSqlEncoderTest(
 ):
   """Unit tests for `fhir_path.FhirPathStandardSqlEncoder`."""
 
-  def assertEvaluationNodeSqlCorrect(
+  def assert_evaluation_node_sql_correct(
       self,
       structdef_name: str,
       fhir_path_expression: str,
@@ -209,7 +209,7 @@ class FhirPathStandardSqlEncoderTest(
       ),
       dict(
           testcase_name=(
-              '_with_date_time_year_month_day_hours_minutes_seconds_milli'
+              'with_date_time_year_month_day_hours_minutes_seconds_milli'
           ),
           fhir_path_expression='@2015-02-04T14:34:28.123',
           expected_sql_expression=textwrap.dedent("""\
@@ -219,7 +219,7 @@ class FhirPathStandardSqlEncoderTest(
       ),
       dict(
           testcase_name=(
-              '_with_date_time_year_month_day_hours_minutes_seconds_milli_tz'
+              'with_date_time_year_month_day_hours_minutes_seconds_milli_tz'
           ),
           fhir_path_expression='@2015-02-04T14:34:28.123+09:00',
           expected_sql_expression=textwrap.dedent("""\
@@ -268,7 +268,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE literal_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathLiteral_succeeds(
+  def test_encode_with_fhir_path_literal_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     actual_sql_expression = self.fhir_path_encoder.encode(
@@ -386,7 +386,7 @@ class FhirPathStandardSqlEncoderTest(
       ),
       dict(
           testcase_name=(
-              '_with_date_time_year_month_day_hours_minutes_seconds_milli'
+              'with_date_time_year_month_day_hours_minutes_seconds_milli'
           ),
           fhir_path_expression='@2015-02-04T14:34:28.123',
           expected_sql_expression=textwrap.dedent("""\
@@ -396,7 +396,7 @@ class FhirPathStandardSqlEncoderTest(
       ),
       dict(
           testcase_name=(
-              '_with_date_time_year_month_day_hours_minutes_seconds_milli_tz'
+              'with_date_time_year_month_day_hours_minutes_seconds_milli_tz'
           ),
           fhir_path_expression='@2015-02-04T14:34:28.123+09:00',
           expected_sql_expression=textwrap.dedent("""\
@@ -461,23 +461,23 @@ class FhirPathStandardSqlEncoderTest(
           WHERE eq_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathV2DateTimeLiteral_succeeds(
+  def test_encode_with_fhir_path_v2_date_time_literal_succeeds(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
   ):
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo',
         fhir_path_expression,
         expected_sql_expression,
     )
 
-  def testEncode_withFhirPathV2SelectScalarsAsArrayFalseForLiteral_succeeds(
+  def test_encode_with_fhir_path_v2_select_scalars_as_array_false_for_literal_succeeds(
       self,
   ):
     fhir_path_expression = 'true'
     expected_sql_expression = '(SELECT TRUE AS literal_)'
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         structdef_name='Foo',
         fhir_path_expression=fhir_path_expression,
         expected_sql_expression=expected_sql_expression,
@@ -505,7 +505,7 @@ class FhirPathStandardSqlEncoderTest(
         select_scalars_as_array=False,
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo',
         fhir_path_expression,
         expected_sql_expression,
@@ -650,7 +650,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE arith_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathLiteralArithmetic_succeeds(
+  def test_encode_with_fhir_path_literal_arithmetic_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     actual_sql_expression = self.fhir_path_encoder.encode(
@@ -659,7 +659,7 @@ class FhirPathStandardSqlEncoderTest(
         fhir_path_expression=fhir_path_expression,
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo',
         fhir_path_expression,
         expected_sql_expression,
@@ -749,7 +749,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE logic_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathLiteralLogicalRelation_succeeds(
+  def test_encode_with_fhir_path_literal_logical_relation_succeeds(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
@@ -762,7 +762,7 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression=fhir_path_expression,
       )
       self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo',
         fhir_path_expression,
         expected_sql_expression,
@@ -823,7 +823,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE eq_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathLiteralEqualityRelation_succeeds(
+  def test_encode_with_fhir_path_literal_equality_relation_succeeds(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
@@ -837,7 +837,7 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
     if not different_from_v2:
-      self.assertEvaluationNodeSqlCorrect(
+      self.assert_evaluation_node_sql_correct(
           'Foo',
           fhir_path_expression,
           expected_sql_expression,
@@ -902,7 +902,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE eq_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathEqualityRelation_succeeds(
+  def test_encode_with_fhir_path_equality_relation_succeeds(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
@@ -913,7 +913,7 @@ class FhirPathStandardSqlEncoderTest(
         fhir_path_expression=fhir_path_expression,
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Div',
         fhir_path_expression,
         expected_sql_expression,
@@ -939,7 +939,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE mem_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathLiteralMembershipRelation_succeeds(
+  def test_encode_with_fhir_path_literal_membership_relation_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     actual_sql_expression = self.fhir_path_encoder.encode(
@@ -948,7 +948,7 @@ class FhirPathStandardSqlEncoderTest(
         fhir_path_expression=fhir_path_expression,
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo', fhir_path_expression, expected_sql_expression
     )
 
@@ -994,7 +994,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE union_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathLiteralUnion_succeeds(
+  def test_encode_with_fhir_path_literal_union_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     actual_sql_expression = self.fhir_path_encoder.encode(
@@ -1003,7 +1003,7 @@ class FhirPathStandardSqlEncoderTest(
         fhir_path_expression=fhir_path_expression,
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo', fhir_path_expression, expected_sql_expression
     )
 
@@ -1057,9 +1057,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE arith_ IS NOT NULL)"""),
       ),
       dict(
-          testcase_name=(
-              '_with_integer_negative_polarity_and_modular_arithmetic'
-          ),
+          testcase_name='with_integer_negative_polarity_and_modular_arithmetic',
           fhir_path_expression='-5 mod 6',
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT arith_
@@ -1067,9 +1065,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE arith_ IS NOT NULL)"""),
       ),
       dict(
-          testcase_name=(
-              '_with_integer_positive_polarity_and_modular_arithmetic'
-          ),
+          testcase_name='with_integer_positive_polarity_and_modular_arithmetic',
           fhir_path_expression='+(7 mod 6)',
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT pol_
@@ -1093,7 +1089,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE arith_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathLiteralPolarity_succeeds(
+  def test_encode_with_fhir_path_literal_polarity_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     actual_sql_expression = self.fhir_path_encoder.encode(
@@ -1102,7 +1098,7 @@ class FhirPathStandardSqlEncoderTest(
         fhir_path_expression=fhir_path_expression,
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo', fhir_path_expression, expected_sql_expression
     )
 
@@ -1144,7 +1140,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE indexed_literal_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathLiteralIndexer_succeeds(
+  def test_encode_with_fhir_path_literal_indexer_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     actual_sql_expression = self.fhir_path_encoder.encode(
@@ -1153,7 +1149,7 @@ class FhirPathStandardSqlEncoderTest(
         fhir_path_expression=fhir_path_expression,
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo', fhir_path_expression, expected_sql_expression
     )
 
@@ -1172,7 +1168,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE indexed_codeFlavors_element_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathIndexField_succeeds(
+  def test_encode_with_fhir_path_index_field_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     actual_sql_expression = self.fhir_path_encoder.encode(
@@ -1181,7 +1177,7 @@ class FhirPathStandardSqlEncoderTest(
         fhir_path_expression=fhir_path_expression,
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo', fhir_path_expression, expected_sql_expression
     )
 
@@ -1199,7 +1195,7 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression='matches()',
       ),
   )
-  def testEncode_withFhirPathFunctionNoOperand_raisesError(
+  def test_encode_with_fhir_path_function_no_operand_raises_error(
       self, fhir_path_expression: str
   ):
     with self.assertRaises(ValueError):
@@ -1225,7 +1221,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE not_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathFunctionNoneTypeOperand_succeeds(
+  def test_encode_with_fhir_path_function_none_type_operand_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     actual_sql_expression = self.fhir_path_encoder.encode(
@@ -1234,7 +1230,7 @@ class FhirPathStandardSqlEncoderTest(
         fhir_path_expression=fhir_path_expression,
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo', fhir_path_expression, expected_sql_expression
     )
 
@@ -1314,7 +1310,7 @@ class FhirPathStandardSqlEncoderTest(
       ),
       dict(
           testcase_name=(
-              '_with_scalar_complex_comparison_and_scalars_as_array_false'
+              'with_scalar_complex_comparison_and_scalars_as_array_false'
           ),
           fhir_path_expression="bar.bats.struct.value = ('abc' | '123')",
           select_scalars_as_array=False,
@@ -1335,7 +1331,7 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT '123' AS literal_) AS rhs_)) AS rhs_) AS eq_)"""),
       ),
   )
-  def testEncode_withSelectScalarsAsArray_generatesSql(
+  def test_encode_with_select_scalars_as_array_generates_sql(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
@@ -1353,7 +1349,7 @@ class FhirPathStandardSqlEncoderTest(
         **kwargs,
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo',
         fhir_path_expression,
         expected_sql_expression,
@@ -1556,7 +1552,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE coding_element_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_ChoiceType_generatesSql(
+  def test_encode_choice_type_generates_sql(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
@@ -1575,7 +1571,7 @@ class FhirPathStandardSqlEncoderTest(
 
     if not only_works_in_v2:
       self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo', fhir_path_expression, expected_sql_expression, **kwargs
     )
 
@@ -1610,7 +1606,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE to_integer_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_ToInteger_(
+  def test_encode_to_integer_(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     actual_sql_expression = self.fhir_path_encoder.encode(
@@ -1620,7 +1616,7 @@ class FhirPathStandardSqlEncoderTest(
     )
 
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo', fhir_path_expression, expected_sql_expression
     )
 
@@ -1641,7 +1637,7 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression="' '.contains('history').not()",
       )
   )
-  def testEncode_withInvalidFhirPathExpression_fails(
+  def test_encode_with_invalid_fhir_path_expression_fails(
       self, fhir_path_expression: str
   ):
     with self.assertRaisesRegex(ValueError, 'Unsupported FHIRPath expression.'):
@@ -1733,7 +1729,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE reference IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathMemberInvocation_succeeds(
+  def test_encode_with_fhir_path_member_invocation_succeeds(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
@@ -1747,7 +1743,7 @@ class FhirPathStandardSqlEncoderTest(
       )
       self.assertEqual(actual_sql_expression, expected_sql_expression)
 
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo', fhir_path_expression, expected_sql_expression
     )
 
@@ -2147,7 +2143,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE memberof_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathMemberFunctionInvocation_succeeds(
+  def test_encode_with_fhir_path_member_function_invocation_succeeds(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
@@ -2165,7 +2161,7 @@ class FhirPathStandardSqlEncoderTest(
         fhir_path_expression=fhir_path_expression,
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo',
         fhir_path_expression,
         expected_sql_expression,
@@ -2224,7 +2220,7 @@ class FhirPathStandardSqlEncoderTest(
               WHERE memberof_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withFhirPathMemberFunctionAgainstLocalValueSetDefinitions_succeeds(
+  def test_encode_with_fhir_path_member_function_against_local_value_set_definitions_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     expanded_value_set_1 = value_set_pb2.ValueSet()
@@ -2274,7 +2270,7 @@ class FhirPathStandardSqlEncoderTest(
     )
     self.assertEqual(actual_sql_expression, expected_sql_expression)
 
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo',
         fhir_path_expression,
         expected_sql_expression,
@@ -2426,7 +2422,7 @@ class FhirPathStandardSqlEncoderTest(
       ),
       dict(
           testcase_name=(
-              '_with_all_and_repeated_subfield_primitive_only_comparison'
+              'with_all_and_repeated_subfield_primitive_only_comparison'
           ),
           # TODO(b/253262668): Determine if this is a bug in the old
           # implementation or new implementation.
@@ -2584,7 +2580,7 @@ class FhirPathStandardSqlEncoderTest(
           WHERE exists_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withAdvancedFhirPathMemberFunctionInvocation_succeeds(
+  def test_encode_with_advanced_fhir_path_member_function_invocation_succeeds(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
@@ -2600,7 +2596,7 @@ class FhirPathStandardSqlEncoderTest(
 
     if not different_in_v2:
       expected_sql_expression_v2 = expected_sql_expression
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo', fhir_path_expression, expected_sql_expression_v2
     )
 
@@ -2622,7 +2618,7 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression="bat.struct.value.where($this='')",
       ),
   )
-  def testValidate_withValidFhirPathExpressions_succeeds(
+  def test_validate_with_valid_fhir_path_expressions_succeeds(
       self, fhir_path_expression: str
   ):
     error_reporter = self.fhir_path_encoder.validate(
@@ -2688,7 +2684,7 @@ class FhirPathStandardSqlEncoderTest(
           only_v1=True,
       ),
   )
-  def testEncode_withUnsupportedFhirPathExpression_raisesTypeError(
+  def test_encode_with_unsupported_fhir_path_expression_raises_type_error(
       self, fhir_path_expression: str, only_v1: bool = False
   ):
     """Tests FHIRPath expressions that are unsupported for Standard SQL."""
@@ -2768,7 +2764,7 @@ class FhirPathStandardSqlEncoderTest(
             WHERE codingList_element_ IS NOT NULL)"""),
       ),
   )
-  def testEncode_withArray_succeeds(
+  def test_encode_with_array_succeeds(
       self,
       invalid_fhir_path_expression: str,
       fhir_path_expression: str,
@@ -2782,7 +2778,7 @@ class FhirPathStandardSqlEncoderTest(
       _ = _bigquery_interpreter.BigQuerySqlInterpreter().encode(builder)
     self.assertIsInstance(te.exception, ValueError)
 
-    self.assertEvaluationNodeSqlCorrect(
+    self.assert_evaluation_node_sql_correct(
         'Foo',
         fhir_path_expression,
         expected_sql_expression,
@@ -2819,7 +2815,7 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression="inline.memberOf('http://value.set/id')",
       ),
   )
-  def testFhirPathFunctions_withWrongInputs_raisesErrorsInSemanticAnalysis(
+  def test_fhir_path_functions_with_wrong_inputs_raises_errors_in_semantic_analysis(
       self, fhir_path_expression: str
   ):
     """Tests FHIRPath expressions that are unsupported for Standard SQL."""
@@ -2858,7 +2854,7 @@ class FhirPathStandardSqlEncoderTest(
           ),
       ),
   )
-  def testFhirPathMemberOf_withWrongInputs_raisesErrorsInSemanticAnalysis(
+  def test_fhir_path_member_of_with_wrong_inputs_raises_errors_in_semantic_analysis(
       self,
       fhir_path_expression: str,
       options: Optional[fhir_path_options.SqlValidationOptions] = None,
@@ -2906,7 +2902,7 @@ class FhirPathStandardSqlEncoderTest(
           ),
       ),
   )
-  def testFhirPathMemberOf_withCorrectInputs_succeeds(
+  def test_fhir_path_member_of_with_correct_inputs_succeeds(
       self,
       fhir_path_expression: str,
       options: Optional[fhir_path_options.SqlValidationOptions] = None,
@@ -2940,7 +2936,7 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression='bar.bats.struct.unknown',
       ),
   )
-  def testEncode_withUnknownFhirPathMemberInvocation_raisesValueError(
+  def test_encode_with_unknown_fhir_path_member_invocation_raises_value_error(
       self, fhir_path_expression: str
   ):
     with self.assertRaises(ValueError) as ve:
@@ -2970,7 +2966,7 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression='foo + +',
       ),
   )
-  def testEncode_withInvalidFhirPathExpression_raisesValueError(
+  def test_encode_with_invalid_fhir_path_expression_raises_value_error(
       self, fhir_path_expression: str
   ):
     """Tests FHIRPath expressions that are syntactically incorrect."""
@@ -3017,7 +3013,7 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression="inline.memberOf('http://value.set/id')",
       ),
   )
-  def testValidate_withInvalidExpressions_failsAndPopulates_errorReporter(
+  def test_validate_with_invalid_expressions_fails_and_populates_error_reporter(
       self, fhir_path_expression: str
   ):
     error_reporter = self.fhir_path_encoder.validate(
@@ -3045,7 +3041,7 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression='foo.bar.exists()..',
       ),
   )
-  def testValidate_withInvalidFHIRPathSyntax_failsAndPopulates_errorReporter(
+  def test_validate_with_invalid_fhir_path_syntax_fails_and_populates_error_reporter(
       self, fhir_path_expression: str
   ):
     error_reporter = self.fhir_path_encoder.validate(
@@ -3528,7 +3524,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
       WHERE memberof_ IS NOT NULL)) AS result_)"""),
       ),
   )
-  def testEncode_withValueSetBindings_producesValueSetConstraint(
+  def test_encode_with_value_set_bindings_produces_value_set_constraint(
       self, options, expected_sql
   ):
     foo_root = sdefs.build_element_definition(
@@ -3780,7 +3776,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(error_reporter.errors)
     self.assertLen(actual_bindings, 1)
 
-  def testSkipSlice_withSliceOnExtensionWithHyphen_andValidResource_isNotSkipped(
+  def test_skip_slice_with_slice_on_extension_with_hyphen_and_valid_resource_is_not_skipped(
       self,
   ):
     # Set up resource with a defined constraint
@@ -4072,7 +4068,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         "softDelete.all( $this.matches('^(some regex)$') )",
     )
 
-  def testEncode_withDuplicateSqlRequirement_createsConstraintAndLogsError(
+  def test_encode_with_duplicate_sql_requirement_creates_constraint_and_logs_error(
       self,
   ):
     first_constraint = self.build_constraint(
@@ -4143,7 +4139,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
           expected_bindings=3,
       ),
   )
-  def testEncode_withDuplicateSqlRequirement_createsConstraintAndLogsError_v2(
+  def test_encode_with_duplicate_sql_requirement_creates_constraint_and_logs_error_v2(
       self,
       bar_constraints: List[datatypes_pb2.ElementDefinition.Constraint],
       foo_bar_constraints: List[datatypes_pb2.ElementDefinition.Constraint],
@@ -4808,7 +4804,7 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
       ),
       dict(
           testcase_name=(
-              '_with_nested_choice_type_encodes_choice_type_exclusivity'
+              'with_nested_choice_type_encodes_choice_type_exclusivity'
           ),
           base_id='NestedChoiceTest',
           context_element_path='NestedChoiceTest.deep',
@@ -4832,7 +4828,7 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
       ),
       dict(
           testcase_name=(
-              '_withScalarReferenceType_encodesReferenceTypeExclusivity'
+              'with_scalar_reference_type_encodes_reference_type_exclusivity'
           ),
           base_id='ReferenceTest',
           context_element_path='ReferenceTest',
@@ -4851,7 +4847,7 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
       ),
       dict(
           testcase_name=(
-              '_withVectorReferenceType_encodesReferenceTypeExclusivity'
+              'with_vector_reference_type_encodes_reference_type_exclusivity'
           ),
           base_id='RepeatedReferenceTest',
           context_element_path='RepeatedReferenceTest',
@@ -4875,7 +4871,7 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
       ),
       dict(
           testcase_name=(
-              '_with_codeable_concept_slice_encodes_system_requirement'
+              'with_codeable_concept_slice_encodes_system_requirement'
           ),
           base_id='CodeableConceptSliceTest',
           context_element_path='CodeableConceptSliceTest',
@@ -4935,7 +4931,7 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
       ),
       dict(
           testcase_name=(
-              '_withCodeableConceptBackboneSlice_encodesSystemRequirement'
+              'with_codeable_concept_backbone_slice_encodes_system_requirement'
           ),
           base_id='CodeableConceptBackboneSliceTest',
           context_element_path='CodeableConceptBackboneSliceTest.contact',
@@ -4956,7 +4952,7 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
           UNNEST(subquery_) AS result_)"""),
       ),
   )
-  def testEncode(
+  def test_encode(
       self,
       base_id: str,
       context_element_path: str,
@@ -5745,7 +5741,7 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           WHERE eq_ IS NOT NULL)) AS result_)"""),
       ),
   )
-  def testEncode_withRootFhirPathConstraint_succeeds(
+  def test_encode_with_root_fhir_path_constraint_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     constraint = self.build_constraint(
@@ -5857,7 +5853,7 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(subquery_) AS result_)"""),
       ),
   )
-  def testEncode_withNonRootFhirPathConstraint_succeeds(
+  def test_encode_with_non_root_fhir_path_constraint_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     """Tests that a "transitive constraint" is properly encoded.
@@ -5911,7 +5907,7 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(subquery_) AS result_)"""),
       )
   )
-  def testEncode_withBackboneElementConstraint_succeeds(
+  def test_encode_with_backbone_element_constraint_succeeds(
       self,
       fhir_path_expression: str,
       expected_sql_expression_v1: str,
@@ -6249,7 +6245,7 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           fields_referenced_by_expression=['someExtension'],
       ),
   )
-  def testEncode_withRequiredField_generatesSql(
+  def test_encode_with_required_field_generates_sql(
       self,
       base_id: str,
       required_field: str,

@@ -94,9 +94,10 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       A Spark SQL representation of the provided FHIRPath expression.
     """
     self._use_resource_alias = use_resource_alias
-    result = self.visit(builder.get_node())
+    result = self.visit(builder.node)
     if select_scalars_as_array or _fhir_path_data_types.returns_collection(
-        builder.get_node().return_type()):
+        builder.node.return_type
+    ):
       return (f'(SELECT COLLECT_LIST({result.sql_alias})\n'
               f'FROM {result.to_subquery()}\n'
               f'WHERE {result.sql_alias} IS NOT NULL)')
@@ -127,11 +128,11 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     # If the identifier is `$this`, we assume that the repeated field has been
     # unnested upstream so we only need to reference it with its alias:
     # `{}_element_`.
-    if _fhir_path_data_types.returns_collection(reference.return_type()):
+    if _fhir_path_data_types.returns_collection(reference.return_type):
       sql_alias = f'{sql_alias}_element_'
 
     sql_data_type = _sql_data_types.get_standard_sql_data_type(
-        reference.return_type()
+        reference.return_type
     )
     return _sql_data_types.IdentifierSelect(
         select_part=_sql_data_types.Identifier(
@@ -145,45 +146,46 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       self, literal: _evaluation.LiteralNode) -> _sql_data_types.RawExpression:
     """Translates a FHIRPath literal to Spark SQL."""
 
-    if (literal.return_type() is None or
-        isinstance(literal.return_type(), _fhir_path_data_types._Empty)):  # pylint: disable=protected-access
+    if literal.return_type is None or isinstance(
+        literal.return_type, _fhir_path_data_types._Empty  # pylint: disable=protected-access
+    ):
       sql_value = 'NULL'
       sql_data_type = _sql_data_types.Undefined
     # TODO(b/244184211): Make _fhir_path_data_types.FhirPathDataType classes
     # public.
-    elif isinstance(literal.return_type(), _fhir_path_data_types._Boolean):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._Boolean):  # pylint: disable=protected-access
       sql_value = str(literal).upper()
       sql_data_type = _sql_data_types.Boolean
-    elif isinstance(literal.return_type(), _fhir_path_data_types._Quantity):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._Quantity):  # pylint: disable=protected-access
       # Since quantity string literals contain quotes, they are escaped.
       # E.g. '10 \'mg\''.
       quantity_quotes_escaped = str(literal).translate(
           str.maketrans({'"': r'\"'}))
       sql_value = f"'{quantity_quotes_escaped}'"
       sql_data_type = _sql_data_types.String
-    elif isinstance(literal.return_type(), _fhir_path_data_types._Integer):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._Integer):  # pylint: disable=protected-access
       sql_value = str(literal)
       sql_data_type = _sql_data_types.Int64
-    elif isinstance(literal.return_type(), _fhir_path_data_types._Decimal):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._Decimal):  # pylint: disable=protected-access
       sql_value = str(literal)
       sql_data_type = _sql_data_types.Numeric
-    elif isinstance(literal.return_type(), _fhir_path_data_types._DateTime):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._DateTime):  # pylint: disable=protected-access
       # Date and datetime literals start with an @ and need to be quoted.
       dt = _primitive_time_utils.get_date_time_value(literal.get_value())
       sql_value = f"'{dt.isoformat()}'"
       sql_data_type = _sql_data_types.Timestamp
-    elif isinstance(literal.return_type(), _fhir_path_data_types._Date):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._Date):  # pylint: disable=protected-access
       dt = _primitive_time_utils.get_date_time_value(literal.get_value()).date()
       sql_value = f"'{str(dt)}'"
       sql_data_type = _sql_data_types.Date
-    elif isinstance(literal.return_type(), _fhir_path_data_types._String):  # pylint: disable=protected-access
+    elif isinstance(literal.return_type, _fhir_path_data_types._String):  # pylint: disable=protected-access
       sql_value = str(literal)
       sql_data_type = _sql_data_types.String
     else:
       # LiteralNode constructor ensures that literal has to be one of the above
       # cases. But we error out here in case we enter an illegal state.
       raise ValueError(
-          f'Unsupported literal value: {literal} {literal.return_type()}.'
+          f'Unsupported literal value: {literal} {literal.return_type}.'
       )
 
     return _sql_data_types.RawExpression(
@@ -200,18 +202,19 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """Translates a FHIRPath member identifier to Spark SQL."""
 
     if identifier.identifier == '$this':
-      return self.visit_reference(identifier.operand_node)
+      return self.visit_reference(identifier.parent_node)
 
     raw_identifier_str = identifier.identifier
-    parent_result = self.visit(identifier.operand_node)
+    parent_result = self.visit(identifier.parent_node)
 
     # Map to Spark SQL type. Note that we never map to a type of `ARRAY`,
     # as the member encoding flattens any `ARRAY` members.
     sql_data_type = _sql_data_types.get_standard_sql_data_type(
-        identifier.return_type())
+        identifier.return_type
+    )
     sql_alias = f'{raw_identifier_str}'
     identifier_str = f'{raw_identifier_str}'
-    if _fhir_path_data_types.is_collection(identifier.return_type()):  # Array
+    if _fhir_path_data_types.is_collection(identifier.return_type):  # Array
       # If the identifier is `$this`, we assume that the repeated field has been
       # unnested upstream so we only need to reference it with its alias:
       # `{}_element_`.
@@ -369,8 +372,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
     # Both sides are scalars.
     if _fhir_path_data_types.is_scalar(
-        equality.left.return_type()
-    ) and _fhir_path_data_types.is_scalar(equality.right.return_type()):
+        equality.left.return_type
+    ) and _fhir_path_data_types.is_scalar(equality.right.return_type):
       # Use the simpler query.
       return _sql_data_types.Select(
           select_part=_sql_data_types.RawExpression(
@@ -387,8 +390,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       )
 
     elif not _fhir_path_data_types.is_scalar(
-        equality.left.return_type()
-    ) and _fhir_path_data_types.is_scalar(equality.right.return_type()):
+        equality.left.return_type
+    ) and _fhir_path_data_types.is_scalar(equality.right.return_type):
       nested_query = (
           f'ARRAY({rhs_result})'
           if isinstance(equality.right, _evaluation.LiteralNode)
@@ -417,8 +420,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       )
 
     elif _fhir_path_data_types.is_scalar(
-        equality.left.return_type()
-    ) and not _fhir_path_data_types.is_scalar(equality.right.return_type()):
+        equality.left.return_type
+    ) and not _fhir_path_data_types.is_scalar(equality.right.return_type):
       nested_query = (
           f'ARRAY({lhs_result})'
           if isinstance(equality.left, _evaluation.LiteralNode)
@@ -595,7 +598,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
   def visit_polarity(self, polarity: _evaluation.NumericPolarityNode):
     """Translates FHIRPath unary polarity (+/-) to Spark SQL."""
-    operand_result = self.visit(polarity.operand)
+    operand_result = self.visit(polarity.parent_node)
     sql_expr = f'{polarity.op}{operand_result.as_operand()}'
     return _sql_data_types.Select(
         select_part=_sql_data_types.RawExpression(
@@ -608,7 +611,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
   def visit_function(self, function: _evaluation.FunctionNode) -> Any:
     """Translates a FHIRPath function to Spark SQL."""
-    parent_result = self.visit(function.get_parent_node())
+    parent_result = self.visit(function.parent_node)
     params_result = [self.visit(p) for p in function.params()]
     if isinstance(function, _evaluation.MemberOfFunction):
       kwargs = {}

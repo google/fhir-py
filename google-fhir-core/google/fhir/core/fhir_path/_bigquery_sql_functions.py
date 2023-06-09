@@ -103,7 +103,7 @@ class _EmptyFunction(_FhirPathFunctionStandardSqlEncoder):
     sql_data_type = _sql_data_types.Boolean
 
     if not _fhir_path_data_types.returns_collection(
-        function.get_parent_node().return_type()
+        function.parent_node.return_type
     ):
       # We can use a less expensive scalar check.
       return dataclasses.replace(
@@ -167,7 +167,7 @@ class _ExistsFunction(_FhirPathFunctionStandardSqlEncoder):
     # as 'passing validation' in our `sql_expressions_to_view.py`.
     if (
         not _fhir_path_data_types.returns_collection(
-            function.get_parent_node().return_type()
+            function.parent_node.return_type
         )
         and not operand_result.where_part
     ):
@@ -362,9 +362,7 @@ class _MatchesFunction(_FhirPathFunctionStandardSqlEncoder):
     # If the input collection contains multiple items, the evaluation of the
     # expression will end and signal an error to the calling environment.
     # https://build.fhir.org/ig/HL7/FHIRPath/#matchesregex-string-boolean
-    if _fhir_path_data_types.is_collection(
-        function.get_parent_node().return_type()
-    ):
+    if _fhir_path_data_types.is_collection(function.parent_node.return_type):
       raise ValueError(
           'matches() cannot be called on a collection type. '
           'Must either be scalar or unnested with a function '
@@ -428,8 +426,8 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
           local_value_set_resolver.LocalResolver
       ] = None,
   ) -> _sql_data_types.Select:
-    operand_node = function.get_parent_node()
-    operand_type = operand_node.return_type()
+    operand_node = function.parent_node
+    operand_type = operand_node.return_type
     sql_alias = 'memberof_'
 
     # See if the value set has a simple definition we can expand
@@ -618,7 +616,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
   ) -> _sql_data_types.Select:
     """Generates memberOf SQL using a JOIN against a terminology table.."""
     is_collection = _fhir_path_data_types.returns_collection(
-        operand_node.return_type()
+        operand_node.return_type
     )
     is_string_or_code = isinstance(
         operand_type, _fhir_path_data_types.String.__class__
@@ -900,7 +898,7 @@ class _OfTypeFunction(_FhirPathFunctionStandardSqlEncoder):
     sql_alias = 'ofType_'
     attribute = function.base_type_str
     return_type = _sql_data_types.get_standard_sql_data_type(
-        function.return_type()
+        function.return_type
     )
 
     return dataclasses.replace(
@@ -1006,9 +1004,7 @@ class _AllFunction(_FhirPathFunctionStandardSqlEncoder):
       # fail, thus we extract and use just the from_clause.
       context_sql = None
       where_part = None
-      if _fhir_path_data_types.is_collection(
-          function.get_parent_node().return_type()
-      ):
+      if _fhir_path_data_types.is_collection(function.parent_node.return_type):
         context_sql = operand_result.from_part
         where_part = operand_result.where_part
       else:
@@ -1073,7 +1069,7 @@ class _ToIntegerFunction(_FhirPathFunctionStandardSqlEncoder):
     sql_data_type = _sql_data_types.Int64
 
     # Use the AST to figure out the type of the operand.
-    operand_type = function.get_parent_node().return_type()
+    operand_type = function.parent_node.return_type
 
     # If the input collection contains a single item, this function
     # will return a single integer if:

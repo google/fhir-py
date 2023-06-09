@@ -111,7 +111,7 @@ def empty_function(
   sql_data_type = _sql_data_types.Boolean
 
   if not _fhir_path_data_types.returns_collection(
-      function.get_parent_node().return_type()
+      function.parent_node.return_type
   ):
     # We can use a less expensive scalar check.
     return dataclasses.replace(
@@ -176,7 +176,7 @@ def exists_function(
   # as 'passing validation' in our `sql_expressions_to_view.py`.
   if (
       not _fhir_path_data_types.returns_collection(
-          function.get_parent_node().return_type()
+          function.parent_node.return_type
       )
       and not operand_result.where_part
   ):
@@ -230,9 +230,7 @@ def first_function(
   # Note that if an ARRAY was unnested, row order may not match array order,
   # but for most FHIR this should not matter.
   result = copy.copy(operand_result)
-  if _fhir_path_data_types.is_collection(
-      function.get_parent_node().return_type()
-  ):
+  if _fhir_path_data_types.is_collection(function.parent_node.return_type):
     return _sql_data_types.Select(
         select_part=result.select_part,
         from_part=(
@@ -390,9 +388,7 @@ def of_type_function(
 
   sql_alias = 'ofType_'
   attribute = function.base_type_str
-  return_type = _sql_data_types.get_standard_sql_data_type(
-      function.return_type()
-  )
+  return_type = _sql_data_types.get_standard_sql_data_type(function.return_type)
 
   return dataclasses.replace(
       operand_result,
@@ -477,8 +473,8 @@ def member_of_function(
     ValueError: When the function is called without an operand
   """
   del params_result  # Unused parameter in this function
-  operand_node = function.get_parent_node()
-  operand_type = operand_node.return_type()
+  operand_node = function.parent_node
+  operand_type = operand_node.return_type
   sql_alias = 'memberof_'
 
   # See if the value set has a simple definition we can expand
@@ -667,7 +663,7 @@ def _member_of_sql_against_remote_value_set_table(
 ) -> _sql_data_types.Select:
   """Generates memberOf SQL using a JOIN against a terminology table.."""
   is_collection = _fhir_path_data_types.returns_collection(
-      operand_node.return_type()
+      operand_node.return_type
   )
   is_string_or_code = isinstance(
       operand_type, _fhir_path_data_types.String.__class__
@@ -807,9 +803,7 @@ def all_function(
     # fail, thus we extract and use just the from_clause.
     context_sql = None
     where_part = None
-    if _fhir_path_data_types.is_collection(
-        function.get_parent_node().return_type()
-    ):
+    if _fhir_path_data_types.is_collection(function.parent_node.return_type):
       context_sql = operand_result.from_part
       where_part = operand_result.where_part
     else:
