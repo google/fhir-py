@@ -18,6 +18,7 @@ such as in the r4 sub-package.
 """
 
 import collections
+import copy
 import datetime
 from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
@@ -129,7 +130,7 @@ class Builder:
     Returns:
       A builder with the new expression node tree.
     """
-    localized = old_builder.node.deepcopy()
+    localized = copy.deepcopy(old_builder.node)
     localized.replace_operand(old_path, replacement_node)
     return cls(localized, old_builder._handler)  # pylint: disable=protected-access
 
@@ -532,7 +533,7 @@ class Builder:
         # `patient.address.where(patient.address.use = 'home')` is built from
         # patient, but should be evaluated in the context of address.
 
-        localized = arg.node.deepcopy()
+        localized = copy.deepcopy(arg.node)
         localized.replace_operand(
             operand_node.to_fhir_path(),
             _evaluation.ReferenceNode(

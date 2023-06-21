@@ -566,7 +566,8 @@ class FhirPathExpressionsTest(
 
     # Boolean equality. Disable some pylint checks because the builder triggers
     # some false positives for extraneous comparisons in this test case, since
-    # we artifically are testing a boolean comparison flow that isn't idiomatic.
+    # we artificially are testing a boolean comparison flow that isn't
+    # idiomatic
     # pylint:disable=g-explicit-bool-comparison, singleton-comparison
     self.assert_expression_result(
         self.compile_expression('Patient', 'active = true'),
@@ -628,7 +629,8 @@ class FhirPathExpressionsTest(
 
     # Boolean inequality. Disable some pylint checks because this triggers
     # some false positives for extraneous comparisons in this test case, since
-    # we artifically are testing a boolean comparison flow that isn't idiomatic.
+    # we artificially are testing a boolean comparison flow that isn't
+    # idiomatic.
     # pylint:disable=g-explicit-bool-comparison, singleton-comparison
     self.assert_expression_result(
         self.compile_expression('Patient', 'active != true'),
@@ -1541,7 +1543,7 @@ class FhirPathExpressionsTest(
     self.assertFalse(expr.evaluate(observation).as_bool())
 
   def test_choice_type_with_direct_access_succeeds(self) -> None:
-    """Tests direct use of an choice type succeeds."""
+    """Tests direct use of a choice type succeeds."""
     observation = self._new_observation()
     compiled_expr = self.compile_expression('Observation', 'value')
     built_expr = self.builder('Observation').value
@@ -2298,6 +2300,8 @@ class FhirPathExpressionsTest(
         ['Patient'], [p.fhir_path for p in new_builder.get_resource_builders()]
     )
     self.assertEqual(new_builder.fhir_path, "name.where(name.family = 'Name')")
+    self.assertIs(new_builder.node.context, original.node.context)
+    self.assertIs(new_builder.node.return_type, original.node.return_type)
 
     # Replace with a builder with a different resource.
     replacement = self.builder('Encounter').status
@@ -2322,6 +2326,8 @@ class FhirPathExpressionsTest(
         [p.fhir_path for p in new_builder.get_resource_builders()],
     )
     self.assertEqual(new_builder.fhir_path, 'name.where(given = status)')
+    self.assertIs(new_builder.node.context, original.node.context)
+    self.assertIs(new_builder.node.return_type, original.node.return_type)
 
   def test_node_debug_string(self):
     """Tests debug_string print functionality."""

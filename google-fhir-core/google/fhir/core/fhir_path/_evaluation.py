@@ -177,16 +177,19 @@ class ExpressionNode(abc.ABC):
     """Returns debug string of the current node."""
     return self._operand_to_string(self, with_typing)
 
-  def deepcopy(self) -> 'ExpressionNode':
-    """Returns a deep copy of the node without copying the context."""
-    obj_copy = copy.deepcopy(
-        self,
-        # Context contains all the structdefs necessary for a resource so it
-        # can be very large and won't be modified between nodes anyway so
-        # avoid deepcopying context.
-        {id(self.context): self.context},
-    )
-    return obj_copy
+  def __deepcopy__(self, memo) -> 'ExpressionNode':
+    """Returns a deep copy of the node without copying the expensive fields."""
+    new = self.__class__.__new__(self.__class__)
+    # FhirPathContext is designed to be shared but mutable since it allows
+    # access to all of the structure definitions that underlie the nodes which
+    # may be static or through a server.
+    memo.setdefault(id(self.context), self.context)
+    # FhirPathDataType is immutable so we can skip the deepcopy on it.
+    memo.setdefault(id(self.return_type), self.return_type)
+
+    for field, val in self.__dict__.items():
+      setattr(new, field, copy.deepcopy(val, memo))
+    return new
 
 
 def _check_is_predicate(
@@ -293,7 +296,6 @@ class StructureBaseNode(ExpressionNode):
       fhir_context: context.FhirPathContext,
       return_type: Optional[_fhir_path_data_types.FhirPathDataType],
   ) -> None:
-    self._struct_type = return_type
     super().__init__(fhir_context, return_type)
 
   def get_resource_nodes(self) -> List[ExpressionNode]:
@@ -309,13 +311,13 @@ class StructureBaseNode(ExpressionNode):
   def to_path_token(self) -> str:
     # The FHIRPath of a root structure is simply the base type name,
     # so return that if it exists.
-    if not self._struct_type:
+    if not self.return_type:
       return ''
 
-    if not hasattr(self._struct_type, 'base_type'):
-      return str(self._struct_type)
+    if not hasattr(self.return_type, 'base_type'):
+      return str(self.return_type)
 
-    return self._struct_type.base_type
+    return self.return_type.base_type
 
   def to_fhir_path(self) -> str:
     return self.to_path_token()

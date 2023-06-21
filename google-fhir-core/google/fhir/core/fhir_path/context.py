@@ -51,6 +51,11 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
   Implementations of this class should cache loaded resources so they can be
   reused. They may pull from a locally-stored implementation guide, a package,
   a remote FHIR server, or other mechanism as appropriate for the user.
+
+  This class is expected to be shared by all the classes that need it, but can
+  be modified by any of them as well. Since all current usage is
+  single-threaded, this is fine, but may be a problem once multi-threading is
+  introduced if class is left unchanged.
   """
 
   @abc.abstractmethod
