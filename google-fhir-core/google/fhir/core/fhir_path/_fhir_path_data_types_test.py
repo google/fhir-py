@@ -37,6 +37,12 @@ class StructureDataTypeTest(absltest.TestCase):
             cardinality=sdefs.Cardinality(min=0, max='1'),
         ),
         sdefs.build_element_definition(
+            id_='Test.choice',
+            path='Test.choice',
+            type_codes=['string', 'boolean'],
+            cardinality=sdefs.Cardinality(min=0, max='1'),
+        ),
+        sdefs.build_element_definition(
             id_='Test.field-with-hyphen',
             path='Test.field-with-hyphen',
             type_codes=['string'],
@@ -140,7 +146,7 @@ class StructureDataTypeTest(absltest.TestCase):
     test_resource = sdefs.build_resource_definition(
         id_='Test', element_definitions=element_definitions
     )
-    structure_definition = _fhir_path_data_types.StructureDataType(
+    structure_definition = _fhir_path_data_types.StructureDataType.from_proto(
         test_resource
     )
 
@@ -148,6 +154,7 @@ class StructureDataTypeTest(absltest.TestCase):
         list(structure_definition.iter_children()),
         [
             ('id', element_definitions_by_id['Test.id']),
+            ('choice', element_definitions_by_id['Test.choice']),
             (
                 'field-with-hyphen',
                 element_definitions_by_id['Test.field-with-hyphen'],
@@ -164,6 +171,7 @@ class StructureDataTypeTest(absltest.TestCase):
         list(structure_definition.iter_all_descendants()),
         [
             ('id', element_definitions_by_id['Test.id']),
+            ('choice', element_definitions_by_id['Test.choice']),
             (
                 'field-with-hyphen',
                 element_definitions_by_id['Test.field-with-hyphen'],
@@ -323,6 +331,81 @@ class FhirPathDataTypeTest(parameterized.TestCase):
         _fhir_path_data_types.is_type_code_primitive(type_code),
         expected_result,
     )
+
+  def test_same_hash(self):
+    class FakeDataType(_fhir_path_data_types.FhirPathDataType):
+
+      @property
+      def supported_coercion(self):
+        return []
+
+      @property
+      def url(self):
+        return _fhir_path_data_types.String.url
+
+      def comparable(self):
+        return False
+
+    set_test = {
+        FakeDataType(),
+        FakeDataType(),
+        _fhir_path_data_types.String,
+        _fhir_path_data_types.String,
+    }
+
+    self.assertLen(set_test, 2)
+
+  def test_equality_and_hash(self):
+    collection_type = _fhir_path_data_types.Collection(
+        types=set([_fhir_path_data_types.String, _fhir_path_data_types.Date])
+    )
+    collection_type_2 = _fhir_path_data_types.Collection(
+        types=set([_fhir_path_data_types.Date, _fhir_path_data_types.String])
+    )
+
+    self.assertEqual(collection_type, collection_type_2)
+    set_test = {collection_type, collection_type_2}
+    # Since the two collection types hash to the same value, there should only
+    # be one element in the set.
+    self.assertLen(set_test, 1)
+    self.assertEqual(set_test, {collection_type})
+
+    collection_type_3 = _fhir_path_data_types.Collection(
+        types=set(
+            [_fhir_path_data_types.String, _fhir_path_data_types.DateTime]
+        )
+    )
+    self.assertNotEqual(collection_type, collection_type_3)
+
+    poly_type = _fhir_path_data_types.PolymorphicDataType(
+        types={
+            'collection': collection_type,
+            'string': _fhir_path_data_types.String,
+            'bool': _fhir_path_data_types.Boolean,
+        }
+    )
+
+    poly_type_2 = _fhir_path_data_types.PolymorphicDataType(
+        types={
+            'string': _fhir_path_data_types.String,
+            'bool': _fhir_path_data_types.Boolean,
+            'collection': collection_type_2,
+        }
+    )
+    self.assertEqual(poly_type, poly_type_2)
+    set_test = {poly_type, poly_type_2}
+    self.assertLen(set_test, 1)
+    self.assertEqual(set_test, {poly_type})
+
+    poly_type_3 = _fhir_path_data_types.PolymorphicDataType(
+        types={
+            'string': _fhir_path_data_types.String,
+            'bool': _fhir_path_data_types.Boolean,
+            'collection': collection_type_3,
+        }
+    )
+
+    self.assertNotEqual(poly_type_2, poly_type_3)
 
 
 if __name__ == '__main__':

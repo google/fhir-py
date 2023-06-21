@@ -192,7 +192,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
       # TODO(b/186792939): Use a protocol when structural typing is added.
       # Until then cast to Any to get the structdef url and type fields.
       struct_def = cast(Any, walker.current_type)
-      data_type = _fhir_path_data_types.StructureDataType(struct_def)
+      data_type = _fhir_path_data_types.StructureDataType.from_proto(struct_def)
     else:
       data_type = _fhir_path_data_types.Empty
 
@@ -608,16 +608,21 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
 
     # Extract the types of both sides.
     lhs_type_set = (
-        lhs_type.types if isinstance(lhs_type, _fhir_path_data_types.Collection)
-        else {lhs_type})
+        set(lhs_type.types)
+        if isinstance(lhs_type, _fhir_path_data_types.Collection)
+        else {lhs_type}
+    )
 
     rhs_type_set = (
-        rhs_type.types if isinstance(rhs_type, _fhir_path_data_types.Collection)
-        else {rhs_type})
+        set(rhs_type.types)
+        if isinstance(rhs_type, _fhir_path_data_types.Collection)
+        else {rhs_type}
+    )
 
     final_type_set = lhs_type_set.union(rhs_type_set)
     return _set_and_return_type(
-        union, _fhir_path_data_types.Collection(types=final_type_set))
+        union, _fhir_path_data_types.Collection(types=final_type_set)
+    )
 
   def visit_polarity(  # pytype: disable=signature-mismatch  # overriding-parameter-count-checks
       self, polarity: _ast.Polarity,
@@ -706,7 +711,7 @@ class FhirPathSemanticAnalyzer(_ast.FhirPathAstBaseVisitor):
       # (if it is not a collection already).
       if (isinstance(lhs_result, _fhir_path_data_types.Collection) and
           not isinstance(rhs_result, _fhir_path_data_types.Collection)):
-        rhs_result = _fhir_path_data_types.Collection(types={rhs_result})
+        rhs_result = _fhir_path_data_types.Collection(types=(rhs_result,))
 
       return _set_and_return_type(invocation, rhs_result)
 

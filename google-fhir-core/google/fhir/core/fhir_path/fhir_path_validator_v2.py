@@ -1559,7 +1559,7 @@ class FhirProfileStandardSqlEncoder:
       # Call into our protected recursive-helper method to encode the provided
       # `StructureDefinition`. Propagate any exceptions that occur, and always
       # cleanup state prior to returning.
-      struct_def_type = _fhir_path_data_types.StructureDataType(
+      struct_def_type = _fhir_path_data_types.StructureDataType.from_proto(
           structure_definition
       )
 

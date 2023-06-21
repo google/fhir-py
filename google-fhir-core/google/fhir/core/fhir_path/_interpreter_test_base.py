@@ -129,9 +129,9 @@ class FhirPathExpressionsTest(
     if isinstance(builder_type, _fhir_path_data_types.PolymorphicDataType):
       self.assertIn(
           expected_type,
-          cast(_fhir_path_data_types.PolymorphicDataType, builder_type)
-          .types()
-          .values(),
+          cast(
+              _fhir_path_data_types.PolymorphicDataType, builder_type
+          ).types.values(),
       )
     else:
       if _fhir_path_data_types.is_numeric(expected_type):
@@ -2148,10 +2148,12 @@ class FhirPathExpressionsTest(
     self.assertEqual(builder.fhir_path, 'telecom.rank | name.given')
     self.assertEqual(
         builder.node.return_type,
-        _fhir_path_data_types.Collection({
-            _fhir_path_data_types.String,
-            _fhir_path_data_types.Integer,
-        }),
+        _fhir_path_data_types.Collection(
+            types={
+                _fhir_path_data_types.String,
+                _fhir_path_data_types.Integer,
+            }
+        ),
     )
 
     builder_expr = (
@@ -2372,13 +2374,13 @@ class FhirPathExpressionsTest(
     # Complicated FHIRView with type printing
     self.assertMultiLineEqual(
         textwrap.dedent("""\
-          + address.all(use = 'home') <AllFunction type=<BooleanFhirPathDataType>> (
-          | + address <InvokeExpressionNode type=[<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (
-          | | + Patient <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Patient)>> ())
-          | + use = 'home' <EqualityNode type=<BooleanFhirPathDataType>> (
-          | | + use <InvokeExpressionNode type=[<StringFhirPathDataType>]> (
-          | | | + <ReferenceNode type=[<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (&address))
-          | | + 'home' <LiteralNode type=<StringFhirPathDataType>> ()))"""),
+          + address.all(use = 'home') <AllFunction type=<Boolean>> (
+          | + address <InvokeExpressionNode type=[<StructureDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (
+          | | + Patient <RootMessageNode type=<StructureDataType(url=http://hl7.org/fhir/StructureDefinition/Patient)>> ())
+          | + use = 'home' <EqualityNode type=<Boolean>> (
+          | | + use <InvokeExpressionNode type=[<String>]> (
+          | | | + <ReferenceNode type=[<StructureDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (&address))
+          | | + 'home' <LiteralNode type=<String>> ()))"""),
         self.builder('Patient')
         .address.all(self.builder('Patient').address.use == 'home')
         .debug_string(with_typing=True),
@@ -2388,8 +2390,8 @@ class FhirPathExpressionsTest(
     self.assertMultiLineEqual(
         textwrap.dedent(
             """\
-          + value <InvokeExpressionNode type=<PolymorphicDataType(types=['quantity: http://hl7.org/fhirpath/System.Quantity', 'codeableconcept: http://hl7.org/fhir/StructureDefinition/CodeableConcept', 'string: http://hl7.org/fhirpath/System.String', 'boolean: http://hl7.org/fhirpath/System.Boolean', 'integer: http://hl7.org/fhirpath/System.Integer', 'range: http://hl7.org/fhir/StructureDefinition/Range', 'ratio: http://hl7.org/fhir/StructureDefinition/Ratio', 'sampleddata: http://hl7.org/fhir/StructureDefinition/SampledData', 'time: http://hl7.org/fhirpath/System.DateTime', 'datetime: http://hl7.org/fhirpath/System.DateTime', 'period: http://hl7.org/fhir/StructureDefinition/Period'])>> (
-          | + Observation <RootMessageNode type=<StructureFhirPathDataType(url=http://hl7.org/fhir/StructureDefinition/Observation)>> ())"""
+          + value <InvokeExpressionNode type=PolymorphicDataType(types=['boolean: http://hl7.org/fhirpath/System.Boolean', 'codeableconcept: http://hl7.org/fhir/StructureDefinition/CodeableConcept', 'datetime: http://hl7.org/fhirpath/System.DateTime', 'integer: http://hl7.org/fhirpath/System.Integer', 'period: http://hl7.org/fhir/StructureDefinition/Period', 'quantity: http://hl7.org/fhirpath/System.Quantity', 'range: http://hl7.org/fhir/StructureDefinition/Range', 'ratio: http://hl7.org/fhir/StructureDefinition/Ratio', 'sampleddata: http://hl7.org/fhir/StructureDefinition/SampledData', 'string: http://hl7.org/fhirpath/System.String', 'time: http://hl7.org/fhirpath/System.DateTime'])> (
+          | + Observation <RootMessageNode type=<StructureDataType(url=http://hl7.org/fhir/StructureDefinition/Observation)>> ())"""
         ),
         self.builder('Observation').value.debug_string(with_typing=True),
     )

@@ -22,12 +22,12 @@ provided by the caller.
 
 import abc
 import collections
-import copy
 import dataclasses
 import enum
 import itertools
+import operator
 import re
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Sequence, Tuple, cast, Collection as CollectionType
+from typing import Any, Collection as CollectionType, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple, cast
 
 import stringcase
 
@@ -138,6 +138,7 @@ class _SliceBuilder:
     return Slice(self.slice_def, self.relative_path, self.slice_rules)
 
 
+@dataclasses.dataclass(frozen=True, eq=False)
 class FhirPathDataType(metaclass=abc.ABCMeta):
   """An abstract base class defining a FHIRPath system primitive.
 
@@ -158,8 +159,17 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
       other data types.
   """
 
-  _cardinality: Cardinality = Cardinality.SCALAR
-  _root_element_definition: message.Message = None
+  cardinality: Cardinality
+  root_element_definition: Optional[message.Message]
+
+  def __init__(
+      self,
+      *,
+      cardinality: Cardinality = Cardinality.SCALAR,
+      root_element_definition: Optional[message.Message] = None,
+  ) -> None:
+    object.__setattr__(self, 'cardinality', cardinality)
+    object.__setattr__(self, 'root_element_definition', root_element_definition)
 
   @property
   @abc.abstractmethod
@@ -172,21 +182,14 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
     pass
 
   @property
+  @abc.abstractmethod
   def comparable(self) -> bool:
-    return self._comparable
-
-  @property
-  def cardinality(self) -> Cardinality:
-    return self._cardinality
+    pass
 
   def get_new_cardinality_type(
       self, cardinality: Cardinality
   ) -> 'FhirPathDataType':
-    obj_copy = copy.copy(self)
-    # pylint: disable=protected-access
-    obj_copy._cardinality = cardinality
-    # pylint: enable=protected-access
-    return obj_copy
+    return dataclasses.replace(self, cardinality=cardinality)
 
   def copy_fhir_type_with_root_element_definition(
       self, root_element_definition: message.Message
@@ -199,16 +202,14 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
     Returns:
       A copy of the original type with the root_element_definition set.
     """
-    obj_copy = copy.copy(self)
-    # pylint: disable=protected-access
-    obj_copy._root_element_definition = root_element_definition
-    # pylint: enable=protected-access
-    return obj_copy
+    return dataclasses.replace(
+        self, root_element_definition=root_element_definition
+    )
 
   def returns_collection(self) -> bool:
     return (
-        self._cardinality == Cardinality.COLLECTION
-        or self._cardinality == Cardinality.CHILD_OF_COLLECTION
+        self.cardinality == Cardinality.COLLECTION
+        or self.cardinality == Cardinality.CHILD_OF_COLLECTION
     )
 
   def returns_polymorphic(self) -> bool:
@@ -222,38 +223,25 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
   def child_defs(self) -> Mapping[str, message.Message]:
     return {}
 
-  @property
-  def root_element_definition(self) -> Optional[message.Message]:
-    return self._root_element_definition
-
-  def __init__(self, *, comparable: bool = False) -> None:
-    self._comparable = comparable
-
   def __eq__(self, o) -> bool:
     if isinstance(o, FhirPathDataType):
-      return cast(FhirPathDataType, o).url == self.url
+      return self.url == o.url and self.__class__ == o.__class__
     return False
 
   def __hash__(self) -> int:
     return hash(self.url)
 
+  def __str__(self) -> str:
+    name = self.__class__.__name__
+    name = name.lstrip('_')
+    name = f'<{name}>'
+    return self._wrap_collection(name)
+
   def _wrap_collection(self, name: str) -> str:
     return f'[{name}]' if self.returns_collection() else name
 
-  @abc.abstractmethod
-  def _class_name(self) -> str:
-    pass
 
-  def __str__(self) -> str:
-    return self._wrap_collection(self._class_name())
-
-  def deepcopy(self) -> 'FhirPathDataType':
-    obj_copy = copy.deepcopy(
-        self, {id(self.root_element_definition): self.root_element_definition}
-    )
-    return obj_copy
-
-
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class _Boolean(FhirPathDataType):
   """Represents the logical Boolean values `true` and `false`.
 
@@ -263,23 +251,20 @@ class _Boolean(FhirPathDataType):
   See more at: https://hl7.org/fhirpath/#boolean.
   """
 
-  _URL = 'http://hl7.org/fhirpath/System.Boolean'
-
   @property
   def supported_coercion(self) -> Set[FhirPathDataType]:
     return set()  # No supported coercion
 
   @property
   def url(self) -> str:
-    return self._URL
+    return 'http://hl7.org/fhirpath/System.Boolean'
 
-  def __init__(self) -> None:
-    super().__init__(comparable=False)
-
-  def _class_name(self) -> str:
-    return '<BooleanFhirPathDataType>'
+  @property
+  def comparable(self) -> bool:
+    return False
 
 
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class _Date(FhirPathDataType):
   """Represents date and partial date values.
 
@@ -288,23 +273,20 @@ class _Date(FhirPathDataType):
   See more at: https://hl7.org/fhirpath/#date.
   """
 
-  _URL = 'http://hl7.org/fhirpath/System.Date'
-
   @property
   def supported_coercion(self) -> Set[FhirPathDataType]:
     return set([DateTime])
 
   @property
   def url(self) -> str:
-    return self._URL
+    return 'http://hl7.org/fhirpath/System.Date'
 
-  def __init__(self) -> None:
-    super().__init__(comparable=True)
-
-  def _class_name(self) -> str:
-    return '<DateFhirPathDataType>'
+  @property
+  def comparable(self) -> bool:
+    return True
 
 
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class _Time(FhirPathDataType):
   """Represents time-of-day and partial time-of-day values.
 
@@ -314,23 +296,20 @@ class _Time(FhirPathDataType):
   See more at: https://hl7.org/fhirpath/#time.
   """
 
-  _URL = 'http://hl7.org/fhirpath/System.Time'
-
   @property
   def supported_coercion(self) -> Set[FhirPathDataType]:
     return set()  # No supported coercion
 
   @property
   def url(self) -> str:
-    return self._URL
+    return 'http://hl7.org/fhirpath/System.Time'
 
-  def __init__(self) -> None:
-    super().__init__(comparable=True)
-
-  def _class_name(self) -> str:
-    return '<TimeFhirPathDataType>'
+  @property
+  def comparable(self) -> bool:
+    return True
 
 
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class _DateTime(FhirPathDataType):
   """Represents date/time and partial date/time values.
 
@@ -341,23 +320,20 @@ class _DateTime(FhirPathDataType):
   See more at: https://hl7.org/fhirpath/#datetime.
   """
 
-  _URL = 'http://hl7.org/fhirpath/System.DateTime'
-
   @property
   def supported_coercion(self) -> Set[FhirPathDataType]:
     return set()  # No supported coercion
 
   @property
   def url(self) -> str:
-    return self._URL
+    return 'http://hl7.org/fhirpath/System.DateTime'
 
-  def __init__(self) -> None:
-    super().__init__(comparable=True)
-
-  def _class_name(self) -> str:
-    return '<DateTimeFhirPathDataType>'
+  @property
+  def comparable(self) -> bool:
+    return True
 
 
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class _Decimal(FhirPathDataType):
   """Represents real values.
 
@@ -367,23 +343,20 @@ class _Decimal(FhirPathDataType):
   See more at: https://hl7.org/fhirpath/#decimal.
   """
 
-  _URL = 'http://hl7.org/fhirpath/System.Decimal'
-
   @property
   def supported_coercion(self) -> Set[FhirPathDataType]:
     return set([Quantity])
 
   @property
   def url(self) -> str:
-    return self._URL
+    return 'http://hl7.org/fhirpath/System.Decimal'
 
-  def __init__(self) -> None:
-    super().__init__(comparable=True)
-
-  def _class_name(self) -> str:
-    return '<DecimalFhirPathDataType>'
+  @property
+  def comparable(self) -> bool:
+    return True
 
 
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class _Integer(FhirPathDataType):
   """Represents whole numbers in the range -2^31 to 2^31 - 1.
 
@@ -393,23 +366,20 @@ class _Integer(FhirPathDataType):
   See more at: https://hl7.org/fhirpath/#integer.
   """
 
-  _URL = 'http://hl7.org/fhirpath/System.Integer'
-
   @property
   def supported_coercion(self) -> Set[FhirPathDataType]:
     return set([Decimal, Quantity])
 
   @property
   def url(self) -> str:
-    return self._URL
+    return 'http://hl7.org/fhirpath/System.Integer'
 
-  def __init__(self) -> None:
-    super().__init__(comparable=True)
-
-  def _class_name(self) -> str:
-    return '<IntegerFhirPathDataType>'
+  @property
+  def comparable(self) -> bool:
+    return True
 
 
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class _Quantity(FhirPathDataType):
   """Represents quantities with a specified unit.
 
@@ -421,23 +391,20 @@ class _Quantity(FhirPathDataType):
   See more at: https://hl7.org/fhirpath/#quantity.
   """
 
-  _URL = 'http://hl7.org/fhirpath/System.Quantity'
-
   @property
   def supported_coercion(self) -> Set[FhirPathDataType]:
     return set()  # No supported coercion
 
   @property
   def url(self) -> str:
-    return self._URL
+    return 'http://hl7.org/fhirpath/System.Quantity'
 
-  def __init__(self, comparable: bool = True, **kwargs) -> None:
-    super().__init__(comparable=comparable, **kwargs)
-
-  def _class_name(self) -> str:
-    return '<QuantityFhirPathDataType>'
+  @property
+  def comparable(self) -> bool:
+    return True
 
 
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class _Reference(FhirPathDataType):
   """Represents a FHIR Reference.
 
@@ -452,13 +419,12 @@ class _Reference(FhirPathDataType):
   def url(self) -> str:
     return 'http://hl7.org/fhirpath/System.Reference'
 
-  def __init__(self) -> None:
-    super().__init__(comparable=False)
-
-  def _class_name(self) -> str:
-    return '<ReferenceFhirPathDataType>'
+  @property
+  def comparable(self) -> bool:
+    return False
 
 
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class _String(FhirPathDataType):
   r"""Represents string values up to 2^31 - 1 characters in length.
 
@@ -468,23 +434,20 @@ class _String(FhirPathDataType):
   See more at: https://hl7.org/fhirpath/#string.
   """
 
-  _URL = 'http://hl7.org/fhirpath/System.String'
-
   @property
   def supported_coercion(self) -> Set[FhirPathDataType]:
     return set()  # No supported coercion
 
   @property
   def url(self) -> str:
-    return self._URL
+    return 'http://hl7.org/fhirpath/System.String'
 
-  def __init__(self) -> None:
-    super().__init__(comparable=True)
-
-  def _class_name(self) -> str:
-    return '<StringFhirPathDataType>'
+  @property
+  def comparable(self) -> bool:
+    return True
 
 
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class _Empty(FhirPathDataType):
   """Represents the absence of a value in FHIRPath.
 
@@ -501,22 +464,21 @@ class _Empty(FhirPathDataType):
     return set()  # No supported coercion
 
   @property
-  def url(self):
-    return None
+  def url(self) -> str:
+    return ''
 
-  def __init__(self) -> None:
-    super().__init__(comparable=False)
+  @property
+  def comparable(self) -> bool:
+    return False
 
   def __eq__(self, o: Any) -> bool:
     return isinstance(o, _Empty)
 
-  def _class_name(self) -> str:
-    return '<EmptyFhirPathDataType>'
-
   def __hash__(self) -> int:
-    return hash(self._class_name())
+    return hash(self.__class__)
 
 
+@dataclasses.dataclass(frozen=True, eq=False)
 class Collection(FhirPathDataType):
   """A heterogeneous ordered group of FHIRPath primitive datatypes.
 
@@ -528,114 +490,151 @@ class Collection(FhirPathDataType):
   Note: It is not a concrete implementation of `Collection`, so it only stores
   one instance of every type that is present.
   """
+  types: Sequence[FhirPathDataType]
 
-  def __init__(self, types: Set[FhirPathDataType]) -> None:
-    super().__init__(comparable=False)
-    self._types: Set[FhirPathDataType] = types
+  def __init__(
+      self,
+      *,
+      types: CollectionType[FhirPathDataType],
+      cardinality: Cardinality = Cardinality.COLLECTION,
+      root_element_definition: Optional[message.Message] = None,
+  ) -> None:
+    super().__init__(
+        cardinality=cardinality, root_element_definition=root_element_definition
+    )
+    object.__setattr__(
+        self, 'types', tuple(sorted(types, key=operator.attrgetter('url')))
+    )
+
+  @property
+  def url(self) -> str:
+    return ''
+
+  def __str__(self) -> str:
+    type_str = ', '.join([str(t) for t in self.types])
+    name = f'<{self.__class__.__name__}(types={type_str})>'
+    return self._wrap_collection(name)
+
+  @property
+  def comparable(self) -> bool:
+    return False
 
   def __eq__(self, o: Any) -> bool:
     if not isinstance(o, Collection):
       return False
 
-    return self._types == cast(Collection, o).types
+    return self.types == o.types
+
+  def __hash__(self) -> int:
+    return hash(self.types)
 
   def __len__(self) -> int:
-    return len(self._types)
+    return len(self.types)
 
   @property
   def supported_coercion(self) -> Set[FhirPathDataType]:
     return set()
 
-  @property
-  def url(self):
-    return None
-
-  @property
-  def types(self):
-    return self._types
-
   def fields(self) -> Set[str]:
-    result = []
-    for t in self._types:
-      result += t.fields()
-    return set(result)
-
-  def _class_name(self) -> str:
-    return (
-        '<CollectionFhirPathDataType(types='
-        f'{[str(types) for types in self._types]})>'
-    )
+    return set(itertools.chain.from_iterable(t.fields() for t in self.types))
 
 
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class StructureDataType(FhirPathDataType):
   """The FHIR specification data types used in the resource elements.
 
   Their definitions are typically provided by FHIR StructureDefinitions.
   See https://www.hl7.org/fhir/datatypes.html
   """
+  structure_definition: message.Message
+  base_type: str
+  element_type: str
+  backbone_element_path: Optional[str]
+  _child_defs: CollectionType[Tuple[str, message.Message]]
+  _direct_children: CollectionType[Tuple[str, message.Message]]
+  _other_descendants: CollectionType[Tuple[str, message.Message]]
+  _slices: Tuple[Slice, ...]
+  _raw_url: str
+
+  def __init__(
+      self,
+      *,
+      structure_definition: message.Message,
+      base_type: str,
+      element_type: str,
+      backbone_element_path: Optional[str],
+      _child_defs: CollectionType[Tuple[str, message.Message]],
+      _direct_children: CollectionType[Tuple[str, message.Message]],
+      _other_descendants: CollectionType[Tuple[str, message.Message]],
+      _slices: Tuple[Slice, ...],
+      _raw_url: str,
+      cardinality: Cardinality = Cardinality.SCALAR,
+      root_element_definition: Optional[message.Message] = None,
+  ) -> None:
+    super().__init__(
+        cardinality=cardinality, root_element_definition=root_element_definition
+    )
+    object.__setattr__(self, 'structure_definition', structure_definition)
+    object.__setattr__(self, 'base_type', base_type)
+    object.__setattr__(self, 'element_type', element_type)
+    object.__setattr__(self, 'backbone_element_path', backbone_element_path)
+    object.__setattr__(self, '_child_defs', _child_defs)
+    object.__setattr__(self, '_direct_children', _direct_children)
+    object.__setattr__(self, '_other_descendants', _other_descendants)
+    object.__setattr__(self, '_slices', _slices)
+    object.__setattr__(self, '_raw_url', _raw_url)
 
   @property
   def supported_coercion(self) -> Set['FhirPathDataType']:
     return set()
 
   @property
-  def url(self) -> str:
-    return (
-        '.'.join([self._url, self.backbone_element_path])
-        if self.backbone_element_path
-        else self._url
-    )
+  def child_defs(self) -> Mapping[str, message.Message]:
+    return {k: v for k, v in self._child_defs}
 
-  @property
-  def base_type(self) -> str:
-    return self._base_type
-
-  @property
-  def element_type(self) -> str:
-    return self._element_type
-
-  @property
-  def structure_definition(self) -> message.Message:
-    return self._struct_def
-
-  @property
-  def backbone_element_path(self) -> Optional[str]:
-    """Optional path to non-root backbone element to use."""
-    return self._backbone_element_path
-
-  def __init__(
-      self,
+  @classmethod
+  def from_proto(
+      cls,
       struct_def_proto: message.Message,
       backbone_element_path: Optional[str] = None,
-      comparable: bool = False,
       element_type: Optional[str] = None,
-  ) -> None:
-    super().__init__(comparable=comparable)
-    self._struct_def = cast(Any, struct_def_proto)
-    self._url = self._struct_def.url.value
-    self._base_type = self._struct_def.type.value
+  ) -> 'StructureDataType':
+    """Creates a StructureDataType from a proto.
+
+    Args:
+      struct_def_proto: Proto containing information about the structure
+        definition.
+      backbone_element_path: Optional path to the structure def.
+      element_type: Potential alternative type name for the type.
+
+    Returns:
+      A StructureDataType.
+    """
+    struct_def = cast(Any, struct_def_proto)
+    raw_url = struct_def.url.value
+    base_type = struct_def.type.value
     # For some custom types, the element type differs from the base type.
-    self._element_type = element_type if element_type else self._base_type
-    self._backbone_element_path = backbone_element_path
+    element_type = element_type if element_type else base_type
 
     # For backbone elements, prepend their paths with the path to the
     # root of the backbone element.
     qualified_path = (
-        f'{self._element_type}.{self._backbone_element_path}'
-        if self._backbone_element_path
-        else self._element_type
+        f'{element_type}.{backbone_element_path}'
+        if backbone_element_path
+        else element_type
     )
 
-    self._child_defs = {}
-    self._direct_children = []
-    self._other_descendants = []
+    child_defs = {}
+    direct_children = []
+    other_descendants = []
     # A map of slice ID (e.g. some.path:SomeSlice) to the _SliceBuilder
     # object representing that slice.
     slices: dict[str, _SliceBuilder] = collections.defaultdict(
         lambda: _SliceBuilder(None, None, [])
     )
+    root_element_definition = None
 
-    for elem in self._struct_def.snapshot.element:
+    for elem in struct_def.snapshot.element:
       # Extension.url does not provide any additional meaningful information for
       # extensions so we will skip it as it also conflicts with
       # Extension.extension:url if there is a subextension type. More info in
@@ -653,7 +652,7 @@ class StructureDataType(FhirPathDataType):
           slice_def.slice_def = elem
           slice_def.relative_path = ''
         else:
-          self._root_element_definition = elem
+          root_element_definition = elem
 
         continue
 
@@ -685,11 +684,11 @@ class StructureDataType(FhirPathDataType):
         direct_child = '.' not in relative_path
 
         if direct_child and closest_slice_ancestor is None:
-          assert relative_path not in self.child_defs, (
+          assert relative_path not in child_defs, (
               f'{relative_path} found twice among children in structure'
-              f' definition {self._struct_def.url.value}.'
+              f' definition {struct_def.url.value}.'
           )
-          self._child_defs[relative_path] = elem
+          child_defs[relative_path] = elem
 
         if closest_slice_ancestor is not None:
           # Gather all the element definitions which describe the same
@@ -703,35 +702,51 @@ class StructureDataType(FhirPathDataType):
             # This is a constraint describing the slice, e.g. Foo.bar:baz.quux.
             slice_def.slice_rules.append((relative_path, elem))
         elif direct_child:
-          self._direct_children.append((relative_path, elem))
+          direct_children.append((relative_path, elem))
         else:
-          self._other_descendants.append((relative_path, elem))
+          other_descendants.append((relative_path, elem))
 
-    if not self._root_element_definition:
+    if not root_element_definition:
       raise ValueError(
-          f'StructureDataType {self._url} searching on {qualified_path} '
-          f' missing root element definition. {self._struct_def}'
+          f'StructureDataType {raw_url} searching on {qualified_path} '
+          f' missing root element definition. {struct_def}'
       )
 
-    self._slices = tuple(slice_def.to_slice() for slice_def in slices.values())
-
-  def __eq__(self, o) -> bool:
-    if isinstance(o, StructureDataType):
-      return cast(StructureDataType, o).url == self.url
-    return False
-
-  def __hash__(self) -> int:
-    return hash(self.url)
-
-  def _class_name(self) -> str:
-    return f'<StructureFhirPathDataType(url={self.url})>'
-
-  def fields(self) -> Set[str]:
-    return set(self._child_defs.keys())
+    # pylint can't infer the arguments from a base class b/253217163
+    # pylint: disable=unexpected-keyword-arg
+    return cls(
+        structure_definition=struct_def,
+        backbone_element_path=backbone_element_path,
+        base_type=base_type,
+        element_type=element_type,
+        _child_defs=tuple(child_defs.items()),
+        _direct_children=tuple(direct_children),
+        _other_descendants=tuple(other_descendants),
+        _slices=tuple(slice_def.to_slice() for slice_def in slices.values()),
+        _raw_url=raw_url,
+        root_element_definition=root_element_definition,
+        cardinality=Cardinality.SCALAR,
+    )
+    # pylint: enable=unexpected-keyword-arg
 
   @property
-  def child_defs(self) -> Mapping[str, message.Message]:
-    return self._child_defs
+  def url(self) -> str:
+    return (
+        '.'.join([self._raw_url, self.backbone_element_path])
+        if self.backbone_element_path
+        else self._raw_url
+    )
+
+  def __str__(self) -> str:
+    name = f'<{self.__class__.__name__}(url={self.url})>'
+    return self._wrap_collection(name)
+
+  @property
+  def comparable(self) -> bool:
+    return False
+
+  def fields(self) -> Set[str]:
+    return set(self.child_defs.keys())
 
   def iter_children(self) -> Iterable[Tuple[str, message.Message]]:
     """Returns an iterator over all direct child element definitions.
@@ -758,10 +773,9 @@ class StructureDataType(FhirPathDataType):
     return iter(self._slices)
 
 
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class QuantityStructureDataType(StructureDataType, _Quantity):
   """Represents quantity FHIR specification data types."""
-
-  _URL = 'http://hl7.org/fhirpath/System.Quantity'
 
   @property
   def supported_coercion(self) -> Set[FhirPathDataType]:
@@ -769,23 +783,50 @@ class QuantityStructureDataType(StructureDataType, _Quantity):
 
   @property
   def url(self) -> str:
-    return self._URL
+    return 'http://hl7.org/fhirpath/System.Quantity'
 
-  def __init__(
-      self,
+  @property
+  def comparable(self) -> bool:
+    return True
+
+  @classmethod
+  def from_proto(
+      cls,
       struct_def_proto: message.Message,
       backbone_element_path: Optional[str] = None,
-  ) -> None:
-    super().__init__(
+  ) -> 'QuantityStructureDataType':
+    """Creates a QuantityStructureDataType from a proto.
+
+    Args:
+      struct_def_proto: Proto containing information about the structure
+        definition.
+      backbone_element_path: Optional path to the structure def.
+
+    Returns:
+      A QuantityStructureDataType.
+    """
+
+    struct_type = StructureDataType.from_proto(
         struct_def_proto=struct_def_proto,
         backbone_element_path=backbone_element_path,
-        comparable=True,
     )
+    return cls(
+        structure_definition=struct_type.structure_definition,
+        backbone_element_path=struct_type.backbone_element_path,
+        base_type=struct_type.base_type,
+        element_type=struct_type.element_type,
+        _child_defs=struct_type._child_defs,  # pylint: disable=protected-access
+        _direct_children=struct_type._direct_children,  # pylint: disable=protected-access
+        _other_descendants=struct_type._other_descendants,  # pylint: disable=protected-access
+        _slices=struct_type._slices,  # pylint: disable=protected-access
+        _raw_url=struct_type._raw_url,  # pylint: disable=protected-access
+        root_element_definition=struct_type.root_element_definition,
+        cardinality=struct_type.cardinality,
+    )
+    # pylint: enable=unexpected-keyword-arg
 
-  def _class_name(self) -> str:
-    return f'<QuantityStructureFhirPathDataType(url={self.url})>'
 
-
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class ReferenceStructureDataType(StructureDataType):
   """Represents a FHIR Reference.
 
@@ -799,6 +840,37 @@ class ReferenceStructureDataType(StructureDataType):
 
   target_profiles: CollectionType[str]
 
+  def __init__(
+      self,
+      *,
+      target_profiles: CollectionType[str],
+      structure_definition: message.Message,
+      base_type: str,
+      element_type: str,
+      backbone_element_path: Optional[str],
+      _child_defs: CollectionType[Tuple[str, message.Message]],
+      _direct_children: CollectionType[Tuple[str, message.Message]],
+      _other_descendants: CollectionType[Tuple[str, message.Message]],
+      _slices: Tuple[Slice, ...],
+      _raw_url: str,
+      cardinality: Cardinality = Cardinality.SCALAR,
+      root_element_definition: Optional[message.Message] = None,
+  ) -> None:
+    super().__init__(
+        structure_definition=structure_definition,
+        backbone_element_path=backbone_element_path,
+        base_type=base_type,
+        element_type=element_type,
+        _child_defs=_child_defs,
+        _direct_children=_direct_children,
+        _other_descendants=_other_descendants,
+        _slices=_slices,
+        _raw_url=_raw_url,
+        root_element_definition=root_element_definition,
+        cardinality=cardinality,
+    )
+    object.__setattr__(self, 'target_profiles', target_profiles)
+
   @property
   def supported_coercion(self) -> Set[FhirPathDataType]:
     return set([Reference])
@@ -807,26 +879,47 @@ class ReferenceStructureDataType(StructureDataType):
   def url(self) -> str:
     return 'http://hl7.org/fhirpath/System.Reference'
 
-  def __init__(
-      self,
+  @property
+  def comparable(self) -> bool:
+    return False
+
+  @classmethod
+  def from_proto(
+      cls,
       struct_def_proto: message.Message,
-      element_definition: message.Message,
       backbone_element_path: Optional[str] = None,
-  ) -> None:
-    super().__init__(
-        struct_def_proto=struct_def_proto,
-        backbone_element_path=backbone_element_path,
-        comparable=False,
-    )
-    self.target_profiles = [
+      element_type: Optional[str] = None,
+      element_definition: Optional[message.Message] = None,
+  ) -> 'ReferenceStructureDataType':
+    target_profiles = [
         profile.value
         for profile in cast(Any, element_definition).type[0].target_profile
     ]
+    struct_type = StructureDataType.from_proto(
+        struct_def_proto=struct_def_proto,
+        backbone_element_path=backbone_element_path,
+        element_type=None,
+    )
 
-  def _class_name(self) -> str:
-    return f'<ReferenceStructureFhirPathDataType(url={self.url})>'
+    # pylint: disable=unexpected-keyword-arg
+    return cls(
+        target_profiles=tuple(target_profiles),
+        structure_definition=struct_type.structure_definition,
+        backbone_element_path=struct_type.backbone_element_path,
+        base_type=struct_type.base_type,
+        element_type=struct_type.element_type,
+        _child_defs=struct_type._child_defs,  # pylint: disable=protected-access
+        _direct_children=struct_type._direct_children,  # pylint: disable=protected-access
+        _other_descendants=struct_type._other_descendants,  # pylint: disable=protected-access
+        _slices=struct_type._slices,  # pylint: disable=protected-access
+        _raw_url=struct_type._raw_url,  # pylint: disable=protected-access
+        root_element_definition=struct_type.root_element_definition,
+        cardinality=struct_type.cardinality,
+    )
+    # pylint: enable=unexpected-keyword-arg
 
 
+@dataclasses.dataclass(frozen=True, eq=False, init=False)
 class _Any(FhirPathDataType):
   """Represents any type in FHIRPath.
 
@@ -838,23 +931,22 @@ class _Any(FhirPathDataType):
     return set()  # No supported coercion
 
   @property
-  def url(self):
-    return None
+  def url(self) -> str:
+    return ''
 
-  # We don't restrict what the Any type can be compared to.
-  def __init__(self) -> None:
-    super().__init__(comparable=True)
+  @property
+  def comparable(self) -> bool:
+    # We don't restrict what the Any type can be compared to.
+    return True
 
   def __eq__(self, o: Any) -> bool:
     return isinstance(o, _Any)
 
-  def _class_name(self) -> str:
-    return '<AnyFhirPathDataType>'
-
   def __hash__(self) -> int:
-    return hash(self._class_name())
+    return hash(self.__class__)
 
 
+@dataclasses.dataclass(frozen=True, eq=False)
 class PolymorphicDataType(FhirPathDataType):
   """A heterogeneous ordered group of FhirPathDataTypes.
 
@@ -863,6 +955,24 @@ class PolymorphicDataType(FhirPathDataType):
 
   See more at: https://hl7.org/fhirpath/#paths-and-polymorphic-items.
   """
+
+  types: Mapping[str, FhirPathDataType]
+
+  def __init__(
+      self,
+      *,
+      types: Mapping[str, FhirPathDataType],
+      cardinality: Cardinality = Cardinality.SCALAR,
+      root_element_definition: Optional[message.Message] = None,
+  ) -> None:
+    super().__init__(
+        cardinality=cardinality, root_element_definition=root_element_definition
+    )
+    sorted_types = collections.OrderedDict()
+    for k in sorted(types):
+      sorted_types[k] = types[k]
+
+    object.__setattr__(self, 'types', sorted_types)
 
   def returns_polymorphic(self) -> bool:
     return True
@@ -873,34 +983,30 @@ class PolymorphicDataType(FhirPathDataType):
 
   @property
   def url(self) -> str:
-    return list(self._urls)[0] if self._urls else ''
+    return next(t.url for t in self.types.values()) if self.urls else ''
 
   @property
   def urls(self) -> Set[str]:
-    return self._urls
+    return set(t.url for t in self.types.values())
 
-  def types(self) -> Dict[str, FhirPathDataType]:
-    return self._types
+  def __str__(self) -> str:
+    type_name_strings = [f'{name}: {t.url}' for name, t in self.types.items()]
+    return f'{self.__class__.__name__}(types={type_name_strings})'
+
+  @property
+  def comparable(self) -> bool:
+    return False
 
   def fields(self) -> Set[str]:
-    return set(self._types.keys())
-
-  def __init__(self, types: Dict[str, FhirPathDataType]) -> None:
-    super().__init__(comparable=False)
-    self._types = types
-    self._urls = set([t.url for _, t in types.items()])
+    return set(self.types.keys())
 
   def __eq__(self, o) -> bool:
     if isinstance(o, PolymorphicDataType):
-      return cast(PolymorphicDataType, o).urls == self.urls
+      return o.types == self.types
     return False
 
   def __hash__(self) -> int:
-    return hash(' '.join(self.urls))
-
-  def _class_name(self) -> str:
-    type_name_strings = [f'{name}: {t.url}' for name, t in self._types.items()]
-    return f'<PolymorphicDataType(types={type_name_strings})>'
+    return hash(tuple(self.types))
 
 
 # Module-level instances for import+type inference.
@@ -1012,7 +1118,6 @@ def is_coercible(lhs: FhirPathDataType, rhs: FhirPathDataType) -> bool:
   if rhs == lhs:
     return True  # Early-exit if same type
 
-  # Legacy collection type kept around for _semant.
   if isinstance(rhs, Collection) or isinstance(lhs, Collection):
     return False  # Early-exit if either operand is a complex type
 

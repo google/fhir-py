@@ -199,7 +199,7 @@ class View:
       for the url.
     """
     structdef = self._context.get_structure_definition(url)
-    struct_type = _fhir_path_data_types.StructureDataType(structdef)
+    struct_type = _fhir_path_data_types.StructureDataType.from_proto(structdef)
     root_builder = expressions.Builder(
         _evaluation.RootMessageNode(self._context, struct_type), self._handler)
 
@@ -289,7 +289,7 @@ class Views:
       A FHIR View builder for the given structure, typically a FHIR resourcce.
     """
     structdef = self._context.get_structure_definition(structdef_url)
-    struct_type = _fhir_path_data_types.StructureDataType(structdef)
+    struct_type = _fhir_path_data_types.StructureDataType.from_proto(structdef)
     builder = expressions.Builder(
         _evaluation.RootMessageNode(self._context, struct_type), self._handler)
     return View(self._context,
@@ -335,7 +335,7 @@ class Views:
       A FHIRPath expression builder for the given structure.
     """
     structdef = self._context.get_structure_definition(structdef_url)
-    struct_type = _fhir_path_data_types.StructureDataType(structdef)
+    struct_type = _fhir_path_data_types.StructureDataType.from_proto(structdef)
     return expressions.Builder(
         _evaluation.StructureBaseNode(self._context, struct_type),
         self._handler)

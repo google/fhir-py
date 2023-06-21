@@ -1168,7 +1168,7 @@ class _OfTypeFunction(_FhirPathFunctionStandardSqlEncoder):
 
     input_fhir_type = _string_to_fhir_type(chosen_type)
     if is_collection:
-      return _fhir_path_data_types.Collection({input_fhir_type})
+      return _fhir_path_data_types.Collection(types={input_fhir_type})
     return input_fhir_type
 
   def __call__(  # pytype: disable=signature-mismatch  # overriding-parameter-type-checks
@@ -1470,7 +1470,7 @@ def _type_of_mapping_over(
     collection.
   """
   if isinstance(operand.data_type, _fhir_path_data_types.Collection):
-    return _fhir_path_data_types.Collection({fhir_type})
+    return _fhir_path_data_types.Collection(types={fhir_type})
   else:
     return fhir_type
 

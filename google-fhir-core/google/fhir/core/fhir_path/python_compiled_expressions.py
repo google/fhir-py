@@ -145,7 +145,7 @@ class PythonCompiledExpression:
     """Compiles the FHIRPath expression that targets the given structure."""
 
     structdef = fhir_context.get_structure_definition(structdef_url)
-    data_type = _fhir_path_data_types.StructureDataType(structdef)
+    data_type = _fhir_path_data_types.StructureDataType.from_proto(structdef)
 
     ast = _ast.build_fhir_path_ast(fhir_path)
     visitor = _evaluation.FhirPathCompilerVisitor(

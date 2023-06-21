@@ -135,14 +135,17 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       lookup_type = profile if profile else type_code
       child_structdef = self.get_structure_definition(lookup_type)
       if child_structdef.url.value == QUANTITY_URL:
-        return _fhir_path_data_types.QuantityStructureDataType(child_structdef)
+        return _fhir_path_data_types.QuantityStructureDataType.from_proto(
+            struct_def_proto=child_structdef
+        )
       elif child_structdef.url.value == REFERENCE_URL:
-        return _fhir_path_data_types.ReferenceStructureDataType(
-            child_structdef, element_definition
+        return _fhir_path_data_types.ReferenceStructureDataType.from_proto(
+            struct_def_proto=child_structdef,
+            element_definition=element_definition,
         )
       else:
-        return _fhir_path_data_types.StructureDataType(
-            child_structdef, element_type=type_code
+        return _fhir_path_data_types.StructureDataType.from_proto(
+            struct_def_proto=child_structdef, element_type=type_code
         )
 
     if not element_definition:
@@ -192,7 +195,7 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
           if parent.backbone_element_path
           else json_name
       )
-      return_type = _fhir_path_data_types.StructureDataType(
+      return_type = _fhir_path_data_types.StructureDataType.from_proto(
           structdef, elem_path
       )
 
@@ -206,7 +209,9 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
                 parent,
             )
         )
-      return_type = _fhir_path_data_types.PolymorphicDataType(struct_def_dict)
+      return_type = _fhir_path_data_types.PolymorphicDataType(
+          types=struct_def_dict
+      )
 
     elif not elem.type or not elem.type[0].code.value:
       raise ValueError(f'Malformed ElementDefinition in struct {parent.url}')
@@ -239,7 +244,7 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
     if isinstance(parent, _fhir_path_data_types.PolymorphicDataType):
       possible_types = cast(
           _fhir_path_data_types.PolymorphicDataType, parent
-      ).types()
+      ).types
       if json_name.casefold() not in possible_types:
         raise ValueError(
             f'Identifier {json_name} not in {possible_types.keys()}'
@@ -275,7 +280,7 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
             isinstance(return_type, _fhir_path_data_types.PolymorphicDataType)
             and len(return_type.urls) == 1
         ):
-          return_type = next(iter(return_type.types().values()))
+          return_type = next(iter(return_type.types.values()))
 
       return return_type
 

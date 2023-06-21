@@ -515,7 +515,9 @@ class FhirPathTestBase:
           f'Structdef {structdef_name} was not found in the provided context.'
       )
 
-    structdef_type = _fhir_path_data_types.StructureDataType(structdef)
+    structdef_type = _fhir_path_data_types.StructureDataType.from_proto(
+        structdef
+    )
 
     return expressions.from_fhir_path_expression(
         fhir_path_expression,

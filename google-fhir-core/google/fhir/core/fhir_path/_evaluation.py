@@ -199,7 +199,9 @@ def _check_is_predicate(
         f' got {len(params)}',
     ))
 
-  if params[0].return_type != _fhir_path_data_types.Boolean:
+  if not isinstance(
+      params[0].return_type, _fhir_path_data_types.Boolean.__class__
+  ):
     raise ValueError((
         f'{function_name} expression require a boolean predicate',
         f' got {params[0].to_fhir_path()}',
@@ -919,7 +921,7 @@ class OfTypeFunction(FunctionNode):
               _fhir_path_data_types.PolymorphicDataType, operand.return_type
           ).fields()
       ):
-        return_type = operand.return_type.types()[self.base_type_str.casefold()]
+        return_type = operand.return_type.types[self.base_type_str.casefold()]
     else:
       return_type = fhir_context.get_child_data_type(
           operand.return_type, self.base_type_str
@@ -1403,7 +1405,7 @@ class UnionNode(BinaryExpressionNode):
           types_union.update(node_type.types)
         else:
           types_union.add(node_type)
-      return_type = _fhir_path_data_types.Collection(types_union)
+      return_type = _fhir_path_data_types.Collection(types=types_union)
 
     super().__init__(fhir_context, left, right, return_type)
 

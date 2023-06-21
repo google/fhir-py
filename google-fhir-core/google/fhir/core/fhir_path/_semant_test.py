@@ -553,7 +553,7 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       dict(
           testcase_name='with_identifier_of_multiple_types',
           fhir_path_expression='baz',
-          expected_data_type_url=None,
+          expected_data_type_url='',
       ),
   )
   def test_semantic_analysis_with_identifiers(
@@ -725,7 +725,11 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       data_type = ast.data_type
       self.assertIsInstance(data_type, _fhir_path_data_types.Collection)
       self.assertEqual(
-          cast(_fhir_path_data_types.Collection, data_type).types,
+          len(cast(_fhir_path_data_types.Collection, data_type).types),
+          len(expected_data_types),
+      )
+      self.assertEqual(
+          set(cast(_fhir_path_data_types.Collection, data_type).types),
           expected_data_types,
       )
     else:
@@ -953,7 +957,11 @@ class FhirPathSemanticAnalyzerTest(parameterized.TestCase):
       data_type = ast.data_type
       self.assertIsInstance(data_type, _fhir_path_data_types.Collection)
       self.assertEqual(
-          cast(_fhir_path_data_types.Collection, data_type).types,
+          len(cast(_fhir_path_data_types.Collection, data_type).types),
+          len(expected_data_types),
+      )
+      self.assertEqual(
+          set(cast(_fhir_path_data_types.Collection, data_type).types),
           expected_data_types,
       )
     else:
