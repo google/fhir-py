@@ -179,6 +179,8 @@ class ValueSetsTest(absltest.TestCase):
     )
 
     package = fhir_package.FhirPackage(
+        ig_url='url',
+        ig_version='version',
         structure_definitions=_build_mock_collection(
             [definition, another_definition]
         ),
@@ -205,6 +207,8 @@ class ValueSetsTest(absltest.TestCase):
 
   def testValueSetUrlsFromFhirPackage_withEmptyPackage_returnsEmpty(self):
     package = fhir_package.FhirPackage(
+        ig_url='url',
+        ig_version='version',
         structure_definitions=_get_empty_collection(
             structure_definition_pb2.StructureDefinition
         ),
