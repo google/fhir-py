@@ -1183,7 +1183,6 @@ class FhirPathStandardSqlEncoderTest(
 
   @parameterized.named_parameters(
       dict(testcase_name='with_exists', fhir_path_expression='exists()'),
-      dict(testcase_name='with_not', fhir_path_expression='not()'),
       dict(testcase_name='with_empty', fhir_path_expression='empty()'),
       dict(testcase_name='with_count', fhir_path_expression='count()'),
       dict(testcase_name='with_has_value', fhir_path_expression='hasValue()'),
@@ -1441,6 +1440,17 @@ class FhirPathStandardSqlEncoderTest(
           WHERE coding_element_ IS NOT NULL)"""),
       ),
       dict(
+          testcase_name='polymorphic_array_exists',
+          fhir_path_expression='multipleChoiceExample.exists()',
+          select_scalars_as_array=False,
+          expected_sql_expression=textwrap.dedent("""\
+          (SELECT EXISTS(
+          SELECT multipleChoiceExample_element_
+          FROM (SELECT multipleChoiceExample_element_
+          FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset)
+          WHERE multipleChoiceExample_element_ IS NOT NULL) AS exists_)"""),
+      ),
+      dict(
           testcase_name='array_with_function',
           fhir_path_expression=(
               "multipleChoiceExample.ofType('CodeableConcept').exists()"
@@ -1619,6 +1629,37 @@ class FhirPathStandardSqlEncoderTest(
     self.assert_evaluation_node_sql_correct(
         'Foo', fhir_path_expression, expected_sql_expression
     )
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='with_binary_expression',
+          fhir_path_expression='choiceExample + choiceExample',
+      ),
+      dict(
+          testcase_name='with_not', fhir_path_expression='choiceExample.not()'
+      ),
+      dict(
+          testcase_name='with_to_integer',
+          fhir_path_expression='choiceExample.toInteger()',
+      ),
+      dict(
+          testcase_name='with_id_for',
+          fhir_path_expression="choiceExample.idFor('Patient')",
+      ),
+      dict(
+          testcase_name='with_matches',
+          fhir_path_expression="choiceExample.matches('regex')",
+      ),
+      dict(
+          testcase_name='with_matches_and_no_params',
+          fhir_path_expression='choiceExample.matches()',
+      ),
+  )
+  def test_encode_functions_error_on_choice_type(
+      self, fhir_path_expression: str
+  ):
+    with self.assertRaises(ValueError):
+      self.create_builder_from_str('Foo', fhir_path_expression)
 
   def test_encode_to_integer_validation_with_params_provided_raises_error(self):
     with self.assertRaises(ValueError):

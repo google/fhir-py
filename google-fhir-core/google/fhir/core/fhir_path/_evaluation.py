@@ -840,6 +840,11 @@ class IdForFunction(FunctionNode):
       raise ValueError(
           'IdFor function requires a single parameter of the resource type.'
       )
+
+    if isinstance(
+        operand.return_type, _fhir_path_data_types.PolymorphicDataType
+    ):
+      raise ValueError('idFor() does not support operating on a choice type.')
     # Determine the expected FHIR type to use as the node's return type.
     type_param_str = cast(Any, params[0]).get_value().value
 
@@ -1048,6 +1053,10 @@ class NotFunction(FunctionNode):
       operand: ExpressionNode,
       params: List[ExpressionNode],
   ) -> None:
+    if operand.return_type != _fhir_path_data_types.Boolean:
+      raise ValueError(
+          'not() was called on an operand that does not return Boolean(s).'
+      )
     super().__init__(
         fhir_context, operand, params, _fhir_path_data_types.Boolean
     )
@@ -1102,6 +1111,11 @@ class MatchesFunction(FunctionNode):
       operand: ExpressionNode,
       params: List[ExpressionNode],
   ) -> None:
+
+    if isinstance(
+        operand.return_type, _fhir_path_data_types.PolymorphicDataType
+    ):
+      raise ValueError('matches() does not operate on a choice type.')
     if not params:
       regex = None
     elif not (
@@ -1132,6 +1146,10 @@ class ToIntegerFunction(FunctionNode):
       operand: ExpressionNode,
       params: List[ExpressionNode],
   ) -> None:
+    if isinstance(
+        operand.return_type, _fhir_path_data_types.PolymorphicDataType
+    ):
+      raise ValueError('toInteger() does not operate on a choice type.')
     if params:
       raise ValueError('toInteger() does not accept any parameters.')
 
@@ -1209,12 +1227,14 @@ class ArithmeticNode(CoercibleBinaryExpressionNode):
       left: ExpressionNode,
       right: ExpressionNode,
   ) -> None:
-    if not _fhir_path_data_types.is_coercible(
-        left.return_type, right.return_type
+
+    if isinstance(
+        left.return_type, _fhir_path_data_types.PolymorphicDataType
+    ) or isinstance(
+        right.return_type, _fhir_path_data_types.PolymorphicDataType
     ):
       raise ValueError(
-          'Arithmetic nodes must be coercible.'
-          f'{left.return_type} {right.return_type}'
+          f'{self.__class__.__name__} does not support polymorphic data types.'
       )
 
     self._operator = operator
@@ -1245,6 +1265,15 @@ class ComparisonNode(CoercibleBinaryExpressionNode):
       left: ExpressionNode,
       right: ExpressionNode,
   ) -> None:
+    if isinstance(
+        left.return_type, _fhir_path_data_types.PolymorphicDataType
+    ) or isinstance(
+        right.return_type, _fhir_path_data_types.PolymorphicDataType
+    ):
+      raise ValueError(
+          f'{self.__class__.__name__} does not support polymorphic data types.'
+      )
+
     self._operator = operator
     super().__init__(fhir_context, left, right, _fhir_path_data_types.Boolean)
 

@@ -49,6 +49,19 @@ def _escape_identifier(identifier_value: str) -> str:
   return identifier_value  # No-op
 
 
+def _function_implementation_supports_polymorphic_type(
+    node: _evaluation.FunctionNode,
+):
+  return isinstance(
+      node,
+      (
+          _evaluation.ExistsFunction,
+          _evaluation.OfTypeFunction,
+          _evaluation.CountFunction,
+      ),
+  )
+
+
 class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   """Traverses the ExpressionNode tree and generates BigQuery SQL recursively."""
 
@@ -647,16 +660,15 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """Translates a FHIRPath function to Standard SQL."""
     parent_result = self.visit(function.parent_node)
     params_result = [self.visit(p) for p in function.params()]
-    # TODO(b/271314993): Support functions acting on polymorphic types beyond
-    # OfType.
-    if (
-        function.parent_node.return_type.returns_polymorphic()
-        and not isinstance(function, _evaluation.OfTypeFunction)
-    ):
-      raise ValueError(
-          f'Function {function.NAME} called on a Polymorphic type which'
-          ' is not supported yet.'
+    if isinstance(
+        function.parent_node.return_type,
+        _fhir_path_data_types.PolymorphicDataType,
+    ) and not _function_implementation_supports_polymorphic_type(function):
+      return NotImplementedError(
+          'TODO(b/271314993): Support polymorphic operand for'
+          f' {function.__class__.__name__}.'
       )
+
     if isinstance(function, _evaluation.MemberOfFunction):
       kwargs = {}
       if self._value_set_codes_table is not None:
