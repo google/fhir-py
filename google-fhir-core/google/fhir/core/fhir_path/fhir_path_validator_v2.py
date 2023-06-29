@@ -278,7 +278,9 @@ class SqlGenerationOptions:
   skip_keys: Set[str] = dataclasses.field(default_factory=set)
   add_primitive_regexes: bool = False
   expr_replace_list: fhirpath_replacement_list_pb2.FHIRPathReplacementList = (
-      fhirpath_replacement_list_pb2.FHIRPathReplacementList()
+      dataclasses.field(
+          default_factory=fhirpath_replacement_list_pb2.FHIRPathReplacementList
+      )
   )
   add_value_set_bindings: bool = False
   value_set_codes_table: Optional[bigquery.TableReference] = None
