@@ -99,7 +99,8 @@ message SqlRequirement {
   // If type is `VALIDATION_TYPE_FHIR_PATH_CONSTRAINT`:
   //   Then this field is the FHIR key for the constraint.
   //   Not guaranteed to be unique beyond the current element.
-  //   See: hl7.org/fhir/elementdefinition-definitions.html#ElementDefinition.constraint.key
+  //   See:
+  //   hl7.org/fhir/elementdefinition-definitions.html#ElementDefinition.constraint.key
   // Otherwise:
   //  These fields are synthetic and represent unique identifiers.
   string fhir_path_key = 7;
@@ -107,7 +108,8 @@ message SqlRequirement {
   // This field is the expression that was used to generate this SqlRequirement.
   // If type is `VALIDATION_TYPE_FHIR_PATH_CONSTRAINT`:
   //   The expression is the FhirPath expression from the FHIR Profile.
-  //   See: hl7.org/fhir/elementdefinition-definitions.html#ElementDefinition.constraint.expression
+  //   See:
+  //   hl7.org/fhir/elementdefinition-definitions.html#ElementDefinition.constraint.expression
   // Otherwise:
   //   The expression is a synthetic FhirPath expression generated in order to
   //  evaluate the constraint. For example, a cardinality constraint for min
@@ -119,4 +121,8 @@ message SqlRequirement {
   // an expression like 'a.b.where(c > d.e)' references fields
   // ['a.b', 'a.b.c', 'a.b.d.e']
   repeated string fields_referenced_by_expression = 9;
+
+  // The fhir_path_expression if it was translated directly to SQL and with no
+  // contextual subqueries.
+  string fhir_path_sql_expression = 10;
 }

@@ -127,6 +127,7 @@ class _BuilderSql:
   """A named tuple with sql generated from the fhir expression."""
 
   sql: str
+  fhir_path_sql: str
   builder: expressions.Builder
 
 
@@ -377,6 +378,41 @@ class FhirProfileStandardSqlEncoder:
 
     return child_builder
 
+  def _translate_fhir_path_expression(
+      self, builder: expressions.Builder
+  ) -> Tuple[Optional[str], Optional[str]]:
+    """Returns a tuple containing both the SQL translation of a FHIRPath expression with array wrapping and the SQL translation without array wrapping.
+
+    If an error is encountered during encoding, the associated error reporter
+    will be notified, and this method will return [`None`, `None`].
+
+    Args:
+      builder: Builder containing the information to be encoded to Standard SQL.
+
+    Returns:
+      A tuple (expression, expression_as_array) where `expression` is the SQL
+      translation of the FHIRPath expression without array wrapping and
+      `expression_as_array` is the SQL translation with array wrapping.
+    """
+    try:
+      result = self._bq_interpreter.visit(
+          builder.node, use_resource_alias=False
+      )
+      expression = f'{result.as_operand()}'
+      expression_as_array = (
+          f'ARRAY(SELECT {result.sql_alias}\n'
+          f'FROM {result.to_subquery()}\n'
+          f'WHERE {result.sql_alias} IS NOT NULL)'
+      )
+      return expression, expression_as_array
+    except Exception as e:  # pylint: disable=broad-except
+      self._error_reporter.report_fhir_path_error(
+          self._abs_path_invocation(builder),
+          str(builder),
+          self._error_message_for_exception(e),
+      )
+      return None, None
+
   def _abs_path_invocation(self, builder: expressions.Builder) -> str:
     """Returns the absolute path invocation given the traversal context."""
     if not builder:
@@ -505,13 +541,16 @@ class FhirProfileStandardSqlEncoder:
     if not top_level_constraint or isinstance(
         top_level_constraint.node, _evaluation.RootMessageNode
     ):
-      sql_expression = self._encode_fhir_path_builder(builder)
-      if sql_expression:
+      fhir_path_expression_sql, sql_expression = (
+          self._translate_fhir_path_expression(builder)
+      )
+      if sql_expression and fhir_path_expression_sql:
         return _BuilderSql(
             (
                 '(SELECT IFNULL(LOGICAL_AND(result_), TRUE)\n'
                 f'FROM UNNEST({sql_expression}) AS result_)'
             ),
+            fhir_path_expression_sql,
             builder,
         )
       return None
@@ -525,9 +564,15 @@ class FhirProfileStandardSqlEncoder:
         ),
     )
 
-    sql_expression = self._encode_fhir_path_builder(relative_builder)
+    fhir_path_expression_sql, sql_expression = (
+        self._translate_fhir_path_expression(relative_builder)
+    )
 
-    if not sql_expression or not root_sql_expression:
+    if (
+        not sql_expression
+        or not root_sql_expression
+        or not fhir_path_expression_sql
+    ):
       return None
     # Bind the two expressions together via a correlated `ARRAY` subquery
     return _BuilderSql(
@@ -538,6 +583,7 @@ class FhirProfileStandardSqlEncoder:
             f'FROM UNNEST({root_sql_expression}) AS ctx_element_)),\n'
             'UNNEST(subquery_) AS result_)'
         ),
+        fhir_path_expression_sql,
         relative_builder,
     )
 
@@ -653,6 +699,7 @@ class FhirProfileStandardSqlEncoder:
       requirement = validation_pb2.SqlRequirement(
           column_name=column_name,
           sql_expression=result_constraint.sql,
+          fhir_path_sql_expression=result_constraint.fhir_path_sql,
           severity=validation_severity,
           type=type_,
           element_path=element_definition_path,
@@ -804,6 +851,7 @@ class FhirProfileStandardSqlEncoder:
     requirement = validation_pb2.SqlRequirement(
         column_name=column_name,
         sql_expression=result.sql,
+        fhir_path_sql_expression=result.fhir_path_sql,
         severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
         type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
         element_path=element_definition_path,
@@ -874,6 +922,7 @@ class FhirProfileStandardSqlEncoder:
         validation_pb2.SqlRequirement(
             column_name=column_name,
             sql_expression=result.sql,
+            fhir_path_sql_expression=result.fhir_path_sql,
             severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
             type=validation_pb2.ValidationType.VALIDATION_TYPE_CHOICE_TYPE,
             element_path=parent_path,
@@ -972,6 +1021,7 @@ class FhirProfileStandardSqlEncoder:
         validation_pb2.SqlRequirement(
             column_name=column_name,
             sql_expression=constraint_sql.sql,
+            fhir_path_sql_expression=constraint_sql.fhir_path_sql,
             severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
             type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
             element_path=slice_path,
@@ -1320,6 +1370,7 @@ class FhirProfileStandardSqlEncoder:
       requirement = validation_pb2.SqlRequirement(
           column_name=column_name,
           sql_expression=result.sql,
+          fhir_path_sql_expression=result.fhir_path_sql,
           severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
           type=validation_pb2.ValidationType.VALIDATION_TYPE_PRIMITIVE_REGEX,
           element_path=self._abs_path_invocation(builder),
@@ -1503,6 +1554,7 @@ class FhirProfileStandardSqlEncoder:
         validation_pb2.SqlRequirement(
             column_name=column_name,
             sql_expression=result.sql,
+            fhir_path_sql_expression=result.fhir_path_sql,
             severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
             type=(
                 validation_pb2.ValidationType.VALIDATION_TYPE_VALUE_SET_BINDING

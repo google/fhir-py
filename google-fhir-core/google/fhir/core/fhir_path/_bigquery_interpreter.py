@@ -128,6 +128,15 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       # Parenthesize raw SELECT so it can plug in anywhere an expression can.
       return f'{result.to_subquery()}'
 
+  def visit(
+      self,
+      node: _evaluation.ExpressionNode,
+      use_resource_alias: Optional[bool] = None,
+  ) -> Any:
+    if use_resource_alias is not None:
+      self._use_resource_alias = use_resource_alias
+    return super().visit(node)
+
   def visit_root(
       self, root: _evaluation.RootMessageNode
   ) -> Optional[_sql_data_types.IdentifierSelect]:

@@ -3298,6 +3298,7 @@ class FhirProfileStandardSqlEncoderTestBase(
       element_definition_id: str,
       constraint: datatypes_pb2.ElementDefinition.Constraint,
       expected_sql_expression: str,
+      expected_fhir_path_sql_expression: str,
       expected_severity: validation_pb2.ValidationSeverity = validation_pb2.ValidationSeverity.SEVERITY_ERROR,
       supported_in_v2: bool = False,
       expected_sql_expression_v2: Optional[str] = None,
@@ -3380,6 +3381,10 @@ class FhirProfileStandardSqlEncoderTestBase(
             ),
         )
 
+      expected_binding.fhir_path_sql_expression = (
+          expected_fhir_path_sql_expression
+      )
+
       self.assertListEqual(actual_bindings_v2, [expected_binding])
 
       # Check that Ephemeral state is cleared.
@@ -3396,6 +3401,7 @@ class FhirProfileStandardSqlEncoderTestBase(
       expected_column_name: str,
       description: str,
       expected_sql_expression: str,
+      expected_fhir_path_sql_expression: str,
       expected_severity: validation_pb2.ValidationSeverity = validation_pb2.ValidationSeverity.SEVERITY_ERROR,
       fhir_path_key: Optional[str] = None,
       fhir_path_expression: Optional[str] = None,
@@ -3457,6 +3463,9 @@ class FhirProfileStandardSqlEncoderTestBase(
     self.assertEmpty(error_reporter.warnings)
     self.assertListEqual(actual_bindings, [expected_binding])
     if supported_in_v2:
+      expected_binding.fhir_path_sql_expression = (
+          expected_fhir_path_sql_expression
+      )
       self.assertListEqual(actual_bindings_v2, [expected_binding])
 
   def assert_raises_fhir_path_encoding_error(
@@ -5468,6 +5477,12 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE name IS NOT NULL) AS exists_)
           WHERE exists_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          EXISTS(
+          SELECT name
+          FROM (SELECT patients_element_.name
+          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
+          WHERE name IS NOT NULL)"""),
       ),
       dict(
           testcase_name='with_array_scalar_member_not_exists',
@@ -5482,6 +5497,13 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE name IS NOT NULL)) AS not_)
           WHERE not_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          NOT(
+          EXISTS(
+          SELECT name
+          FROM (SELECT patients_element_.name
+          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
+          WHERE name IS NOT NULL))"""),
       ),
       dict(
           testcase_name='with_scalar_array_member_exists',
@@ -5496,6 +5518,13 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
           WHERE locations_element_ IS NOT NULL) AS exists_)
           WHERE exists_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          EXISTS(
+          SELECT locations_element_
+          FROM (SELECT locations_element_
+          FROM (SELECT info),
+          UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
+          WHERE locations_element_ IS NOT NULL)"""),
       ),
       dict(
           testcase_name='with_scalar_array_member_exists_not',
@@ -5511,6 +5540,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
           WHERE locations_element_ IS NOT NULL)) AS not_)
           WHERE not_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          NOT(
+          EXISTS(
+          SELECT locations_element_
+          FROM (SELECT locations_element_
+          FROM (SELECT info),
+          UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
+          WHERE locations_element_ IS NOT NULL))"""),
       ),
       dict(
           testcase_name='with_scalar_array_scalar_member_exists',
@@ -5525,6 +5562,13 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
           WHERE address IS NOT NULL) AS exists_)
           WHERE exists_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          EXISTS(
+          SELECT address
+          FROM (SELECT locations_element_.address
+          FROM (SELECT info),
+          UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
+          WHERE address IS NOT NULL)"""),
       ),
       dict(
           testcase_name='with_scalar_array_scalar_member_exists_not',
@@ -5540,6 +5584,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
           WHERE address IS NOT NULL)) AS not_)
           WHERE not_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          NOT(
+          EXISTS(
+          SELECT address
+          FROM (SELECT locations_element_.address
+          FROM (SELECT info),
+          UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
+          WHERE address IS NOT NULL))"""),
       ),
       dict(
           testcase_name='with_scalar_array_scalar_scalar_member_exists',
@@ -5554,6 +5606,13 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
           WHERE city IS NOT NULL) AS exists_)
           WHERE exists_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          EXISTS(
+          SELECT city
+          FROM (SELECT locations_element_.address.city
+          FROM (SELECT info),
+          UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
+          WHERE city IS NOT NULL)"""),
       ),
       dict(
           testcase_name='with_scalar_array_scalar_scalar_member_exists_not',
@@ -5569,6 +5628,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
           WHERE city IS NOT NULL)) AS not_)
           WHERE not_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          NOT(
+          EXISTS(
+          SELECT city
+          FROM (SELECT locations_element_.address.city
+          FROM (SELECT info),
+          UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)
+          WHERE city IS NOT NULL))"""),
       ),
       dict(
           testcase_name='with_scalar_array_array_member_exists',
@@ -5585,6 +5652,15 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(locations_element_.ids) AS ids_element_ WITH OFFSET AS element_offset)
           WHERE ids_element_ IS NOT NULL) AS exists_)
           WHERE exists_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          EXISTS(
+          SELECT ids_element_
+          FROM (SELECT ids_element_
+          FROM (SELECT locations_element_
+          FROM (SELECT info),
+          UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset),
+          UNNEST(locations_element_.ids) AS ids_element_ WITH OFFSET AS element_offset)
+          WHERE ids_element_ IS NOT NULL)"""),
       ),
       dict(
           testcase_name='with_scalar_array_array_member_exists_not',
@@ -5602,6 +5678,16 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(locations_element_.ids) AS ids_element_ WITH OFFSET AS element_offset)
           WHERE ids_element_ IS NOT NULL)) AS not_)
           WHERE not_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          NOT(
+          EXISTS(
+          SELECT ids_element_
+          FROM (SELECT ids_element_
+          FROM (SELECT locations_element_
+          FROM (SELECT info),
+          UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset),
+          UNNEST(locations_element_.ids) AS ids_element_ WITH OFFSET AS element_offset)
+          WHERE ids_element_ IS NOT NULL))"""),
       ),
       dict(
           testcase_name='with_array_array_member_exists',
@@ -5617,6 +5703,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
           WHERE addresses_element_ IS NOT NULL) AS exists_)
           WHERE exists_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          EXISTS(
+          SELECT addresses_element_
+          FROM (SELECT addresses_element_
+          FROM (SELECT patients_element_
+          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
+          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
+          WHERE addresses_element_ IS NOT NULL)"""),
       ),
       dict(
           testcase_name='with_array_array_member_exists_not',
@@ -5633,6 +5727,15 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
           WHERE addresses_element_ IS NOT NULL)) AS not_)
           WHERE not_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          NOT(
+          EXISTS(
+          SELECT addresses_element_
+          FROM (SELECT addresses_element_
+          FROM (SELECT patients_element_
+          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
+          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
+          WHERE addresses_element_ IS NOT NULL))"""),
       ),
       dict(
           testcase_name='with_array_array_scalar_member_exists',
@@ -5648,6 +5751,14 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
           WHERE city IS NOT NULL) AS exists_)
           WHERE exists_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          EXISTS(
+          SELECT city
+          FROM (SELECT addresses_element_.city
+          FROM (SELECT patients_element_
+          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
+          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
+          WHERE city IS NOT NULL)"""),
       ),
       dict(
           testcase_name='with_array_array_scalar_member_exists_not',
@@ -5664,6 +5775,15 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
           WHERE city IS NOT NULL)) AS not_)
           WHERE not_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          NOT(
+          EXISTS(
+          SELECT city
+          FROM (SELECT addresses_element_.city
+          FROM (SELECT patients_element_
+          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
+          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
+          WHERE city IS NOT NULL))"""),
       ),
       dict(
           testcase_name='with_array_array_scalar_member_exists_and',
@@ -5688,6 +5808,20 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
           WHERE state IS NOT NULL)) AS logic_)
           WHERE logic_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          (EXISTS(
+          SELECT city
+          FROM (SELECT addresses_element_.city
+          FROM (SELECT patients_element_
+          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
+          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
+          WHERE city IS NOT NULL) AND EXISTS(
+          SELECT state
+          FROM (SELECT addresses_element_.state
+          FROM (SELECT patients_element_
+          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
+          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)
+          WHERE state IS NOT NULL))"""),
       ),
       dict(
           testcase_name='with_hospital_city_equals_patient_city',
@@ -5711,6 +5845,22 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)) AS rhs_) AS eq_)
           WHERE eq_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent(
+              """\
+          NOT EXISTS(
+          SELECT lhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, city
+          FROM (SELECT locations_element_.address.city
+          FROM (SELECT info),
+          UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)) AS lhs_
+          EXCEPT DISTINCT
+          SELECT rhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, city
+          FROM (SELECT addresses_element_.city
+          FROM (SELECT patients_element_
+          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
+          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)) AS rhs_)"""
+          ),
       ),
       dict(
           testcase_name='with_hospital_city_equivalent_to_patient_city',
@@ -5734,6 +5884,22 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)) AS rhs_) AS eq_)
           WHERE eq_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent(
+              """\
+          NOT EXISTS(
+          SELECT lhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, city
+          FROM (SELECT locations_element_.address.city
+          FROM (SELECT info),
+          UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)) AS lhs_
+          EXCEPT DISTINCT
+          SELECT rhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, city
+          FROM (SELECT addresses_element_.city
+          FROM (SELECT patients_element_
+          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
+          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)) AS rhs_)"""
+          ),
       ),
       dict(
           testcase_name='with_hospital_city_not_equals_patient_city',
@@ -5757,6 +5923,22 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)) AS rhs_) AS eq_)
           WHERE eq_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent(
+              """\
+          EXISTS(
+          SELECT lhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, city
+          FROM (SELECT locations_element_.address.city
+          FROM (SELECT info),
+          UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)) AS lhs_
+          EXCEPT DISTINCT
+          SELECT rhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, city
+          FROM (SELECT addresses_element_.city
+          FROM (SELECT patients_element_
+          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
+          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)) AS rhs_)"""
+          ),
       ),
       dict(
           testcase_name='with_hospital_city_not_equivalent_to_patient_city',
@@ -5780,11 +5962,31 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
           UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)) AS rhs_) AS eq_)
           WHERE eq_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent(
+              """\
+          EXISTS(
+          SELECT lhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, city
+          FROM (SELECT locations_element_.address.city
+          FROM (SELECT info),
+          UNNEST(info.locations) AS locations_element_ WITH OFFSET AS element_offset)) AS lhs_
+          EXCEPT DISTINCT
+          SELECT rhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, city
+          FROM (SELECT addresses_element_.city
+          FROM (SELECT patients_element_
+          FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset),
+          UNNEST(patients_element_.addresses) AS addresses_element_ WITH OFFSET AS element_offset)) AS rhs_)"""
+          ),
       ),
   )
   def test_encode_with_root_fhir_path_constraint_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str
+      self,
+      fhir_path_expression: str,
+      expected_sql_expression: str,
+      expected_fhir_path_sql_expression: str,
   ):
+    self.maxDiff = None
     constraint = self.build_constraint(
         fhir_path_expression=fhir_path_expression
     )
@@ -5793,6 +5995,7 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
         element_definition_id='Hospital',
         constraint=constraint,
         expected_sql_expression=expected_sql_expression,
+        expected_fhir_path_sql_expression=expected_fhir_path_sql_expression,
         supported_in_v2=True,
     )
 
@@ -5811,6 +6014,8 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
           UNNEST(subquery_) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          name"""),
       ),
       dict(
           testcase_name='with_array_scalar_access',
@@ -5827,6 +6032,11 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
           UNNEST(subquery_) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent(
+              """\
+          (SELECT addresses_element_.city
+          FROM UNNEST(addresses) AS addresses_element_ WITH OFFSET AS element_offset)"""
+          ),
       ),
       dict(
           testcase_name='with_literal_union_array_scalar_member',
@@ -5847,6 +6057,15 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
           UNNEST(subquery_) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent(
+              """\
+          (SELECT lhs_.literal_ AS union_
+          FROM (SELECT \'Hyrule\' AS literal_) AS lhs_
+          UNION DISTINCT
+          SELECT rhs_.state AS union_
+          FROM (SELECT addresses_element_.state
+          FROM UNNEST(addresses) AS addresses_element_ WITH OFFSET AS element_offset) AS rhs_)"""
+          ),
       ),
       dict(
           testcase_name='with_array_array_scalar_member_exists_not',
@@ -5867,6 +6086,13 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
           UNNEST(subquery_) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          NOT(
+          EXISTS(
+          SELECT city
+          FROM (SELECT addresses_element_.city
+          FROM UNNEST(addresses) AS addresses_element_ WITH OFFSET AS element_offset)
+          WHERE city IS NOT NULL))"""),
       ),
       dict(
           testcase_name='with_array_array_scalar_member_exists_and_logical',
@@ -5892,10 +6118,23 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(patients) AS patients_element_ WITH OFFSET AS element_offset)
           WHERE patients_element_ IS NOT NULL)) AS ctx_element_)),
           UNNEST(subquery_) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          (EXISTS(
+          SELECT city
+          FROM (SELECT addresses_element_.city
+          FROM UNNEST(addresses) AS addresses_element_ WITH OFFSET AS element_offset)
+          WHERE city IS NOT NULL) AND EXISTS(
+          SELECT state
+          FROM (SELECT addresses_element_.state
+          FROM UNNEST(addresses) AS addresses_element_ WITH OFFSET AS element_offset)
+          WHERE state IS NOT NULL))"""),
       ),
   )
   def test_encode_with_non_root_fhir_path_constraint_succeeds(
-      self, fhir_path_expression: str, expected_sql_expression: str
+      self,
+      fhir_path_expression: str,
+      expected_sql_expression: str,
+      expected_fhir_path_sql_expression: str,
   ):
     """Tests that a "transitive constraint" is properly encoded.
 
@@ -5905,7 +6144,10 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
     Args:
       fhir_path_expression: The FHIRPath expression to encode.
       expected_sql_expression: The expected generated Standard SQL.
+      expected_fhir_path_sql_expression: The expected generated Standard SQL
+        without any contextual subqueries.
     """
+    self.maxDiff = None
     constraint = self.build_constraint(
         fhir_path_expression=fhir_path_expression
     )
@@ -5914,6 +6156,7 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
         element_definition_id='Hospital.patients',
         constraint=constraint,
         expected_sql_expression=expected_sql_expression,
+        expected_fhir_path_sql_expression=expected_fhir_path_sql_expression,
         supported_in_v2=True,
     )
 
@@ -5946,6 +6189,11 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
           FROM UNNEST(contact) AS contact_element_ WITH OFFSET AS element_offset)
           WHERE name IS NOT NULL)) AS ctx_element_)),
           UNNEST(subquery_) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          EXISTS(
+          SELECT first
+          FROM (SELECT first)
+          WHERE first IS NOT NULL)"""),
       )
   )
   def test_encode_with_backbone_element_constraint_succeeds(
@@ -5953,6 +6201,7 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
       fhir_path_expression: str,
       expected_sql_expression_v1: str,
       expected_sql_expression_v2: str,
+      expected_fhir_path_sql_expression: str,
   ):
     """Tests encoding of a "transitive constraint" defined on a BackboneElement.
 
@@ -5963,6 +6212,8 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
       fhir_path_expression: The FHIRPath expression to encode.
       expected_sql_expression_v1: The expected generated Standard SQL from v1.
       expected_sql_expression_v2: The expected generated Standard SQL from v2.
+      expected_fhir_path_sql_expression: The expected generated Standard SQL
+        without any contextual subqueries.
     """
     constraint = self.build_constraint(
         fhir_path_expression=fhir_path_expression
@@ -5972,6 +6223,7 @@ class FhirProfileStandardSqlEncoderTest(FhirProfileStandardSqlEncoderTestBase):
         element_definition_id='Patient.contact.name',
         constraint=constraint,
         expected_sql_expression=expected_sql_expression_v1,
+        expected_fhir_path_sql_expression=expected_fhir_path_sql_expression,
         supported_in_v2=True,
         expected_sql_expression_v2=expected_sql_expression_v2,
     )
@@ -6204,6 +6456,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           FROM UNNEST(ARRAY(SELECT exists_
           FROM (SELECT id IS NOT NULL AS exists_)
           WHERE exists_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          (id IS NOT NULL)"""),
           fhir_path_expression='id.exists()',
           fields_referenced_by_expression=['id'],
       ),
@@ -6224,6 +6478,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           FROM (SELECT deep)
           WHERE deep IS NOT NULL)) AS ctx_element_)),
           UNNEST(subquery_) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          (deeper IS NOT NULL)"""),
           fhir_path_expression='deeper.exists()',
           fields_referenced_by_expression=['deeper'],
       ),
@@ -6244,6 +6500,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           FROM (SELECT inline)
           WHERE inline IS NOT NULL)) AS ctx_element_)),
           UNNEST(subquery_) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          (value IS NOT NULL)"""),
           fhir_path_expression='value.exists()',
           fields_referenced_by_expression=['value'],
       ),
@@ -6265,6 +6523,14 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           FROM UNNEST(jerry) AS jerry_element_ WITH OFFSET AS element_offset)
           WHERE jerry_element_ IS NOT NULL)) AS logic_)
           WHERE logic_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          (((SELECT COUNT(
+          jerry_element_) AS count_
+          FROM UNNEST(jerry) AS jerry_element_ WITH OFFSET AS element_offset) <= 5) AND EXISTS(
+          SELECT jerry_element_
+          FROM (SELECT jerry_element_
+          FROM UNNEST(jerry) AS jerry_element_ WITH OFFSET AS element_offset)
+          WHERE jerry_element_ IS NOT NULL))"""),
           fhir_path_expression='jerry.count() <= 5 and jerry.exists()',
           fields_referenced_by_expression=['jerry'],
       ),
@@ -6282,6 +6548,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
           FROM UNNEST(ARRAY(SELECT exists_
           FROM (SELECT someExtension IS NOT NULL AS exists_)
           WHERE exists_ IS NOT NULL)) AS result_)"""),
+          expected_fhir_path_sql_expression=textwrap.dedent("""\
+          (someExtension IS NOT NULL)"""),
           fhir_path_expression='someExtension.exists()',
           fields_referenced_by_expression=['someExtension'],
       ),
@@ -6293,6 +6561,7 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
       context_element_path: str,
       expected_column_name: str,
       expected_sql_expression: str,
+      expected_fhir_path_sql_expression: str,
       description: Optional[str] = None,
       fhir_path_key: Optional[str] = None,
       fhir_path_expression: Optional[str] = None,
@@ -6304,6 +6573,7 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
         context_element_path=context_element_path,
         expected_column_name=expected_column_name,
         expected_sql_expression=expected_sql_expression,
+        expected_fhir_path_sql_expression=expected_fhir_path_sql_expression,
         description=description,
         fhir_path_key=fhir_path_key,
         fhir_path_expression=fhir_path_expression,
@@ -6340,6 +6610,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
         FROM UNNEST(ARRAY(SELECT exists_
         FROM (SELECT boof IS NOT NULL AS exists_)
         WHERE exists_ IS NOT NULL)) AS result_)"""),
+        fhir_path_sql_expression=textwrap.dedent("""\
+        (boof IS NOT NULL)"""),
         severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
         type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
         element_path='Foob',
@@ -6360,6 +6632,8 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
         FROM (SELECT boof)
         WHERE boof IS NOT NULL)) AS ctx_element_)),
         UNNEST(subquery_) AS result_)"""),
+        fhir_path_sql_expression=textwrap.dedent("""\
+        (deep IS NOT NULL)"""),
         severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
         type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
         element_path='Foob.boof',
