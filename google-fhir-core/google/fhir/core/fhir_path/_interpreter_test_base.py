@@ -2196,6 +2196,23 @@ class FhirPathExpressionsTest(
 
     self.assertEqual(builder_expr.get_root_builder().fhir_path, 'Patient')
 
+  def test_resolve_nested_reference_succeeds(self):
+    """"Tests that FHIRPath expressions properly follow nested references."""
+    # component.referenceRange is a reference to the base backbone element.
+    builder = self.builder('Observation').component.referenceRange.exists()
+
+    builder_expr = (
+        python_compiled_expressions.PythonCompiledExpression.from_builder(
+            builder
+        )
+    )
+
+    obs = self._new_observation()
+    self.assertFalse(builder_expr.evaluate(obs).as_bool())
+
+    obs.component.add().reference_range.add().low.value.value = '1.0'
+    self.assertTrue(builder_expr.evaluate(obs).as_bool())
+
   def test_union_operator_with_empty_collections_succeeds(self):
     """Ensures "union" works with empty collections."""
     patient = self._new_patient()

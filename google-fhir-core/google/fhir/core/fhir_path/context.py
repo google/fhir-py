@@ -217,6 +217,17 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       return_type = _fhir_path_data_types.PolymorphicDataType(
           types=struct_def_dict
       )
+    elif elem.content_reference.value:
+      ref_path = elem.content_reference.value
+      if not ref_path.startswith('#') or '.' not in ref_path:
+        raise ValueError(f'Malformed content reference: {ref_path}')
+
+      # Skip tag and resource name to get the relative element path.
+      relative_ref = ref_path[ref_path.find('.') + 1 :]
+      return _fhir_path_data_types.StructureDataType.from_proto(
+          struct_def_proto=parent.structure_definition,
+          backbone_element_path=relative_ref,
+      )
 
     elif not elem.type or not elem.type[0].code.value:
       raise ValueError(f'Malformed ElementDefinition in struct {parent.url}')

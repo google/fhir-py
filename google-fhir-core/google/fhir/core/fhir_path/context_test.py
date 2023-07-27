@@ -83,6 +83,23 @@ class FhirPathContextTest(absltest.TestCase):
         dependency_urls,
     )
 
+  def test_get_fhir_type_of_reference_element_succeeds(self):
+    test_context = context.LocalFhirPathContext(self._package)
+    observation = test_context.get_structure_definition(
+        'http://hl7.org/fhir/StructureDefinition/Observation',
+    )
+    obs_type = _fhir_path_data_types.StructureDataType.from_proto(observation)
+
+    # Ensure component.referenceRange follows the reference to the actual
+    # referenceRange backbone element.
+    component = test_context.get_child_data_type(obs_type, 'component')
+    ref_range = test_context.get_child_data_type(component, 'referenceRange')
+    self.assertIsNotNone(ref_range)
+    self.assertEqual(
+        'http://hl7.org/fhir/StructureDefinition/Observation.referenceRange',
+        ref_range.url,
+    )
+
   def test_get_fhir_type_from_string_with_reference_succeeds(self):
     test_context = context.LocalFhirPathContext(self._package)
 
