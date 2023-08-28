@@ -18,6 +18,7 @@ import abc
 import dataclasses
 import decimal
 import enum
+import sys
 from typing import Any, Collection, List, Optional, Tuple, Union
 import weakref
 
@@ -31,6 +32,11 @@ from google.fhir.core.fhir_path.FhirPathParser import FhirPathParser
 from google.fhir.core.fhir_path.FhirPathVisitor import FhirPathVisitor
 
 Number = Union[int, decimal.Decimal]
+
+
+_StrEnum = (
+    (enum.StrEnum,) if sys.version_info[:2] >= (3, 11) else (str, enum.Enum)
+)
 
 
 @dataclasses.dataclass
@@ -244,7 +250,7 @@ class Polarity(UnaryOperator):
   """Positive/negative representation of some numeric operand."""
 
   @enum.unique
-  class Op(str, enum.Enum):
+  class Op(*_StrEnum):
     """Polarity operators."""
 
     NEGATIVE = '-'
@@ -280,7 +286,7 @@ class Arithmetic(BinaryOperator):
   """Arithmetic FHIRPath expressions."""
 
   @enum.unique
-  class Op(str, enum.Enum):
+  class Op(*_StrEnum):
     """Arithmetic operators."""
 
     ADDITION = '+'
@@ -302,7 +308,7 @@ class TypeExpression(Expression):
   """A FHIRPath type expression."""
 
   @enum.unique
-  class Op(str, enum.Enum):
+  class Op(*_StrEnum):
     """Type operators."""
 
     AS = 'as'
@@ -337,7 +343,7 @@ class EqualityRelation(BinaryOperator):
   """Equality comparisons between collections."""
 
   @enum.unique
-  class Op(str, enum.Enum):
+  class Op(*_StrEnum):
     """Equality operators."""
 
     EQUAL = '='
@@ -363,7 +369,7 @@ class Comparison(BinaryOperator):
   """
 
   @enum.unique
-  class Op(str, enum.Enum):
+  class Op(*_StrEnum):
     """Comparison operators."""
 
     GREATER_THAN = '>'
@@ -392,7 +398,7 @@ class BooleanLogic(BinaryOperator):
   """
 
   @enum.unique
-  class Op(str, enum.Enum):
+  class Op(*_StrEnum):
     """Boolean logic operators."""
 
     AND = 'and'
@@ -411,7 +417,7 @@ class MembershipRelation(BinaryOperator):
   """Membership relations between a singular operand and a collection."""
 
   @enum.unique
-  class Op(str, enum.Enum):
+  class Op(*_StrEnum):
     """Membership operators."""
 
     CONTAINS = 'contains'
@@ -468,7 +474,7 @@ class Function(Expression):
   """
 
   @enum.unique
-  class Name(str, enum.Enum):
+  class Name(*_StrEnum):
     """Supported FHIRPath function names.
 
     Functions are broken into categories to mirror HL7-specified categories.
