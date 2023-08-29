@@ -20,7 +20,7 @@ implementations (like the BigQuery runner) for realizing the views themselves.
 """
 
 import keyword
-from typing import Dict, Tuple, List, Set, Optional, Iterable, Any
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import immutabledict
 
@@ -28,8 +28,8 @@ from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _utils
 from google.fhir.core.fhir_path import context
-from google.fhir.core.fhir_path import expressions
 from google.fhir.r4 import primitive_handler
+from google.fhir.views import column_expression_builder
 
 # For root views, since no fields are explicitly passed, we pass a 'field' that
 # indicates to the view that the Resource its created with is the one keyed to
@@ -58,18 +58,34 @@ class View:
   logic to an underlying datasource, like FHIR data stored in BigQuery.
   """
 
-  def __init__(self, fhir_context: context.FhirPathContext,
-               fields: immutabledict.immutabledict[str, expressions.Builder],
-               constraints: Tuple[expressions.Builder, ...],
-               handler: primitive_handler.PrimitiveHandler) -> None:
+  def __init__(
+      self,
+      fhir_context: context.FhirPathContext,
+      fields: immutabledict.immutabledict[
+          str,
+          column_expression_builder.ColumnExpressionBuilder,
+      ],
+      constraints: Tuple[
+          column_expression_builder.ColumnExpressionBuilder,
+          ...,
+      ],
+      handler: primitive_handler.PrimitiveHandler,
+  ) -> None:
     # In practice, the fhir_context should always include all of the structure
     # defs that anyone would ever use, but in theory, there could be contexts
     # for different views that don't share the same subset of structure defs.
     self._context = fhir_context
-    self._fields = fields
     self._constraints = constraints
     self._handler = handler
     self._structdef_urls = set()
+
+    view_fields = {}
+    for name, field in fields.items():
+      if name == BASE_BUILDER_KEY or field.column_name:
+        view_fields[name] = field
+      else:
+        view_fields[name] = field.alias(name)
+    self._fields = immutabledict.immutabledict(view_fields)
 
     # Collects all the builders that reference multiple resources.
     self._multiresource_field_names = []
@@ -104,13 +120,22 @@ class View:
         url_to_resource[url] = []
       url_to_resource[url].append(name)
 
-  def select(self, fields: Dict[str, expressions.Builder]) -> 'View':
+  def select(
+      self,
+      fields: Dict[
+          str,
+          column_expression_builder.ColumnExpressionBuilder,
+      ],
+  ) -> 'View':
     """Returns a View instance that selects the given fields."""
     # TODO(b/244184211): select statements should build on current fields.
     return View(self._context, immutabledict.immutabledict(fields),
                 self._constraints, self._handler)
 
-  def where(self, *constraints: expressions.Builder) -> 'View':
+  def where(
+      self,
+      *constraints: column_expression_builder.ColumnExpressionBuilder,
+  ) -> 'View':
     """Returns a new View instance with these added constraints.
 
     Args:
@@ -128,7 +153,9 @@ class View:
     return View(self._context, self._fields,
                 self._constraints + tuple(constraints), self._handler)
 
-  def __getattr__(self, name: str) -> expressions.Builder:
+  def __getattr__(
+      self, name: str
+  ) -> column_expression_builder.ColumnExpressionBuilder:
     """Used to support building expressions directly off of the base view.
 
     See the class-level documentation for guidance on use.
@@ -137,7 +164,7 @@ class View:
       name: the name of the FHIR field to start with in the builder.
 
     Returns:
-      A FHIRPath builder for the field in question
+      A ColumnExpressionBuilder for the field in question
     """
     # If the name is a python keyword, then there will be an extra underscore
     # appended to the name.
@@ -156,9 +183,9 @@ class View:
 
     if expression is None:
       raise AttributeError(f'No such field {name}')
-    return expression
+    return column_expression_builder.ColumnExpressionBuilder(expression)
 
-  def __dir__(self):
+  def __dir__(self) -> List[str]:
     if BASE_BUILDER_KEY in self._fields:
       fields = self._fields[BASE_BUILDER_KEY].fhir_path_fields()
     else:
@@ -187,8 +214,9 @@ class View:
     """Returns the dictionary of URLs to constraint indices."""
     return self._multiresource_constraint_indexes
 
-  def get_patient_id_expression(self,
-                                url: str) -> Optional[expressions.Builder]:
+  def get_patient_id_expression(
+      self, url: str
+  ) -> Optional[column_expression_builder.ColumnExpressionBuilder]:
     """Generates the expression builders to get the patient ids for the url.
 
     Args:
@@ -200,8 +228,9 @@ class View:
     """
     structdef = self._context.get_structure_definition(url)
     struct_type = _fhir_path_data_types.StructureDataType.from_proto(structdef)
-    root_builder = expressions.Builder(
-        _evaluation.RootMessageNode(self._context, struct_type), self._handler)
+    root_builder = column_expression_builder.ColumnExpressionBuilder(
+        _evaluation.RootMessageNode(self._context, struct_type), self._handler
+    )
 
     if root_builder.fhir_path == 'Patient':
       return root_builder.id
@@ -222,7 +251,10 @@ class View:
     return root_builder.__getattr__(patient_ref).idFor('patient')
 
   def get_select_expressions(
-      self) -> immutabledict.immutabledict[str, expressions.Builder]:
+      self,
+  ) -> immutabledict.immutabledict[
+      str, column_expression_builder.ColumnExpressionBuilder
+  ]:
     """Returns the fields used in the view and their corresponding expressions.
 
     Returns:
@@ -231,7 +263,9 @@ class View:
     """
     return self._fields
 
-  def get_constraint_expressions(self) -> Tuple[expressions.Builder, ...]:
+  def get_constraint_expressions(
+      self,
+  ) -> Tuple[column_expression_builder.ColumnExpressionBuilder, ...]:
     """Returns the constraints used to define the view.
 
     Returns:
@@ -290,14 +324,17 @@ class Views:
     """
     structdef = self._context.get_structure_definition(structdef_url)
     struct_type = _fhir_path_data_types.StructureDataType.from_proto(structdef)
-    builder = expressions.Builder(
-        _evaluation.RootMessageNode(self._context, struct_type), self._handler)
+    builder = column_expression_builder.ColumnExpressionBuilder(
+        _evaluation.RootMessageNode(self._context, struct_type), self._handler
+    )
     return View(self._context,
                 immutabledict.immutabledict({BASE_BUILDER_KEY: builder}), (),
                 self._handler)
 
-  def expression_for(self, structdef_url: str) -> expressions.Builder:
-    """Returns a FHIRPath expression builder for the given structure definition.
+  def expression_for(
+      self, structdef_url: str
+  ) -> column_expression_builder.ColumnExpressionBuilder:
+    """Returns a ColumnExpressionBuilder for the given structure definition.
 
     This can be convenient when building predicates for complicate where() or
     all() FHIRPath expressions. For instance, suppose we want to get LOINC
@@ -332,10 +369,10 @@ class Views:
         example.
 
     Returns:
-      A FHIRPath expression builder for the given structure.
+      A ColumnExpressionBuilder for the given structure.
     """
     structdef = self._context.get_structure_definition(structdef_url)
     struct_type = _fhir_path_data_types.StructureDataType.from_proto(structdef)
-    return expressions.Builder(
-        _evaluation.StructureBaseNode(self._context, struct_type),
-        self._handler)
+    return column_expression_builder.ColumnExpressionBuilder(
+        _evaluation.StructureBaseNode(self._context, struct_type), self._handler
+    )

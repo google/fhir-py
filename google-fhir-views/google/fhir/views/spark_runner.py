@@ -28,9 +28,9 @@ from sqlalchemy import engine
 from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _spark_interpreter
-from google.fhir.core.fhir_path import expressions
 from google.fhir.r4.terminology import terminology_service_client
 from google.fhir.r4.terminology import value_sets
+from google.fhir.views import column_expression_builder
 from google.fhir.views import runner_utils
 from google.fhir.views import spark_value_set_manager
 from google.fhir.views import views
@@ -160,7 +160,9 @@ class SparkRunner:
     return runner_utils.clean_dataframe(df, view.get_select_expressions())
 
   def summarize_codes(
-      self, view: views.View, code_expr: expressions.Builder
+      self,
+      view: views.View,
+      code_expr: column_expression_builder.ColumnExpressionBuilder,
   ) -> pandas.DataFrame:
     """Returns a summary count of distinct code values for the given expression.
 
@@ -180,8 +182,8 @@ class SparkRunner:
 
     Args:
       view: the view containing code values to summarize.
-      code_expr: a FHIRPath expression referencing a codeable concept, coding,
-        or code field to count.
+      code_expr: a ColumnExpressionBuilder referencing a codeable concept,
+        coding, or code field to count.
 
     Returns:
       A Pandas dataframe containing 'system', 'code', 'display', and 'count'

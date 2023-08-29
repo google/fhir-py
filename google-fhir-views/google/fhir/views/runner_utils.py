@@ -24,8 +24,8 @@ import pandas as pd
 from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _spark_interpreter
-from google.fhir.core.fhir_path import expressions
 from google.fhir.core.fhir_path import fhir_path
+from google.fhir.views import column_expression_builder
 from google.fhir.views import views
 
 CODEABLE_CONCEPT = 'http://hl7.org/fhir/StructureDefinition/CodeableConcept'
@@ -148,7 +148,9 @@ class RunnerSqlGenerator:
             builder=expr, select_scalars_as_array=False
         )
 
-        inner_select_expressions.append(f'{select_expression} AS {field_name}')
+        inner_select_expressions.append(
+            f'{select_expression} AS {expr.column_name}'
+        )
 
     if include_patient_id_col or len(self._view.get_structdef_urls()) > 1:
       # Auto generate the __patientId__ field for the view if it exists for
@@ -303,7 +305,7 @@ class RunnerSqlGenerator:
     return ''
 
   def build_select_for_summarize_code(
-      self, code_expr: expressions.Builder
+      self, code_expr: column_expression_builder.ColumnExpressionBuilder
   ) -> str:
     """Builds select statement for use in summarize_codes functions for runners."""
     # TODO(b/239733067): Add constraint filtering to code summarization.
@@ -334,7 +336,7 @@ class RunnerSqlGenerator:
 
   def _encode(
       self,
-      builder: expressions.Builder,
+      builder: column_expression_builder.ColumnExpressionBuilder,
       select_scalars_as_array: bool,
       use_resource_alias: bool = False,
   ) -> str:
@@ -346,10 +348,10 @@ class RunnerSqlGenerator:
           fhir_path_expression=builder.fhir_path,
           select_scalars_as_array=select_scalars_as_array,
       )
-      return fhir_path.wrap_datetime_sql(builder, sql_statemet)
+      return fhir_path.wrap_datetime_sql(builder.builder, sql_statemet)
     else:
       return self._encoder.encode(
-          builder=builder,
+          builder=builder.builder,
           select_scalars_as_array=select_scalars_as_array,
           use_resource_alias=use_resource_alias,
       )
@@ -401,7 +403,7 @@ def _memberof_nodes_from_node(
 def clean_dataframe(
     df: pd.DataFrame,
     select_expressions_map: immutabledict.immutabledict[
-        str, expressions.Builder
+        str, column_expression_builder.ColumnExpressionBuilder
     ],
 ) -> pd.DataFrame:
   """Cleans dataframe retrieved from backend.
