@@ -29,6 +29,7 @@ from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _utils
 from google.fhir.core.fhir_path import context
 from google.fhir.r4 import primitive_handler
+from google.fhir.views import _view_config
 from google.fhir.views import column_expression_builder
 
 # For root views, since no fields are explicitly passed, we pass a 'field' that
@@ -376,3 +377,24 @@ class Views:
     return column_expression_builder.ColumnExpressionBuilder(
         _evaluation.StructureBaseNode(self._context, struct_type), self._handler
     )
+
+  def from_view_definition(self, view_definition: Dict[str, Any]) -> View:
+    """Returns a view of the FHIR resource according to given view_definition.
+
+    Args:
+      view_definition: A JSON format view defination which aligns with the
+        specification in
+        'https://build.fhir.org/ig/FHIR/sql-on-fhir-v2/StructureDefinition-ViewDefinition.html'.
+
+    Returns:
+      A FHIR View builder for the given view_definition.
+    """
+    config = _view_config.ViewConfig(
+        self._context, self._handler, view_definition
+    )
+    # Still converts fields to a map before making the View class accept a list.
+    select_fields = {
+        column_builder.column_name: column_builder
+        for column_builder in config.column_builders
+    }
+    return self.view_of(config.resource).select(select_fields)
