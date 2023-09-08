@@ -196,7 +196,7 @@ class RunnerUtilsTest(absltest.TestCase):
     enc = self._views.view_of('Encounter')
     pat = self._views.view_of('Patient')
 
-    enc_and_pat_class = enc.select({'__base__': enc.class_}).where(
+    enc_and_pat_class = enc.where(
         enc.statusHistory.period.start > pat.contact.first().period.start
     )
 

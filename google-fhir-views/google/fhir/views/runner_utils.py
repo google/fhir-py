@@ -15,9 +15,8 @@
 """Utility class to generate SQL expressions for different encoders."""
 
 import itertools
-from typing import Collection, Mapping, MutableSequence, Optional, Sequence, Union
+from typing import Collection, Mapping, MutableSequence, Optional, Sequence, Tuple, Union
 
-import immutabledict
 import numpy
 import pandas as pd
 
@@ -32,6 +31,8 @@ CODEABLE_CONCEPT = 'http://hl7.org/fhir/StructureDefinition/CodeableConcept'
 CODING = 'http://hl7.org/fhir/StructureDefinition/Coding'
 CODE = 'http://hl7.org/fhir/StructureDefinition/Code'
 STRING = 'http://hl7.org/fhirpath/System.String'
+
+PATIENT_ID_GENERATED_COLUMN_NAME = '__patientId__'
 
 
 class RunnerSqlGenerator:
@@ -89,10 +90,13 @@ class RunnerSqlGenerator:
     sorted_urls = sorted(self._view.get_structdef_urls())
 
     for url in sorted_urls:
-      inner_select_expressions = self._build_inner_select_expressions(
+      inner_select_builders = self._get_inner_select_builders(url)
+      patient_id_builder = self._get_patient_id_builder(
           url, include_patient_id_col
       )
-
+      inner_select_expressions = self._build_inner_select_expressions(
+          url, inner_select_builders, patient_id_builder
+      )
       inner_where_expressions = self._build_inner_where_expressions(url)
 
       # Build statement for the resource.
@@ -128,39 +132,58 @@ class RunnerSqlGenerator:
 
     return f'{sql_statement}'
 
-  def _build_inner_select_expressions(
+  def _get_inner_select_builders(
+      self,
+      url: str,
+  ) -> MutableSequence[column_expression_builder.ColumnExpressionBuilder]:
+    """Get inner select builders. Include a __patientId__ builder if needed."""
+    inner_select_builders = []
+
+    if url in self._view.get_url_to_field_indexes():
+      for index in self._view.get_url_to_field_indexes()[url]:
+        inner_select_builders.append(self._view.get_select_expressions()[index])
+
+    return inner_select_builders
+
+  def _get_patient_id_builder(
       self, url: str, include_patient_id_col: bool
+  ) -> Optional[column_expression_builder.ColumnExpressionBuilder]:
+    if include_patient_id_col or len(self._view.get_structdef_urls()) > 1:
+      # Auto generate the __patientId__ field for the view if it exists for
+      # every unique resource.
+      builder = self._view.get_patient_id_expression(url)
+      if builder:
+        return builder.alias(PATIENT_ID_GENERATED_COLUMN_NAME)
+    return None
+
+  def _build_inner_select_expressions(
+      self,
+      url: str,
+      select_builders: MutableSequence[
+          column_expression_builder.ColumnExpressionBuilder
+      ],
+      patient_id_builder: Optional[
+          column_expression_builder.ColumnExpressionBuilder
+      ],
   ) -> MutableSequence[str]:
     """Build inner select expressions."""
     inner_select_expressions = []
 
-    if url in self._view.get_url_to_field_names():
-      for field_name in self._view.get_url_to_field_names()[url]:
-        # If no fields have been specified, then return all fields on the
-        # resource table.
-        if field_name == views.BASE_BUILDER_KEY:
-          # There shouldn't be any more field names.
-          inner_select_expressions = ['*']
-          break
+    if url == self._view.get_root_resource_url() and not select_builders:
+      # If there're no select builders, it means selecting all fields from root.
+      inner_select_expressions.append('*')
 
-        expr = self._view.get_select_expressions()[field_name]
-        select_expression = self._encode(
-            builder=expr, select_scalars_as_array=False
-        )
+    if patient_id_builder:
+      select_builders.append(patient_id_builder)
 
-        inner_select_expressions.append(
-            f'{select_expression} AS {expr.column_name}'
-        )
+    for builder in select_builders:
+      select_expression = self._encode(
+          builder=builder, select_scalars_as_array=False
+      )
 
-    if include_patient_id_col or len(self._view.get_structdef_urls()) > 1:
-      # Auto generate the __patientId__ field for the view if it exists for
-      # every unique resource.
-      expr = self._view.get_patient_id_expression(url)
-      if expr:
-        expression = self._encode(builder=expr, select_scalars_as_array=False)
-
-        inner_select_expressions.append(f'{expression} AS __patientId__')
-
+      inner_select_expressions.append(
+          f'{select_expression} AS {builder.column_name}'
+      )
     return inner_select_expressions
 
   def _build_inner_where_expressions(self, url: str) -> MutableSequence[str]:
@@ -191,7 +214,7 @@ class RunnerSqlGenerator:
 
     # Check if the view has builders that reference multiple resources.
     has_mixed_resource_builders = (
-        len(self._view.get_multiresource_field_names())
+        len(self._view.get_multiresource_field_indexes())
         + len(self._view.get_multiresource_constraint_indexes())
     ) != 0
 
@@ -234,13 +257,15 @@ class RunnerSqlGenerator:
     """Returns a list of select expressions for multi resource selections."""
 
     multiresource_select_expressions = []
-    for field_name in self._view.get_multiresource_field_names():
-      expr = self._view.get_select_expressions()[field_name]
+    for index in self._view.get_multiresource_field_indexes():
+      builder = self._view.get_select_expressions()[index]
       select_expression = self._encode(
-          builder=expr, select_scalars_as_array=False, use_resource_alias=True
+          builder=builder,
+          select_scalars_as_array=False,
+          use_resource_alias=True,
       )
       multiresource_select_expressions.append(
-          f'{select_expression} AS {field_name}'
+          f'{select_expression} AS {builder.column_name}'
       )
     return multiresource_select_expressions
 
@@ -377,7 +402,7 @@ def _memberof_nodes_from_view(
   """Retrieves all MemberOfFunction in the given `view`."""
   nodes = []
   for builder in itertools.chain(
-      view.get_select_expressions().values(), view.get_constraint_expressions()
+      view.get_select_expressions(), view.get_constraint_expressions()
   ):
     nodes.extend(_memberof_nodes_from_node(builder.node))
 
@@ -402,28 +427,26 @@ def _memberof_nodes_from_node(
 
 def clean_dataframe(
     df: pd.DataFrame,
-    select_expressions_map: immutabledict.immutabledict[
-        str, column_expression_builder.ColumnExpressionBuilder
+    select_expressions: Tuple[
+        column_expression_builder.ColumnExpressionBuilder, ...
     ],
 ) -> pd.DataFrame:
   """Cleans dataframe retrieved from backend.
 
   Args:
     df: Dataframe to clean
-    select_expressions_map: If the view has expressions, we can narrow the
+    select_expressions: If the view has expressions, we can narrow the
       non-scalar column list by checking only for list or struct columns.
 
   Returns:
     Cleaned dataframe
   """
-  select_columns = set(select_expressions_map.keys())
-  select_columns.discard(views.BASE_BUILDER_KEY)
-
-  if select_columns:
+  if select_expressions:
     non_scalar_cols = [
-        col
-        for (col, expr) in select_expressions_map.items()
-        if expr.return_type.returns_collection() or expr.return_type.fields()
+        builder.column_name
+        for builder in select_expressions
+        if builder.return_type.returns_collection()
+        or builder.return_type.fields()
     ]
   else:
     # No fields were specified, so we must check any 'object' field

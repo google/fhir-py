@@ -38,8 +38,9 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
         }))
 
     expressions = enc_class.get_select_expressions()
-    self.assertEqual('class', expressions['class'].fhir_path)
-    self.assertEqual('class.display', expressions['display'].fhir_path)
+    self.assertLen(expressions, 2)
+    self.assertEqual('class', expressions[0].fhir_path)
+    self.assertEqual('class.display', expressions[1].fhir_path)
 
   def test_create_simple_view_for_patient_succeeds(self):
     """Test minimal view definition."""
@@ -53,10 +54,60 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     self.assertIsNotNone(active_patients)
 
     expressions = active_patients.get_select_expressions()
-    self.assertEqual('name.given', expressions['name'].fhir_path)
-    self.assertEqual('birthDate', expressions['birthDate'].fhir_path)
+    self.assertLen(expressions, 2)
+    self.assertEqual('name.given', expressions[0].fhir_path)
+    self.assertEqual('birthDate', expressions[1].fhir_path)
 
-  def test_view_to_string_for_patient_has_expected_expressions(self):
+  def test_create_simple_view_from_list_for_patient_succeeds(self):
+    """Test minimal view definition and select from a list."""
+    pat = self.get_views().view_of('Patient')
+
+    active_patients = pat.select(
+        [pat.name.given.alias('name'), pat.birthDate.alias('birthDate')]
+    ).where(pat.active)
+    self.assertIsNotNone(active_patients)
+
+    expressions = active_patients.get_select_expressions()
+    self.assertLen(expressions, 2)
+    self.assertEqual('name.given', expressions[0].fhir_path)
+    self.assertEqual('birthDate', expressions[1].fhir_path)
+
+  def test_invalid_field_without_alias_for_patient_fails(self):
+    """Ensures that select field without alias raise an error."""
+    pat = self.get_views().view_of('Patient')
+
+    with self.assertRaises(ValueError):
+      pat.select([pat.name.given.alias('name'), pat.birthDate])
+
+  def test_view_to_string_for_patient_base_view(self):
+    """Test View object __str__ has expected content."""
+    pat = self.get_views().view_of('Patient')
+
+    self.assertMultiLineEqual(
+        textwrap.dedent("""\
+          View<http://hl7.org/fhir/StructureDefinition/Patient.select(
+            *
+          )>"""),
+        str(pat),
+    )
+
+  def test_view_to_string_for_patient_has_fields_but_no_constraints(self):
+    """Test View object __str__ has expected content."""
+    pat = self.get_views().view_of('Patient')
+
+    patient_name_and_birth_date = pat.select(
+        {'name_field': pat.name.given, 'birth_date_field': pat.birthDate}
+    )
+    self.assertMultiLineEqual(
+        textwrap.dedent("""\
+          View<http://hl7.org/fhir/StructureDefinition/Patient.select(
+            name.given.alias(name_field),
+            birthDate.alias(birth_date_field)
+          )>"""),
+        str(patient_name_and_birth_date),
+    )
+
+  def test_view_to_string_for_patient_has_fields_and_constraints(self):
     """Test View object __str__ has expected content."""
     pat = self.get_views().view_of('Patient')
 
@@ -68,12 +119,14 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     self.assertMultiLineEqual(
         textwrap.dedent("""\
           View<http://hl7.org/fhir/StructureDefinition/Patient.select(
-            name_field: name.given,
-            birth_date_field: birthDate
+            name.given.alias(name_field),
+            birthDate.alias(birth_date_field)
           ).where(
             active,
             address.count() < 5
-          )>"""), str(active_patients))
+          )>"""),
+        str(active_patients),
+    )
 
   def test_invalid_where_predicate_for_patient_fails(self):
     """Ensures that non-boolean where expressions raise an error."""
@@ -122,15 +175,18 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
         'derivedActive': pat.active
     })
     expressions = base_patients.get_select_expressions()
-    self.assertEqual('name.given', expressions['name'].fhir_path)
-    self.assertEqual('active', expressions['derivedActive'].fhir_path)
+    self.assertLen(expressions, 2)
+    self.assertEqual('name.given', expressions[0].fhir_path)
+    self.assertEqual('active', expressions[1].fhir_path)
     self.assertEmpty(base_patients.get_constraint_expressions())
 
     # Active patients should have same expressions filtered with an active
     # constraint.
     active_patients = base_patients.where(base_patients.derivedActive)
     expressions = active_patients.get_select_expressions()
-    self.assertEqual('name.given', expressions['name'].fhir_path)
+    self.assertLen(expressions, 2)
+    self.assertEqual('name.given', expressions[0].fhir_path)
+    self.assertEqual('active', expressions[1].fhir_path)
     constraint_expressions = list(active_patients.get_constraint_expressions())
     self.assertLen(constraint_expressions, 1)
     self.assertEqual('active', constraint_expressions[0].fhir_path)
@@ -157,8 +213,10 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
         {'zip': pat.address.where(address.use == 'home').postalCode})
 
     expressions = patient_zip_codes.get_select_expressions()
-    self.assertEqual("address.where(use = 'home').postalCode",
-                     expressions['zip'].fhir_path)
+    self.assertLen(expressions, 1)
+    self.assertEqual(
+        "address.where(use = 'home').postalCode", expressions[0].fhir_path
+    )
 
   def test_cross_reference_for_patient_and_encounter_succeeds(self):
     """Test generation of views with two resources."""
@@ -185,14 +243,16 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     select_expressions = enc_and_pat_class.get_select_expressions()
     self.assertLen(select_expressions, 3)
 
-    enc_fields = enc_and_pat_class.get_url_to_field_names(
-    )['http://hl7.org/fhir/StructureDefinition/Encounter']
-    self.assertSameElements(['class', 'where'], enc_fields)
+    enc_fields = enc_and_pat_class.get_url_to_field_indexes()[
+        'http://hl7.org/fhir/StructureDefinition/Encounter'
+    ]
+    self.assertSameElements([0, 1], enc_fields)
 
-    pat_fields = enc_and_pat_class.get_url_to_field_names(
-    )['http://hl7.org/fhir/StructureDefinition/Patient']
+    pat_fields = enc_and_pat_class.get_url_to_field_indexes()[
+        'http://hl7.org/fhir/StructureDefinition/Patient'
+    ]
     self.assertLen(pat_fields, 1)
-    self.assertSameElements(['pat'], pat_fields)
+    self.assertSameElements([2], pat_fields)
 
     constraint_expressions = enc_and_pat_class.get_constraint_expressions()
     self.assertLen(constraint_expressions, 2)

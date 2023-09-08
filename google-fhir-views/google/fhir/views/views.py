@@ -20,9 +20,7 @@ implementations (like the BigQuery runner) for realizing the views themselves.
 """
 
 import keyword
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
-
-import immutabledict
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
@@ -31,11 +29,6 @@ from google.fhir.core.fhir_path import context
 from google.fhir.r4 import primitive_handler
 from google.fhir.views import _view_config
 from google.fhir.views import column_expression_builder
-
-# For root views, since no fields are explicitly passed, we pass a 'field' that
-# indicates to the view that the Resource its created with is the one keyed to
-# this field.
-BASE_BUILDER_KEY = '__base__'
 
 
 class View:
@@ -50,10 +43,10 @@ class View:
   A simple example of defining a view can be seen here:
 
   >>> active_patients = (
-  >>>   pat.select({
-  >>>       'name': pat.name.given,
-  >>>       'birthDate': pat.birthDate
-  >>>   }).where(pat.active))
+  >>>   pat.select([
+  >>>       pat.name.given.alias('name'),
+  >>>       pat.birthDate.alias('birthDate')
+  >>>   }]).where(pat.active))
 
   Users will define these in this class, and use a runner to apply the view
   logic to an underlying datasource, like FHIR data stored in BigQuery.
@@ -62,10 +55,8 @@ class View:
   def __init__(
       self,
       fhir_context: context.FhirPathContext,
-      fields: immutabledict.immutabledict[
-          str,
-          column_expression_builder.ColumnExpressionBuilder,
-      ],
+      root_resource: column_expression_builder.ColumnExpressionBuilder,
+      fields: Tuple[column_expression_builder.ColumnExpressionBuilder, ...],
       constraints: Tuple[
           column_expression_builder.ColumnExpressionBuilder,
           ...,
@@ -76,28 +67,35 @@ class View:
     # defs that anyone would ever use, but in theory, there could be contexts
     # for different views that don't share the same subset of structure defs.
     self._context = fhir_context
+    self._root_resource = root_resource
     self._constraints = constraints
     self._handler = handler
     self._structdef_urls = set()
 
-    view_fields = {}
-    for name, field in fields.items():
-      if name == BASE_BUILDER_KEY or field.column_name:
-        view_fields[name] = field
-      else:
-        view_fields[name] = field.alias(name)
-    self._fields = immutabledict.immutabledict(view_fields)
+    for field in fields:
+      if not field.column_name:
+        raise ValueError(
+            f'View `select` expressions must have column names. Got `{field}`'
+        )
+    self._fields = fields
 
-    # Collects all the builders that reference multiple resources.
-    self._multiresource_field_names = []
-    # Collects urls to field names of single resource builders.
-    self._url_to_field_names = {}
-    self.sort_builders(self._fields.items(), self._url_to_field_names,
-                       self._multiresource_field_names)
+    # Collects all the field builders that reference multiple resources.
+    self._multiresource_field_indexes = []
+    # Collects urls to field indexes of single resource builders.
+    self._url_to_field_indexes = {}
+    self.sort_builders(
+        enumerate(self._fields),
+        self._url_to_field_indexes,
+        self._multiresource_field_indexes,
+    )
 
-    # Collects all the builders that reference multiple resources.
+    if not self._fields:
+      # If no fields are selected, it means selecting all fields from root.
+      self._structdef_urls.add(self.get_root_resource_url())
+
+    # Collects all the constraint builders that reference multiple resources.
     self._multiresource_constraint_indexes = []
-    # Collects urls to field names of single resource builders.
+    # Collects urls to constraint indexes of single resource builders.
     self._url_to_constraint_indexes = {}
     self.sort_builders(
         enumerate(self._constraints), self._url_to_constraint_indexes,
@@ -107,31 +105,48 @@ class View:
                                                                          Any],
                     multiresource_list: List[Any]) -> None:
     """Sorts the builders between single url and multiple url builders."""
-    for name, field in builders:
-      resources = field.get_resource_builders()
+    for index, builder in builders:
+      resources = builder.get_resource_builders()
       for resource in resources:
         self._structdef_urls.add(resource.return_type.url)
 
       if len(resources) > 1:
-        multiresource_list.append(name)
+        multiresource_list.append(index)
         continue
 
       url = resources[0].return_type.url
       if url not in url_to_resource:
         url_to_resource[url] = []
-      url_to_resource[url].append(name)
+      url_to_resource[url].append(index)
 
   def select(
       self,
-      fields: Dict[
-          str,
-          column_expression_builder.ColumnExpressionBuilder,
+      fields: Union[
+          Dict[
+              str,
+              column_expression_builder.ColumnExpressionBuilder,
+          ],
+          List[column_expression_builder.ColumnExpressionBuilder],
       ],
   ) -> 'View':
     """Returns a View instance that selects the given fields."""
     # TODO(b/244184211): select statements should build on current fields.
-    return View(self._context, immutabledict.immutabledict(fields),
-                self._constraints, self._handler)
+
+    if isinstance(fields, dict):
+      fields_tuple = tuple(
+          field if field.column_name else field.alias(name)
+          for name, field in fields.items()
+      )
+    else:
+      fields_tuple = tuple(fields)
+
+    return View(
+        self._context,
+        self._root_resource,
+        fields_tuple,
+        self._constraints,
+        self._handler,
+    )
 
   def where(
       self,
@@ -151,8 +166,13 @@ class View:
             f' got `{constraint.node.to_fhir_path()}`',
         ))
 
-    return View(self._context, self._fields,
-                self._constraints + tuple(constraints), self._handler)
+    return View(
+        self._context,
+        self._root_resource,
+        self._fields,
+        self._constraints + tuple(constraints),
+        self._handler,
+    )
 
   def __getattr__(
       self, name: str
@@ -171,26 +191,27 @@ class View:
     # appended to the name.
     lookup = name[:-1] if name.endswith('_') and keyword.iskeyword(
         name[:-1]) else name
-    if BASE_BUILDER_KEY in self._fields:
+
+    expression = None
+    if self._fields:
+      for builder in self._fields:
+        # View has defined fields, so use them as the base builder expressions.
+        if builder.column_name == lookup:
+          expression = builder
+    else:
       # View is using the root resource, so look up fields from that
       # structure
-      expression = getattr(self._fields[BASE_BUILDER_KEY], lookup)
-    elif self._fields:
-      # View has defined fields, so use them as the base builder expressions.
-      expression = self._fields.get(lookup)
-    else:
-      raise ValueError('Malformed view. View was created with no previous view '
-                       'or resource.')
+      expression = getattr(self._root_resource, lookup)
 
     if expression is None:
       raise AttributeError(f'No such field {name}')
     return column_expression_builder.ColumnExpressionBuilder(expression)
 
   def __dir__(self) -> List[str]:
-    if BASE_BUILDER_KEY in self._fields:
-      fields = self._fields[BASE_BUILDER_KEY].fhir_path_fields()
+    if self._fields:
+      fields: List[str] = [builder.column_name for builder in self._fields]  # pytype: disable=annotation-type-mismatch
     else:
-      fields = list(self._fields.keys())
+      fields = self._root_resource.fhir_path_fields()
 
     fields.extend(dir(type(self)))
     return fields
@@ -199,17 +220,17 @@ class View:
     """Returns all the unique URLS referenced in the view."""
     return self._structdef_urls
 
-  def get_url_to_field_names(self) -> Dict[str, List[str]]:
+  def get_url_to_field_indexes(self) -> Dict[str, List[int]]:
     """Returns the dictionary of URLS to field names."""
-    return self._url_to_field_names
+    return self._url_to_field_indexes
 
   def get_url_to_constraint_indexes(self) -> Dict[str, List[int]]:
     """Returns the dictionary of URLs to constraint indices."""
     return self._url_to_constraint_indexes
 
-  def get_multiresource_field_names(self) -> List[str]:
+  def get_multiresource_field_indexes(self) -> List[int]:
     """Returns the dictionary of URLS to field names."""
-    return self._multiresource_field_names
+    return self._multiresource_field_indexes
 
   def get_multiresource_constraint_indexes(self) -> List[int]:
     """Returns the dictionary of URLs to constraint indices."""
@@ -253,9 +274,7 @@ class View:
 
   def get_select_expressions(
       self,
-  ) -> immutabledict.immutabledict[
-      str, column_expression_builder.ColumnExpressionBuilder
-  ]:
+  ) -> Tuple[column_expression_builder.ColumnExpressionBuilder, ...]:
     """Returns the fields used in the view and their corresponding expressions.
 
     Returns:
@@ -274,29 +293,38 @@ class View:
     """
     return self._constraints
 
+  def get_root_resource_url(self) -> str:
+    return self._root_resource.return_type.url
+
   def get_fhir_path_context(self) -> context.FhirPathContext:
     return self._context
 
   def __str__(self) -> str:
+    structdef_urls = ',\n'.join(self.get_structdef_urls())
+    view_strings = [f'View<{structdef_urls}']
+
     select_strings = []
-    for name, builder in self.get_select_expressions().items():
-      select_strings.append(f'  {name}: {builder.fhir_path}')
+    for builder in self.get_select_expressions():
+      select_strings.append(f'  {builder}')
+    if not select_strings:
+      select_strings.append('  *')
+    view_strings.append(
+        '.select(\n{selects}\n)'.format(selects=',\n'.join(select_strings))
+    )
 
     where_strings = []
     for builder in self.get_constraint_expressions():
       where_strings.append(f'  {builder.fhir_path}')
+    if where_strings:
+      view_strings.append(
+          '.where(\n{constraints}\n)'.format(
+              constraints=',\n'.join(where_strings)
+          )
+      )
 
-    structdef_urls = ',\n'.join(self.get_structdef_urls())
-    if not where_strings:
-      return 'View<{resource}.select(\n{selects}\n)>'.format(
-          resource=structdef_urls, selects=',\n'.join(select_strings))
-    else:
-      return ('View<{resource}.select(\n'
-              '{selects}\n'
-              ').where(\n{constraints}\n)>').format(
-                  resource=structdef_urls,
-                  selects=',\n'.join(select_strings),
-                  constraints=',\n'.join(where_strings))
+    view_strings.append('>')
+
+    return ''.join(view_strings)
 
   def __repr__(self) -> str:
     return str(self)
@@ -328,9 +356,7 @@ class Views:
     builder = column_expression_builder.ColumnExpressionBuilder(
         _evaluation.RootMessageNode(self._context, struct_type), self._handler
     )
-    return View(self._context,
-                immutabledict.immutabledict({BASE_BUILDER_KEY: builder}), (),
-                self._handler)
+    return View(self._context, builder, (), (), self._handler)
 
   def expression_for(
       self, structdef_url: str
@@ -344,10 +370,10 @@ class Views:
     >>> obs = views.view_of('Observation')
     >>> coding = views.expression_for('Coding')
     >>>
-    >>> obs.select({
-    >>>   'loinc_codes': obs.code.coding.where(coding.system ==
-    >>>                                        'http://loinc.org').code
-    >>>   })
+    >>> obs.select([
+    >>>   obs.code.coding.where(coding.system ==
+    >>>                         'http://loinc.org').code.alias('loinc_codes')
+    >>>   ])
 
     Since the `where` expression is a path to a FHIR Coding structure,
     it's convenient to use an expression builder based on Coding to create that.
@@ -357,10 +383,10 @@ class Views:
     the one above -- it just uses the Coding expression builder that already
     exists as part of the larger resource:
 
-    >>> obs.select({
-    >>>   'loinc_codes': obs.code.coding.where(obs.code.coding.system ==
-    >>>                                        'http://loinc.org').code
-    >>>   })
+    >>> obs.select([
+    >>>   obs.code.coding.where(obs.code.coding.system ==
+    >>>                         'http://loinc.org').code.alias('loinc_codes')
+    >>>   )
 
     Args:
       structdef_url: URL of the FHIR resource to load. Per the FHIR spec, an
@@ -392,9 +418,4 @@ class Views:
     config = _view_config.ViewConfig(
         self._context, self._handler, view_definition
     )
-    # Still converts fields to a map before making the View class accept a list.
-    select_fields = {
-        column_builder.column_name: column_builder
-        for column_builder in config.column_builders
-    }
-    return self.view_of(config.resource).select(select_fields)
+    return self.view_of(config.resource).select(config.column_builders)

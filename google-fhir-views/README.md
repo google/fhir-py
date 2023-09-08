@@ -32,17 +32,16 @@ pats = views.view_of('Patient')
 # This can be adjusted to meet the needs of a specific dataset.
 current = pats.address.where(pats.address.period.empty()).first()
 
-simple_pats = pats.select({
-    'id': pats.id,
-    'gender': pats.gender,
-    'birthdate': pats.birthDate,
-    'street': current.line.first(),
-    'city': current.city,
-    'state': current.state,
-    'zip': current.postalCode
-    }).where(
+simple_pats = pats.select([
+    pats.id.alias('id'),
+    pats.gender.alias('gender'),
+    pats.birthDate.alias('birthdate'),
+    current.line.first().alias('street'),
+    current.city.alias('city'),
+    current.state.alias('state'),
+    current.postalCode.alias('zip')
+    ]).where(
        pats.birthDate < datetime.date(1960,1,1))
-
 ```
 
 If you run the above in a Jupyter notebook or similar tool, you'll notice that
@@ -56,17 +55,18 @@ by just pressing tab:
 That builder is convenient for Python users, but you can also see the FHIRPath
 expression themselves by just getting the string representation of the view,
 such as by running `print(simple_pats)`. Notice every column and the 'where'
-criteria are defined by FHIRPath expressions:
+criteria are defined by FHIRPath expressions, while every column must define
+its name in the alias() function appended to the FHIRPath:
 
 ```
 View<http://hl7.org/fhir/StructureDefinition/Patient.select(
-  id: id,
-  gender: gender,
-  birthdate: birthDate,
-  street: address.where(period.empty()).first().line.first(),
-  city: address.where(period.empty()).first().city,
-  state: address.where(period.empty()).first().state,
-  zip: address.where(period.empty()).first().postalCode
+  id.alias(id),
+  gender.alias(gender),
+  birthDate.alias(birthdate),
+  address.where(period.empty()).first().line.first().alias(street),
+  address.where(period.empty()).first().city.alias(city),
+  address.where(period.empty()).first().state.alias(state),
+  address.where(period.empty()).first().postalCode.alias(zip)
 ).where(
   birthDate < @1960-01-01
 )>
@@ -141,14 +141,14 @@ Now we can easily query observations with a view that uses the FHIRPath
 obs = views.view_of('Observation')
 
 ldl_obs = obs.select({
-    'patient': obs.subject.idFor('Patient'),
+    obs.subject.idFor('Patient').alias('patient'),
     # Below is a Pythonic shorthand -- users could type
     # `obs.value.ofType('Quantity').value` instead for the FHIRPath ofType
     # expression, but the shorthand helps autocompletion
-    'value': obs.valueQuantity.value,
-    'unit': obs.valueQuantity.unit,
-    'test': obs.code.coding.display.first(),
-    'effectiveTime': obs.effectiveDateTime
+    obs.valueQuantity.value.alias('value'),
+    obs.valueQuantity.unit.alias('unit'),
+    obs.code.coding.display.first().alias('test'),
+    obs.effectiveDateTime.alias('effectiveTime')
     }).where(obs.code.memberOf(LDL_TEST))
 
 runner.to_dataframe(ldl_obs, limit=5)
@@ -198,10 +198,10 @@ BigQuery, you can simply refer to its URL.
 
 ```py
 injury_conds =  cond.select({
-    'id': cond.id,
-    'patientId': cond.subject.idFor('Patient'),
-    'codes': cond.code}
-    ).where(cond.code.memberOf(injury_value_set_url))
+    cond.id.alias('id'),
+    cond.subject.idFor('Patient').alias('patientId'),
+    cond.code.alias('codes')
+    }).where(cond.code.memberOf(injury_value_set_url))
 
 runner.create_database_view(injury_conds, 'injury_conditions')
 ```
