@@ -30,7 +30,6 @@ from google.fhir.r4.proto.core import datatypes_pb2
 from google.fhir.r4.proto.core.resources import structure_definition_pb2
 from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core import fhir_errors
-# TODO(b/268404151): Remove copybara once core/execution is supported.
 from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _structure_definitions as sdefs
 from google.fhir.core.fhir_path import context as context_lib
@@ -39,7 +38,6 @@ from google.fhir.core.fhir_path import fhir_path_options
 from google.fhir.core.fhir_path import fhir_path_test_base
 from google.fhir.core.fhir_path import fhir_path_validator
 from google.fhir.core.fhir_path import fhir_path_validator_v2
-# TODO(b/268404151): Remove copybara once core/execution is supported.
 from google.fhir.r4 import primitive_handler
 
 
