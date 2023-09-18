@@ -263,3 +263,54 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     pat_constraints = enc_and_pat_class.get_url_to_constraint_indexes(
     )['http://hl7.org/fhir/StructureDefinition/Patient']
     self.assertSameElements([0], pat_constraints)
+
+  def test_create_from_view_definition_succeeds(self):
+    """Test create view from view definition."""
+    view_definition = {
+        'resource': 'Patient',
+        'select': [
+            {'name': 'name', 'path': 'name.given'},
+            {'name': 'birthDate', 'path': 'birthDate'},
+        ],
+    }
+
+    active_patients = self.get_views().from_view_definition(view_definition)
+    self.assertIsNotNone(active_patients)
+
+    expressions = active_patients.get_select_expressions()
+    self.assertLen(expressions, 2)
+    self.assertEqual('name.given', expressions[0].fhir_path)
+    self.assertEqual('birthDate', expressions[1].fhir_path)
+    self.assertEmpty(active_patients.get_constraint_expressions())
+
+  def test_create_from_view_definition_with_constraints_succeeds(self):
+    """Test create view from view definition."""
+    view_definition = {
+        'resource': 'Patient',
+        'select': [
+            {'name': 'name', 'path': 'name.given'},
+            {'name': 'birthDate', 'path': 'birthDate'},
+        ],
+        'where': [{'path': 'active'}],
+    }
+
+    active_patients = self.get_views().from_view_definition(view_definition)
+    self.assertIsNotNone(active_patients)
+
+    constraints = active_patients.get_constraint_expressions()
+    self.assertLen(constraints, 1)
+    self.assertEqual('active', constraints[0].fhir_path)
+
+  def test_create_from_invalid_where_predicate_view_definition_fails(self):
+    """Ensures that non-boolean where expressions raise an error."""
+    view_definition = {
+        'resource': 'Patient',
+        'select': [
+            {'name': 'name', 'path': 'name.given'},
+            {'name': 'birthDate', 'path': 'birthDate'},
+        ],
+        'where': [{'path': 'address'}],
+    }
+
+    with self.assertRaises(ValueError):
+      self.get_views().from_view_definition(view_definition)

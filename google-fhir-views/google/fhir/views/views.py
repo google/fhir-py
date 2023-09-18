@@ -418,4 +418,8 @@ class Views:
     config = _view_config.ViewConfig(
         self._context, self._handler, view_definition
     )
-    return self.view_of(config.resource).select(config.column_builders)
+    return (
+        self.view_of(config.resource)
+        .select(config.column_builders)
+        .where(*config.constraint_builders)
+    )

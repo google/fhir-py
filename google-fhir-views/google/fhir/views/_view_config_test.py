@@ -106,6 +106,48 @@ class ConfigTest(absltest.TestCase):
     with self.assertRaises(NotImplementedError):
       _view_config.ViewConfig(self._context, self._handler, view_definition)
 
+  def test_valid_config_with_where(self):
+    view_definition = {
+        "resource": "Patient",
+        "select": [
+            {"name": "patient_id", "path": "id"},
+            {"name": "birth_date", "path": "birthDate"},
+        ],
+        "where": [{"path": "birthDate < @1990-01-01"}],
+    }
+    config = _view_config.ViewConfig(
+        self._context, self._handler, view_definition
+    )
+    self.assertLen(config.constraint_builders, 1)
+    self.assertEqual(
+        repr(config.constraint_builders[0]),
+        'ColumnExpressionBuilder("birthDate < @1990-01-01")',
+    )
+
+  def test_config_with_where_without_path_raises_error(self):
+    view_definition = {
+        "resource": "Patient",
+        "select": [
+            {"name": "patient_id", "path": "id"},
+            {"name": "birth_date", "path": "birthDate"},
+        ],
+        "where": [{"description": "birthDate < @1990-01-01"}],
+    }
+    with self.assertRaises(KeyError):
+      _view_config.ViewConfig(self._context, self._handler, view_definition)
+
+  def test_config_with_non_string_where_path_raises_error(self):
+    view_definition = {
+        "resource": "Patient",
+        "select": [
+            {"name": "patient_id", "path": "id"},
+            {"name": "birth_date", "path": "birthDate"},
+        ],
+        "where": [{"path": False}],
+    }
+    with self.assertRaises(ValueError):
+      _view_config.ViewConfig(self._context, self._handler, view_definition)
+
 
 if __name__ == "__main__":
   absltest.main()

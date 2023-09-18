@@ -44,6 +44,52 @@ simple_pats = pats.select([
        pats.birthDate < datetime.date(1960,1,1))
 ```
 
+With support for
+[SQL on FHIR v2](https://build.fhir.org/ig/FHIR/sql-on-fhir-v2/), the above
+view can also be defined as:
+
+```py
+simple_pats_config = {
+    'resource': 'Patient',
+    'select': [
+        {
+            'name': 'id',
+            'path': 'id',
+        },
+        {
+            'name': 'gender',
+            'path': 'gender',
+        },
+        {
+            'name': 'birthDate',
+            'path': 'birthDate',
+        },
+        {
+            'name': 'street',
+            'path': 'address.where(address.period.empty()).first().line.first()',
+        },
+        {
+            'name': 'city',
+            'path': 'address.where(address.period.empty()).first().city',
+        },
+        {
+            'name': 'state',
+            'path': 'address.where(address.period.empty()).first().state',
+        },
+        {
+            'name': 'zip',
+            'path': 'address.where(address.period.empty()).first().postalCode',
+        },
+    ],
+    'where': [
+        {'path': 'birthDate < @1960-01-01'},
+    ],
+}
+
+views = r4.base_r4()
+simple_pats = views.from_view_defination(simple_pats_config)
+```
+
 If you run the above in a Jupyter notebook or similar tool, you'll notice that
 the view builder supports tab suggestions that matches the fields in the FHIR
 resource of the given profile. In fact, this is just a Pythonic way to build
@@ -140,7 +186,7 @@ Now we can easily query observations with a view that uses the FHIRPath
 # base type in a notebook.
 obs = views.view_of('Observation')
 
-ldl_obs = obs.select({
+ldl_obs = obs.select([
     obs.subject.idFor('Patient').alias('patient'),
     # Below is a Pythonic shorthand -- users could type
     # `obs.value.ofType('Quantity').value` instead for the FHIRPath ofType
@@ -149,7 +195,7 @@ ldl_obs = obs.select({
     obs.valueQuantity.unit.alias('unit'),
     obs.code.coding.display.first().alias('test'),
     obs.effectiveDateTime.alias('effectiveTime')
-    }).where(obs.code.memberOf(LDL_TEST))
+    ]).where(obs.code.memberOf(LDL_TEST))
 
 runner.to_dataframe(ldl_obs, limit=5)
 ```
@@ -197,11 +243,11 @@ To make queries against an externally-defined value set which you've saved to
 BigQuery, you can simply refer to its URL.
 
 ```py
-injury_conds =  cond.select({
+injury_conds =  cond.select([
     cond.id.alias('id'),
     cond.subject.idFor('Patient').alias('patientId'),
     cond.code.alias('codes')
-    }).where(cond.code.memberOf(injury_value_set_url))
+    ]).where(cond.code.memberOf(injury_value_set_url))
 
 runner.create_database_view(injury_conds, 'injury_conditions')
 ```

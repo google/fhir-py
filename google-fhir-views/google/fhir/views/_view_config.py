@@ -49,7 +49,10 @@ class ViewConfig:
   >>>       "name": "birth_date",
   >>>       "path": "birthDate"
   >>>     }
-  >>>   ]
+  >>>   ],
+  >>>   "where": [{
+  >>>       "path": "birthDate < @1960-01-01"
+  >>>   }]
   >>> }
 
   Users most likely do not need to call this class by themselves. Instead,
@@ -81,6 +84,22 @@ class ViewConfig:
         self._select_list,
     ).column_builders
 
+    self._constraint_builders = []
+    if 'where' in view_definition:
+      for constraint in view_definition['where']:
+        if 'path' not in constraint:
+          raise KeyError(
+              f'All where clauses must contain `path` fields. Got {constraint}.'
+          )
+        if not isinstance(constraint['path'], str):
+          raise ValueError(
+              'The `path` field in a where clause must be strings.'
+              f' Got {constraint["path"]}.'
+          )
+        self._constraint_builders.append(
+            self._fhir_path_to_column_builder(constraint['path'])
+        )
+
   @property
   def resource(self) -> str:
     return self._resource
@@ -90,6 +109,12 @@ class ViewConfig:
       self,
   ) -> List[column_expression_builder.ColumnExpressionBuilder]:
     return self._column_builders
+
+  @property
+  def constraint_builders(
+      self,
+  ) -> List[column_expression_builder.ColumnExpressionBuilder]:
+    return self._constraint_builders
 
   def _fhir_path_to_column_builder(
       self,
