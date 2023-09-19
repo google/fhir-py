@@ -34,7 +34,7 @@ class ViewConfig:
   A view definition must contain information of:
    * resource: FHIR Resource for the ViewDefinition.
    * Zero or more select clauses which define the content of columns within the
-   view. Currently, we only support the simple name-path select clause.
+   view. Currently, we only support the simple alias-path select clause.
 
   An example of a basic view definition can be seen here:
 
@@ -42,11 +42,11 @@ class ViewConfig:
   >>>   "resource": "Patient",
   >>>   "select": [
   >>>     {
-  >>>       "name": "patient_id",
+  >>>       "alias": "patient_id",
   >>>       "path": "id"
   >>>     },
   >>>     {
-  >>>       "name": "birth_date",
+  >>>       "alias": "birth_date",
   >>>       "path": "birthDate"
   >>>     }
   >>>   ],
@@ -151,20 +151,20 @@ class Select(abc.ABC):
 
 
 class PathSelect(Select):
-  """One type of `select` clause which contains a `name` and a `path`."""
+  """One type of `select` clause which contains a `alias` and a `path`."""
 
   @property
   def column_builder(
       self,
   ) -> column_expression_builder.ColumnExpressionBuilder:
-    name = self._select['name']
+    alias = self._select['alias']
     path = self._select['path']
-    if not isinstance(name, str) or not isinstance(path, str):
+    if not isinstance(alias, str) or not isinstance(path, str):
       raise ValueError(
-          'Both name and path in a select clause must be strings.'
-          f' Got {name} and {path}.'
+          'Both `alias` and `path` in a select clause must be strings.'
+          f' Got {alias} and {path}.'
       )
-    return self._fhir_path_to_column_builder(path, self._root).alias(name)
+    return self._fhir_path_to_column_builder(path, self._root).alias(alias)
 
 
 class SelectList:
@@ -183,14 +183,14 @@ class SelectList:
     ] = []
 
     for select in select_list:
-      if 'name' in select and 'path' in select:
+      if 'alias' in select and 'path' in select:
         self._column_builders.append(
             PathSelect(fhir_path_to_column_builder, select, root).column_builder
         )
       else:
         raise NotImplementedError(
-            'Only select clauses containing a `name` and a `path` are supported'
-            ' for now.'
+            'Only select clauses containing an `alias` and a `path` are'
+            ' supported for now.'
         )
 
   @property

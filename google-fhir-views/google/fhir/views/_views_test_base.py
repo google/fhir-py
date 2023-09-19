@@ -269,8 +269,8 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     view_definition = {
         'resource': 'Patient',
         'select': [
-            {'name': 'name', 'path': 'name.given'},
-            {'name': 'birthDate', 'path': 'birthDate'},
+            {'alias': 'name', 'path': 'name.given'},
+            {'alias': 'birthDate', 'path': 'birthDate'},
         ],
     }
 
@@ -288,8 +288,8 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     view_definition = {
         'resource': 'Patient',
         'select': [
-            {'name': 'name', 'path': 'name.given'},
-            {'name': 'birthDate', 'path': 'birthDate'},
+            {'alias': 'name', 'path': 'name.given'},
+            {'alias': 'birthDate', 'path': 'birthDate'},
         ],
         'where': [{'path': 'active'}],
     }
@@ -306,8 +306,8 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     view_definition = {
         'resource': 'Patient',
         'select': [
-            {'name': 'name', 'path': 'name.given'},
-            {'name': 'birthDate', 'path': 'birthDate'},
+            {'alias': 'name', 'path': 'name.given'},
+            {'alias': 'birthDate', 'path': 'birthDate'},
         ],
         'where': [{'path': 'address'}],
     }

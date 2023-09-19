@@ -53,31 +53,31 @@ simple_pats_config = {
     'resource': 'Patient',
     'select': [
         {
-            'name': 'id',
+            'alias': 'id',
             'path': 'id',
         },
         {
-            'name': 'gender',
+            'alias': 'gender',
             'path': 'gender',
         },
         {
-            'name': 'birthDate',
+            'alias': 'birthDate',
             'path': 'birthDate',
         },
         {
-            'name': 'street',
+            'alias': 'street',
             'path': 'address.where(address.period.empty()).first().line.first()',
         },
         {
-            'name': 'city',
+            'alias': 'city',
             'path': 'address.where(address.period.empty()).first().city',
         },
         {
-            'name': 'state',
+            'alias': 'state',
             'path': 'address.where(address.period.empty()).first().state',
         },
         {
-            'name': 'zip',
+            'alias': 'zip',
             'path': 'address.where(address.period.empty()).first().postalCode',
         },
     ],
