@@ -11,8 +11,7 @@ or [R4](https://www.hl7.org/fhir/datatypes.html).
 
 Each concrete wrapper implementation adheres to the
 `primitive_wrappers.PrimitiveWrapper` abstract base class. Each FHIR version-
-specific target (e.g. `//py/google/fhir/jsonformat/stu3`,
-`//py/google/fhir/jsonformat/r4`) provides a wrapper implementation for an
+specific target provides a wrapper implementation for an
 encountered FHIR primitive at runtime via the
 `primitive_handler.PrimitiveHandler` class. The vast majority of FHIR primitives
 are "wrapped" using a `StringWrapper` implementation. Those primitives requiring
@@ -36,8 +35,7 @@ implementation.
 ## Testing
 
 Testing necessitates parsing/printing specific FHIR versions of primitive
-protobufs. As such, each FHIR version-specific target (e.g.
-`//py/google/fhir/jsonformat/stu3`, `//py/google/fhir/jsonformat/r4`) tests the
+protobufs. As such, each FHIR version-specific target tests the
 primitive wrapper implementations via the `primitive_handler_test.py` module by
 providing a specific implementation of the `primitive_handler.PrimitiveHandler`
 class.
