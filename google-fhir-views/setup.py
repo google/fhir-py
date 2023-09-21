@@ -42,7 +42,7 @@ def main():
       packages=namespace_packages,
       include_package_data=True,
       license='Apache 2.0',
-      python_requires='>=3.8, <3.11',
+      python_requires='>=3.8, <3.12',
       install_requires=[
           'absl-py~=1.1',
           f'google-fhir-core~={version}',
@@ -77,6 +77,7 @@ def main():
           'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.10',
+          'Programming Language :: Python :: 3.11',
       ],
   )
 

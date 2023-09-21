@@ -14,10 +14,10 @@
 # limitations under the License.
 """The setuptools script for the google-fhir-r4 distribution package."""
 
-from distutils import spawn
 import glob
 import os
 import pathlib
+import shutil
 import site
 import subprocess
 from urllib import request
@@ -31,7 +31,7 @@ def _get_protoc_command():
   if 'PROTOC' in os.environ and os.path.exists(os.environ['PROTOC']):
     protoc = os.environ['PROTOC']
   else:
-    protoc = spawn.find_executable('protoc')
+    protoc = shutil.which('protoc')
 
   if not protoc:
     raise FileNotFoundError(
@@ -118,7 +118,7 @@ def main():
       packages=namespace_packages,
       include_package_data=True,
       license='Apache 2.0',
-      python_requires='>=3.8, <3.11',
+      python_requires='>=3.8, <3.12',
       install_requires=[
           f'google-fhir-core~={version}',
           'backports.zoneinfo~=0.2.1;python_version<"3.9"',
@@ -137,6 +137,7 @@ def main():
           'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.10',
+          'Programming Language :: Python :: 3.11',
       ],
   )
 
