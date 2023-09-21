@@ -408,7 +408,7 @@ class Views:
     """Returns a view of the FHIR resource according to given view_definition.
 
     Args:
-      view_definition: A JSON format view defination which aligns with the
+      view_definition: A JSON format view definition which aligns with the
         specification in
         'https://build.fhir.org/ig/FHIR/sql-on-fhir-v2/StructureDefinition-ViewDefinition.html'.
 

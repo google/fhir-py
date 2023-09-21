@@ -87,7 +87,7 @@ simple_pats_config = {
 }
 
 views = r4.base_r4()
-simple_pats = views.from_view_defination(simple_pats_config)
+simple_pats = views.from_view_definition(simple_pats_config)
 ```
 
 If you run the above in a Jupyter notebook or similar tool, you'll notice that
