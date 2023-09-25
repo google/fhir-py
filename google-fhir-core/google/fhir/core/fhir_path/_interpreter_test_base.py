@@ -32,8 +32,6 @@ from google.fhir.core.fhir_path import python_compiled_expressions
 from google.fhir.core.fhir_path import quantity
 from google.fhir.core.utils import proto_utils
 
-_UNIX_EPOCH = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
-
 
 class _ParameterizedABCMetaclass(
     parameterized.TestGeneratorMetaclass, abc.ABCMeta
@@ -1293,8 +1291,7 @@ class FhirPathExpressionsTest(
     )
 
   def _to_value_us(self, dt: datetime.datetime) -> int:
-    delta = dt - _UNIX_EPOCH
-    return int(delta.total_seconds() * 1e6)
+    return int(dt.timestamp() * 1e6)
 
   def test_date_comparison_for_resource_succeeds(self):
     """Tests date comparison builders."""
@@ -2197,7 +2194,7 @@ class FhirPathExpressionsTest(
     self.assertEqual(builder_expr.get_root_builder().fhir_path, 'Patient')
 
   def test_resolve_nested_reference_succeeds(self):
-    """"Tests that FHIRPath expressions properly follow nested references."""
+    """Tests that FHIRPath expressions properly follow nested references."""
     # component.referenceRange is a reference to the base backbone element.
     builder = self.builder('Observation').component.referenceRange.exists()
 
@@ -2350,12 +2347,10 @@ class FhirPathExpressionsTest(
     """Tests debug_string print functionality."""
     # Basic FHIRView
     self.assertMultiLineEqual(
-        textwrap.dedent(
-            """\
+        textwrap.dedent("""\
         + active.exists() <ExistsFunction> (
         | + active <InvokeExpressionNode> (
-        | | + Patient <RootMessageNode> ()))"""
-        ),
+        | | + Patient <RootMessageNode> ()))"""),
         self.builder('Patient').active.exists().debug_string(),
     )
 
