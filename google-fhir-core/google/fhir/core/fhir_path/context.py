@@ -258,14 +258,26 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       return None
 
     if isinstance(parent, _fhir_path_data_types.PolymorphicDataType):
-      possible_types = cast(
-          _fhir_path_data_types.PolymorphicDataType, parent
-      ).types
-      if json_name.casefold() not in possible_types:
+      possible_types = parent.types
+      # If one of the choice type's choices is being selected
+      # (e.g. Observation.value.ofType(CodeableConcept) return the type for
+      # that choice.
+      choice_type = possible_types.get(json_name.casefold())
+      if choice_type is not None:
+        return choice_type
+
+      # If a field off the choice type is being selected
+      # (e.g. Observation.value[x].system) return the type for that
+      # field by first finding a choice type with that field.
+      for possible_type in possible_types.values():
+        if json_name in possible_type.child_defs:
+          parent = possible_type
+          break
+      else:
         raise ValueError(
-            f'Identifier {json_name} not in {possible_types.keys()}'
+            f'Identifier {json_name} not found as a choice types or as an'
+            f' element of any possible choice type: {possible_types.keys()}'
         )
-      return possible_types[json_name.casefold()]
 
     if isinstance(parent, _fhir_path_data_types.StructureDataType):
       elem = parent.child_defs.get(json_name)

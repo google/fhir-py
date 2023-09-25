@@ -100,6 +100,20 @@ class FhirPathContextTest(absltest.TestCase):
         ref_range.url,
     )
 
+  def test_get_fhir_type_through_choice_path(self):
+    """Ensures types for paths which travel through choice types can be found."""
+    test_context = context.LocalFhirPathContext(self._package)
+    observation = test_context.get_structure_definition(
+        'http://hl7.org/fhir/StructureDefinition/Observation',
+    )
+    obs_type = _fhir_path_data_types.StructureDataType.from_proto(observation)
+
+    # Ensure we can find the type for Observation.value[x].system.
+    value = test_context.get_child_data_type(obs_type, 'value')
+    system = test_context.get_child_data_type(value, 'system')
+    self.assertIsNotNone(system)
+    self.assertEqual('http://hl7.org/fhirpath/System.String', system.url)
+
   def test_get_fhir_type_from_string_with_reference_succeeds(self):
     test_context = context.LocalFhirPathContext(self._package)
 

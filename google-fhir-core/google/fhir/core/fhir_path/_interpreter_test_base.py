@@ -1553,14 +1553,40 @@ class FhirPathExpressionsTest(
     observation.value.boolean.value = True
     self.assert_expression_result(compiled_expr, built_expr, observation, True)
 
-  def test_choice_type_without_of_type_fails(self) -> None:
-    # Choice types should only be accessed directly or with ofType.
+  def test_choice_type_sub_field_access_succeeds(self) -> None:
+    """Ensure paths from choice types can be selected."""
+    observation = self._new_observation()
+    observation.value.quantity.value.value = '1.0'
+    observation.value.quantity.unit.value = 'g'
+    observation.value.quantity.system.value = 'https://units-of-measurement.org'
+
+    compiled_expr = self.compile_expression('Observation', 'value.system')
+    built_expr = self.builder('Observation').value.system
+
+    self.assert_expression_result(
+        compiled_expr,
+        built_expr,
+        observation,
+        'https://units-of-measurement.org',
+    )
+    self.assertEqual(built_expr.node.return_type, _fhir_path_data_types.String)
+
+  def test_choice_type_sub_field_access_with_wrong_type_returns_empty(
+      self,
+  ) -> None:
+    observation = self._new_observation()
+    observation.value.string_value.value = 'hello'
+
+    compiled_expr = self.compile_expression('Observation', 'value.system')
+    built_expr = self.builder('Observation').value.system
+
+    self.assert_expression_result(compiled_expr, built_expr, observation, None)
+
+  def test_choice_type_invalid_sub_field_access_fails(self) -> None:
     with self.assertRaisesRegex(
-        AttributeError,
-        r'Cannot directly access polymorphic fields. '
-        r"Please use ofType\['quantity'\] instead.",
+        AttributeError, 'No such field notafield in value'
     ):
-      _ = self.builder('Observation').value.quantity  # pylint: disable=pointless-statement
+      self.builder('Observation').value.notafield  # pylint: disable=expression-not-assigned
 
   def test_choice_type_with_of_type_succeeds(self) -> None:
     """Tests ofType access of choice types succeeds."""

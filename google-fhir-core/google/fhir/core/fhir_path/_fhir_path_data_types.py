@@ -490,6 +490,7 @@ class Collection(FhirPathDataType):
   Note: It is not a concrete implementation of `Collection`, so it only stores
   one instance of every type that is present.
   """
+
   types: Sequence[FhirPathDataType]
 
   def __init__(
@@ -546,6 +547,7 @@ class StructureDataType(FhirPathDataType):
   Their definitions are typically provided by FHIR StructureDefinitions.
   See https://www.hl7.org/fhir/datatypes.html
   """
+
   structure_definition: message.Message
   base_type: str
   element_type: str
@@ -998,7 +1000,15 @@ class PolymorphicDataType(FhirPathDataType):
     return False
 
   def fields(self) -> Set[str]:
-    return set(self.types.keys())
+    choice_types = set(self.types.keys())
+    # Include fields of the possible choice types. They can be
+    # selected from the choice type, e.g. Observation.value[x].system
+    choice_types.update(
+        itertools.chain.from_iterable(
+            choice.fields() for choice in self.types.values()
+        )
+    )
+    return choice_types
 
   def __eq__(self, o) -> bool:
     if isinstance(o, PolymorphicDataType):

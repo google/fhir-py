@@ -214,14 +214,6 @@ class Builder:
     if name.startswith('__'):
       raise AttributeError(name)
 
-    if isinstance(
-        self.node.return_type, _fhir_path_data_types.PolymorphicDataType
-    ):
-      raise AttributeError(
-          'Cannot directly access polymorphic fields. '
-          f"Please use ofType['{name}'] instead."
-      )
-
     # If a basic FHIR field, simply return it.
     if name in self.node.fields():
       return Builder(
