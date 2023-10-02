@@ -929,18 +929,31 @@ class _WhereFunction(_FhirPathFunctionStandardSqlEncoder):
       params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
     sql_alias = 'where_clause_'
+    criteria = params_result[0]
 
-    if not operand_result:
+    if operand_result is None:
+      # There is no such thing as a 'where' call without an operand in
+      # FHIR. However, we may still end up here with a validation constraint
+      # expression like:
+      # Organization.address.where(use = 'home').empty()
+      # Because 'address' will become the context and
+      # 'where(use='home').empty()' the query executed within that
+      # context. In that case, we don't need a SELECT part (because
+      # there's no operand to select) nor a FROM part (because the
+      # context will supply it) but we do need a WHERE part, which
+      # requires a SELECT and FROM. The job of the query is to produce
+      # rows if the WHERE clause is true. It doesn't matter what the value
+      # (we SELECT 1 below) as long as it is not NULL.
       return _sql_data_types.Select(
           select_part=_sql_data_types.RawExpression(
-              'NULL',
+              '1',
               _sql_alias=sql_alias,
-              _sql_data_type=_sql_data_types.Undefined,
+              _sql_data_type=_sql_data_types.Int64,
           ),
-          from_part=None,
+          from_part='(SELECT NULL)',
+          where_part=criteria.as_operand(),
       )
 
-    criteria = params_result[0]
     where_part = (
         f'{operand_result.where_part} AND {criteria.as_operand()}'
         if operand_result.where_part

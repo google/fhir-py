@@ -2325,14 +2325,6 @@ class FhirPathStandardSqlEncoderTest(
 
   @parameterized.named_parameters(
       dict(
-          testcase_name='with_where_and_no_operand',
-          fhir_path_expression='where(true)',
-          expected_sql_expression=textwrap.dedent("""\
-          ARRAY(SELECT where_clause_
-          FROM (SELECT NULL AS where_clause_)
-          WHERE where_clause_ IS NOT NULL)"""),
-      ),
-      dict(
           testcase_name='with_where',
           fhir_path_expression="bat.struct.where(value='')",
           expected_sql_expression=textwrap.dedent("""\
@@ -4989,8 +4981,16 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT comparison_
           FROM (SELECT ((SELECT COUNT(
-          where_clause_) AS count_
-          FROM (SELECT NULL AS where_clause_)) >= 2) AS comparison_)
+          1) AS count_
+          FROM (SELECT NULL)
+          WHERE NOT EXISTS(
+          SELECT lhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, name
+          FROM (SELECT name)) AS lhs_
+          EXCEPT DISTINCT
+          SELECT rhs_.*
+          FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
+          FROM (SELECT 'skeleton' AS literal_)) AS rhs_)) >= 2) AS comparison_)
           WHERE comparison_ IS NOT NULL) AS subquery_
           FROM (SELECT AS VALUE ctx_element_
           FROM UNNEST(ARRAY(SELECT contact_element_
