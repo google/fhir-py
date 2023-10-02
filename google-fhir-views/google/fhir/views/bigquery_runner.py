@@ -19,8 +19,7 @@ results through the BigQuery library used here, or create BigQuery views that
 can be consumed by other tools.
 """
 
-import re
-from typing import Dict, Iterable, Optional, Union, cast
+from typing import Iterable, Optional, Union, cast
 
 from google.cloud import bigquery
 import pandas
@@ -127,30 +126,10 @@ class BigQueryRunner:
         )
     )
 
-  def _view_table_names(self, view: views.View) -> Dict[str, str]:
-    """Generates the table names for each resource in the view."""
-    names = {}
-    for structdef_url in view.get_structdef_urls():
-      last_slash_index = structdef_url.rfind('/')
-      name = (
-          structdef_url
-          if last_slash_index == -1
-          else structdef_url[last_slash_index + 1 :]
-      )
-      if self._snake_case_resource_tables:
-        name = (
-            re.sub(pattern=r'([A-Z]+)', repl=r'_\1', string=name)
-            .lower()
-            .lstrip('_')
-        )
-      names[structdef_url] = name
-    return names
-
   def to_sql(
       self,
       view: views.View,
       limit: Optional[int] = None,
-      include_patient_id_col: bool = True,
       internal_v2: Optional[bool] = None,
   ) -> str:
     """Returns the SQL used to run the given view in BigQuery.
@@ -158,8 +137,6 @@ class BigQueryRunner:
     Args:
       view: the view used to generate the SQL.
       limit: optional limit to attach to the generated SQL.
-      include_patient_id_col: whether to include a __patientId__ column to
-        indicate the patient the resource is associated with.
       internal_v2: For incremental development use only and will be removed
         prior to a 1.0 release.
 
@@ -169,14 +146,8 @@ class BigQueryRunner:
     if internal_v2 is None:
       internal_v2 = self._internal_default_to_v2_runner
 
-    if len(view.get_structdef_urls()) > 1 and not internal_v2:
-      raise ValueError(
-          'Cross Resource views are only allowed in '
-          f'v2. {view.get_structdef_urls()}'
-      )
-
     sql_generator = self._build_sql_generator(internal_v2, view)
-    sql_statement = sql_generator.build_sql_statement(include_patient_id_col)
+    sql_statement = sql_generator.build_sql_statement()
 
     view_table_name = (
         f'{self._value_set_codes_table.project}'
@@ -223,7 +194,7 @@ class BigQueryRunner:
     dataset = f'{self._view_dataset.project}.{self._view_dataset.dataset_id}'
     view_sql = (
         f'CREATE OR REPLACE VIEW `{dataset}.{view_name}` AS\n'
-        f'{self.to_sql(view, include_patient_id_col=False)}'
+        f'{self.to_sql(view)}'
     )
     self._client.query(view_sql).result()
 
@@ -240,7 +211,7 @@ class BigQueryRunner:
       bigquery.QueryJob: the job for the running query.
     """
     return self._client.query(
-        self.to_sql(view, limit=limit, include_patient_id_col=False)
+        self.to_sql(view, limit=limit)
     )
 
   def summarize_codes(
@@ -330,7 +301,7 @@ class BigQueryRunner:
   def _build_sql_generator(self, internal_v2: bool, view: views.View):
     """Build a RunnerSqlGenerator depending on the runner version."""
     fhir_context = view.get_fhir_path_context()
-    url = list(view.get_structdef_urls())[0]
+    url = view.get_structdef_url()
     struct_def = fhir_context.get_structure_definition(url)
     deps = fhir_context.get_dependency_definitions(url)
     deps.append(struct_def)
@@ -347,8 +318,9 @@ class BigQueryRunner:
 
     # URLs to various expressions and tables:
     dataset = f'{self._fhir_dataset.project}.{self._fhir_dataset.dataset_id}'
-    table_names = self._view_table_names(view)
-    return runner_utils.RunnerSqlGenerator(view, encoder, dataset, table_names)
+    return runner_utils.RunnerSqlGenerator(
+        view, encoder, dataset, self._snake_case_resource_tables
+    )
 
   # TODO(b/201107372): Update FHIR-agnostic types to a protocol.
   def materialize_value_sets(

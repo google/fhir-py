@@ -218,52 +218,6 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
         "address.where(use = 'home').postalCode", expressions[0].fhir_path
     )
 
-  def test_cross_reference_for_patient_and_encounter_succeeds(self):
-    """Test generation of views with two resources."""
-    enc = self.get_views().view_of('Encounter')
-    pat = self.get_views().view_of('Patient')
-
-    enc_and_pat_class = (
-        enc.select({
-            'class':
-                enc.class_,
-            'where':
-                enc.type.coding.where(enc.type.coding.system == 'url/here'),
-            'pat':
-                pat.name.given
-        }).where(pat.address.exists(), enc.status.exists()))
-    self.assertIsNotNone(enc_and_pat_class)
-
-    structdef_urls = enc_and_pat_class.get_structdef_urls()
-    self.assertSameElements([
-        'http://hl7.org/fhir/StructureDefinition/Encounter',
-        'http://hl7.org/fhir/StructureDefinition/Patient'
-    ], structdef_urls)
-
-    select_expressions = enc_and_pat_class.get_select_expressions()
-    self.assertLen(select_expressions, 3)
-
-    enc_fields = enc_and_pat_class.get_url_to_field_indexes()[
-        'http://hl7.org/fhir/StructureDefinition/Encounter'
-    ]
-    self.assertSameElements([0, 1], enc_fields)
-
-    pat_fields = enc_and_pat_class.get_url_to_field_indexes()[
-        'http://hl7.org/fhir/StructureDefinition/Patient'
-    ]
-    self.assertLen(pat_fields, 1)
-    self.assertSameElements([2], pat_fields)
-
-    constraint_expressions = enc_and_pat_class.get_constraint_expressions()
-    self.assertLen(constraint_expressions, 2)
-
-    enc_constraints = enc_and_pat_class.get_url_to_constraint_indexes(
-    )['http://hl7.org/fhir/StructureDefinition/Encounter']
-    self.assertSameElements([1], enc_constraints)
-    pat_constraints = enc_and_pat_class.get_url_to_constraint_indexes(
-    )['http://hl7.org/fhir/StructureDefinition/Patient']
-    self.assertSameElements([0], pat_constraints)
-
   def test_create_from_view_definition_succeeds(self):
     """Test create view from view definition."""
     view_definition = {

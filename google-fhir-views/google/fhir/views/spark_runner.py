@@ -19,8 +19,7 @@ results through the Spark library used here, or create Spark views that
 can be consumed by other tools.
 """
 
-import re
-from typing import Dict, Iterable, Optional, Union, cast
+from typing import Iterable, Optional, Union, cast
 
 import pandas
 from sqlalchemy import engine
@@ -84,15 +83,12 @@ class SparkRunner:
       self,
       view: views.View,
       limit: Optional[int] = None,
-      include_patient_id_col: bool = True,
   ) -> str:
     """Returns the SQL used to run the given view in Spark.
 
     Args:
       view: the view used to generate the SQL.
       limit: optional limit to attach to the generated SQL.
-      include_patient_id_col: whether to include a __patientId__ column to
-        indicate the patient the resource is associated with.
 
     Returns:
       The SQL used to run the given view.
@@ -102,12 +98,11 @@ class SparkRunner:
     )
 
     dataset = f'{self._fhir_dataset}'
-    table_names = self._view_table_names(view)
     sql_generator = runner_utils.RunnerSqlGenerator(
-        view, encoder, dataset, table_names
+        view, encoder, dataset, self._snake_case_resource_tables
     )
 
-    sql_statement = sql_generator.build_sql_statement(include_patient_id_col)
+    sql_statement = sql_generator.build_sql_statement()
 
     valuesets_clause = sql_generator.build_valueset_expression(
         self._value_set_codes_table
@@ -118,25 +113,6 @@ class SparkRunner:
     limit_clause = '' if limit is None else f' LIMIT {limit}'
 
     return f'{valuesets_clause}{sql_statement}{limit_clause}'
-
-  def _view_table_names(self, view: views.View) -> Dict[str, str]:
-    """Generates the table names for each resource in the view."""
-    names = {}
-    for structdef_url in view.get_structdef_urls():
-      last_slash_index = structdef_url.rfind('/')
-      name = (
-          structdef_url
-          if last_slash_index == -1
-          else structdef_url[last_slash_index + 1 :]
-      )
-      if self._snake_case_resource_tables:
-        name = (
-            re.sub(pattern=r'([A-Z]+)', repl=r'_\1', string=name)
-            .lower()
-            .lstrip('_')
-        )
-      names[structdef_url] = name
-    return names
 
   def to_dataframe(
       self, view: views.View, limit: Optional[int] = None
@@ -154,7 +130,7 @@ class SparkRunner:
       ValueError propagated from the Spark client if pandas is not installed.
     """
     df = pandas.read_sql_query(
-        sql=self.to_sql(view, limit=limit, include_patient_id_col=False),
+        sql=self.to_sql(view, limit=limit),
         con=self._engine,
     )
     return runner_utils.clean_dataframe(df, view.get_select_expressions())
@@ -197,7 +173,7 @@ class SparkRunner:
         view=view,
         encoder=_spark_interpreter.SparkSqlInterpreter(),
         dataset=f'{self._fhir_dataset}',
-        table_names=self._view_table_names(view),
+        snake_case_resource_tables=self._snake_case_resource_tables,
     ).build_select_for_summarize_code(code_expr)
 
     node_type = code_expr.node.return_type
@@ -256,7 +232,7 @@ class SparkRunner:
     """
     view_sql = (
         f'CREATE OR REPLACE VIEW {self._view_dataset}.{view_name} AS\n'
-        f'{self.to_sql(view, include_patient_id_col=False)}'
+        f'{self.to_sql(view)}'
     )
     self._engine.execute(view_sql).fetchall()
 

@@ -137,7 +137,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
           SELECT ARRAY(SELECT family
           FROM (SELECT name_element_.family
           FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset)
-          WHERE family IS NOT NULL) AS family_names,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
+          WHERE family IS NOT NULL) AS family_names FROM `test_project.test_dataset`.Patient"""
         ),
         simple_view,
     )
@@ -148,7 +148,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.ast_and_expression_tree_test_runner(
         textwrap.dedent(
             """\
-          SELECT *,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
+          SELECT * FROM `test_project.test_dataset`.Patient"""
         ),
         pat,
     )
@@ -168,7 +168,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM (SELECT name_element_
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-        WHERE given_element_ IS NOT NULL) AS name,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
+        WHERE given_element_ IS NOT NULL) AS name,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_project.test_dataset`.Patient"""
         ),
         simple_view,
     )
@@ -188,7 +188,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.ast_and_expression_tree_test_runner(
         expected_output=textwrap.dedent(
             """\
-        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.patient"""
+        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_project.test_dataset`.patient"""
         ),
         view=simple_view,
         bq_runner=snake_case_runner,
@@ -198,7 +198,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.ast_and_expression_tree_test_runner(
         textwrap.dedent(
             """\
-          SELECT *,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.medication_request"""
+          SELECT * FROM `test_project.test_dataset`.medication_request"""
         ),
         view=med_rec,
         bq_runner=snake_case_runner,
@@ -220,7 +220,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM (SELECT name_element_
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-        WHERE given_element_ IS NOT NULL) AS name,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        WHERE given_element_ IS NOT NULL) AS name,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT active
         FROM (SELECT active)
@@ -256,7 +256,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM (SELECT name_element_
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-        WHERE given_element_ IS NOT NULL) AS name,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        WHERE given_element_ IS NOT NULL) AS name,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT comparison_
         FROM (SELECT (SAFE_CAST(birthDate AS TIMESTAMP) < SAFE_CAST('1960-01-01' AS TIMESTAMP)) AS comparison_)
@@ -282,7 +282,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         WHERE given_element_ IS NOT NULL) AS name,ARRAY(SELECT start
         FROM (SELECT SAFE_CAST(telecom_element_.period.start AS TIMESTAMP) AS start
         FROM UNNEST(telecom) AS telecom_element_ WITH OFFSET AS element_offset)
-        WHERE start IS NOT NULL) AS telecom,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
+        WHERE start IS NOT NULL) AS telecom FROM `test_project.test_dataset`.Patient"""
         ),
         telecom,
     )
@@ -304,7 +304,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
           given_element_, 'regex') AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT name_element_
           FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
-          UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset) AS name,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient"""
+          UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset) AS name FROM `test_project.test_dataset`.Patient"""
         ),
         telecom,
     )
@@ -323,7 +323,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     returned_df = self.runner.to_dataframe(simple_view)
     # Ensure expected SQL was passed to BigQuery and the dataframe was returned
     # up the stack.
-    expected_sql = self.runner.to_sql(simple_view, include_patient_id_col=False)
+    expected_sql = self.runner.to_sql(simple_view)
     self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
     self.assertEqual(expected_mock_df, returned_df)
 
@@ -341,7 +341,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
     self.ast_and_expression_tree_test_runner(
         textwrap.dedent("""\
-        SELECT *,(SELECT patient.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.ExplanationOfBenefit
+        SELECT * FROM `test_project.test_dataset`.ExplanationOfBenefit
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT comparison_
         FROM (SELECT ((SELECT SAFE_CAST(addItem_element_.serviced.Date AS TIMESTAMP) AS ofType_
@@ -374,7 +374,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
-        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -414,7 +414,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
-        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -455,7 +455,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "S" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://hl7.org/fhir/v3/MaritalStatus" as system, "U" as code)
-        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT eq_
         FROM (SELECT ((SELECT memberof_
@@ -493,7 +493,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://loinc.org" as system, "10346-5" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, NULL as valuesetversion, "http://loinc.org" as system, "10486-9" as code)
-        SELECT (SELECT id) AS id,(SELECT status) AS status,(SELECT SAFE_CAST(issued AS TIMESTAMP) AS issued) AS time,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation
+        SELECT (SELECT id) AS id,(SELECT status) AS status,(SELECT SAFE_CAST(issued AS TIMESTAMP) AS issued) AS time FROM `test_project.test_dataset`.Observation
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -532,7 +532,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://loinc.org" as system, "10346-5" as code
         UNION ALL SELECT "urn:test:valueset" as valueseturi, "1.0" as valuesetversion, "http://loinc.org" as system, "10486-9" as code)
-        SELECT (SELECT id) AS id,(SELECT status) AS status,(SELECT SAFE_CAST(issued AS TIMESTAMP) AS issued) AS time,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation
+        SELECT (SELECT id) AS id,(SELECT status) AS status,(SELECT SAFE_CAST(issued AS TIMESTAMP) AS issued) AS time FROM `test_project.test_dataset`.Observation
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -569,7 +569,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM (SELECT name_element_
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-        WHERE given_element_ IS NOT NULL) AS name,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        WHERE given_element_ IS NOT NULL) AS name FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT matches.element_offset IS NOT NULL AS memberof_
@@ -607,7 +607,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.ast_and_expression_tree_test_runner(
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM vs_project.vs_dataset.vs_table)
-        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -637,7 +637,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.ast_and_expression_tree_test_runner(
         textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM vs_project.vs_dataset.vs_table)
-        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
+        SELECT (SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_project.test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT memberof_
         FROM (SELECT memberof_
@@ -677,7 +677,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     expected_sql = textwrap.dedent(
         'CREATE OR REPLACE VIEW '
         '`test_project.test_dataset.statin_meds_view` AS\n'
-        f'{self.runner.to_sql(statin_meds, internal_v2=True, include_patient_id_col=False)}'
+        f'{self.runner.to_sql(statin_meds, internal_v2=True)}'
     )
     self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
     mock_job.result.assert_called_once()
@@ -694,15 +694,13 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
     returned_job = self.runner.run_query(simple_view)
     # Ensure expected SQL was passed to BigQuery and job was returned.
-    expected_sql = self.runner.to_sql(simple_view, include_patient_id_col=False)
+    expected_sql = self.runner.to_sql(simple_view)
     self.mock_bigquery_client.query.assert_called_with(expected_sql)
     self.assertEqual(expected_mock_job, returned_job)
 
     limited_job = self.runner.run_query(simple_view, limit=10)
     # Ensure expected limited SQL was passed to BigQuery and job was returned.
-    limited_sql = self.runner.to_sql(
-        simple_view, limit=10, include_patient_id_col=False
-    )
+    limited_sql = self.runner.to_sql(simple_view, limit=10)
     self.mock_bigquery_client.query.assert_called_with(limited_sql)
     self.assertEqual(expected_mock_job, limited_job)
 
@@ -722,7 +720,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     expected_sql = (
         'CREATE OR REPLACE VIEW '
         '`test_project.test_dataset.simple_patient_view` AS\n'
-        f'{self.runner.to_sql(simple_view, include_patient_id_col=False)}'
+        f'{self.runner.to_sql(simple_view)}'
     )
     self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
     mock_job.result.assert_called_once()
@@ -740,7 +738,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.ast_and_expression_tree_test_runner(
         textwrap.dedent(
             """\
-        SELECT (SELECT id) AS id,(SELECT subject.patientId AS idFor_) AS patientId,(SELECT status) AS status,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation"""
+        SELECT (SELECT id) AS id,(SELECT subject.patientId AS idFor_) AS patientId,(SELECT status) AS status FROM `test_project.test_dataset`.Observation"""
         ),
         obs_with_raw_patient_id_view,
     )
@@ -762,7 +760,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.ast_and_expression_tree_test_runner(
         textwrap.dedent(
             """\
-        SELECT (SELECT id) AS id,(SELECT subject.patientId AS idFor_) AS patientId,(SELECT status) AS status,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Observation"""
+        SELECT (SELECT id) AS id,(SELECT subject.patientId AS idFor_) AS patientId,(SELECT status) AS status FROM `test_project.test_dataset`.Observation"""
         ),
         obs_with_raw_patient_id_view,
     )
@@ -778,8 +776,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.ast_and_expression_tree_test_runner(
         (
             'SELECT (SELECT id) AS id,'
-            '(SELECT value.string AS ofType_) AS value,'
-            '(SELECT subject.patientId AS idFor_) AS __patientId__'
+            '(SELECT value.string AS ofType_) AS value'
             ' FROM `test_project.test_dataset`.Observation'
         ),
         obs_with_value,
@@ -798,8 +795,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.ast_and_expression_tree_test_runner(
         (
             'SELECT (SELECT id) AS id,(SELECT value.Quantity.value) AS value,'
-            '(SELECT value.Quantity.unit) AS unit,'
-            '(SELECT subject.patientId AS idFor_) AS __patientId__ '
+            '(SELECT value.Quantity.unit) AS unit '
             'FROM `test_project.test_dataset`.Observation'
         ),
         obs_with_value,
@@ -826,7 +822,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         FROM (SELECT procedure_element_.procedure.CodeableConcept AS ofType_
         FROM UNNEST(procedure) AS procedure_element_ WITH OFFSET AS element_offset),
         UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset)
-        WHERE system IS NOT NULL) AS system,(SELECT patient.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.ExplanationOfBenefit"""
+        WHERE system IS NOT NULL) AS system FROM `test_project.test_dataset`.ExplanationOfBenefit"""
         ),
         eob_with_codeableconcept_system,
     )
@@ -855,134 +851,6 @@ class BigqueryRunnerTest(parameterized.TestCase):
     )
     self.mock_bigquery_client.query.assert_called_once_with(expected_sql)
     self.assertEqual(expected_mock_df, returned_df)
-
-  def test_cross_reference_to_sql_for_mixed_resource_builder_succeeds(self):
-    """Tests a view with two different resources referenced and no constraints."""
-    enc = self._views.view_of('Encounter')
-    pat = self._views.view_of('Patient')
-
-    enc_and_pat_class = enc.select(
-        {
-            'pat': (
-                pat.contact.first().relationship.first().text
-                == enc.class_.first().display
-            )
-        }
-    ).where(enc.statusHistory.period.start > pat.contact.first().period.start)
-    self.ast_and_expression_tree_test_runner(
-        textwrap.dedent("""\
-          SELECT *, (SELECT ((SELECT relationship_element_.text
-          FROM (SELECT contact_element_
-          FROM (SELECT Patient),
-          UNNEST(Patient.contact) AS contact_element_ WITH OFFSET AS element_offset
-          LIMIT 1),
-          UNNEST(contact_element_.relationship) AS relationship_element_ WITH OFFSET AS element_offset
-          LIMIT 1) = Encounter.class.display) AS eq_) AS pat FROM (SELECT * , __patientId__ FROM
-          ((SELECT (SELECT subject.patientId AS idFor_) AS __patientId__,Encounter FROM `test_project.test_dataset`.Encounter Encounter)
-          INNER JOIN
-          (SELECT (SELECT id) AS __patientId__,Patient FROM `test_project.test_dataset`.Patient Patient)
-          USING(__patientId__)))
-          WHERE (SELECT LOGICAL_AND(logic_)
-          FROM UNNEST(ARRAY(SELECT comparison_
-          FROM (SELECT ((SELECT SAFE_CAST(statusHistory_element_.period.start AS TIMESTAMP) AS start
-          FROM (SELECT Encounter),
-          UNNEST(Encounter.statusHistory) AS statusHistory_element_ WITH OFFSET AS element_offset) > (SELECT SAFE_CAST(contact_element_.period.start AS TIMESTAMP) AS start
-          FROM (SELECT Patient),
-          UNNEST(Patient.contact) AS contact_element_ WITH OFFSET AS element_offset
-          LIMIT 1)) AS comparison_)
-          WHERE comparison_ IS NOT NULL)) AS logic_)"""),
-        enc_and_pat_class,
-    )
-
-  def test_cross_reference_to_sql_for_patient_and_encounter_with_no_constraint_succeeds(
-      self,
-  ):
-    """Tests a view with two different resources referenced and no constraints."""
-    enc = self._views.view_of('Encounter')
-    pat = self._views.view_of('Patient')
-
-    enc_and_pat_class = enc.select({'class': enc.class_, 'pat': pat.name.given})
-
-    self.ast_and_expression_tree_test_runner(
-        textwrap.dedent("""\
-          SELECT * , __patientId__ FROM
-          ((SELECT (SELECT class) AS class,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Encounter)
-          INNER JOIN
-          (SELECT ARRAY(SELECT given_element_
-          FROM (SELECT given_element_
-          FROM (SELECT name_element_
-          FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
-          UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-          WHERE given_element_ IS NOT NULL) AS pat,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient)
-          USING(__patientId__))"""),
-        enc_and_pat_class,
-    )
-
-  def test_cross_reference_to_sql_for_patient_and_encounter_succeeds(self):
-    """Tests a view with two different resources referenced."""
-    enc = self._views.view_of('Encounter')
-    pat = self._views.view_of('Patient')
-
-    enc_and_pat_class = enc.select(
-        {'class': enc.class_, 'pat': pat.name.given}
-    ).where(
-        pat.name.family.exists(),
-        enc.status.exists(),
-        enc.period.start > datetime.date(2000, 1, 1),
-    )
-
-    self.ast_and_expression_tree_test_runner(
-        textwrap.dedent("""\
-          SELECT * , __patientId__ FROM
-          ((SELECT (SELECT class) AS class,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Encounter
-          WHERE (SELECT LOGICAL_AND(logic_)
-          FROM UNNEST(ARRAY(SELECT exists_
-          FROM (SELECT status IS NOT NULL AS exists_)
-          WHERE exists_ IS NOT NULL)) AS logic_) AND (SELECT LOGICAL_AND(logic_)
-          FROM UNNEST(ARRAY(SELECT comparison_
-          FROM (SELECT (SAFE_CAST(period.start AS TIMESTAMP) > SAFE_CAST('2000-01-01' AS TIMESTAMP)) AS comparison_)
-          WHERE comparison_ IS NOT NULL)) AS logic_))
-          INNER JOIN
-          (SELECT ARRAY(SELECT given_element_
-          FROM (SELECT given_element_
-          FROM (SELECT name_element_
-          FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
-          UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-          WHERE given_element_ IS NOT NULL) AS pat,(SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
-          WHERE (SELECT LOGICAL_AND(logic_)
-          FROM UNNEST(ARRAY(SELECT exists_
-          FROM (SELECT EXISTS(
-          SELECT family
-          FROM (SELECT name_element_.family
-          FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset)
-          WHERE family IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)) AS logic_))
-          USING(__patientId__))"""),
-        enc_and_pat_class,
-    )
-
-  def test_cross_reference_to_sql_for_patient_and_encounter_no_select_succeeds(
-      self,
-  ):
-    """Tests a view with two different resources referenced and no select."""
-    enc = self._views.view_of('Encounter')
-    pat = self._views.view_of('Patient')
-
-    enc_and_pat_class = enc.where(pat.maritalStatus.exists())
-
-    self.ast_and_expression_tree_test_runner(
-        textwrap.dedent("""\
-          SELECT * , __patientId__ FROM
-          ((SELECT *,(SELECT subject.patientId AS idFor_) AS __patientId__ FROM `test_project.test_dataset`.Encounter)
-          INNER JOIN
-          (SELECT (SELECT id) AS __patientId__ FROM `test_project.test_dataset`.Patient
-          WHERE (SELECT LOGICAL_AND(logic_)
-          FROM UNNEST(ARRAY(SELECT exists_
-          FROM (SELECT maritalStatus IS NOT NULL AS exists_)
-          WHERE exists_ IS NOT NULL)) AS logic_))
-          USING(__patientId__))"""),
-        enc_and_pat_class,
-    )
 
   @mock.patch.object(
       bigquery_value_set_manager.BigQueryValueSetManager,

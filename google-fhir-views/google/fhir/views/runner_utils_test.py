@@ -57,10 +57,7 @@ class RunnerUtilsTest(absltest.TestCase):
         view=simple_view,
         encoder=encoder,
         dataset='test_dataset',
-        table_names={
-            'http://hl7.org/fhir/StructureDefinition/Patient': 'Patient'
-        },
-    ).build_sql_statement(True)
+    ).build_sql_statement()
     expected_output = textwrap.dedent(
         """\
         SELECT ARRAY(SELECT given_element_
@@ -68,11 +65,31 @@ class RunnerUtilsTest(absltest.TestCase):
         FROM (SELECT name_element_
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-        WHERE given_element_ IS NOT NULL) AS name,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_dataset`.Patient
+        WHERE given_element_ IS NOT NULL) AS name,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT active
         FROM (SELECT active)
         WHERE active IS NOT NULL)) AS logic_)"""
+    )
+    self.assertMultiLineEqual(expected_output, sql_statement)
+
+  def test_build_sql_statement_with_snake_case_resource_tables_big_query(self):
+    med_rec = self._views.view_of('MedicationRequest')
+    med_rec_patient_view = med_rec.select({
+        'patient': med_rec.subject.idFor('Patient'),
+    })
+    encoder = _bigquery_interpreter.BigQuerySqlInterpreter(
+        value_set_codes_table='VALUESET_VIEW'
+    )
+    sql_statement = runner_utils.RunnerSqlGenerator(
+        view=med_rec_patient_view,
+        encoder=encoder,
+        dataset='test_dataset',
+        snake_case_resource_tables=True,
+    ).build_sql_statement()
+    expected_output = textwrap.dedent(
+        """\
+        SELECT (SELECT subject.patientId AS idFor_) AS patient FROM `test_dataset`.medication_request"""
     )
     self.assertMultiLineEqual(expected_output, sql_statement)
 
@@ -81,7 +98,7 @@ class RunnerUtilsTest(absltest.TestCase):
     simple_view = pat.select(
         {'name': pat.name.given, 'birthDate': pat.birthDate}
     ).where(pat.active)
-    url = list(simple_view.get_structdef_urls())[0]
+    url = simple_view.get_structdef_url()
     struct_def = self._context.get_structure_definition(url)
     deps = self._context.get_dependency_definitions(url)
     deps.append(struct_def)
@@ -96,10 +113,7 @@ class RunnerUtilsTest(absltest.TestCase):
         view=simple_view,
         encoder=encoder,
         dataset='test_dataset',
-        table_names={
-            'http://hl7.org/fhir/StructureDefinition/Patient': 'Patient'
-        },
-    ).build_sql_statement(True)
+    ).build_sql_statement()
     expected_output = textwrap.dedent(
         """\
         SELECT ARRAY(SELECT given_element_
@@ -107,7 +121,7 @@ class RunnerUtilsTest(absltest.TestCase):
         FROM (SELECT name_element_
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-        WHERE given_element_ IS NOT NULL) AS name,PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate,(SELECT id) AS __patientId__ FROM `test_dataset`.Patient
+        WHERE given_element_ IS NOT NULL) AS name,PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate FROM `test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT active
         FROM (SELECT active)
@@ -125,109 +139,36 @@ class RunnerUtilsTest(absltest.TestCase):
         view=simple_view,
         encoder=encoder,
         dataset='test_dataset',
-        table_names={
-            'http://hl7.org/fhir/StructureDefinition/Patient': 'Patient'
-        },
-    ).build_sql_statement(True)
+    ).build_sql_statement()
     expected_output = textwrap.dedent(
         """\
         SELECT (SELECT COLLECT_LIST(given_element_)
         FROM (SELECT given_element_
         FROM (SELECT name_element_
         FROM (SELECT EXPLODE(name_element_) AS name_element_ FROM (SELECT name AS name_element_))) LATERAL VIEW POSEXPLODE(name_element_.given) AS index_given_element_, given_element_)
-        WHERE given_element_ IS NOT NULL) AS name,(SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,(SELECT id) AS __patientId__ FROM `test_dataset`.Patient
+        WHERE given_element_ IS NOT NULL) AS name,(SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_dataset`.Patient
         WHERE (SELECT EXISTS(*, x -> x IS true) FROM (SELECT COLLECT_LIST(active)
         FROM (SELECT active)
         WHERE active IS NOT NULL))"""
     )
     self.assertMultiLineEqual(expected_output, sql_statement)
 
-  def test_build_sql_statement_for_mixed_resource_builder(self):
-    enc = self._views.view_of('Encounter')
-    pat = self._views.view_of('Patient')
-
-    enc_and_pat_view = enc.select(
-        {
-            'pat': (
-                pat.contact.first().relationship.first().text
-                == enc.class_.first().display
-            )
-        }
-    ).where(enc.statusHistory.period.start > pat.contact.first().period.start)
-    encoder = _bigquery_interpreter.BigQuerySqlInterpreter(
-        value_set_codes_table='VALUESET_VIEW'
-    )
+  def test_build_sql_statement_with_snake_case_resource_tables_spark(self):
+    med_rec = self._views.view_of('MedicationRequest')
+    med_rec_patient_view = med_rec.select({
+        'patient': med_rec.subject.idFor('Patient'),
+    })
+    encoder = _spark_interpreter.SparkSqlInterpreter()
     sql_statement = runner_utils.RunnerSqlGenerator(
-        view=enc_and_pat_view,
+        view=med_rec_patient_view,
         encoder=encoder,
         dataset='test_dataset',
-        table_names={
-            'http://hl7.org/fhir/StructureDefinition/Patient': 'Patient',
-            'http://hl7.org/fhir/StructureDefinition/Encounter': 'Encounter'
-        },
-    ).build_sql_statement(True)
-
-    expected_output = textwrap.dedent("""\
-          SELECT *, (SELECT ((SELECT relationship_element_.text
-          FROM (SELECT contact_element_
-          FROM (SELECT Patient),
-          UNNEST(Patient.contact) AS contact_element_ WITH OFFSET AS element_offset
-          LIMIT 1),
-          UNNEST(contact_element_.relationship) AS relationship_element_ WITH OFFSET AS element_offset
-          LIMIT 1) = Encounter.class.display) AS eq_) AS pat FROM (SELECT * , __patientId__ FROM
-          ((SELECT (SELECT subject.patientId AS idFor_) AS __patientId__,Encounter FROM `test_dataset`.Encounter Encounter)
-          INNER JOIN
-          (SELECT (SELECT id) AS __patientId__,Patient FROM `test_dataset`.Patient Patient)
-          USING(__patientId__)))
-          WHERE (SELECT LOGICAL_AND(logic_)
-          FROM UNNEST(ARRAY(SELECT comparison_
-          FROM (SELECT ((SELECT SAFE_CAST(statusHistory_element_.period.start AS TIMESTAMP) AS start
-          FROM (SELECT Encounter),
-          UNNEST(Encounter.statusHistory) AS statusHistory_element_ WITH OFFSET AS element_offset) > (SELECT SAFE_CAST(contact_element_.period.start AS TIMESTAMP) AS start
-          FROM (SELECT Patient),
-          UNNEST(Patient.contact) AS contact_element_ WITH OFFSET AS element_offset
-          LIMIT 1)) AS comparison_)
-          WHERE comparison_ IS NOT NULL)) AS logic_)""")
-    self.assertMultiLineEqual(expected_output, sql_statement)
-
-  def test_build_sql_statement_for_mixed_resource_builder_select_base_builder(
-      self,
-  ):
-    enc = self._views.view_of('Encounter')
-    pat = self._views.view_of('Patient')
-
-    enc_and_pat_class = enc.where(
-        enc.statusHistory.period.start > pat.contact.first().period.start
+        snake_case_resource_tables=True,
+    ).build_sql_statement()
+    expected_output = textwrap.dedent(
+        """\
+        SELECT (SELECT subject.patientId AS idFor_) AS patient FROM `test_dataset`.medication_request"""
     )
-
-    encoder = _bigquery_interpreter.BigQuerySqlInterpreter(
-        value_set_codes_table='VALUESET_VIEW'
-    )
-    sql_statement = runner_utils.RunnerSqlGenerator(
-        view=enc_and_pat_class,
-        encoder=encoder,
-        dataset='test_dataset',
-        table_names={
-            'http://hl7.org/fhir/StructureDefinition/Patient': 'Patient',
-            'http://hl7.org/fhir/StructureDefinition/Encounter': 'Encounter'
-        },
-    ).build_sql_statement(True)
-
-    expected_output = textwrap.dedent("""\
-        SELECT * , __patientId__ FROM
-        ((SELECT (SELECT subject.patientId AS idFor_) AS __patientId__,Encounter FROM `test_dataset`.Encounter Encounter)
-        INNER JOIN
-        (SELECT (SELECT id) AS __patientId__,Patient FROM `test_dataset`.Patient Patient)
-        USING(__patientId__))
-        WHERE (SELECT LOGICAL_AND(logic_)
-        FROM UNNEST(ARRAY(SELECT comparison_
-        FROM (SELECT ((SELECT SAFE_CAST(statusHistory_element_.period.start AS TIMESTAMP) AS start
-        FROM (SELECT Encounter),
-        UNNEST(Encounter.statusHistory) AS statusHistory_element_ WITH OFFSET AS element_offset) > (SELECT SAFE_CAST(contact_element_.period.start AS TIMESTAMP) AS start
-        FROM (SELECT Patient),
-        UNNEST(Patient.contact) AS contact_element_ WITH OFFSET AS element_offset
-        LIMIT 1)) AS comparison_)
-        WHERE comparison_ IS NOT NULL)) AS logic_)""")
     self.assertMultiLineEqual(expected_output, sql_statement)
 
   def test_build_valueset_expression(self):
@@ -242,9 +183,6 @@ class RunnerUtilsTest(absltest.TestCase):
         view=simple_view,
         encoder=encoder,
         dataset='test_dataset',
-        table_names={
-            'http://hl7.org/fhir/StructureDefinition/Patient': 'Patient'
-        },
     ).build_valueset_expression('VALUESET_VIEW')
     expected_output = textwrap.dedent("""\
         WITH VALUESET_VIEW AS (SELECT valueseturi, valuesetversion, system, code FROM VALUESET_VIEW)
@@ -261,9 +199,6 @@ class RunnerUtilsTest(absltest.TestCase):
         view=observation,
         encoder=encoder,
         dataset='test_project.test_dataset',
-        table_names={
-            'http://hl7.org/fhir/StructureDefinition/Observation': 'Observation'
-        },
     ).build_select_for_summarize_code(observation.category)
 
     # Ensure expected SQL was passed to BigQuery and the dataframe was returned

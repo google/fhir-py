@@ -20,7 +20,7 @@ implementations (like the BigQuery runner) for realizing the views themselves.
 """
 
 import keyword
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
@@ -68,56 +68,28 @@ class View:
     # for different views that don't share the same subset of structure defs.
     self._context = fhir_context
     self._root_resource = root_resource
-    self._constraints = constraints
+    self._structdef_url = root_resource.return_type.url
     self._handler = handler
-    self._structdef_urls = set()
 
     for field in fields:
       if not field.column_name:
         raise ValueError(
             f'View `select` expressions must have column names. Got `{field}`'
         )
+      if field.node.get_root_node().return_type.url != self._structdef_url:
+        raise ValueError(
+            'View `select` expressions must have the same root resource as '
+            f'the view itself. Got `{field}`'
+        )
     self._fields = fields
 
-    # Collects all the field builders that reference multiple resources.
-    self._multiresource_field_indexes = []
-    # Collects urls to field indexes of single resource builders.
-    self._url_to_field_indexes = {}
-    self.sort_builders(
-        enumerate(self._fields),
-        self._url_to_field_indexes,
-        self._multiresource_field_indexes,
-    )
-
-    if not self._fields:
-      # If no fields are selected, it means selecting all fields from root.
-      self._structdef_urls.add(self.get_root_resource_url())
-
-    # Collects all the constraint builders that reference multiple resources.
-    self._multiresource_constraint_indexes = []
-    # Collects urls to constraint indexes of single resource builders.
-    self._url_to_constraint_indexes = {}
-    self.sort_builders(
-        enumerate(self._constraints), self._url_to_constraint_indexes,
-        self._multiresource_constraint_indexes)
-
-  def sort_builders(self, builders: Iterable[Any], url_to_resource: Dict[str,
-                                                                         Any],
-                    multiresource_list: List[Any]) -> None:
-    """Sorts the builders between single url and multiple url builders."""
-    for index, builder in builders:
-      resources = builder.get_resource_builders()
-      for resource in resources:
-        self._structdef_urls.add(resource.return_type.url)
-
-      if len(resources) > 1:
-        multiresource_list.append(index)
-        continue
-
-      url = resources[0].return_type.url
-      if url not in url_to_resource:
-        url_to_resource[url] = []
-      url_to_resource[url].append(index)
+    for constraint in constraints:
+      if constraint.node.get_root_node().return_type.url != self._structdef_url:
+        raise ValueError(
+            'View `where` expressions must have the same root resource as '
+            f'the view itself. Got `{constraint}`'
+        )
+    self._constraints = constraints
 
   def select(
       self,
@@ -201,7 +173,7 @@ class View:
     else:
       # View is using the root resource, so look up fields from that
       # structure
-      expression = getattr(self._root_resource, lookup)
+      expression = getattr(self._root_resource.builder, lookup)
 
     if expression is None:
       raise AttributeError(f'No such field {name}')
@@ -216,47 +188,14 @@ class View:
     fields.extend(dir(type(self)))
     return fields
 
-  def get_structdef_urls(self) -> Set[str]:
-    """Returns all the unique URLS referenced in the view."""
-    return self._structdef_urls
-
-  def get_url_to_field_indexes(self) -> Dict[str, List[int]]:
-    """Returns the dictionary of URLS to field names."""
-    return self._url_to_field_indexes
-
-  def get_url_to_constraint_indexes(self) -> Dict[str, List[int]]:
-    """Returns the dictionary of URLs to constraint indices."""
-    return self._url_to_constraint_indexes
-
-  def get_multiresource_field_indexes(self) -> List[int]:
-    """Returns the dictionary of URLS to field names."""
-    return self._multiresource_field_indexes
-
-  def get_multiresource_constraint_indexes(self) -> List[int]:
-    """Returns the dictionary of URLs to constraint indices."""
-    return self._multiresource_constraint_indexes
-
   def get_patient_id_expression(
-      self, url: str
+      self,
   ) -> Optional[column_expression_builder.ColumnExpressionBuilder]:
-    """Generates the expression builders to get the patient ids for the url.
+    """Returns the builder for patient ids of the root builder of the view."""
+    if self._root_resource.fhir_path == 'Patient':
+      return self._root_resource.id
 
-    Args:
-      url: Url to a structure definition
-
-    Returns:
-      A builder that references the patient id of the url if patient id exists
-      for the url.
-    """
-    structdef = self._context.get_structure_definition(url)
-    struct_type = _fhir_path_data_types.StructureDataType.from_proto(structdef)
-    root_builder = column_expression_builder.ColumnExpressionBuilder(
-        _evaluation.RootMessageNode(self._context, struct_type), self._handler
-    )
-
-    if root_builder.fhir_path == 'Patient':
-      return root_builder.id
-
+    structdef = self._context.get_structure_definition(self._structdef_url)
     patients = _utils.get_patient_reference_element_paths(structdef)
 
     if not patients:
@@ -270,7 +209,7 @@ class View:
     else:
       patient_ref = patients[0]
 
-    return root_builder.__getattr__(patient_ref).idFor('patient')
+    return self._root_resource.__getattr__(patient_ref).idFor('patient')
 
   def get_select_expressions(
       self,
@@ -293,15 +232,14 @@ class View:
     """
     return self._constraints
 
-  def get_root_resource_url(self) -> str:
-    return self._root_resource.return_type.url
+  def get_structdef_url(self) -> str:
+    return self._structdef_url
 
   def get_fhir_path_context(self) -> context.FhirPathContext:
     return self._context
 
   def __str__(self) -> str:
-    structdef_urls = ',\n'.join(self.get_structdef_urls())
-    view_strings = [f'View<{structdef_urls}']
+    view_strings = [f'View<{self._structdef_url}']
 
     select_strings = []
     for builder in self.get_select_expressions():

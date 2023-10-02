@@ -122,7 +122,7 @@ class ColumnExpressionBuilder:
 
     attr = getattr(self._builder, name)
     if isinstance(attr, expressions.Builder) and self._sealed:
-      raise self._fhir_path_sealed_error()
+      raise self._fhir_path_sealed_error(name)
     return ColumnExpressionBuilder._wrap_any(self, attr)
 
   def __getitem__(self, key: Any) -> 'ColumnExpressionBuilder':
@@ -141,7 +141,7 @@ class ColumnExpressionBuilder:
     """
     item = self._builder[key]
     if isinstance(item, expressions.Builder) and self._sealed:
-      raise self._fhir_path_sealed_error()
+      raise self._fhir_path_sealed_error(key)
     return ColumnExpressionBuilder._wrap_any(self, item)
 
   def __str__(self) -> str:
@@ -217,16 +217,16 @@ class ColumnExpressionBuilder:
       AttributeError: if the FHIR path in this class is already sealed.
     """
     if self._sealed:
-      raise self._fhir_path_sealed_error()
+      raise self._fhir_path_sealed_error(operation_name)
 
     operand = rhs.builder if isinstance(rhs, type(self)) else rhs
     result = getattr(self._builder, operation_name)(operand)
     return ColumnExpressionBuilder._wrap_any(self, result)
 
-  def _fhir_path_sealed_error(self):
+  def _fhir_path_sealed_error(self, execution_name: str):
     return AttributeError(
-        f'Cannot keep building the fhir path {self._builder.fhir_path} after'
-        ' calling FHIRViews features.'
+        'Cannot keep building the fhir path after calling FHIRViews features. '
+        f'Got {self._str} when getting / calling {execution_name}'
     )
 
   @classmethod
@@ -243,7 +243,7 @@ class ColumnExpressionBuilder:
       }
       result = func(*new_args, **new_kwargs)
       if isinstance(result, expressions.Builder) and self._sealed:  # pylint: disable=protected-access
-        raise self._fhir_path_sealed_error()  # pylint: disable=protected-access
+        raise self._fhir_path_sealed_error(func.__name__)  # pylint: disable=protected-access
       return cls._wrap_any(self, result)
 
     return wrapper

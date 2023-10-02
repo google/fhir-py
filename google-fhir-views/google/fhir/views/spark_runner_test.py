@@ -123,8 +123,8 @@ class SparkRunnerTest(parameterized.TestCase):
             'FROM (SELECT name_element_.family FROM '
             '(SELECT EXPLODE(name_element_) AS name_element_ '
             'FROM (SELECT name AS name_element_))) '
-            'WHERE family IS NOT NULL) AS family_names,'
-            '(SELECT id) AS __patientId__ FROM `default`.Patient'
+            'WHERE family IS NOT NULL) AS family_names '
+            'FROM `default`.Patient'
         ),
         view=simple_view,
         runner=self.runner,
@@ -135,7 +135,7 @@ class SparkRunnerTest(parameterized.TestCase):
     patient = self._views.view_of('Patient')
     self.ast_and_expression_tree_test_runner(
         expected_output=(
-            'SELECT *,(SELECT id) AS __patientId__ FROM `default`.Patient'
+            'SELECT * FROM `default`.Patient'
         ),
         view=patient,
         runner=self.runner,
@@ -157,8 +157,8 @@ class SparkRunnerTest(parameterized.TestCase):
             'LATERAL VIEW POSEXPLODE(name_element_.given) AS '
             'index_given_element_, given_element_) '
             'WHERE given_element_ IS NOT NULL) AS name,'
-            '(SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,'
-            '(SELECT id) AS __patientId__ FROM `default`.Patient'
+            '(SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate '
+            'FROM `default`.Patient'
         ),
         view=simple_view,
         runner=self.runner,
@@ -178,7 +178,7 @@ class SparkRunnerTest(parameterized.TestCase):
     self.ast_and_expression_tree_test_runner(
         expected_output=(
             'SELECT (SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS '
-            'birthDate,(SELECT id) AS __patientId__ FROM `default`.patient'
+            'birthDate FROM `default`.patient'
         ),
         view=simple_view,
         runner=snake_case_runner,
@@ -200,8 +200,8 @@ class SparkRunnerTest(parameterized.TestCase):
         '(SELECT name AS name_element_))) '
         'LATERAL VIEW POSEXPLODE(name_element_.given) AS index_given_element_, '
         'given_element_) WHERE given_element_ IS NOT NULL) AS name,'
-        '(SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,'
-        '(SELECT id) AS __patientId__ FROM `default`.Patient '
+        '(SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate '
+        'FROM `default`.Patient '
         'WHERE (SELECT EXISTS(*, x -> x IS true) FROM '
         '(SELECT COLLECT_LIST(active) FROM (SELECT active) '
         'WHERE active IS NOT NULL))'
@@ -236,8 +236,8 @@ class SparkRunnerTest(parameterized.TestCase):
             'LATERAL VIEW POSEXPLODE(name_element_.given) AS '
             'index_given_element_, given_element_) '
             'WHERE given_element_ IS NOT NULL) AS name,'
-            '(SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate,'
-            '(SELECT id) AS __patientId__ FROM `default`.Patient '
+            '(SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate '
+            'FROM `default`.Patient '
             'WHERE (SELECT EXISTS(*, x -> x IS true) FROM '
             '(SELECT COLLECT_LIST(comparison_) FROM '
             '(SELECT CAST(birthDate AS TIMESTAMP) < '
@@ -295,7 +295,7 @@ class SparkRunnerTest(parameterized.TestCase):
             ' address_element_ FROM (SELECT address AS address_element_)) WHERE'
             ' (SELECT CASE WHEN COUNT(*) = 0 THEN TRUE ELSE FALSE END AS empty_'
             ' FROM (SELECT address_element_.period) WHERE period IS NOT'
-            ' NULL)))) AS zip,(SELECT id) AS __patientId__ FROM'
+            ' NULL)))) AS zip FROM'
             ' `default`.Patient'
         ),
         view=simple_pats,
@@ -320,7 +320,7 @@ class SparkRunnerTest(parameterized.TestCase):
             ' CAST(telecom_element_.period.start AS TIMESTAMP) AS start FROM'
             ' (SELECT EXPLODE(telecom_element_) AS telecom_element_ FROM'
             ' (SELECT telecom AS telecom_element_))) WHERE start IS NOT NULL)'
-            ' AS telecom,(SELECT id) AS __patientId__ FROM `default`.Patient'
+            ' AS telecom FROM `default`.Patient'
         ),
         view=telecom,
         runner=self.runner,
@@ -408,7 +408,7 @@ class SparkRunnerTest(parameterized.TestCase):
     expected_sql = (
         'CREATE OR REPLACE VIEW '
         'default.simple_patient_view AS\n'
-        f'{self.runner.to_sql(simple_view, include_patient_id_col=False)}'
+        f'{self.runner.to_sql(simple_view)}'
     )
     self.mock_spark_engine.execute.assert_called_once_with(expected_sql)
 

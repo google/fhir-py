@@ -15,7 +15,8 @@
 """Utility class to generate SQL expressions for different encoders."""
 
 import itertools
-from typing import Collection, Mapping, MutableSequence, Optional, Sequence, Tuple, Union
+import re
+from typing import Collection, MutableSequence, Optional, Tuple, Union
 
 import numpy
 import pandas as pd
@@ -32,8 +33,6 @@ CODING = 'http://hl7.org/fhir/StructureDefinition/Coding'
 CODE = 'http://hl7.org/fhir/StructureDefinition/Code'
 STRING = 'http://hl7.org/fhirpath/System.String'
 
-PATIENT_ID_GENERATED_COLUMN_NAME = '__patientId__'
-
 
 class RunnerSqlGenerator:
   """Generates SQL for the different encoders."""
@@ -47,7 +46,7 @@ class RunnerSqlGenerator:
           fhir_path.FhirPathStandardSqlEncoder,
       ],
       dataset: str,
-      table_names: Mapping[str, str],
+      snake_case_resource_tables: bool = False,
   ):
     """Initializes the class with provided arguments.
 
@@ -55,234 +54,92 @@ class RunnerSqlGenerator:
       view: the view to generate SQL from
       encoder: the translator to use to generate SQL
       dataset: the dataset to query from
-      table_names: the table names for each resource in the view
+      snake_case_resource_tables: Whether to use snake_case names for resource
+        tables in the data storidge for compatiblity with some exports. Defaults
+        to False.
     """
     self._view = view
     self._encoder = encoder
     self._dataset = dataset
-    self._table_names = table_names
+    self._table_name = self._get_view_resource_table_name(
+        snake_case_resource_tables
+    )
     self._v1_extras: Optional[FhirPathInterpreterVariables] = (
         FhirPathInterpreterVariables(view)
         if isinstance(encoder, fhir_path.FhirPathStandardSqlEncoder)
         else None
     )
 
-  def build_sql_statement(
-      self,
-      include_patient_id_col: bool,
-  ) -> str:
+  def build_sql_statement(self) -> str:
     """Build SQL statement.
-
-      Build a separate SQL query for each url first and then INNER JOIN on
-      patient id at the very end. This way, any where clause filters occur first
-      on the respective query.
-
-    Args:
-      include_patient_id_col: whether to include a __patientId__ column to
-        indicate the patient the resource is associated with.
 
     Returns:
      SQL string representation of the view
     """
-    inner_sql_statements = []
-
-    # Sort to always generate the urls in the same order for testing purposes.
-    sorted_urls = sorted(self._view.get_structdef_urls())
-
-    for url in sorted_urls:
-      inner_select_builders = self._get_inner_select_builders(url)
-      patient_id_builder = self._get_patient_id_builder(
-          url, include_patient_id_col
-      )
-      inner_select_expressions = self._build_inner_select_expressions(
-          url, inner_select_builders, patient_id_builder
-      )
-      inner_where_expressions = self._build_inner_where_expressions(url)
-
-      # Build statement for the resource.
-      inner_sql_statements.append(
-          self._build_inner_sql_statement(
-              url, inner_select_expressions, inner_where_expressions
-          )
-      )
-
-    sql_statement = self._join_sql_statements(inner_sql_statements)
-
-    # Then build the query for the builders that reference multiple resources
-    # now that the resources are all in one table.
-    multiresource_select_expressions = (
-        self._build_multiresource_select_expressions()
+    select_expressions = self._build_select_expressions(
+        self._view.get_select_expressions()
     )
-    multiresource_where_expressions = (
-        self._build_multiresource_where_expressions()
+    where_expressions = self._build_where_expressions(
+        self._view.get_constraint_expressions()
     )
 
-    if multiresource_select_expressions:
-      sql_statement = (
-          'SELECT *, '
-          f'{",".join(multiresource_select_expressions)} '
-          f'FROM ({sql_statement})'
-      )
-    if multiresource_where_expressions:
-      sql_statement = (
-          f'{sql_statement}'
-          '\nWHERE '
-          f'{" AND ".join(multiresource_where_expressions)}'
-      )
+    return self._build_sql_statement(select_expressions, where_expressions)
 
-    return f'{sql_statement}'
-
-  def _get_inner_select_builders(
+  def _build_select_expressions(
       self,
-      url: str,
-  ) -> MutableSequence[column_expression_builder.ColumnExpressionBuilder]:
-    """Get inner select builders. Include a __patientId__ builder if needed."""
-    inner_select_builders = []
-
-    if url in self._view.get_url_to_field_indexes():
-      for index in self._view.get_url_to_field_indexes()[url]:
-        inner_select_builders.append(self._view.get_select_expressions()[index])
-
-    return inner_select_builders
-
-  def _get_patient_id_builder(
-      self, url: str, include_patient_id_col: bool
-  ) -> Optional[column_expression_builder.ColumnExpressionBuilder]:
-    if include_patient_id_col or len(self._view.get_structdef_urls()) > 1:
-      # Auto generate the __patientId__ field for the view if it exists for
-      # every unique resource.
-      builder = self._view.get_patient_id_expression(url)
-      if builder:
-        return builder.alias(PATIENT_ID_GENERATED_COLUMN_NAME)
-    return None
-
-  def _build_inner_select_expressions(
-      self,
-      url: str,
-      select_builders: MutableSequence[
-          column_expression_builder.ColumnExpressionBuilder
-      ],
-      patient_id_builder: Optional[
-          column_expression_builder.ColumnExpressionBuilder
+      select_builders: Tuple[
+          column_expression_builder.ColumnExpressionBuilder, ...
       ],
   ) -> MutableSequence[str]:
-    """Build inner select expressions."""
-    inner_select_expressions = []
+    """Build select expressions."""
+    select_expressions = []
 
-    if url == self._view.get_root_resource_url() and not select_builders:
+    if not select_builders:
       # If there're no select builders, it means selecting all fields from root.
-      inner_select_expressions.append('*')
-
-    if patient_id_builder:
-      select_builders.append(patient_id_builder)
+      select_expressions.append('*')
 
     for builder in select_builders:
       select_expression = self._encode(
           builder=builder, select_scalars_as_array=False
       )
 
-      inner_select_expressions.append(
-          f'{select_expression} AS {builder.column_name}'
-      )
-    return inner_select_expressions
+      select_expressions.append(f'{select_expression} AS {builder.column_name}')
+    return select_expressions
 
-  def _build_inner_where_expressions(self, url: str) -> MutableSequence[str]:
-    """Build inner where expressions."""
-    inner_where_expressions = []
-    url_to_constraint_indexes = self._view.get_url_to_constraint_indexes()
-
-    if url in url_to_constraint_indexes:
-      for index in url_to_constraint_indexes[url]:
-        expr = self._view.get_constraint_expressions()[index]
-        where_expression = self._encode(
-            builder=expr, select_scalars_as_array=True
-        )
-
-        inner_where_expressions.append(
-            self._encoder.wrap_where_expression(where_expression)
-        )
-    return inner_where_expressions
-
-  def _build_inner_sql_statement(
+  def _build_where_expressions(
       self,
-      url: str,
-      inner_select_expressions: MutableSequence[str],
-      inner_where_expressions: MutableSequence[str],
-  ) -> str:
-    """Build inner SQL statement from list of select and where statements."""
-    table_alias = ''
+      constraint_builders: Tuple[
+          column_expression_builder.ColumnExpressionBuilder, ...
+      ],
+  ) -> MutableSequence[str]:
+    """Build where expressions."""
+    where_expressions = []
 
-    # Check if the view has builders that reference multiple resources.
-    has_mixed_resource_builders = (
-        len(self._view.get_multiresource_field_indexes())
-        + len(self._view.get_multiresource_constraint_indexes())
-    ) != 0
-
-    if has_mixed_resource_builders:
-      # For views with mixed resource builders, * and table_names[url] will
-      # double the number of rows produced.
-      if '*' in inner_select_expressions:
-        inner_select_expressions = inner_select_expressions[1:]
-      inner_select_expressions.append(self._table_names[url])
-      table_alias = f' {self._table_names[url]}'
-
-    inner_select_clause = (
-        f'SELECT {",".join(inner_select_expressions)} '
-        f'FROM `{self._dataset}`.{self._table_names[url]}{table_alias}'
-    )
-    inner_where_clause = ''
-    if inner_where_expressions:
-      inner_where_clause = f'\nWHERE {" AND ".join(inner_where_expressions)}'
-
-    return f'{inner_select_clause}{inner_where_clause}'
-
-  def _join_sql_statements(self, sql_statements: Sequence[str]) -> str:
-    """Joins all the passed SQL statements into one SQL statement."""
-    if len(sql_statements) > 2:
-      raise NotImplementedError(
-          'Cross resource join for more than two resources '
-          'is not currently supported.'
-      )
-
-    if len(sql_statements) == 1:
-      return sql_statements[0]
-
-    return (
-        f'SELECT * , __patientId__ FROM\n(({sql_statements[0]})'
-        f'\nINNER JOIN\n({self._join_sql_statements(sql_statements[1:])})'
-        '\nUSING(__patientId__))'
-    )
-
-  def _build_multiresource_select_expressions(self) -> Sequence[str]:
-    """Returns a list of select expressions for multi resource selections."""
-
-    multiresource_select_expressions = []
-    for index in self._view.get_multiresource_field_indexes():
-      builder = self._view.get_select_expressions()[index]
-      select_expression = self._encode(
-          builder=builder,
-          select_scalars_as_array=False,
-          use_resource_alias=True,
-      )
-      multiresource_select_expressions.append(
-          f'{select_expression} AS {builder.column_name}'
-      )
-    return multiresource_select_expressions
-
-  def _build_multiresource_where_expressions(self) -> Sequence[str]:
-    """Returns a list of where expressions for multi resource constraints."""
-
-    multiresource_where_expressions = []
-    for index in self._view.get_multiresource_constraint_indexes():
-      expr = self._view.get_constraint_expressions()[index]
+    for builder in constraint_builders:
       where_expression = self._encode(
-          builder=expr, select_scalars_as_array=True, use_resource_alias=True
+          builder=builder, select_scalars_as_array=True
       )
 
-      multiresource_where_expressions.append(
+      where_expressions.append(
           self._encoder.wrap_where_expression(where_expression)
       )
-    return multiresource_where_expressions
+    return where_expressions
+
+  def _build_sql_statement(
+      self,
+      select_expressions: MutableSequence[str],
+      where_expressions: MutableSequence[str],
+  ) -> str:
+    """Build SQL statement from list of select and where statements."""
+    select_clause = (
+        f'SELECT {",".join(select_expressions)} '
+        f'FROM `{self._dataset}`.{self._table_name}'
+    )
+    where_clause = ''
+    if where_expressions:
+      where_clause = f'\nWHERE {" AND ".join(where_expressions)}'
+
+    return f'{select_clause}{where_clause}'
 
   def build_valueset_expression(self, view_table_name: str) -> str:
     """Returns the expression for valuesets, if needed."""
@@ -339,31 +196,19 @@ class RunnerSqlGenerator:
           'Summarization of codes with view constraints not yet implemented.'
       )
 
-    # Workaround for v1 until it gets deprecated.
-    if (
-        len(self._view.get_structdef_urls()) > 1
-        or len(self._table_names.keys()) != 1
-    ):
-      raise NotImplementedError(
-          'Summarization of codes with multiple resource views not yet'
-          ' implemented.'
-      )
-
     select_expression = self._encode(
         builder=code_expr, select_scalars_as_array=True
     )
 
-    url = list(self._view.get_structdef_urls())[0]
     return (
         f'SELECT {select_expression} as target '
-        f'FROM `{self._dataset}`.{self._table_names[url]}'
+        f'FROM `{self._dataset}`.{self._table_name}'
     )
 
   def _encode(
       self,
       builder: column_expression_builder.ColumnExpressionBuilder,
       select_scalars_as_array: bool,
-      use_resource_alias: bool = False,
   ) -> str:
     """Encodes the expression to SQL."""
     if self._v1_extras:
@@ -378,8 +223,22 @@ class RunnerSqlGenerator:
       return self._encoder.encode(
           builder=builder.builder,
           select_scalars_as_array=select_scalars_as_array,
-          use_resource_alias=use_resource_alias,
       )
+
+  def _get_view_resource_table_name(
+      self, snake_case_resource_tables: bool
+  ) -> str:
+    """Returns the name of the table to query for the given view."""
+    url = self._view.get_structdef_url()
+    last_slash_index = url.rfind('/')
+    name = url if last_slash_index == -1 else url[last_slash_index + 1 :]
+    if snake_case_resource_tables:
+      return (
+          re.sub(pattern=r'([A-Z]+)', repl=r'_\1', string=name)
+          .lower()
+          .lstrip('_')
+      )
+    return name
 
 
 class FhirPathInterpreterVariables:
@@ -387,7 +246,7 @@ class FhirPathInterpreterVariables:
 
   def __init__(self, view: views.View):
     fhir_context = view.get_fhir_path_context()
-    url = list(view.get_structdef_urls())[0]
+    url = view.get_structdef_url()
     self.struct_def = fhir_context.get_structure_definition(url)
     self.elem_def = next(
         elem
