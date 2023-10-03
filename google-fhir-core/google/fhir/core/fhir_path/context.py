@@ -224,7 +224,7 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
 
       # Skip tag and resource name to get the relative element path.
       relative_ref = ref_path[ref_path.find('.') + 1 :]
-      return _fhir_path_data_types.StructureDataType.from_proto(
+      return_type = _fhir_path_data_types.StructureDataType.from_proto(
           struct_def_proto=parent.structure_definition,
           backbone_element_path=relative_ref,
       )
