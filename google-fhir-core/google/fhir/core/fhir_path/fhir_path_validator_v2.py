@@ -15,12 +15,15 @@
 """Functionality for validating FHIRPath resources using SQL."""
 
 import dataclasses
+import datetime
+import decimal
+import enum
 import functools
 import itertools
 import operator
 import re
 import traceback
-from typing import Any, Collection, Iterable, List, Optional, Set, Tuple, cast, Dict
+from typing import Any, Collection, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 
 from google.cloud import bigquery
 
@@ -37,6 +40,7 @@ from google.fhir.core.fhir_path import _utils
 from google.fhir.core.fhir_path import context
 from google.fhir.core.fhir_path import expressions
 from google.fhir.core.internal import primitive_handler
+from google.fhir.core.utils import annotation_utils
 from google.fhir.core.utils import fhir_package
 from google.fhir.core.utils import proto_utils
 
@@ -137,6 +141,12 @@ class _PathStep:
 
   field: str
   type_url: str
+
+
+@enum.unique
+class _MessageType(enum.Enum):
+  FIXED = 1
+  PATTERN = 2
 
 
 def _get_analytic_path(element_definition: ElementDefinition) -> str:
@@ -964,11 +974,50 @@ class FhirProfileStandardSqlEncoder:
     # Find any fixed values set by the slice's element definitions.
     element_constraints = []
     for rule_path, rule_def in slice_.slice_rules:
-      constraint = self._constraint_from_slice_element(
-          root_builder, rule_path, rule_def
+      # If there is neither a 'fixed' nor 'pattern' field, then the
+      # element definition does not define a constraint.
+      if not rule_def.HasField('fixed') and not rule_def.HasField('pattern'):
+        continue
+
+      # Create a builder on the path to the element being constrained.
+      slice_element_builder = root_builder
+      for path_component in rule_path.split('.'):
+        slice_element_builder = slice_element_builder.__getattr__(
+            path_component
+        )
+
+        if slice_element_builder.return_type.returns_polymorphic():
+          type_codes = _utils.element_type_codes(
+              slice_element_builder.return_type.root_element_definition
+          )
+          # TODO(b/190679571): Support choice types with more than one type.
+          if len(type_codes) > 1:
+            self._error_reporter.report_fhir_path_error(
+                cast(Any, rule_def).path.value,
+                str(slice_element_builder),
+                f'Element `{slice_element_builder}` in slice'
+                f' `{cast(Any, slice_.slice_def).id.value}` is a choice type'
+                ' with more than one choice which is not currently supported.',
+            )
+            return []
+
+          # If there is only one choice type, we can handle it with an
+          # ofType call for that type. Supporting this in the general
+          # case is more difficult. However, for slices this is
+          # frequently sufficient as they will fix a specific type.
+          slice_element_builder = slice_element_builder.ofType(type_codes[0])
+
+      fixed_constraint = self._constraint_for_fixed_slice_element(
+          slice_element_builder, rule_def
       )
-      if constraint is not None:
-        element_constraints.append(constraint)
+      if fixed_constraint is not None:
+        element_constraints.append(fixed_constraint)
+
+      pattern_constraint = self._constraint_for_pattern_slice_element(
+          slice_element_builder, rule_def
+      )
+      if pattern_constraint is not None:
+        element_constraints.append(pattern_constraint)
 
     # If the slice has no fixed values, there's no constraint to build.
     if not element_constraints:
@@ -981,16 +1030,20 @@ class FhirProfileStandardSqlEncoder:
     # Ensure the number of elements in the slice is between min and max.
     slice_constraints = []
 
-    min_size = cast(Any, slice_.slice_def).min.value
-    if min_size == 1:
-      slice_constraints.append(elements_in_slice.exists())
-    elif min_size > 1:
-      slice_constraints.append(elements_in_slice.count() >= min_size)
+    min_size: int = cast(Any, slice_.slice_def).min.value
+    max_size: str = cast(Any, slice_.slice_def).max.value
 
-    # max_size may be '*' or the string representation of an integer.
-    max_size = cast(Any, slice_.slice_def).max.value
-    if max_size.isdigit():
-      slice_constraints.append(elements_in_slice.count() <= int(max_size))
+    if str(min_size) == max_size:
+      slice_constraints.append(elements_in_slice.count() == min_size)
+    else:
+      if min_size == 1:
+        slice_constraints.append(elements_in_slice.exists())
+      elif min_size > 1:
+        slice_constraints.append(elements_in_slice.count() >= min_size)
+
+      # max_size may be '*' or the string representation of an integer.
+      if max_size.isdigit():
+        slice_constraints.append(elements_in_slice.count() <= int(max_size))
 
     # If neither min nor max size are set, there's no constraint to build.
     if not slice_constraints:
@@ -1034,65 +1087,227 @@ class FhirProfileStandardSqlEncoder:
         )
     ]
 
-  def _constraint_from_slice_element(
+  def _constraint_for_fixed_slice_element(
       self,
-      root_builder: expressions.Builder,
-      rule_path: str,
-      rule_def: ElementDefinition,
+      builder: expressions.Builder,
+      slice_element: ElementDefinition,
   ) -> Optional[expressions.Builder]:
-    """Creates a constraint for the component slice element definition.
+    """Builds an expression representing the slice constraint's fixed value.
 
-    If the element definition contains a 'fixed' value, stating that members of
-    the slice must have a value for that field with a given value, returns an
-    expression stating that the element definition's field must be that fixed
-    value.
+    Builds a FHIRPath expression representing the constraint imposed by the
+    given slice's fixed value. Returns `None` if the `slice_element` does
+    not define a fixed value. Given a message for a pattern like:
+
+    "fixedCodeableConcept" : {
+      "coding" : [{
+        "system" : "http://example.org/canonical",
+        "code" : "a-code",
+      }]
+    }
+
+    Builds a constraint like:
+
+    coding[0].system = "http://example.org/canonical" and code = "a-code"
+      and display.empty() and version.empty() and userSelected.empty()
+    ).exists()
+
+    See more information on slices with fixed values at the following links:
+    https://build.fhir.org/profiling.html#discriminator
+    https://build.fhir.org/profiling-examples.html#contacts
 
     Args:
-      root_builder: The builder representing a path to the structure definition
-        defining the slice.
-      rule_path: The path to the element definition `rule_def` relative to
-        `root_builder`.
-      rule_def: An element definition representing one rule describing slice
-        membership.
+      builder: An expression builder to the slice element.
+      slice_element: The element definition describing the slice constraint.
 
     Returns:
-      An expression stating the constraint or None if the `rule_def` does not
-      contain a constraint.
+      An expression builder defining the constraint described by
+      `slice_element`'s `fixed` field or `None` if the `slice_element` does
+      not have a `fixed` field.
     """
-    rule_def = cast(Any, rule_def)
-
-    # If the slice isn't fixing a value, there's no constraint to generate.
-    if not rule_def.HasField('fixed'):
+    if not slice_element.HasField('fixed'):
       return None
 
-    rule_builder = self._get_new_child_builder(root_builder, rule_path)
-    if rule_builder is None:
+    fixed_choice = cast(Any, slice_element).fixed
+    fixed_message = getattr(fixed_choice, fixed_choice.WhichOneof('choice'))
+    return self._constraint_for_slice_element(
+        slice_element,
+        builder,
+        fixed_message,
+        _MessageType.FIXED,
+    )
+
+  def _constraint_for_pattern_slice_element(
+      self,
+      builder: expressions.Builder,
+      slice_element: ElementDefinition,
+  ) -> Optional[expressions.Builder]:
+    """Builds an expression representing the slice constraint's pattern field.
+
+    Builds a FHIRPath expression representing the constraint imposed by the
+    given slice pattern. Returns `None` if the `slice_element` does not define a
+    pattern. Given a message for a pattern like:
+
+    "patternCodeableConcept" : {
+      "coding" : [{
+        "system" : "http://example.org",
+        "code" : "a-code",
+      }]
+    }
+
+    Builds a constraint like:
+
+    coding.count() == 1 and
+    coding[0].system = 'http://example.org' and coding[0].code = 'a-code'
+    and
+    coding[0].version.empty() and coding[0].display.empty() and
+    coding[0].userSelected.empty()
+
+    See more information on slice patterns at the following links:
+    https://build.fhir.org/profiling.html#discriminator
+    https://build.fhir.org/elementdefinition-examples.html#pattern-examples
+
+    Args:
+      builder: An expression builder to the slice element.
+      slice_element: The element definition describing the slice constraint.
+
+    Returns:
+      An expression builder defining the constraint described by
+      `slice_element`'s `pattern` field or `None` if the `slice_element` does
+      not have a 'pattern' field.
+    """
+    if not slice_element.HasField('pattern'):
       return None
 
-    type_codes = _utils.element_type_codes(rule_def)
-    if len(type_codes) > 1:
-      self._error_reporter.report_conversion_error(
-          self._abs_path_invocation(rule_builder),
-          f'Slice {rule_def.id.value} on choice type unsupported.',
+    pattern_choice = cast(Any, slice_element).pattern
+    pattern_message = getattr(
+        pattern_choice, pattern_choice.WhichOneof('choice')
+    )
+    return self._constraint_for_slice_element(
+        slice_element,
+        builder,
+        pattern_message,
+        _MessageType.PATTERN,
+    )
+
+  def _constraint_for_slice_element(
+      self,
+      slice_element: ElementDefinition,
+      root_builder: expressions.Builder,
+      slice_message: message.Message,
+      message_type: _MessageType,
+  ) -> expressions.Builder:
+    """Builds an expression representing the slice described by `slice_message`.
+
+    If `slice_message` is a message representing a FHIR primitive, produces a
+    constraint like:
+    "`field_name` = `slice_message`.value()"
+
+    If `slice_message` is a message representing a non-primitive data type, for
+    each sub-field in `slice_message` builds a constraint like:
+    "`field_name`.sub_field = `slice_message`.sub_field().value() and ..."
+
+    If the sub-field is empty and the `message_type` flag is
+    MessageType::kFixed,
+    builds a constraint like
+    "`field_name`.sub_field.empty()"
+
+    If a sub-field on `slice_message` contains repeated elements, the generated
+    constraint depends on the `message_type` flag. For MessageType::kFixed,
+    generates a constraint like:
+    "`field_name`.sub_field[0] = `slice_message`.sub_field(0).value()
+
+    For MessageType::kPattern, generates a constraint like:
+    "`field_name`.sub_field.where(
+        $this = `slice_message`.sub_field(0).value()).exists()"
+
+    The functions FhirPathConstraintForPatternSliceElement and
+    FhirPathConstraintForFixedSliceElement should be favored by callers rather
+    than calling this function directly.
+
+    Args:
+      slice_element: The element definition describing inclusion criteria for a
+        slice.
+      root_builder: An expression builder for the path to `slice_message`.
+      slice_message: The message defining the fixed or pattern value
+        representing inclusion criteria for the slice.
+      message_type: Whether `slice_message` represents a fixed or pattern value.
+
+    Returns:
+      An expression builder representing the slice constraint described by
+      `slice_message`.
+    """
+    # For a primitive, we just return a 'field_name = message_value'
+    # expression.
+    if annotation_utils.is_primitive_type(slice_message.DESCRIPTOR):
+      return root_builder == _primitive_message_as_value(slice_message)
+
+    # For a non-primitive message, recursively add a constraint for each field
+    # on the message, then 'and' each of the constraints together.
+    expression_parts = []
+    for field in slice_message.DESCRIPTOR.fields:
+      field_value = getattr(slice_message, field.name)
+      expression_builder = self._get_new_child_builder(
+          root_builder, field.json_name
       )
-      return None
+      if expression_builder is None:
+        raise AttributeError(
+            f'Could not resolve path {field.json_name} against {root_builder}.'
+        )
 
-    element_type = type_codes[0]
-    if not _fhir_path_data_types.is_type_code_primitive(element_type):
-      self._error_reporter.report_fhir_path_warning(
-          self._abs_path_invocation(rule_builder),
-          rule_def.id.value,
-          (
-              f'Slice fixing value of type {element_type} not yet supported.'
-              ' Only slices fixing primitive types are currently supported.'
-          ),
-      )
-      return None
+      # If the field is empty (either a non-repeated field with no
+      # value or a repeated field with no elements in its collection)
+      # and the `message_type` flag is set to _MessageType::kFixed,
+      # add a constraint enforcing that the field is empty. Otherwise,
+      # no constraint will be generated for the field.
+      if field.label != field.LABEL_REPEATED:
+        if slice_message.HasField(field.name):
+          expression_parts.append(
+              self._constraint_for_slice_element(
+                  slice_element, expression_builder, field_value, message_type
+              )
+          )
+        elif message_type == _MessageType.FIXED:
+          expression_parts.append(expression_builder.empty())
+      else:
+        if field_value and message_type == _MessageType.FIXED:
+          # Build a constraint ensuring the pattern array is matched
+          # exactly by the target array.
+          collection_constraints = []
+          # Ensure there are the same number of repeated elements as
+          # in the pattern.
+          collection_constraints.append(
+              expression_builder.count() == len(field_value)
+          )
+          for i, elem in enumerate(field_value):
+            # Build a constraint against this array index to ensure
+            # the same element in the pattern at the same index.
+            collection_constraints.append(
+                self._constraint_for_slice_element(
+                    slice_element, expression_builder[i], elem, message_type
+                )
+            )
+          expression_parts.append(
+              functools.reduce(operator.and_, collection_constraints)
+          )
+        elif field_value and message_type == _MessageType.PATTERN:
+          # Build a constraint ensuring each element in the pattern
+          # array has at least one element matching the pattern in the
+          # target array.
+          collection_constraints = []
+          for elem in field_value:
+            constraint = self._constraint_for_slice_element(
+                slice_element, expression_builder, elem, message_type
+            )
+            collection_constraints.append(
+                expression_builder.where(constraint).exists()
+            )
+          expression_parts.append(
+              functools.reduce(operator.and_, collection_constraints)
+          )
+        elif message_type == _MessageType.FIXED:
+          expression_parts.append(expression_builder.empty())
 
-    fixed_field = _fhir_path_data_types.fixed_field_for_type_code(element_type)
-    fixed_value = getattr(rule_def.fixed, fixed_field).value
-    expression: expressions.Builder = rule_builder == fixed_value
-    return expression
+    return functools.reduce(operator.and_, expression_parts)
 
   def _encode_reference_type_constraints(
       self, builder: expressions.Builder, elem: message.Message
@@ -1343,9 +1558,9 @@ class FhirProfileStandardSqlEncoder:
       if regex_type_code == 'unsignedInt':
         fhir_path_builder = child_builder >= 0
 
-      # Handle special typecode cases, while also accounting for repeated fields
-      # , as FHIR doesn't allow direct comparisons involving repeated fields.
-      # More info here:
+      # Handle special typecode cases, while also accounting for repeated
+      # fields, as FHIR doesn't allow direct comparisons involving repeated
+      # fields. More info here:
       # http://hl7.org/fhirpath/index.html#comparison.
       if element_is_repeated:
         fhir_path_builder = child_builder.all(fhir_path_builder)
@@ -1673,3 +1888,30 @@ def _num_fields_exist(
   return functools.reduce(
       operator.add, (field.exists().toInteger() for field in fields)
   )
+
+
+_TIME_URLS = frozenset((
+    'http://hl7.org/fhir/StructureDefinition/date',
+    'http://hl7.org/fhir/StructureDefinition/dateTime',
+    'http://hl7.org/fhir/StructureDefinition/instant',
+    'http://hl7.org/fhir/StructureDefinition/time',
+))
+
+
+def _primitive_message_as_value(
+    message_: message.Message,
+) -> Union[bool, int, str, decimal.Decimal, datetime.datetime]:
+  """Builds a primitive value representing the given primitive message."""
+  url = annotation_utils.get_structure_definition_url(message_.DESCRIPTOR)
+
+  if url in _TIME_URLS:
+    # Convert the epoch microseconds in `value_us` to a datetime.
+    return datetime.datetime.fromtimestamp(
+        cast(Any, message).value_us / 1000000
+    )
+  elif url == 'http://hl7.org/fhir/StructureDefinition/decimal':
+    # Convert the string in `value` to a Decimal.
+    return decimal.Decimal(cast(Any, message_).value)
+  else:
+    # Other primitives already have an appropriate type.
+    return cast(Any, message_).value

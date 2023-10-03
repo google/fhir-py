@@ -51,6 +51,7 @@ def build_element_definition(
     profiles: Optional[List[str]] = None,
     slice_name: Optional[str] = None,
     fixed: Optional[datatypes_pb2.ElementDefinition.FixedX] = None,
+    pattern: Optional[datatypes_pb2.ElementDefinition.PatternX] = None,
 ) -> datatypes_pb2.ElementDefinition:
   """Returns an `ElementDefinition` for testing FHIRPath encoding.
 
@@ -73,6 +74,7 @@ def build_element_definition(
     profiles: An optional list of profile URLs of the `ElementDefinition`.
     slice_name: An optional value for the slice_name attribute.
     fixed: An optional Fixed message for the fixed attribute.
+    pattern: An optional Pattern message for the pattern attribute.
 
   Returns:
     An `ElementDefintion` for use as part of a snapshot composition within a
@@ -108,6 +110,8 @@ def build_element_definition(
     kwargs['slice_name'] = datatypes_pb2.String(value=slice_name)
   if fixed is not None:
     kwargs['fixed'] = fixed
+  if pattern is not None:
+    kwargs['pattern'] = pattern
 
   return datatypes_pb2.ElementDefinition(**kwargs)
 

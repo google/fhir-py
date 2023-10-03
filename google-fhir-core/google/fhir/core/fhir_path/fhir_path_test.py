@@ -39,6 +39,7 @@ from google.fhir.core.fhir_path import fhir_path_test_base
 from google.fhir.core.fhir_path import fhir_path_validator
 from google.fhir.core.fhir_path import fhir_path_validator_v2
 from google.fhir.r4 import primitive_handler
+from google.fhir.r4 import r4_package
 
 
 # TODO(b/244184211): Make FHIR-version agnostic (e.g. parameterize on module?)
@@ -4481,6 +4482,7 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
   @classmethod
   def setUpClass(cls) -> None:
     super().setUpClass()
+    r4_core = r4_package.load_base_r4()
 
     # Definitions for testing choice types
     choice_test_root = sdefs.build_element_definition(
@@ -4641,49 +4643,6 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
         ],
     )
 
-    # Definitions needed for slices on codeable concept tests.
-    coding = sdefs.build_resource_definition(
-        id_='Coding',
-        element_definitions=[
-            sdefs.build_element_definition(
-                id_='Coding',
-                type_codes=None,
-                cardinality=sdefs.Cardinality(min=1, max='1'),
-            ),
-            sdefs.build_element_definition(
-                id_='Coding.system',
-                type_codes=['uri'],
-                cardinality=sdefs.Cardinality(min=0, max='1'),
-            ),
-            sdefs.build_element_definition(
-                id_='Coding.code',
-                type_codes=['code'],
-                cardinality=sdefs.Cardinality(min=0, max='1'),
-            ),
-            sdefs.build_element_definition(
-                id_='Coding.version',
-                type_codes=['string'],
-                cardinality=sdefs.Cardinality(min=0, max='1'),
-            ),
-        ],
-    )
-
-    codeable_concept = sdefs.build_resource_definition(
-        id_='CodeableConcept',
-        element_definitions=[
-            sdefs.build_element_definition(
-                id_='CodeableConcept',
-                type_codes=None,
-                cardinality=sdefs.Cardinality(min=1, max='1'),
-            ),
-            sdefs.build_element_definition(
-                id_='CodeableConcept.coding',
-                type_codes=['Coding'],
-                cardinality=sdefs.Cardinality(min=0, max='*'),
-            ),
-        ],
-    )
-
     codeable_concept_slice_test = sdefs.build_resource_definition(
         id_='CodeableConceptSliceTest',
         element_definitions=[
@@ -4807,6 +4766,141 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
         ],
     )
 
+    blood_pressure_test = sdefs.build_resource_definition(
+        id_='BloodPressureTest',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='BloodPressureTest',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=1, max='1'),
+            ),
+            sdefs.build_element_definition(
+                id_='BloodPressureTest.component',
+                type_codes=['BackboneElement'],
+                cardinality=sdefs.Cardinality(0, '*'),
+            ),
+            sdefs.build_element_definition(
+                id_='BloodPressureTest.component.code',
+                type_codes=['CodeableConcept'],
+                cardinality=sdefs.Cardinality(0, '1'),
+            ),
+            sdefs.build_element_definition(
+                id_='BloodPressureTest.component.value[x]',
+                type_codes=['Quantity'],
+                cardinality=sdefs.Cardinality(0, '1'),
+            ),
+            sdefs.build_element_definition(
+                id_='BloodPressureTest.component:systolic',
+                path='BloodPressureTest.component',
+                type_codes=['BackboneElement'],
+                cardinality=sdefs.Cardinality(1, '1'),
+                slice_name='systolic',
+            ),
+            sdefs.build_element_definition(
+                id_='BloodPressureTest.component:systolic.value[x]',
+                path='BloodPressureTest.component.value[x]',
+                type_codes=['Quantity'],
+                cardinality=sdefs.Cardinality(0, '1'),
+            ),
+            sdefs.build_element_definition(
+                id_='BloodPressureTest.component:systolic.code',
+                path='BloodPressureTest.component.code',
+                type_codes=['CodeableConcept'],
+                cardinality=sdefs.Cardinality(1, '1'),
+                pattern=datatypes_pb2.ElementDefinition.PatternX(
+                    codeable_concept=datatypes_pb2.CodeableConcept(
+                        coding=[
+                            datatypes_pb2.Coding(
+                                system=datatypes_pb2.Uri(
+                                    value='http://loinc.org'
+                                ),
+                                code=datatypes_pb2.Code(value='8480-6'),
+                            )
+                        ]
+                    )
+                ),
+            ),
+            sdefs.build_element_definition(
+                id_='BloodPressureTest.component:systolic.value[x].code',
+                path='BloodPressureTest.component.value[x].code',
+                type_codes=['code'],
+                cardinality=sdefs.Cardinality(0, '1'),
+                fixed=datatypes_pb2.ElementDefinition.FixedX(
+                    code=datatypes_pb2.Code(value='mm[Hg]')
+                ),
+            ),
+            sdefs.build_element_definition(
+                id_='BloodPressureTest.component:systolic.value[x].system',
+                path='BloodPressureTest.component.value[x].system',
+                type_codes=['uri'],
+                cardinality=sdefs.Cardinality(0, '1'),
+                fixed=datatypes_pb2.ElementDefinition.FixedX(
+                    uri=datatypes_pb2.Uri(value='http://unitsofmeasure.org')
+                ),
+            ),
+        ],
+    )
+
+    fixed_array_test = sdefs.build_resource_definition(
+        id_='FixedArrayTest',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='FixedArrayTest',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=1, max='1'),
+            ),
+            sdefs.build_element_definition(
+                id_='FixedArrayTest.code',
+                type_codes=['CodeableConcept'],
+                cardinality=sdefs.Cardinality(0, '*'),
+            ),
+            sdefs.build_element_definition(
+                id_='FixedArrayTest.code:sliced',
+                path='FixedArrayTest.code',
+                type_codes=['CodeableConcept'],
+                cardinality=sdefs.Cardinality(1, '1'),
+                slice_name='sliced',
+            ),
+            sdefs.build_element_definition(
+                id_='FixedArrayTest.code:sliced.coding',
+                path='FixedArrayTest.code',
+                type_codes=['CodeableConcept'],
+                cardinality=sdefs.Cardinality(1, '1'),
+                fixed=datatypes_pb2.ElementDefinition.FixedX(
+                    codeable_concept=datatypes_pb2.CodeableConcept(
+                        coding=[
+                            datatypes_pb2.Coding(
+                                system=datatypes_pb2.Uri(value='fixed-uri'),
+                                code=datatypes_pb2.Code(value='fixed-code'),
+                                version=datatypes_pb2.String(value='fixed-1.0'),
+                            )
+                        ]
+                    )
+                ),
+            ),
+        ],
+    )
+
+    coding = r4_core.get_structure_definition(
+        'http://hl7.org/fhir/StructureDefinition/Coding'
+    )
+    assert coding is not None
+
+    codeable_concept = r4_core.get_structure_definition(
+        'http://hl7.org/fhir/StructureDefinition/CodeableConcept'
+    )
+    assert codeable_concept is not None
+
+    quantity = r4_core.get_structure_definition(
+        'http://hl7.org/fhir/StructureDefinition/Quantity'
+    )
+    assert quantity is not None
+
+    extension = r4_core.get_structure_definition(
+        'http://hl7.org/fhir/StructureDefinition/Extension'
+    )
+    assert extension is not None
+
     all_resources = [
         choice_test,
         nested_choice_test,
@@ -4818,9 +4912,13 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
         repeated_reference_test,
         coding,
         codeable_concept,
+        quantity,
+        extension,
         codeable_concept_slice_test,
         backbone_resource,
         codeable_concept_backbone_slice_test,
+        blood_pressure_test,
+        fixed_array_test,
     ]
     cls.resources = {resource.url.value: resource for resource in all_resources}
 
@@ -4828,7 +4926,7 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
       dict(
           testcase_name='with_choice_type_encodes_choice_type_exclusivity',
           base_id='ChoiceTest',
-          context_element_path='ChoiceTest',
+          expected_context_element='ChoiceTest',
           expected_sql_expression=textwrap.dedent("""\
             (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
             FROM UNNEST(ARRAY(SELECT comparison_
@@ -4836,18 +4934,18 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
             bar.string IS NOT NULL AS INT64) + CAST(
             bar.integer IS NOT NULL AS INT64)) <= 1) AS comparison_)
             WHERE comparison_ IS NOT NULL)) AS result_)"""),
-          fhir_path_expression=(
+          expected_fhir_path_expression=(
               "bar.ofType('string').exists().toInteger() +"
               " bar.ofType('integer').exists().toInteger() <= 1"
           ),
-          fields_referenced_by_expression=['bar'],
+          expected_fields_referenced_by_expression=['bar'],
       ),
       dict(
           testcase_name=(
               'with_nested_choice_type_encodes_choice_type_exclusivity'
           ),
           base_id='NestedChoiceTest',
-          context_element_path='NestedChoiceTest.deep',
+          expected_context_element='NestedChoiceTest.deep',
           expected_sql_expression=textwrap.dedent("""\
             (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
             FROM (SELECT ARRAY(SELECT comparison_
@@ -4860,20 +4958,20 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
             FROM (SELECT deep)
             WHERE deep IS NOT NULL)) AS ctx_element_)),
             UNNEST(subquery_) AS result_)"""),
-          fhir_path_expression=(
+          expected_fhir_path_expression=(
               "deepChoice.ofType('string').exists().toInteger() + "
               "deepChoice.ofType('bool').exists().toInteger() <= 1"
           ),
-          fields_referenced_by_expression=['deepChoice'],
+          expected_fields_referenced_by_expression=['deepChoice'],
       ),
       dict(
           testcase_name=(
               'with_scalar_reference_type_encodes_reference_type_exclusivity'
           ),
           base_id='ReferenceTest',
-          context_element_path='ReferenceTest',
-          fields_referenced_by_expression=['bar'],
-          fhir_path_expression=(
+          expected_context_element='ReferenceTest',
+          expected_fields_referenced_by_expression=['bar'],
+          expected_fhir_path_expression=(
               "bar.idFor('Device').exists().toInteger() +"
               " bar.idFor('Patient').exists().toInteger() <= 1"
           ),
@@ -4890,9 +4988,9 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
               'with_vector_reference_type_encodes_reference_type_exclusivity'
           ),
           base_id='RepeatedReferenceTest',
-          context_element_path='RepeatedReferenceTest',
-          fields_referenced_by_expression=['bar', 'bar.bar'],
-          fhir_path_expression=(
+          expected_context_element='RepeatedReferenceTest',
+          expected_fields_referenced_by_expression=['bar', 'bar.bar'],
+          expected_fhir_path_expression=(
               'bar.all('
               "bar.idFor('Device').exists().toInteger() +"
               " bar.idFor('Patient').exists().toInteger() <= 1)"
@@ -4914,41 +5012,20 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
               'with_codeable_concept_slice_encodes_system_requirement'
           ),
           base_id='CodeableConceptSliceTest',
-          context_element_path='CodeableConceptSliceTest',
-          fields_referenced_by_expression=[
+          expected_context_element='CodeableConceptSliceTest',
+          expected_fields_referenced_by_expression=[
               'code.coding',
               'code.coding.system',
               'code.coding.version',
           ],
-          fhir_path_expression=(
+          expected_fhir_path_expression=(
               "code.coding.where(system = 'milky_way' and version ="
-              " 'final_frontier').exists() and code.coding.where(system ="
-              " 'milky_way' and version = 'final_frontier').count() <= 1"
+              " 'final_frontier').count() = 1"
           ),
           expected_sql_expression=textwrap.dedent("""\
               (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
-              FROM UNNEST(ARRAY(SELECT logic_
-              FROM (SELECT (EXISTS(
-              SELECT coding_element_
-              FROM (SELECT coding_element_
-              FROM (SELECT code),
-              UNNEST(code.coding) AS coding_element_ WITH OFFSET AS element_offset
-              WHERE (NOT EXISTS(
-              SELECT lhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, system
-              FROM (SELECT system)) AS lhs_
-              EXCEPT DISTINCT
-              SELECT rhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-              FROM (SELECT 'milky_way' AS literal_)) AS rhs_) AND NOT EXISTS(
-              SELECT lhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, version
-              FROM (SELECT version)) AS lhs_
-              EXCEPT DISTINCT
-              SELECT rhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-              FROM (SELECT 'final_frontier' AS literal_)) AS rhs_)))
-              WHERE coding_element_ IS NOT NULL) AND ((SELECT COUNT(
+              FROM UNNEST(ARRAY(SELECT eq_
+              FROM (SELECT ((SELECT COUNT(
               coding_element_) AS count_
               FROM (SELECT code),
               UNNEST(code.coding) AS coding_element_ WITH OFFSET AS element_offset
@@ -4966,17 +5043,19 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
               EXCEPT DISTINCT
               SELECT rhs_.*
               FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-              FROM (SELECT 'final_frontier' AS literal_)) AS rhs_))) <= 1)) AS logic_)
-              WHERE logic_ IS NOT NULL)) AS result_)"""),
+              FROM (SELECT 'final_frontier' AS literal_)) AS rhs_))) = 1) AS eq_)
+              WHERE eq_ IS NOT NULL)) AS result_)"""),
       ),
       dict(
           testcase_name=(
               'with_codeable_concept_backbone_slice_encodes_system_requirement'
           ),
           base_id='CodeableConceptBackboneSliceTest',
-          context_element_path='CodeableConceptBackboneSliceTest.contact',
-          fields_referenced_by_expression=['contact', 'contact.name'],
-          fhir_path_expression="contact.where(name = 'skeleton').count() >= 2",
+          expected_context_element='CodeableConceptBackboneSliceTest.contact',
+          expected_fields_referenced_by_expression=['contact', 'contact.name'],
+          expected_fhir_path_expression=(
+              "contact.where(name = 'skeleton').count() >= 2"
+          ),
           expected_sql_expression=textwrap.dedent("""\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT comparison_
@@ -4999,16 +5078,197 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
           WHERE contact_element_ IS NOT NULL)) AS ctx_element_)),
           UNNEST(subquery_) AS result_)"""),
       ),
+      dict(
+          testcase_name='with_blood_pressure_slice_encodes_system_requirement',
+          base_id='BloodPressureTest',
+          expected_context_element='BloodPressureTest.component',
+          expected_fields_referenced_by_expression=[
+              'component',
+              'component.code.coding',
+              'component.code.coding.code',
+              'component.code.coding.system',
+              'component.value',
+              'component.value.code',
+              'component.value.system',
+          ],
+          expected_fhir_path_expression=(
+              "component.where(code.coding.where(system = 'http://loinc.org'"
+              " and code = '8480-6').exists() and value.ofType('Quantity').code"
+              " = 'mm[Hg]' and value.ofType('Quantity').system ="
+              " 'http://unitsofmeasure.org').count() = 1"
+          ),
+          expected_sql_expression=textwrap.dedent("""\
+              (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
+              FROM (SELECT ARRAY(SELECT eq_
+              FROM (SELECT ((SELECT COUNT(
+              1) AS count_
+              FROM (SELECT NULL)
+              WHERE ((EXISTS(
+              SELECT coding_element_
+              FROM (SELECT coding_element_
+              FROM (SELECT code),
+              UNNEST(code.coding) AS coding_element_ WITH OFFSET AS element_offset
+              WHERE (NOT EXISTS(
+              SELECT lhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, system
+              FROM (SELECT system)) AS lhs_
+              EXCEPT DISTINCT
+              SELECT rhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
+              FROM (SELECT 'http://loinc.org' AS literal_)) AS rhs_) AND NOT EXISTS(
+              SELECT lhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, code
+              FROM (SELECT code)) AS lhs_
+              EXCEPT DISTINCT
+              SELECT rhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
+              FROM (SELECT '8480-6' AS literal_)) AS rhs_)))
+              WHERE coding_element_ IS NOT NULL) AND NOT EXISTS(
+              SELECT lhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, code
+              FROM (SELECT value.Quantity.code)) AS lhs_
+              EXCEPT DISTINCT
+              SELECT rhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
+              FROM (SELECT 'mm[Hg]' AS literal_)) AS rhs_)) AND NOT EXISTS(
+              SELECT lhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, system
+              FROM (SELECT value.Quantity.system)) AS lhs_
+              EXCEPT DISTINCT
+              SELECT rhs_.*
+              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
+              FROM (SELECT 'http://unitsofmeasure.org' AS literal_)) AS rhs_))) = 1) AS eq_)
+              WHERE eq_ IS NOT NULL) AS subquery_
+              FROM (SELECT AS VALUE ctx_element_
+              FROM UNNEST(ARRAY(SELECT component_element_
+              FROM (SELECT component_element_
+              FROM UNNEST(component) AS component_element_ WITH OFFSET AS element_offset)
+              WHERE component_element_ IS NOT NULL)) AS ctx_element_)),
+              UNNEST(subquery_) AS result_)"""),
+      ),
+      dict(
+          testcase_name=(
+              'with_fixed_codeable_concept_encodes_system_requirement'
+          ),
+          base_id='FixedArrayTest',
+          expected_context_element='FixedArrayTest',
+          expected_fields_referenced_by_expression=[
+              'code',
+              'code.coding',
+              'code.coding.code',
+              'code.coding.display',
+              'code.coding.extension',
+              'code.coding.id',
+              'code.coding.system',
+              'code.coding.userSelected',
+              'code.coding.version',
+              'code.extension',
+              'code.id',
+              'code.text',
+          ],
+          expected_fhir_path_expression=(
+              'code.where(id.empty() and extension.empty() and coding.count() ='
+              ' 1 and coding[0].id.empty() and coding[0].extension.empty() and'
+              " coding[0].system = 'fixed-uri' and coding[0].version ="
+              " 'fixed-1.0' and coding[0].code = 'fixed-code' and"
+              ' coding[0].display.empty() and coding[0].userSelected.empty()'
+              ' and text.empty()).count() = 1'
+          ),
+          expected_sql_expression=textwrap.dedent("""\
+              (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
+              FROM UNNEST(ARRAY(SELECT eq_
+              FROM (SELECT ((SELECT COUNT(
+              code_element_) AS count_
+              FROM UNNEST(code) AS code_element_ WITH OFFSET AS element_offset
+              WHERE (((NOT EXISTS(
+              SELECT id
+              FROM (SELECT id)
+              WHERE id IS NOT NULL) AND NOT EXISTS(
+              SELECT extension_element_
+              FROM (SELECT extension_element_
+              FROM (SELECT code_element_),
+              UNNEST(code_element_.extension) AS extension_element_ WITH OFFSET AS element_offset)
+              WHERE extension_element_ IS NOT NULL)) AND (((SELECT COUNT(
+              coding_element_) AS count_
+              FROM (SELECT code_element_),
+              UNNEST(code_element_.coding) AS coding_element_ WITH OFFSET AS element_offset) = 1) AND (((((((SELECT coding_element_.id IS NULL AS empty_
+              FROM (SELECT ROW_NUMBER() OVER() AS row_,
+              coding_element_
+              FROM (SELECT coding_element_
+              FROM (SELECT code_element_),
+              UNNEST(code_element_.coding) AS coding_element_ WITH OFFSET AS element_offset)) AS inner_tbl
+              WHERE (inner_tbl.row_ - 1) = 0) AND NOT EXISTS(
+              SELECT extension_element_
+              FROM (SELECT extension_element_
+              FROM (SELECT coding_element_ AS indexed_coding_element_
+              FROM (SELECT ROW_NUMBER() OVER() AS row_,
+              coding_element_
+              FROM (SELECT coding_element_
+              FROM (SELECT code_element_),
+              UNNEST(code_element_.coding) AS coding_element_ WITH OFFSET AS element_offset)) AS inner_tbl
+              WHERE (inner_tbl.row_ - 1) = 0),
+              UNNEST(indexed_coding_element_.extension) AS extension_element_ WITH OFFSET AS element_offset)
+              WHERE extension_element_ IS NOT NULL)) AND ((SELECT coding_element_.system
+              FROM (SELECT ROW_NUMBER() OVER() AS row_,
+              coding_element_
+              FROM (SELECT coding_element_
+              FROM (SELECT code_element_),
+              UNNEST(code_element_.coding) AS coding_element_ WITH OFFSET AS element_offset)) AS inner_tbl
+              WHERE (inner_tbl.row_ - 1) = 0) = 'fixed-uri')) AND ((SELECT coding_element_.version
+              FROM (SELECT ROW_NUMBER() OVER() AS row_,
+              coding_element_
+              FROM (SELECT coding_element_
+              FROM (SELECT code_element_),
+              UNNEST(code_element_.coding) AS coding_element_ WITH OFFSET AS element_offset)) AS inner_tbl
+              WHERE (inner_tbl.row_ - 1) = 0) = 'fixed-1.0')) AND ((SELECT coding_element_.code
+              FROM (SELECT ROW_NUMBER() OVER() AS row_,
+              coding_element_
+              FROM (SELECT coding_element_
+              FROM (SELECT code_element_),
+              UNNEST(code_element_.coding) AS coding_element_ WITH OFFSET AS element_offset)) AS inner_tbl
+              WHERE (inner_tbl.row_ - 1) = 0) = 'fixed-code')) AND (SELECT coding_element_.display IS NULL AS empty_
+              FROM (SELECT ROW_NUMBER() OVER() AS row_,
+              coding_element_
+              FROM (SELECT coding_element_
+              FROM (SELECT code_element_),
+              UNNEST(code_element_.coding) AS coding_element_ WITH OFFSET AS element_offset)) AS inner_tbl
+              WHERE (inner_tbl.row_ - 1) = 0)) AND (SELECT coding_element_.userSelected IS NULL AS empty_
+              FROM (SELECT ROW_NUMBER() OVER() AS row_,
+              coding_element_
+              FROM (SELECT coding_element_
+              FROM (SELECT code_element_),
+              UNNEST(code_element_.coding) AS coding_element_ WITH OFFSET AS element_offset)) AS inner_tbl
+              WHERE (inner_tbl.row_ - 1) = 0)))) AND NOT EXISTS(
+              SELECT text
+              FROM (SELECT text)
+              WHERE text IS NOT NULL))) = 1) AS eq_)
+              WHERE eq_ IS NOT NULL)) AS result_)"""),
+      ),
   )
   def test_encode(
       self,
       base_id: str,
-      context_element_path: str,
+      expected_context_element: str,
       expected_sql_expression: str,
-      fhir_path_expression: str,
-      fields_referenced_by_expression: List[str],
+      expected_fhir_path_expression: str,
+      expected_fields_referenced_by_expression: List[str],
   ):
-    """Ensures we enforce an exclusivity constraint among choice type options."""
+    """Ensures we build the expected constraints to validate a structure definition.
+
+    Given the `base_id` to a structure definition, ensure we generate the
+    expected constraints to validate that structure definition.
+
+    Args:
+      base_id: The structure definition to use in the test.
+      expected_context_element: The expected element_path for the resulting
+        constraint.
+      expected_sql_expression: The expected SQL expression for the resulting
+        constraint.
+      expected_fhir_path_expression: The expected FHIRPath expression for the
+        resulting constraint.
+      expected_fields_referenced_by_expression: The expected
+        fields_referenced_by_expression for the resulting constraint.
+    """
     error_reporter_v2 = fhir_errors.ListErrorReporter()
     all_resources = list(self.resources.values())
     encoder_v2 = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
@@ -5028,13 +5288,16 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
     self.assertEmpty(error_reporter_v2.warnings)
     self.assertEmpty(error_reporter_v2.errors)
     self.assertLen(actual_bindings_v2, 1)
-    self.assertEqual(actual_bindings_v2[0].element_path, context_element_path)
     self.assertEqual(
-        actual_bindings_v2[0].fhir_path_expression, fhir_path_expression
+        actual_bindings_v2[0].element_path, expected_context_element
+    )
+    self.assertEqual(
+        actual_bindings_v2[0].fhir_path_expression,
+        expected_fhir_path_expression,
     )
     self.assertEqual(
         actual_bindings_v2[0].fields_referenced_by_expression,
-        fields_referenced_by_expression,
+        expected_fields_referenced_by_expression,
     )
     self.assertEqual(
         actual_bindings_v2[0].sql_expression, expected_sql_expression
