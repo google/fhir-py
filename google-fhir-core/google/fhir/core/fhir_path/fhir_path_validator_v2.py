@@ -802,7 +802,6 @@ class FhirProfileStandardSqlEncoder:
       A `SqlRequirement` representing the requirement generated from
       the element.
     """
-
     element = cast(Any, element_definition)
     if not _is_elem_supported(element):
       return None
@@ -862,7 +861,7 @@ class FhirProfileStandardSqlEncoder:
         column_name=column_name,
         sql_expression=result.sql,
         fhir_path_sql_expression=result.fhir_path_sql,
-        severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
+        severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
         type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
         element_path=element_definition_path,
         description=description,
@@ -1080,9 +1079,9 @@ class FhirProfileStandardSqlEncoder:
             element_path=slice_path,
             description=description,
             fhir_path_key=column_name.replace('_', '-'),
-            fhir_path_expression=slice_constraint.fhir_path,
+            fhir_path_expression=constraint_sql.builder.fhir_path,
             fields_referenced_by_expression=_fields_referenced_by_expression(
-                slice_constraint.fhir_path
+                constraint_sql.builder.fhir_path
             ),
         )
     ]
@@ -1382,9 +1381,9 @@ class FhirProfileStandardSqlEncoder:
             element_path=parent_path,
             description=description,
             fhir_path_key=constraint_key,
-            fhir_path_expression=constraint.fhir_path,
+            fhir_path_expression=constraint_sql.builder.fhir_path,
             fields_referenced_by_expression=_fields_referenced_by_expression(
-                constraint.fhir_path
+                constraint_sql.builder.fhir_path
             ),
         )
     ]
