@@ -153,29 +153,27 @@ class ExpressionNode(abc.ABC):
   def __str__(self) -> str:
     return self.to_fhir_path()
 
-  def _operand_to_string(
-      self, operand: 'ExpressionNode', with_typing: bool, indent: int = 0
-  ) -> str:
-    """Function to recursively print the operands of the input operand."""
-    operand_name = f'{operand} '
-    if operand.__class__.__name__ == 'ReferenceNode':
-      operand_name = ''
-      operand_prints = f'&{operand}'
-    else:
-      operand_prints = ''.join(
-          '\n' + self._operand_to_string(op, with_typing, indent + 1)
-          for op in operand.operands
-      )
-    type_print = f' type={operand.return_type}' if with_typing else ''
+  def debug_string(self, with_typing: bool = False, indent: int = 0) -> str:
+    """Builds a string describing the expression tree starting from this node.
+
+    Args:
+      with_typing: If true, includes the type each node evaluates to.
+      indent: The initial number of spaces to use as indentation for the debug
+        string.
+
+    Returns:
+      A string which recursively describes this node and its operands.
+    """
+    operand_name = f'{self} '
+    operand_prints = ''.join(
+        '\n' + op.debug_string(with_typing, indent + 1) for op in self.operands
+    )
+    type_print = f' type={self.return_type}' if with_typing else ''
     return (
         f'{"| " * indent}+ '
-        f'{operand_name}<{operand.__class__.__name__}{type_print}> ('
+        f'{operand_name}<{self.__class__.__name__}{type_print}> ('
         f'{operand_prints})'
     )
-
-  def debug_string(self, with_typing: bool = False) -> str:
-    """Returns debug string of the current node."""
-    return self._operand_to_string(self, with_typing)
 
   def __deepcopy__(self, memo) -> 'ExpressionNode':
     """Returns a deep copy of the node without copying the expensive fields."""
@@ -1111,7 +1109,6 @@ class MatchesFunction(FunctionNode):
       operand: ExpressionNode,
       params: List[ExpressionNode],
   ) -> None:
-
     if isinstance(
         operand.return_type, _fhir_path_data_types.PolymorphicDataType
     ):
@@ -1227,7 +1224,6 @@ class ArithmeticNode(CoercibleBinaryExpressionNode):
       left: ExpressionNode,
       right: ExpressionNode,
   ) -> None:
-
     if isinstance(
         left.return_type, _fhir_path_data_types.PolymorphicDataType
     ) or isinstance(
@@ -1356,6 +1352,11 @@ class ReferenceNode(ExpressionNode):
 
   def to_fhir_path(self) -> str:
     return self._reference_node.to_fhir_path()
+
+  def debug_string(self, with_typing: bool = False, indent: int = 0) -> str:
+    """Returns a string stating the path to the referenced node."""
+    type_print = f' type={self.return_type}' if with_typing else ''
+    return f'{"| " * indent}+ <{self.__class__.__name__}{type_print}> (&{self})'
 
 
 class MembershipRelationNode(CoercibleBinaryExpressionNode):
