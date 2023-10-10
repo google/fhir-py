@@ -123,8 +123,9 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       self, reference: _evaluation.ExpressionNode
   ) -> _sql_data_types.IdentifierSelect:
     """Translates a FHIRPath reference to Spark SQL."""
-    # When $this is used, we need the last identifier from the operand.
-    sql_alias = reference.to_fhir_path().split('.')[-1]
+    # When $this is used, we need the last identifier from the node being
+    # referenced.
+    sql_alias = reference.parent_node.to_fhir_path().split('.')[-1]
     # If the identifier is `$this`, we assume that the repeated field has been
     # unnested upstream so we only need to reference it with its alias:
     # `{}_element_`.

@@ -2439,3 +2439,26 @@ class FhirPathExpressionsTest(
         ),
         self.builder('Observation').value.debug_string(with_typing=True),
     )
+
+  def test_fhir_path_contains_this_when_appropriate(self):
+    """Ensures fhir_path produces strings with $this when needed."""
+    pat = self.builder('Patient')
+    enc = self.builder('Encounter')
+
+    self.assertEqual(
+        pat.name.where(pat.name.use == 'given').fhir_path,
+        "name.where(use = 'given')",
+    )
+    self.assertEqual(
+        pat.name.use.where(pat.name.use == 'given').fhir_path,
+        "name.use.where($this = 'given')",
+    )
+    self.assertEqual(
+        enc.basedOn.all(
+            enc.basedOn.idFor('CarePlan').exists().toInteger()
+            + enc.basedOn.idFor('DeviceRequest').exists().toInteger()
+            <= 1
+        ).fhir_path,
+        "basedOn.all($this.idFor('CarePlan').exists().toInteger() +"
+        " $this.idFor('DeviceRequest').exists().toInteger() <= 1)",
+    )

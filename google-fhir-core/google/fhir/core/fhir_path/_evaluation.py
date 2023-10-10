@@ -95,6 +95,10 @@ class ExpressionNode(abc.ABC):
   def to_fhir_path(self) -> str:
     """Returns the FHIRPath string for this and its children node."""
 
+  def expression(self) -> str:
+    """Returns the FHIRPath expression representing this node."""
+    return self.to_fhir_path()
+
   def to_path_token(self) -> str:
     """Returns the path of the node itself."""
     return ''
@@ -127,7 +131,7 @@ class ExpressionNode(abc.ABC):
     pass
 
   def __hash__(self) -> int:
-    return hash(self.to_fhir_path())
+    return hash(self.expression())
 
   def fields(self) -> Set[str]:
     """Returns known fields from this expression, or none if they are unknown.
@@ -248,12 +252,12 @@ class BinaryExpressionNode(ExpressionNode):
   def replace_operand(
       self, expression_to_replace: str, replacement: 'ExpressionNode'
   ) -> None:
-    if self._left.to_fhir_path() == expression_to_replace:
+    if self._left.expression() == expression_to_replace:
       self._left = replacement
     else:
       self._left.replace_operand(expression_to_replace, replacement)
 
-    if self._right.to_fhir_path() == expression_to_replace:
+    if self._right.expression() == expression_to_replace:
       self._right = replacement
     else:
       self._right.replace_operand(expression_to_replace, replacement)
@@ -507,7 +511,7 @@ class InvokeExpressionNode(ExpressionNode):
   def replace_operand(
       self, expression_to_replace: str, replacement: 'ExpressionNode'
   ) -> None:
-    if self._parent_node.to_fhir_path() == expression_to_replace:
+    if self._parent_node.expression() == expression_to_replace:
       self._parent_node = replacement
     else:
       self._parent_node.replace_operand(expression_to_replace, replacement)
@@ -573,7 +577,7 @@ class IndexerNode(ExpressionNode):
   def replace_operand(
       self, expression_to_replace: str, replacement: 'ExpressionNode'
   ) -> None:
-    if self.collection.to_fhir_path() == expression_to_replace:
+    if self.collection.expression() == expression_to_replace:
       self._collection = replacement
     else:
       self.collection.replace_operand(expression_to_replace, replacement)
@@ -628,7 +632,7 @@ class NumericPolarityNode(ExpressionNode):
   def replace_operand(
       self, expression_to_replace: str, replacement: 'ExpressionNode'
   ) -> None:
-    if self._operand.to_fhir_path() == expression_to_replace:
+    if self._operand.expression() == expression_to_replace:
       self._operand = replacement
     else:
       self._operand.replace_operand(expression_to_replace, replacement)
@@ -685,13 +689,13 @@ class FunctionNode(ExpressionNode):
   def replace_operand(
       self, expression_to_replace: str, replacement: 'ExpressionNode'
   ) -> None:
-    if self._operand.to_fhir_path() == expression_to_replace:
+    if self._operand.expression() == expression_to_replace:
       self._operand = replacement
     else:
       self._operand.replace_operand(expression_to_replace, replacement)
 
     for index, item in enumerate(self._params):
-      if item.to_fhir_path() == expression_to_replace:
+      if item.expression() == expression_to_replace:
         self._params[index] = replacement
       else:
         self._params[index].replace_operand(expression_to_replace, replacement)
@@ -1344,19 +1348,26 @@ class ReferenceNode(ExpressionNode):
   def replace_operand(
       self, expression_to_replace: str, replacement: 'ExpressionNode'
   ) -> None:
-    if self._reference_node.to_fhir_path() == expression_to_replace:
+    if self._reference_node.expression() == expression_to_replace:
       self._reference_node = replacement
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_reference(self)
 
   def to_fhir_path(self) -> str:
+    return '$this'
+
+  def expression(self) -> str:
+    """Returns the FHIRPath expression to the referenced node."""
     return self._reference_node.to_fhir_path()
 
   def debug_string(self, with_typing: bool = False, indent: int = 0) -> str:
     """Returns a string stating the path to the referenced node."""
     type_print = f' type={self.return_type}' if with_typing else ''
-    return f'{"| " * indent}+ <{self.__class__.__name__}{type_print}> (&{self})'
+    return (
+        f'{"| " * indent}+ <{self.__class__.__name__}{type_print}>'
+        f' (&{self._reference_node.to_fhir_path()})'
+    )
 
 
 class MembershipRelationNode(CoercibleBinaryExpressionNode):

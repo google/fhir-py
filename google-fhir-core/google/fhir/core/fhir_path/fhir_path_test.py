@@ -4989,11 +4989,11 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
           ),
           base_id='RepeatedReferenceTest',
           expected_context_element='RepeatedReferenceTest',
-          expected_fields_referenced_by_expression=['bar', 'bar.bar'],
+          expected_fields_referenced_by_expression=['bar'],
           expected_fhir_path_expression=(
               'bar.all('
-              "bar.idFor('Device').exists().toInteger() +"
-              " bar.idFor('Patient').exists().toInteger() <= 1)"
+              "$this.idFor('Device').exists().toInteger() +"
+              " $this.idFor('Patient').exists().toInteger() <= 1)"
           ),
           expected_sql_expression=textwrap.dedent("""\
               (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
