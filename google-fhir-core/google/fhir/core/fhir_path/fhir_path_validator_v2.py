@@ -805,6 +805,8 @@ class FhirProfileStandardSqlEncoder:
     element = cast(Any, element_definition)
     if not _is_elem_supported(element):
       return None
+
+    field_name = _last_path_token(builder)
     min_size = element.min.value
     max_size = element.max.value
     element_count = builder.count()
@@ -867,9 +869,7 @@ class FhirProfileStandardSqlEncoder:
         description=description,
         fhir_path_key=constraint_key,
         fhir_path_expression=result.builder.fhir_path,
-        fields_referenced_by_expression=_fields_referenced_by_expression(
-            result.builder.fhir_path
-        ),
+        fields_referenced_by_expression=[field_name],
     )
     return requirement
 
@@ -938,9 +938,7 @@ class FhirProfileStandardSqlEncoder:
             description=description,
             fhir_path_key=constraint_key,
             fhir_path_expression=result.builder.fhir_path,
-            fields_referenced_by_expression=_fields_referenced_by_expression(
-                result.builder.fhir_path
-            ),
+            fields_referenced_by_expression=[field_name],
         )
     ]
 
@@ -1382,9 +1380,7 @@ class FhirProfileStandardSqlEncoder:
             description=description,
             fhir_path_key=constraint_key,
             fhir_path_expression=constraint_sql.builder.fhir_path,
-            fields_referenced_by_expression=_fields_referenced_by_expression(
-                constraint_sql.builder.fhir_path
-            ),
+            fields_referenced_by_expression=[field_name],
         )
     ]
 
@@ -1591,9 +1587,7 @@ class FhirProfileStandardSqlEncoder:
           description=f'{name} needs to match regex of {regex_type_code}.',
           fhir_path_key=constraint_key,
           fhir_path_expression=result.builder.fhir_path,
-          fields_referenced_by_expression=_fields_referenced_by_expression(
-              _escape_fhir_path_invocation(result.builder.fhir_path)
-          ),
+          fields_referenced_by_expression=[name],
       )
       encoded_requirements.append(requirement)
 
@@ -1777,9 +1771,7 @@ class FhirProfileStandardSqlEncoder:
             description=description,
             fhir_path_key=constraint_key,
             fhir_path_expression=relative_fhir_path,
-            fields_referenced_by_expression=_fields_referenced_by_expression(
-                relative_fhir_path
-            ),
+            fields_referenced_by_expression=[relative_path],
         )
     ]
 
@@ -1862,7 +1854,7 @@ def _fields_referenced_by_expression(
   """Finds paths for fields referenced by the given expression.
 
   For example, an expression like 'a.b.where(c > d.e)' references fields
-  ['a.b', 'c, 'd.e']
+  ['a.b', 'a.b.c', 'a.b.d.e']
 
   Args:
     fhir_path_expression: The expression to search for field paths.
