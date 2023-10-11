@@ -81,6 +81,11 @@ class View:
             'View `select` expressions must have the same root resource as '
             f'the view itself. Got `{field}`'
         )
+      if field.needs_unnest or field.children:
+        raise NotImplementedError(
+            'View `select` expressions with forEach or child selects '
+            f'are not yet supported. Got `{field}`.'
+        )
     self._fields = fields
 
     for constraint in constraints:
@@ -166,10 +171,10 @@ class View:
 
     expression = None
     if self._fields:
-      for builder in self._fields:
+      for field in self._fields:
         # View has defined fields, so use them as the base builder expressions.
-        if builder.column_name == lookup:
-          expression = builder
+        if field.column_name == lookup:
+          expression = field.builder
     else:
       # View is using the root resource, so look up fields from that
       # structure
@@ -177,7 +182,9 @@ class View:
 
     if expression is None:
       raise AttributeError(f'No such field {name}')
-    return column_expression_builder.ColumnExpressionBuilder(expression)
+    return column_expression_builder.ColumnExpressionBuilder.from_fhir_path_builder(
+        expression
+    )
 
   def __dir__(self) -> List[str]:
     if self._fields:
@@ -291,8 +298,11 @@ class Views:
     """
     structdef = self._context.get_structure_definition(structdef_url)
     struct_type = _fhir_path_data_types.StructureDataType.from_proto(structdef)
-    builder = column_expression_builder.ColumnExpressionBuilder(
-        _evaluation.RootMessageNode(self._context, struct_type), self._handler
+    builder = (
+        column_expression_builder.ColumnExpressionBuilder.from_node_and_handler(
+            _evaluation.RootMessageNode(self._context, struct_type),
+            self._handler,
+        )
     )
     return View(self._context, builder, (), (), self._handler)
 
@@ -338,8 +348,11 @@ class Views:
     """
     structdef = self._context.get_structure_definition(structdef_url)
     struct_type = _fhir_path_data_types.StructureDataType.from_proto(structdef)
-    return column_expression_builder.ColumnExpressionBuilder(
-        _evaluation.StructureBaseNode(self._context, struct_type), self._handler
+    return (
+        column_expression_builder.ColumnExpressionBuilder.from_node_and_handler(
+            _evaluation.StructureBaseNode(self._context, struct_type),
+            self._handler,
+        )
     )
 
   def from_view_definition(self, view_definition: Dict[str, Any]) -> View:

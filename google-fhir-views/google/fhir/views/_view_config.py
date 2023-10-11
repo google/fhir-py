@@ -124,7 +124,9 @@ class ViewConfig:
     builder = expressions.from_fhir_path_expression(
         fhir_path, self._context, self._struct_type, self._handler, root
     )
-    return column_expression_builder.ColumnExpressionBuilder(builder)
+    return column_expression_builder.ColumnExpressionBuilder.from_fhir_path_builder(
+        builder
+    )
 
 
 class Select(abc.ABC):

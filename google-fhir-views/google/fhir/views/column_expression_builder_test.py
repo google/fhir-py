@@ -14,6 +14,7 @@
 # limitations under the License.
 """Tests for column_expression_builder."""
 
+import textwrap
 from absl.testing import absltest
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import context
@@ -45,6 +46,9 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
 
     self.assertIsInstance(builder.builder, expressions.Builder)
     self.assertIsNone(builder.column_name)
+    self.assertEmpty(builder.children)
+    self.assertFalse(builder.needs_unnest)
+    self.assertFalse(builder.sealed)
     self.assertEqual(str(builder), 'name')
     self.assertEqual(
         repr(builder),
@@ -56,11 +60,151 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
     builder_with_alias = self._view.name.alias(column_name)
 
     self.assertEqual(builder_with_alias.column_name, column_name)
+    self.assertEmpty(builder_with_alias.children)
+    self.assertFalse(builder_with_alias.needs_unnest)
+    self.assertTrue(builder_with_alias.sealed)
     self.assertEqual(str(builder_with_alias), 'name.alias(patient_name)')
+
+  def test_alias_after_foreach(self):
+    column_name = 'patient_name'
+    builder_with_foreach_alias = self._view.name.forEach().alias(column_name)
+
+    self.assertEqual(builder_with_foreach_alias.column_name, column_name)
+    self.assertEmpty(builder_with_foreach_alias.children)
+    self.assertTrue(builder_with_foreach_alias.needs_unnest)
+    self.assertTrue(builder_with_foreach_alias.sealed)
     self.assertEqual(
-        repr(builder_with_alias),
-        'ColumnExpressionBuilder("name.alias(patient_name)")',
+        str(builder_with_foreach_alias), 'name.forEach().alias(patient_name)'
     )
+
+  def test_alias_after_select_raises_error(self):
+    with self.assertRaises(AttributeError):
+      name = self._view.name
+      name.select([
+          name.family.alias('family_name'),
+          name.given.first().alias('given_name'),
+      ]).alias('patient_name')
+
+  def test_foreach(self):
+    builder_with_foreach = self._view.name.forEach()
+
+    self.assertIsNone(builder_with_foreach.column_name)
+    self.assertEmpty(builder_with_foreach.children)
+    self.assertTrue(builder_with_foreach.needs_unnest)
+    self.assertTrue(builder_with_foreach.sealed)
+    self.assertEqual(str(builder_with_foreach), 'name.forEach()')
+
+  def test_foreach_on_non_collection(self):
+    builder_with_foreach = self._view.name.first().forEach()
+
+    self.assertIsNone(builder_with_foreach.column_name)
+    self.assertEmpty(builder_with_foreach.children)
+    self.assertTrue(builder_with_foreach.needs_unnest)
+    self.assertTrue(builder_with_foreach.sealed)
+    self.assertEqual(str(builder_with_foreach), 'name.first().forEach()')
+
+  def test_foreach_select(self):
+    name = self._view.name.where(self._view.name.exists())
+    builder_with_foreach_select = name.forEach().select([
+        name.family.alias('family_name'),
+        name.given.first().alias('given_name'),
+    ])
+
+    self.assertIsNone(builder_with_foreach_select.column_name)
+    self.assertLen(builder_with_foreach_select.children, 2)
+    family_name_builder, given_name_builder = (
+        builder_with_foreach_select.children
+    )
+    self.assertIsInstance(
+        family_name_builder.node.parent_node, _evaluation.ReferenceNode
+    )
+    self.assertIsInstance(
+        given_name_builder.node.parent_node.parent_node,
+        _evaluation.ReferenceNode,
+    )
+    self.assertTrue(builder_with_foreach_select.needs_unnest)
+    self.assertTrue(builder_with_foreach_select.sealed)
+    self.assertMultiLineEqual(
+        str(builder_with_foreach_select),
+        textwrap.dedent("""\
+        name.where($this.exists()).forEach().select([
+          family.alias(family_name),
+          given.first().alias(given_name)
+        ])"""),
+    )
+
+  def test_select(self):
+    name = self._view.name.first()
+    builder_with_select = name.select([
+        name.family.alias('family_name'),
+        name.given.first().alias('given_name'),
+    ])
+
+    self.assertIsNone(builder_with_select.column_name)
+    self.assertLen(builder_with_select.children, 2)
+    family_name_builder, given_name_builder = builder_with_select.children
+    self.assertIsInstance(
+        family_name_builder.node.parent_node, _evaluation.ReferenceNode
+    )
+    self.assertIsInstance(
+        given_name_builder.node.parent_node.parent_node,
+        _evaluation.ReferenceNode,
+    )
+    self.assertFalse(builder_with_select.needs_unnest)
+    self.assertTrue(builder_with_select.sealed)
+    self.assertMultiLineEqual(
+        str(builder_with_select),
+        textwrap.dedent("""\
+        name.first().select([
+          family.alias(family_name),
+          given.first().alias(given_name)
+        ])"""),
+    )
+
+  def test_select_nested_select(self):
+    name = self._view.name.first()
+    period = name.period.where(name.period.start.exists()).first()
+    builder_with_nested_select = name.select(
+        [
+            period.select([
+                period.start.alias('period_start'),
+                period.end.alias('period_end'),
+            ])
+        ]
+    )
+
+    self.assertIsNone(builder_with_nested_select.column_name)
+    self.assertLen(builder_with_nested_select.children, 1)
+    self.assertLen(builder_with_nested_select.children[0].children, 2)
+    self.assertFalse(builder_with_nested_select.needs_unnest)
+    self.assertTrue(builder_with_nested_select.sealed)
+    self.assertMultiLineEqual(
+        str(builder_with_nested_select),
+        textwrap.dedent("""\
+        name.first().select([
+          period.where(start.exists()).first().select([
+            start.alias(period_start),
+            end.alias(period_end)
+          ])
+        ])"""),
+    )
+
+  def test_select_children_without_alias_or_children_raises_error(self):
+    with self.assertRaises(AttributeError):
+      name = self._view.name
+      name.first().select([name.family])
+
+  def test_select_after_alias_raises_error(self):
+    with self.assertRaises(AttributeError):
+      self._view.name.alias('patient_name').select([])
+
+  def test_select_on_collection_raises_error(self):
+    with self.assertRaises(AttributeError):
+      self._view.name.select([])
+
+  def test_select_on_non_structure_node_raises_error(self):
+    with self.assertRaises(AttributeError):
+      self._view.name.given.select([])
 
   def test_keep_building_fhir_path(self):
     builder = self._view.name.first()
@@ -69,7 +213,15 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
 
   def test_keep_building_fhir_path_after_alias_raises_error(self):
     with self.assertRaises(AttributeError):
-      self._view.name.alias('a').first()
+      self._view.name.alias('patient_name').first()
+
+  def test_keep_building_fhir_path_after_foreach_raises_error(self):
+    with self.assertRaises(AttributeError):
+      self._view.name.forEach().first()
+
+  def test_keep_building_fhir_path_after_select_raises_error(self):
+    with self.assertRaises(AttributeError):
+      self._view.name.select([]).first()
 
   def test_get_non_builder_attribute(self):
     node = self._view.name.node

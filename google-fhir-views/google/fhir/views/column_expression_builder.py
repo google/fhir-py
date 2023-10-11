@@ -14,9 +14,10 @@
 # limitations under the License.
 """Library for wrapping the FHIR Path expressions Builder."""
 
-from typing import Any, Iterable, Optional, Union
+from typing import Any, Iterable, List, Optional, Union
 
 from google.fhir.core.fhir_path import _evaluation
+from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import expressions
 from google.fhir.r4 import primitive_handler
 
@@ -47,34 +48,21 @@ class ColumnExpressionBuilder:
      , it should throw an error.
   """
 
-  def __init__(self, *args):
-    if len(args) == 1 and isinstance(args[0], type(self)):
-      fhir_path_builder = args[0].builder
-      column_name = args[0].column_name
-    elif len(args) == 1 and isinstance(args[0], expressions.Builder):
-      fhir_path_builder = args[0]
-      column_name = None
-    elif (
-        len(args) == 2
-        and isinstance(args[0], _evaluation.ExpressionNode)
-        and isinstance(args[1], primitive_handler.PrimitiveHandler)
-    ):
-      fhir_path_builder = expressions.Builder(args[0], args[1])
-      column_name = None
-    else:
-      raise AttributeError(
-          f'Cannot create ColumnExpressionBuilder from args: {args}. Expected'
-          ' one argument of type fhir_path.expressions.Builder, or two'
-          ' parameters of type fhir_path._evaluation.ExpressionNode and'
-          ' r4.primitive_handler.PrimitiveHandler.'
-      )
-
+  def __init__(
+      self,
+      fhir_path_builder: expressions.Builder,
+      column_name: Optional[str],
+      children: List['ColumnExpressionBuilder'],
+      needs_unnest: bool,
+      sealed: bool,
+  ):
     self._builder: expressions.Builder = fhir_path_builder
     self._column_name: Optional[str] = column_name
-    self._sealed: bool = False
-    self._str: str = fhir_path_builder.fhir_path
+    self._children: List['ColumnExpressionBuilder'] = children
+    self._needs_unnest: bool = needs_unnest
+    self._sealed: bool = sealed
 
-  def alias(self, name: str):
+  def alias(self, name: str) -> 'ColumnExpressionBuilder':
     """The alias() function.
 
     Sets the column name of a given FHIR path in the View. Once the colomn
@@ -84,20 +72,148 @@ class ColumnExpressionBuilder:
       name: The column name as a string.
 
     Returns:
-      The class itself.
+      A new ColumnExpressionBuilder with the given alias name.
     """
-    self._column_name = name
-    self._sealed = True
-    self._str += f'.alias({name})'
-    return self
+    if self._children:
+      raise AttributeError(
+          'alias() must not be called on a builder with child selects. '
+          f'Got alias called on {str(self)}.'
+      )
+
+    return ColumnExpressionBuilder(
+        self._builder, name, self._children, self._needs_unnest, True
+    )
+
+  def forEach(self) -> 'ColumnExpressionBuilder':  # pylint: disable=invalid-name
+    """The forEach() function.
+
+    Unnests the repeated values from a FHIR path. If the FHIR path does not
+    return a collection, we treat that as a collection with a single value.
+    Once this function is called, the FHIR path is sealed to be immutable.
+
+    Returns:
+      A new ColumnExpressionBuilder with needs_unnest set to True.
+    """
+    return ColumnExpressionBuilder(
+        self._builder, self._column_name, self._children, True, True
+    )
+
+  def select(
+      self, children: List['ColumnExpressionBuilder']
+  ) -> 'ColumnExpressionBuilder':
+    """The select() function.
+
+    Selects the child fields from a FHIR path which returns a StructureDataType.
+    Once this function is called, the FHIR path is sealed to be immutable.
+
+    Args:
+      children: A list of selected FHIR Path.
+
+    Returns:
+      A new ColumnExpressionBuilder with the given children.
+    """
+    if self._column_name:
+      raise AttributeError(
+          'select() must not be called on a builder with alias set already. '
+          f'Got select called on {str(self)}.'
+      )
+
+    if (
+        self._builder.return_type.returns_collection()
+        and not self._needs_unnest
+    ):
+      raise AttributeError(
+          'select() must not be called on a builder which returns collection. '
+          f'Got select called on {str(self)}.'
+      )
+
+    if not isinstance(
+        self._builder.return_type, _fhir_path_data_types.StructureDataType
+    ):
+      raise AttributeError(
+          'select() can only be called on a FHIR path which returns '
+          'a StructureDataType. '
+          f'Got type of {self._builder.return_type} from {str(self)}.'
+      )
+
+    for child_builder in children:
+      if not child_builder.column_name and not child_builder.children:
+        raise AttributeError(
+            'select() child builders must either have alias names or children. '
+            f'Got {str(child_builder)}'
+        )
+
+      if not child_builder.fhir_path.startswith(self._builder.fhir_path):
+        raise AttributeError(
+            'select() child builders must be built by starting with their '
+            'parent FHIR path. '
+            f'Got {str(child_builder)} in {self._builder.fhir_path}.'
+        )
+      path_to_replace = self._builder.fhir_path
+      reference_node = self._builder.node
+
+      child_builder.node.replace_operand(
+          path_to_replace,
+          _evaluation.ReferenceNode(
+              self._builder.node.context,
+              reference_node,
+          ),
+      )
+
+    return ColumnExpressionBuilder(
+        self._builder, self._column_name, children, self._needs_unnest, True
+    )
+
+  @classmethod
+  def from_fhir_path_builder(
+      cls,
+      fhir_path_builder: expressions.Builder,
+      column_name: Optional[str] = None,
+      children: Optional[List['ColumnExpressionBuilder']] = None,
+      needs_unnest: bool = False,
+      sealed: bool = False,
+  ):
+    return cls(
+        fhir_path_builder, column_name, children or [], needs_unnest, sealed
+    )
+
+  @classmethod
+  def from_node_and_handler(
+      cls,
+      node: _evaluation.ExpressionNode,
+      handler: primitive_handler.PrimitiveHandler,
+      column_name: Optional[str] = None,
+      children: Optional[List['ColumnExpressionBuilder']] = None,
+      needs_unnest: bool = False,
+      sealed: bool = False,
+  ):
+    return cls(
+        expressions.Builder(node, handler),
+        column_name,
+        children or [],
+        needs_unnest,
+        sealed,
+    )
+
+  @property
+  def builder(self) -> expressions.Builder:
+    return self._builder
 
   @property
   def column_name(self) -> Optional[str]:
     return self._column_name
 
   @property
-  def builder(self) -> expressions.Builder:
-    return self._builder
+  def children(self) -> List['ColumnExpressionBuilder']:
+    return self._children
+
+  @property
+  def needs_unnest(self) -> bool:
+    return self._needs_unnest
+
+  @property
+  def sealed(self) -> bool:
+    return self._sealed
 
   def __getattr__(self, name: str):
     """Redirects to the expressions.Builder when the attribute is not here.
@@ -144,11 +260,32 @@ class ColumnExpressionBuilder:
       raise self._fhir_path_sealed_error(key)
     return ColumnExpressionBuilder._wrap_any(self, item)
 
+  def _to_string(
+      self, builder: 'ColumnExpressionBuilder', indent: int = 0
+  ) -> str:
+    """Function to recursively print the operands of the input operand."""
+    indent_string = f'{"  " * indent}'
+    foreach_string = '.forEach()' if builder.needs_unnest else ''
+    alias_string = (
+        f'.alias({builder.column_name})' if builder.column_name else ''
+    )
+    base_string = (
+        f'{indent_string}{builder.fhir_path}{foreach_string}{alias_string}'
+    )
+    child_strings = []
+    if builder.children:
+      base_string = f'{base_string}.select([\n'
+      for child in builder.children:
+        child_strings.append(self._to_string(child, indent + 1))
+      selects_string = ',\n'.join(child_strings)
+      base_string = f'{base_string}{selects_string}\n{indent_string}])'
+    return base_string
+
   def __str__(self) -> str:
-    return self._str
+    return self._to_string(self)
 
   def __repr__(self) -> str:
-    return f'ColumnExpressionBuilder("{self._str}")'
+    return f'ColumnExpressionBuilder("{str(self)}")'
 
   def __dir__(self) -> Iterable[str]:  # pytype: disable=signature-mismatch  # overriding-return-type-checks
     fields = [name for name in dir(self._builder) if not name.startswith('__')]
@@ -226,7 +363,7 @@ class ColumnExpressionBuilder:
   def _fhir_path_sealed_error(self, execution_name: str):
     return AttributeError(
         'Cannot keep building the fhir path after calling FHIRViews features. '
-        f'Got {self._str} when getting / calling {execution_name}'
+        f'Got {str(self)} when getting / calling {execution_name}'
     )
 
   @classmethod
@@ -268,7 +405,7 @@ class ColumnExpressionBuilder:
       - anything else: returns the object itself.
     """
     if isinstance(obj, expressions.Builder):
-      return ColumnExpressionBuilder(obj)
+      return cls.from_fhir_path_builder(obj)
     if isinstance(obj, list):
       return [cls._wrap_any(self, item) for item in obj]
     if isinstance(obj, tuple):
