@@ -2341,7 +2341,38 @@ class FhirPathExpressionsTest(
     )
     self.assertEqual(new_builder.fhir_path, "name.where(name.family = 'Name')")
     self.assertIs(new_builder.node.context, original.node.context)
-    self.assertIs(new_builder.node.return_type, original.node.return_type)
+    self.assertEqual(new_builder.node.return_type, original.node.return_type)
+
+    # Replace parent node with another builder.
+    replacement = self.builder('Patient').name.first()
+    new_builder = expressions.Builder.replace_with_operand(
+        original, old_path='name', replacement_node=replacement.node
+    )
+
+    self.assertEqual(
+        textwrap.dedent("""\
+          + name.first().where(name.first().given = 'Name') <WhereFunction> (
+          | + name.first() <FirstFunction> (
+          | | + name <InvokeExpressionNode> (
+          | | | + Patient <RootMessageNode> ()))
+          | + name.first().given = 'Name' <EqualityNode> (
+          | | + name.first().given <InvokeExpressionNode> (
+          | | | + name.first() <FirstFunction> (
+          | | | | + name <InvokeExpressionNode> (
+          | | | | | + Patient <RootMessageNode> ())))
+          | | + 'Name' <LiteralNode> ()))"""),
+        new_builder.debug_string(),
+    )
+    self.assertSameElements(
+        ['Patient'], [p.fhir_path for p in new_builder.get_resource_builders()]
+    )
+    self.assertEqual(
+        new_builder.fhir_path, "name.first().where(name.first().given = 'Name')"
+    )
+    self.assertIs(new_builder.node.context, original.node.context)
+    self.assertEqual(new_builder.node.return_type, original.node.return_type)
+    self.assertTrue(original.node.return_type.returns_collection())
+    self.assertFalse(new_builder.node.return_type.returns_collection())
 
     # Replace with a builder with a different resource.
     replacement = self.builder('Encounter').status
@@ -2367,7 +2398,7 @@ class FhirPathExpressionsTest(
     )
     self.assertEqual(new_builder.fhir_path, 'name.where(given = status)')
     self.assertIs(new_builder.node.context, original.node.context)
-    self.assertIs(new_builder.node.return_type, original.node.return_type)
+    self.assertEqual(new_builder.node.return_type, original.node.return_type)
 
   def test_node_debug_string(self):
     """Tests debug_string print functionality."""
