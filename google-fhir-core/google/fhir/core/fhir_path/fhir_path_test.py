@@ -5052,10 +5052,8 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
           ),
           base_id='CodeableConceptBackboneSliceTest',
           expected_context_element='CodeableConceptBackboneSliceTest.contact',
-          expected_fields_referenced_by_expression=['contact', 'contact.name'],
-          expected_fhir_path_expression=(
-              "contact.where(name = 'skeleton').count() >= 2"
-          ),
+          expected_fields_referenced_by_expression=['name'],
+          expected_fhir_path_expression="where(name = 'skeleton').count() >= 2",
           expected_sql_expression=textwrap.dedent("""\
           (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
           FROM (SELECT ARRAY(SELECT comparison_
@@ -5083,16 +5081,15 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
           base_id='BloodPressureTest',
           expected_context_element='BloodPressureTest.component',
           expected_fields_referenced_by_expression=[
-              'component',
-              'component.code.coding',
-              'component.code.coding.code',
-              'component.code.coding.system',
-              'component.value',
-              'component.value.code',
-              'component.value.system',
+              'code.coding',
+              'code.coding.code',
+              'code.coding.system',
+              'value',
+              'value.code',
+              'value.system',
           ],
           expected_fhir_path_expression=(
-              "component.where(code.coding.where(system = 'http://loinc.org'"
+              "where(code.coding.where(system = 'http://loinc.org'"
               " and code = '8480-6').exists() and value.ofType('Quantity').code"
               " = 'mm[Hg]' and value.ofType('Quantity').system ="
               " 'http://unitsofmeasure.org').count() = 1"
