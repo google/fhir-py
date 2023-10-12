@@ -213,8 +213,8 @@ def _check_is_predicate(
       params[0].return_type, _fhir_path_data_types.Boolean.__class__
   ):
     raise ValueError(
-        f'{function_name}() requires a boolean predicate. ',
-        f'Got {params[0].to_fhir_path()} instead.'
+        f'{function_name}() requires a boolean predicate. Got'
+        f' {params[0].to_fhir_path()} instead.'
     )
 
 
@@ -895,9 +895,7 @@ class OfTypeFunction(FunctionNode):
         and isinstance(self._params[0], LiteralNode)
         and fhir_types.is_string(cast(LiteralNode, self._params[0]).get_value())
     ):
-      raise ValueError(
-          'ofType() requires a single parameter of the datatype.'
-      )
+      raise ValueError('ofType() requires a single parameter of the datatype.')
 
     # Determine the expected FHIR type to use as the node's return type.
     type_param_str = cast(Any, self._params[0]).get_value().value
@@ -1090,8 +1088,7 @@ class MatchesFunction(FunctionNode):
 
   def _validate_operands_and_populate_return_type(
       self,
-    ) -> _fhir_path_data_types.FhirPathDataType:
-
+  ) -> _fhir_path_data_types.FhirPathDataType:
     if isinstance(
         self._operand.return_type, _fhir_path_data_types.PolymorphicDataType
     ):
