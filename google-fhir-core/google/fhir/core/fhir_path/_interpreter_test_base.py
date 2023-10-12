@@ -2493,3 +2493,72 @@ class FhirPathExpressionsTest(
         "basedOn.all($this.idFor('CarePlan').exists().toInteger() +"
         " $this.idFor('DeviceRequest').exists().toInteger() <= 1)",
     )
+
+  @parameterized.named_parameters(
+      dict(
+          testcase_name='with_empty_builder_returns_empty',
+          builder_func=lambda pat: pat,
+          expected_paths=[],
+      ),
+      dict(
+          testcase_name='with_identifier_returns_identifier',
+          builder_func=lambda pat: pat.name,
+          expected_paths=['name'],
+      ),
+      dict(
+          testcase_name='with_dotted_identifier_returns_dotted_identifier',
+          builder_func=lambda pat: pat.name.use,
+          expected_paths=['name', 'name.use'],
+      ),
+      dict(
+          testcase_name='with_call_on_identifier_returns_identifier',
+          builder_func=lambda pat: pat.name.use.exists(),
+          expected_paths=['name', 'name.use'],
+      ),
+      dict(
+          testcase_name='with_function_call_prefixes_operand',
+          builder_func=lambda pat: pat.name.where(pat.name.use == 'usual'),
+          expected_paths=['name', 'name.use'],
+      ),
+      dict(
+          testcase_name='with_duplicates_returns_unique_paths',
+          builder_func=lambda pat: pat.name.where(pat.name.use == pat.name.use),
+          expected_paths=['name', 'name.use'],
+      ),
+      dict(
+          testcase_name='with_nested_function_calls_prefixes_operands',
+          builder_func=lambda pat: pat.communication.where(  # pylint: disable=g-long-lambda
+              pat.communication.language.coding.where(
+                  pat.communication.language.coding.code == 'esperanto'
+              ).exists()
+          ),
+          expected_paths=[
+              'communication',
+              'communication.language',
+              'communication.language.coding',
+              'communication.language.coding.code',
+          ],
+      ),
+      dict(
+          testcase_name='with_this_ignores_this',
+          builder_func=lambda pat: pat.name.use.where(pat.name.use == 'usual'),
+          expected_paths=['name', 'name.use'],
+      ),
+      dict(
+          testcase_name='with_binary_op_finds_identifiers_on_both_sides',
+          builder_func=lambda pat: pat.name.where(  # pylint: disable=g-long-lambda
+              (pat.name.use == 'usual') & (pat.name.text == 'jdoe')
+          ),
+          expected_paths=['name', 'name.use', 'name.text'],
+      ),
+      dict(
+          testcase_name='with_path_at_end_of_call_finds_path',
+          builder_func=lambda pat: pat.name.where(pat.name.use == 'usual').text,
+          expected_paths=['name', 'name.use', 'name.text'],
+      ),
+  )
+  def test_find_paths_referenced(self, builder_func, expected_paths):
+    """Ensures the find_paths_referenced method finds the correct paths."""
+    pat = self.builder('Patient')
+    builder = builder_func(pat)
+    self.assertCountEqual(builder.node.find_paths_referenced(), expected_paths)

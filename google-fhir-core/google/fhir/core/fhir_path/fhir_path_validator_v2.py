@@ -23,7 +23,7 @@ import itertools
 import operator
 import re
 import traceback
-from typing import Any, Collection, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 
 from google.cloud import bigquery
 
@@ -32,7 +32,6 @@ from google.fhir.core.proto import fhirpath_replacement_list_pb2
 from google.fhir.core.proto import validation_pb2
 from google.fhir.core import codes
 from google.fhir.core import fhir_errors
-from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
@@ -716,8 +715,8 @@ class FhirProfileStandardSqlEncoder:
           description=cast(Any, constraint).human.value,
           fhir_path_key=constraint_key,
           fhir_path_expression=result_constraint.builder.fhir_path,
-          fields_referenced_by_expression=_fields_referenced_by_expression(
-              result_constraint.builder.fhir_path
+          fields_referenced_by_expression=sorted(
+              result_constraint.builder.node.find_paths_referenced()
           ),
       )
 
@@ -1078,8 +1077,8 @@ class FhirProfileStandardSqlEncoder:
             description=description,
             fhir_path_key=column_name.replace('_', '-'),
             fhir_path_expression=constraint_sql.builder.fhir_path,
-            fields_referenced_by_expression=_fields_referenced_by_expression(
-                constraint_sql.builder.fhir_path
+            fields_referenced_by_expression=sorted(
+                constraint_sql.builder.node.find_paths_referenced()
             ),
         )
     ]
@@ -1846,31 +1845,6 @@ class FhirProfileStandardSqlEncoder:
       self._element_id_to_regex_map.clear()
       self._regex_columns_generated.clear()
     return result
-
-
-def _fields_referenced_by_expression(
-    fhir_path_expression: str,
-) -> Collection[str]:
-  """Finds paths for fields referenced by the given expression.
-
-  For example, an expression like 'a.b.where(c > d.e)' references fields
-  ['a.b', 'a.b.c', 'a.b.d.e']
-
-  Args:
-    fhir_path_expression: The expression to search for field paths.
-
-  Returns:
-    A collection of paths for fields referenced in the given expression.
-  """
-  # Sort the results so they are consistently ordered for the golden tests.
-  # TODO(b/254866189): Change this to traversal over the builder.
-  return sorted(
-      _ast.paths_referenced_by(
-          _ast.build_fhir_path_ast(
-              _escape_fhir_path_invocation(fhir_path_expression)
-          )
-      )
-  )
 
 
 def _num_fields_exist(

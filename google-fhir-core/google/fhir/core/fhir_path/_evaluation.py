@@ -20,7 +20,7 @@ import datetime
 import decimal
 import re
 import threading
-from typing import Any, Dict, FrozenSet, List, Optional, Set, cast
+from typing import Any, Collection, Dict, FrozenSet, List, Optional, Set, Tuple, cast
 import urllib
 
 from google.protobuf import message
@@ -141,6 +141,33 @@ class ExpressionNode(abc.ABC):
     if self.return_type:
       return self.return_type.fields()
     return set()
+
+  def find_paths_referenced(self) -> Collection[str]:
+    """Finds paths for any elements referenced in this expression.
+
+    For example, given the expression 'a.b.where(c > d.e).f' returns paths
+    {'a', 'a.b', 'a.b.c', 'a.b.d', 'a.b.d.e', 'a.b.f'}
+
+    Returns:
+      A collections of paths referenced in the expression.
+    """
+    _, paths = self._find_paths_referenced()
+    return set(paths)
+
+  @abc.abstractmethod
+  def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
+    """Finds paths for any elements referenced in this expression.
+
+    Recursively builds paths by visiting each node in the tree. Returns a tuple
+    of (context, paths) where `context` is an identifier which may be part of a
+    dotted path completed by its parent and `paths` are the dotted paths found
+    so far.
+
+    Implementations must recursively call this method for all child nodes.
+
+    Returns:
+      A tuple of (context, paths) as described above.
+    """
 
   @property
   @abc.abstractmethod
@@ -267,6 +294,11 @@ class BinaryExpressionNode(ExpressionNode):
       self._right.replace_operand(expression_to_replace, replacement)
     self._return_type = self._validate_operands_and_populate_return_type()
 
+  def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
+    _, left_paths = self._left._find_paths_referenced()  # pylint:disable=protected-access
+    _, right_paths = self._right._find_paths_referenced()  # pylint:disable=protected-access
+    return None, (*left_paths, *right_paths)
+
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     raise ValueError('Unable to visit BinaryExpression node.')
 
@@ -335,6 +367,9 @@ class StructureBaseNode(ExpressionNode):
   ) -> None:
     # No operands to replace
     pass
+
+  def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
+    return None, ()
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return None
@@ -419,6 +454,9 @@ class LiteralNode(ExpressionNode):
   ) -> None:
     # No operands to replace
     pass
+
+  def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
+    return None, ()
 
   def _validate_operands_and_populate_return_type(
       self,
@@ -534,6 +572,22 @@ class InvokeExpressionNode(ExpressionNode):
       )
     return return_type
 
+  def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
+    if self.identifier == '$this':
+      # We don't have any paths to add. The original path $this refers
+      # to will be taken care of elsewhere.
+      return self._parent_node._find_paths_referenced()  # pylint:disable=protected-access
+
+    # Append this identifier to the dotted identifier chain in `path_context`.
+    path_context, parent_paths = self._parent_node._find_paths_referenced()  # pylint:disable=protected-access
+    if path_context is None:
+      path = self.identifier
+    else:
+      path = f'{path_context}.{self.identifier}'
+
+    # This path is now the context for other identifiers to chain against.
+    return path, (path, *parent_paths)
+
 
 class InvokeReferenceNode(InvokeExpressionNode):
   """An invocation of a 'reference' field against a FHIR Reference resource.
@@ -593,6 +647,9 @@ class IndexerNode(ExpressionNode):
     else:
       self.collection.replace_operand(expression_to_replace, replacement)
     self._return_type = self._validate_operands_and_populate_return_type()
+
+  def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
+    return self.collection._find_paths_referenced()  # pylint:disable=protected-access
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_indexer(self)
@@ -668,6 +725,9 @@ class NumericPolarityNode(ExpressionNode):
       )
     return self._operand.return_type
 
+  def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
+    return self._operand._find_paths_referenced()  # pylint:disable=protected-access
+
 
 class FunctionNode(ExpressionNode):
   """Base class for FHIRPath function calls.
@@ -730,6 +790,22 @@ class FunctionNode(ExpressionNode):
       else:
         self._params[index].replace_operand(expression_to_replace, replacement)
     self._return_type = self._validate_operands_and_populate_return_type()
+
+  def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
+    paths = []
+
+    operand_context, operand_paths = self._operand._find_paths_referenced()  # pylint:disable=protected-access
+    paths.extend(operand_paths)
+
+    for node in self._params:
+      _, param_paths = node._find_paths_referenced()  # pylint:disable=protected-access
+      paths.extend(param_paths)
+
+    # The operand's context needs to be passed forward for other
+    # expressions to chain against. For example, given an expression
+    # like 'a.where(b).c' we'll need to pass the operand's context 'a'
+    # forward so we can chain together 'a.c'
+    return operand_context, paths
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_function(self)
@@ -1336,6 +1412,9 @@ class ReferenceNode(ExpressionNode):
     if self._reference_node.expression() == expression_to_replace:
       self._reference_node = replacement
     self._return_type = self._validate_operands_and_populate_return_type()
+
+  def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
+    return self._reference_node._find_paths_referenced()  # pylint:disable=protected-access
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_reference(self)
