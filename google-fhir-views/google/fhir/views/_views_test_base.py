@@ -17,6 +17,7 @@
 import abc
 import textwrap
 from absl.testing import absltest
+from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.views import views
 
 
@@ -71,6 +72,112 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     self.assertLen(expressions, 2)
     self.assertEqual('name.given', expressions[0].fhir_path)
     self.assertEqual('birthDate', expressions[1].fhir_path)
+    columns = active_patients.get_select_columns_to_return_type()
+    self.assertLen(columns, 2)
+    self.assertIsInstance(columns['name'], _fhir_path_data_types._String)  # pylint: disable=protected-access
+    self.assertTrue(columns['name'].returns_collection())
+    self.assertIsInstance(columns['birthDate'], _fhir_path_data_types._Date)  # pylint: disable=protected-access
+    self.assertFalse(columns['birthDate'].returns_collection())
+
+  def test_create_view_with_unnest_succeeds(self):
+    """Test minimal view definition."""
+    pat = self.get_views().view_of('Patient')
+
+    active_patients = pat.select([
+        pat.name.given.forEach().alias('name'),
+    ]).where(pat.active)
+    self.assertIsNotNone(active_patients)
+
+    expressions = active_patients.get_select_expressions()
+    self.assertLen(expressions, 1)
+    self.assertEqual('name.given.forEach().alias(name)', str(expressions[0]))
+    columns = active_patients.get_select_columns_to_return_type()
+    self.assertLen(columns, 1)
+    self.assertIsInstance(columns['name'], _fhir_path_data_types._String)  # pylint: disable=protected-access
+    self.assertFalse(columns['name'].returns_collection())
+
+  def test_create_view_with_subselects_succeeds(self):
+    """Test minimal view definition."""
+    pat = self.get_views().view_of('Patient')
+
+    name = pat.name.where(pat.name.count() == 2)
+    active_patients = pat.select(
+        [
+            name.forEach().select([
+                name.family.alias('family_name'),
+                name.given.alias('given_names'),
+                name.period.alias('name_period'),
+            ])
+        ]
+    ).where(pat.active)
+    self.assertIsNotNone(active_patients)
+
+    expressions = active_patients.get_select_expressions()
+    self.assertLen(expressions, 1)
+    self.assertMultiLineEqual(
+        str(expressions[0]),
+        textwrap.dedent("""\
+        name.where($this.count() = 2).forEach().select([
+          family.alias(family_name),
+          given.alias(given_names),
+          period.alias(name_period)
+        ])"""),
+    )
+    columns = active_patients.get_select_columns_to_return_type()
+    self.assertLen(columns, 3)
+    self.assertIsInstance(columns['family_name'], _fhir_path_data_types._String)  # pylint: disable=protected-access
+    self.assertFalse(columns['family_name'].returns_collection())
+    self.assertIsInstance(columns['given_names'], _fhir_path_data_types._String)  # pylint: disable=protected-access
+    self.assertTrue(columns['given_names'].returns_collection())
+    self.assertIsInstance(
+        columns['name_period'], _fhir_path_data_types.StructureDataType
+    )
+    self.assertFalse(columns['name_period'].returns_collection())
+
+  def test_create_view_with_nested_subselects_succeeds(self):
+    """Test minimal view definition."""
+    pat = self.get_views().view_of('Patient')
+
+    name = pat.name.where(pat.name.count() == 2).first()
+    period = name.period
+    active_patients = pat.select(
+        [
+            name.select([
+                name.family.alias('family_name'),
+                name.given.alias('given_names'),
+                period.select([
+                    period.start.alias('period_start'),
+                    period.end.alias('period_end'),
+                ]),
+            ])
+        ]
+    ).where(pat.active)
+    self.assertIsNotNone(active_patients)
+
+    expressions = active_patients.get_select_expressions()
+    self.assertLen(expressions, 1)
+    self.assertMultiLineEqual(
+        str(expressions[0]),
+        textwrap.dedent("""\
+        name.where($this.count() = 2).first().select([
+          family.alias(family_name),
+          given.alias(given_names),
+          period.select([
+            start.alias(period_start),
+            end.alias(period_end)
+          ])
+        ])"""),
+    )
+    columns = active_patients.get_select_columns_to_return_type()
+    self.assertLen(columns, 4)
+    self.assertIsInstance(
+        columns['period_start'], _fhir_path_data_types._DateTime  # pylint: disable=protected-access
+    )
+    self.assertFalse(columns['period_start'].returns_collection())
+    self.assertIsInstance(
+        columns['period_end'], _fhir_path_data_types._DateTime  # pylint: disable=protected-access
+    )
+    self.assertFalse(columns['period_end'].returns_collection())
 
   def test_invalid_field_without_alias_for_patient_fails(self):
     """Ensures that select field without alias raise an error."""
@@ -124,6 +231,63 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
           ).where(
             active,
             address.count() < 5
+          )>"""),
+        str(active_patients),
+    )
+
+  def test_view_to_string_for_fields_with_subselects(self):
+    """Test View object __str__ has expected content."""
+    pat = self.get_views().view_of('Patient')
+
+    name = pat.name.where(pat.name.count() == 2)
+    active_patients = pat.select([
+        name.forEach().select([
+            name.family.alias('family_name'),
+            name.given.alias('given_names'),
+        ]),
+        pat.birthDate.alias('birth_date_field'),
+    ])
+    self.assertMultiLineEqual(
+        textwrap.dedent("""\
+          View<http://hl7.org/fhir/StructureDefinition/Patient.select(
+            name.where($this.count() = 2).forEach().select([
+              family.alias(family_name),
+              given.alias(given_names)
+            ]),
+            birthDate.alias(birth_date_field)
+          )>"""),
+        str(active_patients),
+    )
+
+  def test_view_to_string_for_fields_with_nested_subselects(self):
+    """Test View object __str__ has expected content."""
+    pat = self.get_views().view_of('Patient')
+
+    name = pat.name.where(pat.name.count() == 2).first()
+    period = name.period
+    active_patients = pat.select([
+        name.select([
+            name.family.alias('family_name'),
+            name.given.alias('given_names'),
+            period.select([
+                period.start.alias('period_start'),
+                period.end.alias('period_end'),
+            ]),
+        ]),
+        pat.birthDate.alias('birth_date_field'),
+    ])
+    self.assertMultiLineEqual(
+        textwrap.dedent("""\
+          View<http://hl7.org/fhir/StructureDefinition/Patient.select(
+            name.where($this.count() = 2).first().select([
+              family.alias(family_name),
+              given.alias(given_names),
+              period.select([
+                start.alias(period_start),
+                end.alias(period_end)
+              ])
+            ]),
+            birthDate.alias(birth_date_field)
           )>"""),
         str(active_patients),
     )

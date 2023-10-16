@@ -93,6 +93,12 @@ class SparkRunner:
     Returns:
       The SQL used to run the given view.
     """
+    if view.has_unnest_or_sub_select():
+      raise ValueError(
+          "Spark runner does not support translating View's fields with"
+          ' unnesting or sub-selects to SQL.'
+      )
+
     encoder = _spark_interpreter.SparkSqlInterpreter(
         value_set_codes_table='VALUESET_VIEW',
     )
@@ -133,7 +139,9 @@ class SparkRunner:
         sql=self.to_sql(view, limit=limit),
         con=self._engine,
     )
-    return runner_utils.clean_dataframe(df, view.get_select_expressions())
+    return runner_utils.clean_dataframe(
+        df, view.get_select_columns_to_return_type()
+    )
 
   def summarize_codes(
       self,

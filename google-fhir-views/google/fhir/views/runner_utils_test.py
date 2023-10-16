@@ -230,7 +230,7 @@ class RunnerUtilsTest(absltest.TestCase):
     })
 
     returned_df = runner_utils.clean_dataframe(
-        expected_df, simple_view.get_select_expressions()
+        expected_df, simple_view.get_select_columns_to_return_type()
     )
     self.assertTrue(expected_df.equals(returned_df))
 
@@ -256,7 +256,7 @@ class RunnerUtilsTest(absltest.TestCase):
     })
 
     returned_df = runner_utils.clean_dataframe(
-        fake_df, simple_view.get_select_expressions()
+        fake_df, simple_view.get_select_columns_to_return_type()
     )
 
     # Assert simple fields are unchanged.
@@ -288,7 +288,8 @@ class RunnerUtilsTest(absltest.TestCase):
     })
 
     returned_df = runner_utils.clean_dataframe(
-        fake_df, self._views.view_of('Patient').get_select_expressions()
+        fake_df,
+        self._views.view_of('Patient').get_select_columns_to_return_type(),
     )
 
     # Assert simple fields are unchanged.

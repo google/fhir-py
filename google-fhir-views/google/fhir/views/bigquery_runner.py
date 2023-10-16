@@ -179,7 +179,9 @@ class BigQueryRunner:
       ValueError propagated from the BigQuery client if pandas is not installed.
     """
     df = self.run_query(view, limit).result().to_dataframe()
-    return runner_utils.clean_dataframe(df, view.get_select_expressions())
+    return runner_utils.clean_dataframe(
+        df, view.get_select_columns_to_return_type()
+    )
 
   def create_database_view(self, view: views.View, view_name: str) -> None:
     """Creates a BigQuery view with the given name in the runner's view_dataset.

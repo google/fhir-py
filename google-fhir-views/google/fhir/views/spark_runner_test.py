@@ -164,7 +164,50 @@ class SparkRunnerTest(parameterized.TestCase):
         runner=self.runner,
     )
 
-  def test_snake_case_table_name_for_patient_succeeds(self):
+  def test_select_with_unnest_to_sql_for_patient_raises_error(self):
+    pat = self._views.view_of('Patient')
+    simple_view = pat.select([
+        pat.name.given.forEach().alias('name'),
+    ])
+
+    with self.assertRaises(ValueError):
+      self.runner.to_sql(simple_view)
+
+  def test_select_with_subselects_to_sql_for_patient_raises_error(self):
+    pat = self._views.view_of('Patient')
+    name = pat.name.where(pat.name.count() == 2)
+    simple_view = pat.select(
+        [
+            name.forEach().select([
+                name.family.alias('family_name'),
+                name.given.forEach().alias('given_names'),
+            ])
+        ]
+    )
+
+    with self.assertRaises(ValueError):
+      self.runner.to_sql(simple_view)
+
+  def test_select_with_nested_subselects_to_sql_for_patient_raises_error(self):
+    pat = self._views.view_of('Patient')
+    name = pat.name.where(pat.name.count() == 2).first()
+    period = name.period
+    simple_view = pat.select([
+        name.select([
+            name.family.alias('family_name'),
+            name.given.alias('given_names'),
+            period.select([
+                period.start.alias('period_start'),
+                period.end.alias('period_end'),
+            ]),
+        ]),
+        pat.birthDate.alias('birth_date_field'),
+    ])
+
+    with self.assertRaises(ValueError):
+      self.runner.to_sql(simple_view)
+
+  def test_snake_case_table_name_for_patient_raises_error(self):
     """Tests snake_case_resource_tables setting."""
     snake_case_runner = spark_runner.SparkRunner(
         self.mock_spark_engine,

@@ -1376,6 +1376,10 @@ class ReferenceNode(ExpressionNode):
   In order to check the match of each value in name, all() is used on
   Patient.name, the second Patient.name is then an unnested reference to the
   original Patient.name.
+
+  Another optional argument `unnested` will force setting the cardinality of the
+  return type to be a SCALAR indicating that the original operand's result has
+  already been unnested.
   """
 
   def __init__(
@@ -1383,9 +1387,11 @@ class ReferenceNode(ExpressionNode):
       fhir_context: context.FhirPathContext,
       reference_node: ExpressionNode,
       element_of_array: bool = False,
+      unnested: bool = False,
   ) -> None:
     self._reference_node = reference_node
     self._element_of_array = element_of_array
+    self._unnested = unnested
     # If the reference node/caller is a function, then the actual node being
     # referenced is the first non-function caller.
     while isinstance(self._reference_node, FunctionNode):
@@ -1438,8 +1444,12 @@ class ReferenceNode(ExpressionNode):
       self,
   ) -> _fhir_path_data_types.FhirPathDataType:
     return_type = self._reference_node.return_type
+    if self._unnested:
+      return return_type.get_new_cardinality_type(
+          _fhir_path_data_types.Cardinality.SCALAR
+      )
     if self._element_of_array and return_type.returns_collection():
-      return_type = return_type.get_new_cardinality_type(
+      return return_type.get_new_cardinality_type(
           _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION
       )
     return return_type

@@ -173,6 +173,95 @@ class BigqueryRunnerTest(parameterized.TestCase):
         simple_view,
     )
 
+  def test_select_with_unnest_to_sql_for_patient_succeeds(self):
+    """Tests select with unnest."""
+    pat = self._views.view_of('Patient')
+    simple_view = pat.select([
+        pat.name.given.forEach().alias('name'),
+    ])
+
+    self.ast_and_expression_tree_test_runner(
+        textwrap.dedent(
+            """\
+        SELECT (SELECT name) AS name FROM (SELECT ARRAY(SELECT given_element_
+        FROM (SELECT given_element_
+        FROM (SELECT name_element_
+        FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
+        UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
+        WHERE given_element_ IS NOT NULL) AS name_needs_unnest_ FROM `test_project.test_dataset`.Patient),UNNEST(name_needs_unnest_) AS name"""
+        ),
+        simple_view,
+    )
+
+  def test_select_with_subselects_to_sql_for_patient_succeeds(self):
+    """Tests select with subselects."""
+    pat = self._views.view_of('Patient')
+    name = pat.name.where(pat.name.count() == 2)
+    simple_view = pat.select(
+        [
+            name.forEach().select([
+                name.family.alias('family_name'),
+                name.given.forEach().alias('given_names'),
+            ])
+        ]
+    )
+
+    self.ast_and_expression_tree_test_runner(
+        textwrap.dedent(
+            """\
+            SELECT (SELECT family_name) AS family_name,(SELECT given_names) AS given_names FROM (SELECT (SELECT family) AS family_name,ARRAY(SELECT given_element_
+            FROM (SELECT given_element_
+            FROM (SELECT name),
+            UNNEST(name.given) AS given_element_ WITH OFFSET AS element_offset)
+            WHERE given_element_ IS NOT NULL) AS given_names_needs_unnest_ FROM (SELECT ARRAY(SELECT name_element_
+            FROM (SELECT name_element_
+            FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset
+            WHERE ((SELECT COUNT(
+            name_element_) AS count_
+            FROM (SELECT name_element_)) = 2))
+            WHERE name_element_ IS NOT NULL) AS name_needs_unnest_ FROM `test_project.test_dataset`.Patient),UNNEST(name_needs_unnest_) AS name),UNNEST(given_names_needs_unnest_) AS given_names"""
+        ),
+        simple_view,
+    )
+
+  def test_select_with_nested_subselects_to_sql_for_patient_succeeds(self):
+    """Tests select with nested subselects."""
+    pat = self._views.view_of('Patient')
+    name = pat.name.where(pat.name.count() == 2).first()
+    period = name.period
+    simple_view = pat.select([
+        name.select([
+            name.family.alias('family_name'),
+            name.given.alias('given_names'),
+            period.select([
+                period.start.alias('period_start'),
+                period.end.alias('period_end'),
+            ]),
+        ]),
+        pat.birthDate.alias('birth_date_field'),
+    ])
+
+    self.ast_and_expression_tree_test_runner(
+        textwrap.dedent(
+            """\
+            SELECT (SELECT birth_date_field) AS birth_date_field,(SELECT family_name) AS family_name,(SELECT given_names) AS given_names,(SELECT SAFE_CAST(start AS TIMESTAMP) AS start) AS period_start,(SELECT SAFE_CAST(`end` AS TIMESTAMP) AS `end`) AS period_end FROM (SELECT (SELECT birth_date_field) AS birth_date_field,(SELECT family) AS family_name,ARRAY(SELECT given_element_
+            FROM (SELECT given_element_
+            FROM (SELECT name),
+            UNNEST(name.given) AS given_element_ WITH OFFSET AS element_offset)
+            WHERE given_element_ IS NOT NULL) AS given_names,ARRAY(SELECT period
+            FROM (SELECT period)
+            WHERE period IS NOT NULL) AS period_needs_unnest_ FROM (SELECT ARRAY(SELECT name_element_
+            FROM (SELECT name_element_
+            FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset
+            WHERE ((SELECT COUNT(
+            name_element_) AS count_
+            FROM (SELECT name_element_)) = 2)
+            LIMIT 1)
+            WHERE name_element_ IS NOT NULL) AS name_needs_unnest_,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birth_date_field FROM `test_project.test_dataset`.Patient),UNNEST(name_needs_unnest_) AS name),UNNEST(period_needs_unnest_) AS period"""
+        ),
+        simple_view,
+    )
+
   def test_snake_case_table_name_for_patient_succeeds(self):
     """Tests snake_case_resource_tables setting."""
     snake_case_runner = bigquery_runner.BigQueryRunner(

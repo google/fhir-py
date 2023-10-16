@@ -118,10 +118,12 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
     self.assertIsInstance(
         family_name_builder.node.parent_node, _evaluation.ReferenceNode
     )
+    self.assertFalse(family_name_builder.return_type.returns_collection())
     self.assertIsInstance(
         given_name_builder.node.parent_node.parent_node,
         _evaluation.ReferenceNode,
     )
+    self.assertFalse(given_name_builder.return_type.returns_collection())
     self.assertTrue(builder_with_foreach_select.needs_unnest)
     self.assertTrue(builder_with_foreach_select.sealed)
     self.assertMultiLineEqual(

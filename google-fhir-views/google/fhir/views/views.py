@@ -20,7 +20,7 @@ implementations (like the BigQuery runner) for realizing the views themselves.
 """
 
 import keyword
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
@@ -70,11 +70,13 @@ class View:
     self._root_resource = root_resource
     self._structdef_url = root_resource.return_type.url
     self._handler = handler
+    self._has_unnest_or_sub_select = False
 
     for field in fields:
-      if not field.column_name:
+      if not field.column_name and not field.children:
         raise ValueError(
-            f'View `select` expressions must have column names. Got `{field}`'
+            'View `select` expressions must either have column names or'
+            f' children. Got `{field}`'
         )
       if field.node.get_root_node().return_type.url != self._structdef_url:
         raise ValueError(
@@ -82,10 +84,7 @@ class View:
             f'the view itself. Got `{field}`'
         )
       if field.needs_unnest or field.children:
-        raise NotImplementedError(
-            'View `select` expressions with forEach or child selects '
-            f'are not yet supported. Got `{field}`.'
-        )
+        self._has_unnest_or_sub_select = True
     self._fields = fields
 
     for constraint in constraints:
@@ -239,18 +238,46 @@ class View:
     """
     return self._constraints
 
+  def _get_select_columns_to_return_type(
+      self,
+      builders: Tuple[column_expression_builder.ColumnExpressionBuilder, ...],
+  ) -> Mapping[str, _fhir_path_data_types.FhirPathDataType]:
+    """Returns a mapping from column name to return type."""
+    columns = {}
+    for builder in builders:
+      if builder.column_name:
+        return_type = builder.return_type
+        if builder.needs_unnest:
+          return_type = builder.return_type.get_new_cardinality_type(
+              _fhir_path_data_types.Cardinality.SCALAR
+          )
+        columns[builder.column_name] = return_type
+      else:
+        columns.update(
+            self._get_select_columns_to_return_type(tuple(builder.children))
+        )
+    return columns
+
+  def get_select_columns_to_return_type(
+      self,
+  ) -> Mapping[str, _fhir_path_data_types.FhirPathDataType]:
+    return self._get_select_columns_to_return_type(self._fields)
+
   def get_structdef_url(self) -> str:
     return self._structdef_url
 
   def get_fhir_path_context(self) -> context.FhirPathContext:
     return self._context
 
+  def has_unnest_or_sub_select(self) -> bool:
+    return self._has_unnest_or_sub_select
+
   def __str__(self) -> str:
     view_strings = [f'View<{self._structdef_url}']
 
     select_strings = []
     for builder in self.get_select_expressions():
-      select_strings.append(f'  {builder}')
+      select_strings.append(builder._to_string(builder, 1))
     if not select_strings:
       select_strings.append('  *')
     view_strings.append(

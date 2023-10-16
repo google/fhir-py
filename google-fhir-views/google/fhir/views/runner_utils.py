@@ -16,13 +16,14 @@
 
 import itertools
 import re
-from typing import Collection, MutableSequence, Optional, Tuple, Union
+from typing import Collection, Mapping, MutableSequence, Optional, Tuple, Union
 
 import numpy
 import pandas as pd
 
 from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _evaluation
+from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _spark_interpreter
 from google.fhir.core.fhir_path import fhir_path
 from google.fhir.views import column_expression_builder
@@ -76,35 +77,100 @@ class RunnerSqlGenerator:
     Returns:
      SQL string representation of the view
     """
-    select_expressions = self._build_select_expressions(
-        self._view.get_select_expressions()
-    )
+    builders = self._view.get_select_expressions()
+    from_expressions = [f'`{self._dataset}`.{self._table_name}']
     where_expressions = self._build_where_expressions(
         self._view.get_constraint_expressions()
     )
 
-    return self._build_sql_statement(select_expressions, where_expressions)
-
-  def _build_select_expressions(
-      self,
-      select_builders: Tuple[
-          column_expression_builder.ColumnExpressionBuilder, ...
-      ],
-  ) -> MutableSequence[str]:
-    """Build select expressions."""
-    select_expressions = []
-
-    if not select_builders:
+    if not builders:
       # If there're no select builders, it means selecting all fields from root.
-      select_expressions.append('*')
-
-    for builder in select_builders:
-      select_expression = self._encode(
-          builder=builder, select_scalars_as_array=False
+      return self._build_sql_statement(
+          ['*'], from_expressions, where_expressions
       )
 
-      select_expressions.append(f'{select_expression} AS {builder.column_name}')
-    return select_expressions
+    sql_statement = ''
+    next_from_expressions = []
+    child_builders = []
+    columns_selected = []
+    while builders or next_from_expressions:
+      select_expressions, next_from_expressions = (
+          self._build_select_and_next_from_expressions(
+              builders,
+              child_builders,
+              columns_selected,
+          )
+      )
+      sql_statement = self._build_sql_statement(
+          select_expressions, from_expressions, where_expressions
+      )
+      from_expressions = [f'({sql_statement})']
+      from_expressions.extend(next_from_expressions)
+      where_expressions = []
+      builders = tuple(child_builders)
+      child_builders = []
+    return sql_statement
+
+  def _build_select_and_next_from_expressions(
+      self,
+      builders: Tuple[column_expression_builder.ColumnExpressionBuilder, ...],
+      child_builders: MutableSequence[
+          column_expression_builder.ColumnExpressionBuilder
+      ],
+      columns_selected: MutableSequence[str],
+  ) -> Tuple[MutableSequence[str], MutableSequence[str]]:
+    """Build select expressions and next from expressions from the builders.
+
+    Args:
+      builders: the immutable current builders to compute select expressions.
+      child_builders: collects the current given builders' children for the next
+        round.
+      columns_selected: accumulatively collects columns which has already been
+        handled completely.
+
+    Returns:
+      The select expressions and next from expressions computed form the given
+      builders.
+    """
+    select_expressions = []
+    next_from_expressions = []
+
+    for column_name in columns_selected:
+      select_expressions.append(f'(SELECT {column_name}) AS {column_name}')
+
+    for builder in builders:
+      child_builders.extend(builder.children)
+
+      if builder.column_name:
+        column_alias = builder.column_name
+        columns_selected.append(builder.column_name)
+      else:
+        # Find the last invoke node's identifier as the intermediate name.
+        invoke_node = builder.node
+        while (
+            invoke_node
+            and not hasattr(invoke_node, 'identifier')
+            or not invoke_node.identifier
+        ):
+          invoke_node = invoke_node.parent_node
+        column_alias = invoke_node.identifier
+
+      needs_unnest = builder.needs_unnest or builder.children
+      select_expression = self._encode(
+          builder=builder,
+          select_scalars_as_array=needs_unnest,
+      )
+      if needs_unnest:
+        select_expression = (
+            f'{select_expression} AS {column_alias}_needs_unnest_'
+        )
+        next_from_expressions.append(
+            f'UNNEST({column_alias}_needs_unnest_) AS {column_alias}'
+        )
+      else:
+        select_expression = f'{select_expression} AS {column_alias}'
+      select_expressions.append(select_expression)
+    return (select_expressions, next_from_expressions)
 
   def _build_where_expressions(
       self,
@@ -128,12 +194,13 @@ class RunnerSqlGenerator:
   def _build_sql_statement(
       self,
       select_expressions: MutableSequence[str],
+      from_expressions: MutableSequence[str],
       where_expressions: MutableSequence[str],
   ) -> str:
     """Build SQL statement from list of select and where statements."""
     select_clause = (
         f'SELECT {",".join(select_expressions)} '
-        f'FROM `{self._dataset}`.{self._table_name}'
+        f'FROM {",".join(from_expressions)}'
     )
     where_clause = ''
     if where_expressions:
@@ -286,31 +353,30 @@ def _memberof_nodes_from_node(
 
 def clean_dataframe(
     df: pd.DataFrame,
-    select_expressions: Tuple[
-        column_expression_builder.ColumnExpressionBuilder, ...
+    column_to_return_type_mapping: Mapping[
+        str,
+        _fhir_path_data_types.FhirPathDataType,
     ],
 ) -> pd.DataFrame:
   """Cleans dataframe retrieved from backend.
 
   Args:
     df: Dataframe to clean
-    select_expressions: If the view has expressions, we can narrow the
+    column_to_return_type_mapping: If the view has columns, we can narrow the
       non-scalar column list by checking only for list or struct columns.
 
   Returns:
     Cleaned dataframe
   """
-  if select_expressions:
-    non_scalar_cols = [
-        builder.column_name
-        for builder in select_expressions
-        if builder.return_type.returns_collection()
-        or builder.return_type.fields()
-    ]
-  else:
+  non_scalar_cols = []
+  if not column_to_return_type_mapping:
     # No fields were specified, so we must check any 'object' field
     # in the dataframe.
     non_scalar_cols = df.select_dtypes(include=['object']).columns.tolist()
+
+  for column_name, return_type in column_to_return_type_mapping.items():
+    if return_type.returns_collection() or return_type.fields():
+      non_scalar_cols.append(column_name)
 
   # Helper function to recursively trim `None` values and empty arrays.
   def trim_structs(item):

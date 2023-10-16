@@ -19,7 +19,7 @@ from typing import Any, Iterable, List, Optional, Union
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import expressions
-from google.fhir.r4 import primitive_handler
+from google.fhir.core.internal import primitive_handler
 
 BuilderOperand = Union[
     expressions.Comparable,
@@ -157,6 +157,7 @@ class ColumnExpressionBuilder:
           _evaluation.ReferenceNode(
               self._builder.node.context,
               reference_node,
+              unnested=True,
           ),
       )
 
