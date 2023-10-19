@@ -248,7 +248,7 @@ class View:
       if builder.column_name:
         return_type = builder.return_type
         if builder.needs_unnest:
-          return_type = builder.return_type.get_new_cardinality_type(
+          return_type = builder.return_type.with_cardinality(
               _fhir_path_data_types.Cardinality.SCALAR
           )
         columns[builder.column_name] = return_type

@@ -662,7 +662,7 @@ class IndexerNode(ExpressionNode):
           'Index must be of integer type. '
           f'Got {self._index.return_type} instead.'
       )
-    return self._collection.return_type.get_new_cardinality_type(
+    return self._collection.return_type.with_cardinality(
         _fhir_path_data_types.Cardinality.SCALAR
     )
 
@@ -852,7 +852,7 @@ class FirstFunction(FunctionNode):
   def _validate_operands_and_populate_return_type(
       self,
   ) -> _fhir_path_data_types.FhirPathDataType:
-    return self._operand.return_type.get_new_cardinality_type(
+    return self._operand.return_type.with_cardinality(
         _fhir_path_data_types.Cardinality.SCALAR
     )
 
@@ -1006,7 +1006,7 @@ class OfTypeFunction(FunctionNode):
       )
 
     if _fhir_path_data_types.returns_collection(self._operand.return_type):
-      return_type = return_type.get_new_cardinality_type(
+      return_type = return_type.with_cardinality(
           _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION
       )
 
@@ -1069,7 +1069,7 @@ class MemberOfFunction(FunctionNode):
     return_type = _fhir_path_data_types.Boolean
 
     if self._operand.return_type.returns_collection():
-      return_type = return_type.get_new_cardinality_type(
+      return_type = return_type.with_cardinality(
           _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION
       )
     return return_type
@@ -1445,11 +1445,11 @@ class ReferenceNode(ExpressionNode):
   ) -> _fhir_path_data_types.FhirPathDataType:
     return_type = self._reference_node.return_type
     if self._unnested:
-      return return_type.get_new_cardinality_type(
+      return return_type.with_cardinality(
           _fhir_path_data_types.Cardinality.SCALAR
       )
     if self._element_of_array and return_type.returns_collection():
-      return return_type.get_new_cardinality_type(
+      return return_type.with_cardinality(
           _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION
       )
     return return_type

@@ -170,11 +170,11 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
   ) -> _fhir_path_data_types.FhirPathDataType:
     """Returns a new instance of return_type updated with its collection status."""
     if _utils.is_repeated_element(element):
-      return return_type.get_new_cardinality_type(
+      return return_type.with_cardinality(
           _fhir_path_data_types.Cardinality.COLLECTION
       )
     if parent_type and parent_type.returns_collection():
-      return return_type.get_new_cardinality_type(
+      return return_type.with_cardinality(
           _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION
       )
     return return_type

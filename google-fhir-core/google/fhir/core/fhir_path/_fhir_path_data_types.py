@@ -186,9 +186,8 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
   def comparable(self) -> bool:
     pass
 
-  def get_new_cardinality_type(
-      self, cardinality: Cardinality
-  ) -> 'FhirPathDataType':
+  def with_cardinality(self, cardinality: Cardinality) -> 'FhirPathDataType':
+    """Returns a copy of the data type with the given cardinality."""
     return dataclasses.replace(self, cardinality=cardinality)
 
   def copy_fhir_type_with_root_element_definition(
