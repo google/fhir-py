@@ -129,9 +129,6 @@ class ExpressionNode(abc.ABC):
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     pass
 
-  def __hash__(self) -> int:
-    return hash(self.expression())
-
   def fields(self) -> Set[str]:
     """Returns known fields from this expression, or none if they are unknown.
 
