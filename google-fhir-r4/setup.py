@@ -123,8 +123,7 @@ def main():
           f'google-fhir-core~={version}',
           'backports.zoneinfo~=0.2.1;python_version<"3.9"',
           'immutabledict~=2.2',
-          # TODO(b/276635321): Fix compatibility issue with protobuf 4.x
-          'protobuf~=3.19',
+          'protobuf~=4.23',
           'python-dateutil~=2.8',
       ],
       package_data={'google.fhir.r4.data': ['*.tgz']},
