@@ -248,7 +248,11 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     )
     sql_alias = raw_identifier_str
     identifier_str = raw_identifier_str
-    if _fhir_path_data_types.is_collection(identifier.return_type):  # Array
+    # is_collection indicates this an array field which needs to be
+    # unnested, as opposed to returns_collection which will return
+    # True if the field is a scalar selected from elements of an
+    # unnested array.
+    if _fhir_path_data_types.is_collection(identifier.return_type):
       # If the identifier is `$this`, we assume that the repeated field has been
       # unnested upstream so we only need to reference it with its alias:
       # `{}_element_`.
@@ -463,9 +467,9 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     sql_data_type = _sql_data_types.Boolean
 
     # Both sides are scalars.
-    if _fhir_path_data_types.is_scalar(
+    if _fhir_path_data_types.returns_scalar(
         equality.left.return_type
-    ) and _fhir_path_data_types.is_scalar(equality.right.return_type):
+    ) and _fhir_path_data_types.returns_scalar(equality.right.return_type):
       # Use the simpler query.
       return _sql_data_types.Select(
           select_part=_sql_data_types.RawExpression(

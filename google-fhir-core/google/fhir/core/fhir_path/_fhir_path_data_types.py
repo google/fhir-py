@@ -84,10 +84,11 @@ class Cardinality(enum.Enum):
        count()).
     2. A FHIRPath expression can return one or more values (e.g., an invoke
        expression on a repeated field or where(...) function).
-    3. A FHIRPath expression that returns the same number of values as its
-       parent. (e.g., an invoke expression on a single-valued field that is a
-       child of a multi-valued parent) -- so it could return a single value if
-       the parent is single-value, or multi-value if the parent is as well.
+    3. A FHIRPath expression that returns a collection because its parent is a
+       collection. For example, in the expression `patient.name.use` 'use' is a
+       scalar but 'name' is a collection. use's cardinality will be
+       CHILD_OF_COLLECTION to indicate its return type is a collection only due
+       to its parent collection, name.
   """
 
   SCALAR = 'scalar'
@@ -206,6 +207,19 @@ class FhirPathDataType(metaclass=abc.ABCMeta):
     )
 
   def returns_collection(self) -> bool:
+    """Indicates if the data type will evaluate to a collection.
+
+    Returns:
+      True in the following circumstances
+        - The data type represents an element with cardinality greater than one.
+        - The data type represents an element with a cardinality less than or
+          equal to one, but that element is a child of a collection and will
+          evaluate to a collection. For example, the path Patient.name.use will
+          return a collection, despite 'use' being a scalar, because it is a
+          child of the collection, 'name.'
+      False if the data type represents a scalar element whose parents are all
+      also scalars.
+    """
     return (
         self.cardinality == Cardinality.COLLECTION
         or self.cardinality == Cardinality.CHILD_OF_COLLECTION
@@ -1178,17 +1192,54 @@ def is_codeable_concept(fhir_type: FhirPathDataType) -> bool:
   )
 
 
-def is_scalar(fhir_type: Optional[FhirPathDataType]) -> bool:
-  # None return type is considered to be a scalar.
-  return not fhir_type or fhir_type.cardinality == Cardinality.SCALAR
+def is_collection(return_type: FhirPathDataType) -> bool:
+  """Indicates if the return type represents a collection.
+
+  Args:
+    return_type: The data type to describe.
+
+  Returns:
+    True if `return_type` represents an element with cardinality greater than
+    one. False otherwise.
+  """
+  return return_type and return_type.cardinality == Cardinality.COLLECTION
 
 
 def returns_collection(return_type: FhirPathDataType) -> bool:
+  """Indicates if return_type will evaluate to a collection.
+
+  Args:
+    return_type: The data type to describe.
+
+  Returns:
+    True in the following circumstances
+      - `return_type` represents an element with cardinality greater than one.
+      - `return_type` represents an element with a cardinality less than or
+        equal to one, but that element is a child of a collection and will
+        evaluate to a collection. For example, the path Patient.name.use will
+        return a collection, despite 'use' being a scalar, because it is a child
+        of the collection, 'name.'
+    False if `return_type` represents a scalar element whose parents are all
+    also scalars.
+  """
   return return_type and return_type.returns_collection()
 
 
-def is_collection(return_type: FhirPathDataType) -> bool:
-  return return_type and return_type.cardinality == Cardinality.COLLECTION
+def returns_scalar(return_type: Optional[FhirPathDataType]) -> bool:
+  """Indicates if the return type evaluates to a scalar.
+
+  Args:
+    return_type: The data type to describe.
+
+  Returns:
+    True if `return_type` represents an element with cardinality less than or
+    equal to one whose parents are all also scalars.
+    False otherwise. For example, the path Patient.name.use does not return a
+    scalar, despite 'use' being a scalar, because it is a child of the
+    collection, 'name.'
+  """
+  # None return type is considered to be a scalar.
+  return not return_type or return_type.cardinality == Cardinality.SCALAR
 
 
 # Captures the names appearing after 'extension:' stanzas in IDs.
