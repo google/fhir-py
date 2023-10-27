@@ -18,6 +18,7 @@ import datetime
 import textwrap
 from typing import Any, Optional, cast
 from unittest import mock
+
 from google.cloud import bigquery
 
 from absl.testing import absltest
@@ -121,8 +122,10 @@ class BigqueryRunnerTest(parameterized.TestCase):
         value_set_codes_table=value_set_codes_table,
     )
     self.assertEqual(runner._value_set_codes_table, expected_table_name)  # pylint: disable=protected-access
-    self.assertEqual(runner._value_set_manager.value_set_codes_table,  # pylint: disable=protected-access
-                     expected_table_name)
+    self.assertEqual(
+        runner._value_set_manager.value_set_codes_table,  # pylint: disable=protected-access
+        expected_table_name,
+    )
 
   def test_nested_single_field_in_nested_array_for_patient_returns_array(self):
     """Tests selecting a single field in a nested array."""
@@ -146,10 +149,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
     """Tests that a view with no select fields succeeds."""
     pat = self._views.view_of('Patient')
     self.ast_and_expression_tree_test_runner(
-        textwrap.dedent(
-            """\
-          SELECT * FROM `test_project.test_dataset`.Patient"""
-        ),
+        textwrap.dedent("""\
+          SELECT * FROM `test_project.test_dataset`.Patient"""),
         pat,
     )
 
@@ -285,10 +286,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
     med_rec = self._views.view_of('MedicationRequest')
     self.ast_and_expression_tree_test_runner(
-        textwrap.dedent(
-            """\
-          SELECT * FROM `test_project.test_dataset`.medication_request"""
-        ),
+        textwrap.dedent("""\
+          SELECT * FROM `test_project.test_dataset`.medication_request"""),
         view=med_rec,
         bq_runner=snake_case_runner,
     )
@@ -302,8 +301,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
     # TODO(b/208900793): Remove array offsets when the SQL generator can
     # return single values.
-    expected_sql = textwrap.dedent(
-        """\
+    expected_sql = textwrap.dedent("""\
         SELECT ARRAY(SELECT given_element_
         FROM (SELECT given_element_
         FROM (SELECT name_element_
@@ -313,8 +311,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT active
         FROM (SELECT active)
-        WHERE active IS NOT NULL)) AS logic_)"""
-    )
+        WHERE active IS NOT NULL)) AS logic_)""")
     self.ast_and_expression_tree_test_runner(expected_sql, active_patients_view)
     self.ast_and_expression_tree_test_runner(
         expected_sql + ' LIMIT 5', active_patients_view, limit=5

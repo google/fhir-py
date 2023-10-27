@@ -85,8 +85,7 @@ class SparkRunnerTest(parameterized.TestCase):
       limit: Optional[int] = None,
   ):
     actual_sql_expression = runner.to_sql(view, limit=limit)
-    self.assertEqual(
-        actual_sql_expression.replace('\n', ' '), expected_output)
+    self.assertEqual(actual_sql_expression.replace('\n', ' '), expected_output)
 
   @parameterized.named_parameters(_WITH_VALUE_SET_TABLE_INIT_SUCCEEDS_CASES)
   def test_init_with_value_set_table_as(
@@ -134,9 +133,7 @@ class SparkRunnerTest(parameterized.TestCase):
     """Tests that a view with no select fields succeeds."""
     patient = self._views.view_of('Patient')
     self.ast_and_expression_tree_test_runner(
-        expected_output=(
-            'SELECT * FROM `default`.Patient'
-        ),
+        expected_output='SELECT * FROM `default`.Patient',
         view=patient,
         runner=self.runner,
     )
@@ -213,7 +210,7 @@ class SparkRunnerTest(parameterized.TestCase):
         self.mock_spark_engine,
         'default',
         value_set_codes_table='vs_table',
-        snake_case_resource_tables=True
+        snake_case_resource_tables=True,
     )
 
     patient = self._views.view_of('Patient')

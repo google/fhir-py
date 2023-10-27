@@ -37,8 +37,7 @@ def _escape_identifier(identifier_value: str) -> str:
 
 
 class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
-  """Traverses the ExpressionNode tree and generates Spark SQL recursively.
-  """
+  """Traverses the ExpressionNode tree and generates Spark SQL recursively."""
 
   def __init__(
       self,
@@ -71,10 +70,12 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     self._value_set_codes_table = value_set_codes_table
     self._value_set_codes_definitions = value_set_codes_definitions
 
-  def encode(self,
-             builder: expressions.Builder,
-             select_scalars_as_array: bool = True,
-             use_resource_alias: bool = False) -> str:
+  def encode(
+      self,
+      builder: expressions.Builder,
+      select_scalars_as_array: bool = True,
+      use_resource_alias: bool = False,
+  ) -> str:
     """Returns a Spark SQL encoding of a FHIRPath expression.
 
     If select_scalars_as_array is True, the resulting Spark SQL encoding
@@ -98,9 +99,11 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     if select_scalars_as_array or _fhir_path_data_types.returns_collection(
         builder.node.return_type
     ):
-      return (f'(SELECT COLLECT_LIST({result.sql_alias})\n'
-              f'FROM {result.to_subquery()}\n'
-              f'WHERE {result.sql_alias} IS NOT NULL)')
+      return (
+          f'(SELECT COLLECT_LIST({result.sql_alias})\n'
+          f'FROM {result.to_subquery()}\n'
+          f'WHERE {result.sql_alias} IS NOT NULL)'
+      )
     else:
       # Parenthesize raw SELECT so it can plug in anywhere an expression can.
       return f'{result.to_subquery()}'
@@ -144,7 +147,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     )
 
   def visit_literal(
-      self, literal: _evaluation.LiteralNode) -> _sql_data_types.RawExpression:
+      self, literal: _evaluation.LiteralNode
+  ) -> _sql_data_types.RawExpression:
     """Translates a FHIRPath literal to Spark SQL."""
 
     if literal.return_type is None or isinstance(
@@ -161,7 +165,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       # Since quantity string literals contain quotes, they are escaped.
       # E.g. '10 \'mg\''.
       quantity_quotes_escaped = str(literal).translate(
-          str.maketrans({'"': r'\"'}))
+          str.maketrans({'"': r'\"'})
+      )
       sql_value = f"'{quantity_quotes_escaped}'"
       sql_data_type = _sql_data_types.String
     elif isinstance(literal.return_type, _fhir_path_data_types._Integer):  # pylint: disable=protected-access
@@ -274,8 +279,9 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         sql_dialect=_sql_data_types.SqlDialect.SPARK,
     )
 
-  def visit_indexer(self,
-                    indexer: _evaluation.IndexerNode) -> _sql_data_types.Select:
+  def visit_indexer(
+      self, indexer: _evaluation.IndexerNode
+  ) -> _sql_data_types.Select:
     """Translates a FHIRPath indexer expression to Spark SQL.
 
     Args:
@@ -302,8 +308,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     )
 
   def visit_arithmetic(
-      self,
-      arithmetic: _evaluation.ArithmeticNode) -> _sql_data_types.Select:
+      self, arithmetic: _evaluation.ArithmeticNode
+  ) -> _sql_data_types.Select:
     """Translates a FHIRPath arithmetic expression to Spark SQL.
 
     Each operand is expected to be a collection of a single element. Both
@@ -318,8 +324,9 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     """
     lhs_result = self.visit(arithmetic.left)
     rhs_result = self.visit(arithmetic.right)
-    sql_data_type = _sql_data_types.coerce(lhs_result.sql_data_type,
-                                           rhs_result.sql_data_type)
+    sql_data_type = _sql_data_types.coerce(
+        lhs_result.sql_data_type, rhs_result.sql_data_type
+    )
 
     # Extract the values of LHS and RHS to be used as scalar subqueries.
     lhs_subquery = lhs_result.as_operand()
@@ -336,9 +343,11 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
     return _sql_data_types.Select(
         select_part=_sql_data_types.RawExpression(
-            sql_value, _sql_data_type=sql_data_type, _sql_alias='arith_'),
+            sql_value, _sql_data_type=sql_data_type, _sql_alias='arith_'
+        ),
         from_part=None,
-        sql_dialect=_sql_data_types.SqlDialect.SPARK)
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
+    )
 
   def visit_equality(self, equality: _evaluation.EqualityNode):
     """Returns `TRUE` if the left collection is equal/equivalent to the right.
@@ -399,7 +408,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
           else f'ARRAY_AGG({rhs_result.sql_alias}) FROM ({rhs_result})'
       )
       sql_expr = (
-          f'ARRAY_EXCEPT('
+          'ARRAY_EXCEPT('
           f'(SELECT ARRAY({lhs_result.sql_alias})), '
           f'(SELECT {nested_query})'
           ')'
@@ -447,7 +456,6 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
               _sql_alias=sql_alias,
           ),
           from_part=f'(SELECT {rhs_result.as_operand()})',
-
           sql_dialect=_sql_data_types.SqlDialect.SPARK,
       )
     else:
@@ -483,13 +491,15 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         select_part=_sql_data_types.RawExpression(
             sql_value,
             _sql_data_type=_sql_data_types.Boolean,
-            _sql_alias='comparison_'),
+            _sql_alias='comparison_',
+        ),
         from_part=None,
-        sql_dialect=_sql_data_types.SqlDialect.SPARK)
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
+    )
 
   def visit_boolean_op(
-      self,
-      boolean_logic: _evaluation.BooleanOperatorNode) -> _sql_data_types.Select:
+      self, boolean_logic: _evaluation.BooleanOperatorNode
+  ) -> _sql_data_types.Select:
     """Translates a FHIRPath Boolean logic operation to Spark SQL.
 
     Note that evaluation for Boolean logic is only supported for Boolean
@@ -525,9 +535,11 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         select_part=_sql_data_types.RawExpression(
             sql_value,
             _sql_data_type=_sql_data_types.Boolean,
-            _sql_alias='logic_'),
+            _sql_alias='logic_',
+        ),
         from_part=None,
-        sql_dialect=_sql_data_types.SqlDialect.SPARK)
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
+    )
 
   def visit_membership(
       self, relation: _evaluation.MembershipRelationNode
@@ -550,9 +562,11 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     # SELECT (<lhs>) IN(<rhs>) AS mem_
     # Where relation.op \in {IN, CONTAINS}; `CONTAINS` is the converse of `IN`
     in_lhs = (
-        lhs_result if isinstance(relation, _evaluation.InNode) else rhs_result)
+        lhs_result if isinstance(relation, _evaluation.InNode) else rhs_result
+    )
     in_rhs = (
-        rhs_result if isinstance(relation, _evaluation.InNode) else lhs_result)
+        rhs_result if isinstance(relation, _evaluation.InNode) else lhs_result
+    )
 
     sql_expr = f'({in_lhs.as_operand()}) IN ({in_rhs.as_operand()})'
     return _sql_data_types.Select(
@@ -562,11 +576,12 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             _sql_alias='mem_',
         ),
         from_part=None,
-        sql_dialect=_sql_data_types.SqlDialect.SPARK)
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
+    )
 
   def visit_union(
       self, union: _evaluation.UnionNode
-  )-> _sql_data_types.UnionExpression:
+  ) -> _sql_data_types.UnionExpression:
     """Translates a FHIRPath union to Spark SQL."""
     lhs_result = self.visit(union.left)
     rhs_result = self.visit(union.right)
@@ -608,7 +623,8 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             _sql_alias='pol_',
         ),
         from_part=None,
-        sql_dialect=_sql_data_types.SqlDialect.SPARK)
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
+    )
 
   def visit_function(self, function: _evaluation.FunctionNode) -> Any:
     """Translates a FHIRPath function to Spark SQL."""
