@@ -1527,14 +1527,7 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
           FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset),
           UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset
-          WHERE NOT EXISTS(
-          SELECT lhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, system
-          FROM (SELECT system)) AS lhs_
-          EXCEPT DISTINCT
-          SELECT rhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-          FROM (SELECT 'test' AS literal_)) AS rhs_))
+          WHERE (system = 'test'))
           WHERE coding_element_ IS NOT NULL)"""),
       ),
       dict(
@@ -1550,14 +1543,7 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT coding_element_
           FROM (SELECT choiceExample.CodeableConcept AS ofType_),
           UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset
-          WHERE NOT EXISTS(
-          SELECT lhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, system
-          FROM (SELECT system)) AS lhs_
-          EXCEPT DISTINCT
-          SELECT rhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-          FROM (SELECT 'test' AS literal_)) AS rhs_))
+          WHERE (system = 'test'))
           WHERE coding_element_ IS NOT NULL)"""),
       ),
   )
@@ -2456,8 +2442,6 @@ class FhirPathStandardSqlEncoderTest(
           testcase_name=(
               'with_all_and_repeated_subfield_primitive_only_comparison'
           ),
-          # TODO(b/253262668): Determine if this is a bug in the old
-          # implementation or new implementation.
           fhir_path_expression="bar.bats.struct.all( value = '' )",
           different_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
@@ -2474,14 +2458,7 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
-          (SELECT NOT EXISTS(
-          SELECT lhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, value
-          FROM (SELECT value)) AS lhs_
-          EXCEPT DISTINCT
-          SELECT rhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-          FROM (SELECT '' AS literal_)) AS rhs_) AS all_), FALSE)), TRUE) AS all_
+          (SELECT (value = '') AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bats_element_.struct
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset))
@@ -2523,7 +2500,6 @@ class FhirPathStandardSqlEncoderTest(
       dict(
           testcase_name='with_where_and_repeated',
           fhir_path_expression='bar.bats.where( struct.exists() )',
-          different_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT bats_element_
           FROM (SELECT bats_element_
@@ -2531,21 +2507,10 @@ class FhirPathStandardSqlEncoderTest(
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
           WHERE (`struct` IS NOT NULL))
           WHERE bats_element_ IS NOT NULL)"""),
-          expected_sql_expression_v2=textwrap.dedent("""\
-          ARRAY(SELECT bats_element_
-          FROM (SELECT bats_element_
-          FROM (SELECT bar),
-          UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
-          WHERE EXISTS(
-          SELECT `struct`
-          FROM (SELECT `struct`)
-          WHERE `struct` IS NOT NULL))
-          WHERE bats_element_ IS NOT NULL)"""),
       ),
       dict(
           testcase_name='with_where_and_repeated_and_exists',
           fhir_path_expression='bar.bats.where( struct = struct ).exists()',
-          different_in_v2=True,
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT exists_
           FROM (SELECT EXISTS(
@@ -2554,23 +2519,6 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
           WHERE (`struct` = `struct`))
-          WHERE bats_element_ IS NOT NULL) AS exists_)
-          WHERE exists_ IS NOT NULL)"""),
-          expected_sql_expression_v2=textwrap.dedent("""\
-          ARRAY(SELECT exists_
-          FROM (SELECT EXISTS(
-          SELECT bats_element_
-          FROM (SELECT bats_element_
-          FROM (SELECT bar),
-          UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
-          WHERE NOT EXISTS(
-          SELECT lhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, `struct`
-          FROM (SELECT `struct`)) AS lhs_
-          EXCEPT DISTINCT
-          SELECT rhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, `struct`
-          FROM (SELECT `struct`)) AS rhs_))
           WHERE bats_element_ IS NOT NULL) AS exists_)
           WHERE exists_ IS NOT NULL)"""),
       ),
@@ -2778,21 +2726,16 @@ class FhirPathStandardSqlEncoderTest(
             ARRAY(SELECT codingList_element_
             FROM (SELECT codingList_element_
             FROM UNNEST(codingList) AS codingList_element_ WITH OFFSET AS element_offset
-            WHERE (SELECT matches.element_offset IS NOT NULL AS memberof_
-            FROM (SELECT element_offset
-            FROM None) AS all_
-            LEFT JOIN (SELECT element_offset
-            FROM UNNEST(ARRAY(SELECT element_offset FROM (
-            SELECT element_offset
-            FROM None
-            INNER JOIN `VALUESET_VIEW` vs ON
+            WHERE (SELECT memberof_
+            FROM UNNEST((SELECT IF(codingList_element_ IS NULL, [], [
+            EXISTS(
+            SELECT 1
+            FROM `VALUESET_VIEW` vs
+            WHERE
             vs.valueseturi='http://value.set/id'
             AND vs.system=codingList_element_.system
             AND vs.code=codingList_element_.code
-            ))) AS element_offset
-            ) AS matches
-            ON all_.element_offset=matches.element_offset
-            ORDER BY all_.element_offset))
+            )]))) AS memberof_))
             WHERE codingList_element_ IS NOT NULL)"""),
       ),
   )
@@ -5031,21 +4974,7 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
               coding_element_) AS count_
               FROM (SELECT code),
               UNNEST(code.coding) AS coding_element_ WITH OFFSET AS element_offset
-              WHERE (NOT EXISTS(
-              SELECT lhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, system
-              FROM (SELECT system)) AS lhs_
-              EXCEPT DISTINCT
-              SELECT rhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-              FROM (SELECT 'milky_way' AS literal_)) AS rhs_) AND NOT EXISTS(
-              SELECT lhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, version
-              FROM (SELECT version)) AS lhs_
-              EXCEPT DISTINCT
-              SELECT rhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-              FROM (SELECT 'final_frontier' AS literal_)) AS rhs_))) = 1) AS eq_)
+              WHERE ((system = 'milky_way') AND (version = 'final_frontier'))) = 1) AS eq_)
               WHERE eq_ IS NOT NULL)) AS result_)"""),
       ),
       dict(
@@ -5108,21 +5037,7 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
               FROM (SELECT coding_element_
               FROM (SELECT code),
               UNNEST(code.coding) AS coding_element_ WITH OFFSET AS element_offset
-              WHERE (NOT EXISTS(
-              SELECT lhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, system
-              FROM (SELECT system)) AS lhs_
-              EXCEPT DISTINCT
-              SELECT rhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-              FROM (SELECT 'http://loinc.org' AS literal_)) AS rhs_) AND NOT EXISTS(
-              SELECT lhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, code
-              FROM (SELECT code)) AS lhs_
-              EXCEPT DISTINCT
-              SELECT rhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-              FROM (SELECT '8480-6' AS literal_)) AS rhs_)))
+              WHERE ((system = 'http://loinc.org') AND (code = '8480-6')))
               WHERE coding_element_ IS NOT NULL) AND NOT EXISTS(
               SELECT lhs_.*
               FROM (SELECT ROW_NUMBER() OVER() AS row_, code
@@ -5180,10 +5095,7 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
               FROM (SELECT ((SELECT COUNT(
               code_element_) AS count_
               FROM UNNEST(code) AS code_element_ WITH OFFSET AS element_offset
-              WHERE (((NOT EXISTS(
-              SELECT id
-              FROM (SELECT id)
-              WHERE id IS NOT NULL) AND NOT EXISTS(
+              WHERE ((((id IS NULL) AND NOT EXISTS(
               SELECT extension_element_
               FROM (SELECT extension_element_
               FROM (SELECT code_element_),
@@ -5238,10 +5150,7 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
               FROM (SELECT coding_element_
               FROM (SELECT code_element_),
               UNNEST(code_element_.coding) AS coding_element_ WITH OFFSET AS element_offset)) AS inner_tbl
-              WHERE (inner_tbl.row_ - 1) = 0)))) AND NOT EXISTS(
-              SELECT text
-              FROM (SELECT text)
-              WHERE text IS NOT NULL))) = 1) AS eq_)
+              WHERE (inner_tbl.row_ - 1) = 0)))) AND (text IS NULL))) = 1) AS eq_)
               WHERE eq_ IS NOT NULL)) AS result_)"""),
       ),
   )

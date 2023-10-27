@@ -129,10 +129,14 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     # When $this is used, we need the last identifier from the node being
     # referenced.
     sql_alias = reference.parent_node.to_fhir_path().split('.')[-1]
-    # If the identifier is `$this`, we assume that the repeated field has been
-    # unnested upstream so we only need to reference it with its alias:
-    # `{}_element_`.
-    if _fhir_path_data_types.returns_collection(reference.return_type):
+
+    # If the identifier is `$this`, we assume that the repeated field
+    # has been unnested upstream so we only need to reference it with
+    # its alias: `{}_element_`. We check the parent_node's type to see
+    # if the parent would have been unnested upstream. The reference
+    # node's type may be set to scalar to represent the unnesting, so
+    # it should not be consulted.
+    if _fhir_path_data_types.is_collection(reference.parent_node.return_type):
       sql_alias = f'{sql_alias}_element_'
 
     sql_data_type = _sql_data_types.get_standard_sql_data_type(

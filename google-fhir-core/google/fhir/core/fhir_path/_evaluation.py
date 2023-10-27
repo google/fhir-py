@@ -1365,29 +1365,21 @@ class ReferenceNode(ExpressionNode):
   Patient.name. The interpreter can then recognize that Patient.name has already
   been resolved and does not need to reresolved if it so chooses.
 
-  An optional argument `element_of_array` will also set the cardinality of the
-  return type to be a CHILD_OF_COLLECTION if the original operand returns a
-  collection because some functions inherently map the expression in the params
-  to each element of the operand. In the above example, Patient.name is a
-  collection according to the FHIR spec, but matches only operates on scalars.
-  In order to check the match of each value in name, all() is used on
-  Patient.name, the second Patient.name is then an unnested reference to the
-  original Patient.name.
-
-  Another optional argument `unnested` will force setting the cardinality of the
-  return type to be a SCALAR indicating that the original operand's result has
-  already been unnested.
+  An optional argument `unnested` will set the cardinality of the return type to
+  SCALAR. For an expression like
+    Patient.name.where($this.use = 'official')
+  'Patient.name' is a collection but its '$this' reference is a scalar. To
+  handle this, a ReferenceNode for Patient.name should be created with the
+  `unnested` flag set to True.
   """
 
   def __init__(
       self,
       fhir_context: context.FhirPathContext,
       reference_node: ExpressionNode,
-      element_of_array: bool = False,
       unnested: bool = False,
   ) -> None:
     self._reference_node = reference_node
-    self._element_of_array = element_of_array
     self._unnested = unnested
     # If the reference node/caller is a function, then the actual node being
     # referenced is the first non-function caller.
@@ -1444,10 +1436,6 @@ class ReferenceNode(ExpressionNode):
     if self._unnested:
       return return_type.with_cardinality(
           _fhir_path_data_types.Cardinality.SCALAR
-      )
-    if self._element_of_array and return_type.returns_collection():
-      return return_type.with_cardinality(
-          _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION
       )
     return return_type
 
@@ -1847,17 +1835,15 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
         self.visit(operand) if operand is not None else self._node_context[-1]
     )
     params: List[ExpressionNode] = []
-    # Mapping function like all() and where are functions that apply the params
-    # to each element of the operand if the operand is a collection so the
-    # return type of the reference would be a reference to an element of the
-    # array rather than the whole array itself..
-    element_of_array = function_name in _MAPPING_FUNCTIONS
+    # Mapping functions like 'all' and 'where' apply their expression param
+    # to each element of its operand. For an expression like
+    # patient.name.where($this.use = 'official') 'patient.name' is a
+    # collection but the reference to it '$this' is a scalar.
+    unnested = function_name in _MAPPING_FUNCTIONS
     # For functions, the identifiers can be relative to the operand of the
     # function; not the root FHIR type.
     self._node_context.append(
-        ReferenceNode(
-            self._context, operand_node, element_of_array=element_of_array
-        )
+        ReferenceNode(self._context, operand_node, unnested=unnested)
     )
     for param in function.params:
       new_param = self.visit(param)

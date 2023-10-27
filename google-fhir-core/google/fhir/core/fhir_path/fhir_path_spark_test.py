@@ -1115,10 +1115,8 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         'fhir_path_expression': "bar.bats.struct.all( value = '' )",
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(all_) FROM (SELECT IFNULL( BOOL_AND( IFNULL('
-            ' (SELECT (SELECT NOT EXISTS( ARRAY_EXCEPT((SELECT ARRAY(value)),'
-            " (SELECT ARRAY(''))), x -> x IS NOT NULL) AS eq_ FROM (SELECT"
-            ' struct_element_.value)) AS all_), FALSE)), TRUE) AS all_ FROM'
-            ' (SELECT bats_element_.struct FROM (SELECT bar) LATERAL VIEW'
+            " (SELECT (`struct`.value = '') AS all_), FALSE)), TRUE) AS all_"
+            ' FROM (SELECT bats_element_.struct FROM (SELECT bar) LATERAL VIEW'
             ' POSEXPLODE(bar.bats) AS index_bats_element_, bats_element_))'
             ' WHERE all_ IS NOT NULL)'
         ),
@@ -1140,11 +1138,9 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         'fhir_path_expression': 'bar.bats.all(struct.exists() )',
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(all_) FROM (SELECT IFNULL( BOOL_AND( IFNULL('
-            ' (SELECT (SELECT CASE WHEN COUNT(*) = 0 THEN FALSE ELSE TRUE END'
-            ' AS exists_ FROM (SELECT bats_element_.struct) WHERE `struct` IS'
-            ' NOT NULL) AS all_), FALSE)), TRUE) AS all_ FROM (SELECT bar)'
-            ' LATERAL VIEW POSEXPLODE(bar.bats) AS index_bats_element_,'
-            ' bats_element_) WHERE all_ IS NOT NULL)'
+            ' (SELECT (bats_element_.struct IS NOT NULL) AS all_), FALSE)),'
+            ' TRUE) AS all_ FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats)'
+            ' AS index_bats_element_, bats_element_) WHERE all_ IS NOT NULL)'
         ),
     },
     {
@@ -1310,10 +1306,20 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         'expected_sql_expression': (
             '(SELECT COLLECT_LIST(bats_element_) FROM (SELECT bats_element_'
             ' FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS'
-            ' index_bats_element_, bats_element_ WHERE (SELECT CASE WHEN'
-            ' COUNT(*) = 0 THEN FALSE ELSE TRUE END AS exists_ FROM (SELECT'
-            ' bats_element_.struct) WHERE `struct` IS NOT NULL)) WHERE'
-            ' bats_element_ IS NOT NULL)'
+            ' index_bats_element_, bats_element_ WHERE (bats_element_.struct IS'
+            ' NOT NULL)) WHERE bats_element_ IS NOT NULL)'
+        ),
+    },
+    {
+        'testcase_name': '_with_where_and_repeated_and_exists',
+        'fhir_path_expression': 'bar.bats.where( struct = struct ).exists()',
+        'expected_sql_expression': (
+            '(SELECT COLLECT_LIST(exists_) FROM (SELECT CASE WHEN COUNT(*) = 0'
+            ' THEN FALSE ELSE TRUE END AS exists_ FROM (SELECT bats_element_'
+            ' FROM (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS'
+            ' index_bats_element_, bats_element_ WHERE (bats_element_.struct ='
+            ' bats_element_.struct)) WHERE bats_element_ IS NOT NULL) WHERE'
+            ' exists_ IS NOT NULL)'
         ),
     },
     {
@@ -1370,10 +1376,8 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
             ' multipleChoiceExample_element_ FROM (SELECT multipleChoiceExample'
             ' AS multipleChoiceExample_element_))) LATERAL VIEW'
             ' POSEXPLODE(ofType_.coding) AS index_coding_element_,'
-            ' coding_element_ WHERE (SELECT NOT EXISTS( ARRAY_EXCEPT((SELECT'
-            " ARRAY(system)), (SELECT ARRAY('test'))), x -> x IS NOT NULL) AS"
-            ' eq_ FROM (SELECT coding_element_.system))) WHERE coding_element_'
-            ' IS NOT NULL)'
+            " coding_element_ WHERE (coding_element_.system = 'test')) WHERE"
+            ' coding_element_ IS NOT NULL)'
         ),
     },
     {
@@ -1383,13 +1387,11 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
             " 'test')"
         ),
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(coding_element_) FROM (SELECT'
-            ' coding_element_ FROM (SELECT choiceExample.CodeableConcept AS'
-            ' ofType_) LATERAL VIEW POSEXPLODE(ofType_.coding) AS'
-            ' index_coding_element_, coding_element_ WHERE (SELECT NOT EXISTS('
-            " ARRAY_EXCEPT((SELECT ARRAY(system)), (SELECT ARRAY('test'))), x"
-            ' -> x IS NOT NULL) AS eq_ FROM (SELECT coding_element_.system)))'
-            ' WHERE coding_element_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(coding_element_) FROM (SELECT coding_element_'
+            ' FROM (SELECT choiceExample.CodeableConcept AS ofType_) LATERAL'
+            ' VIEW POSEXPLODE(ofType_.coding) AS index_coding_element_,'
+            " coding_element_ WHERE (coding_element_.system = 'test')) WHERE"
+            ' coding_element_ IS NOT NULL)'
         ),
     },
     {
@@ -1436,10 +1438,6 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_VALUE_ERROR = [
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_NOT_IMPLEMENTED_ERROR = [
-    {
-        'testcase_name': '_with_where_and_repeated_and_exists',
-        'fhir_path_expression': 'bar.bats.where( struct = struct ).exists()',
-    },
     {
         'testcase_name': '_with_scalar_child_of_collection_right_side_union',
         'fhir_path_expression': "bar.bats.struct.value = ('abc' | '123')",

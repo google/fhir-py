@@ -212,8 +212,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
             """\
             SELECT (SELECT family_name) AS family_name,(SELECT given_names) AS given_names FROM (SELECT (SELECT family) AS family_name,ARRAY(SELECT given_element_
             FROM (SELECT given_element_
-            FROM (SELECT name),
-            UNNEST(name.given) AS given_element_ WITH OFFSET AS element_offset)
+            FROM (SELECT name_element_),
+            UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
             WHERE given_element_ IS NOT NULL) AS given_names_needs_unnest_ FROM (SELECT ARRAY(SELECT name_element_
             FROM (SELECT name_element_
             FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset
@@ -247,8 +247,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
             """\
             SELECT (SELECT birth_date_field) AS birth_date_field,(SELECT family_name) AS family_name,(SELECT given_names) AS given_names,(SELECT SAFE_CAST(start AS TIMESTAMP) AS start) AS period_start,(SELECT SAFE_CAST(`end` AS TIMESTAMP) AS `end`) AS period_end FROM (SELECT (SELECT birth_date_field) AS birth_date_field,(SELECT family) AS family_name,ARRAY(SELECT given_element_
             FROM (SELECT given_element_
-            FROM (SELECT name),
-            UNNEST(name.given) AS given_element_ WITH OFFSET AS element_offset)
+            FROM (SELECT name_element_),
+            UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
             WHERE given_element_ IS NOT NULL) AS given_names,ARRAY(SELECT period
             FROM (SELECT period)
             WHERE period IS NOT NULL) AS period_needs_unnest_ FROM (SELECT ARRAY(SELECT name_element_

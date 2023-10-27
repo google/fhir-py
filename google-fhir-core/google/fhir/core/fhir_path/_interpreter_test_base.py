@@ -1882,6 +1882,37 @@ class FhirPathExpressionsTest(
     with self.assertRaises(ValueError):
       pat.address.where(pat.address.use)
 
+  def test_where_function_builder_determines_correct_cardinality_for_params(
+      self,
+  ):
+    """Ensure the correct cardinalities are generated for where calls."""
+    pat = self.builder('Patient')
+    builder = pat.name.where(pat.name.use == 'official')
+
+    func_node = builder.node
+    self.assertIsInstance(func_node, _evaluation.FunctionNode)
+
+    # the operand pat.name
+    pat_name = func_node.parent_node
+    self.assertIsInstance(pat_name, _evaluation.InvokeExpressionNode)
+
+    # the equality node param pat.name.use = 'official'
+    pat_name_eq = func_node.params()[0]
+    self.assertIsInstance(pat_name_eq, _evaluation.BinaryExpressionNode)
+
+    # the param pat.name.name
+    pat_name_use = pat_name_eq.left
+    self.assertIsInstance(pat_name_use, _evaluation.InvokeExpressionNode)
+
+    # the param $this referring to pat.name
+    pat_name_this_ref = pat_name_use.parent_node
+    self.assertIsInstance(pat_name_this_ref, _evaluation.ReferenceNode)
+
+    self.assertTrue(func_node.return_type.returns_collection())
+    self.assertTrue(pat_name.return_type.returns_collection())
+    self.assertFalse(pat_name_use.return_type.returns_collection())
+    self.assertFalse(pat_name_this_ref.return_type.returns_collection())
+
   def test_all_expression_succeeds(self):
     """Test FHIRPath all() expressions."""
     patient = self._new_patient()
@@ -2462,8 +2493,8 @@ class FhirPathExpressionsTest(
           | + address <InvokeExpressionNode type=[<StructureDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (
           | | + Patient <RootMessageNode type=<StructureDataType(url=http://hl7.org/fhir/StructureDefinition/Patient)>> ())
           | + use = 'home' <EqualityNode type=<Boolean>> (
-          | | + use <InvokeExpressionNode type=[<String>]> (
-          | | | + <ReferenceNode type=[<StructureDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>]> (&address))
+          | | + use <InvokeExpressionNode type=<String>> (
+          | | | + <ReferenceNode type=<StructureDataType(url=http://hl7.org/fhir/StructureDefinition/Address)>> (&address))
           | | + 'home' <LiteralNode type=<String>> ()))"""),
         self.builder('Patient')
         .address.all(self.builder('Patient').address.use == 'home')

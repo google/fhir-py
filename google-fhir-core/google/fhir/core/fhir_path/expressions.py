@@ -279,7 +279,7 @@ class Builder:
       criteria.
     """
     param_nodes = self._function_args_to_nodes(
-        self.node, [criteria], element_of_array=True
+        self.node, [criteria], unnested=True
     )
     return Builder(
         _evaluation.AllFunction(self.node.context, self.node, param_nodes),
@@ -448,7 +448,7 @@ class Builder:
       An expression that contains the items that match the given criteria.
     """
     param_nodes = self._function_args_to_nodes(
-        self.node, [criteria], element_of_array=True
+        self.node, [criteria], unnested=True
     )
     return self._to_builder(
         _evaluation.WhereFunction(self.node.context, self.node, param_nodes)
@@ -494,7 +494,7 @@ class Builder:
       self,
       operand_node: _evaluation.ExpressionNode,
       args: List[Any],
-      element_of_array: bool = False,
+      unnested: bool = False,
   ) -> List[_evaluation.ExpressionNode]:
     """Converts builder args to FHIRPath expressions into evaluation nodes."""
     params: List[_evaluation.ExpressionNode] = []
@@ -531,7 +531,7 @@ class Builder:
             _evaluation.ReferenceNode(
                 self.node.context,
                 operand_node,
-                element_of_array=element_of_array,
+                unnested=unnested,
             ),
         )
         params.append(localized)
