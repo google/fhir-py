@@ -707,35 +707,6 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
             ' WHERE eq_ IS NOT NULL)'
         ),
     },
-    {
-        'testcase_name': '_with_scalar_complex_comparison_right_side_union',
-        'fhir_path_expression': "bar.bats.struct.value = ('abc' | '123')",
-        'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
-            ' ARRAY_EXCEPT((SELECT ARRAY(value)), (SELECT ARRAY_AGG(union_)'
-            " FROM (SELECT lhs_.literal_ AS union_ FROM (SELECT 'abc' AS"
-            ' literal_) AS lhs_ UNION DISTINCT SELECT rhs_.literal_ AS union_'
-            " FROM (SELECT '123' AS literal_) AS rhs_))), x -> x IS NOT NULL)"
-            ' AS eq_ FROM (SELECT (SELECT bats_element_.struct.value FROM'
-            ' (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS'
-            ' index_bats_element_, bats_element_))) WHERE eq_ IS NOT NULL)'
-        ),
-    },
-    {
-        'testcase_name': '_with_scalar_complex_comparison_left_side_union',
-        'fhir_path_expression': "('abc' | '123') = bar.bats.struct.value",
-        'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
-            ' ARRAY_EXCEPT((SELECT ARRAY(value)), (SELECT ARRAY_AGG(union_)'
-            " FROM (SELECT lhs_.literal_ AS union_ FROM (SELECT 'abc' AS"
-            ' literal_) AS lhs_ UNION DISTINCT SELECT rhs_.literal_ AS union_'
-            " FROM (SELECT '123' AS literal_) AS rhs_))), x -> x IS NOT NULL)"
-            ' AS eq_ FROM (SELECT (SELECT bats_element_.struct.value FROM'
-            ' (SELECT bar) LATERAL VIEW POSEXPLODE(bar.bats) AS'
-            ' index_bats_element_, bats_element_))) WHERE eq_ IS NOT'
-            ' NULL)'
-        ),
-    },
 ]
 
 _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES = [
@@ -1468,6 +1439,14 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_NOT_IMPLEMENTED_ERROR = [
     {
         'testcase_name': '_with_where_and_repeated_and_exists',
         'fhir_path_expression': 'bar.bats.where( struct = struct ).exists()',
+    },
+    {
+        'testcase_name': '_with_scalar_child_of_collection_right_side_union',
+        'fhir_path_expression': "bar.bats.struct.value = ('abc' | '123')",
+    },
+    {
+        'testcase_name': '_with_scalar_child_of_collection_left_side_union',
+        'fhir_path_expression': "('abc' | '123') = bar.bats.struct.value",
     },
 ]
 

@@ -1515,11 +1515,17 @@ class UnionNode(BinaryExpressionNode):
     right_type = self._right.return_type
 
     if isinstance(left_type, _fhir_path_data_types.Empty.__class__):
-      return right_type
+      return right_type.with_cardinality(
+          _fhir_path_data_types.Cardinality.COLLECTION
+      )
     elif isinstance(right_type, _fhir_path_data_types.Empty.__class__):
-      return left_type
+      return left_type.with_cardinality(
+          _fhir_path_data_types.Cardinality.COLLECTION
+      )
     elif right_type == left_type:
-      return left_type
+      return left_type.with_cardinality(
+          _fhir_path_data_types.Cardinality.COLLECTION
+      )
 
     # We're union-ing two different types of collection, so the
     # resulting type is a union of both side's type.

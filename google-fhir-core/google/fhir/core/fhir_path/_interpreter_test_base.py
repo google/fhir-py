@@ -2135,6 +2135,10 @@ class FhirPathExpressionsTest(
 
     self.assertEqual(builder.fhir_path, 'address.city | name.given')
     self.assertEqual(builder.node.return_type, _fhir_path_data_types.String)
+    self.assertEqual(
+        builder.node.return_type.cardinality,
+        _fhir_path_data_types.Cardinality.COLLECTION,
+    )
 
     builder_expr = (
         python_compiled_expressions.PythonCompiledExpression.from_builder(
@@ -2177,7 +2181,8 @@ class FhirPathExpressionsTest(
             types={
                 _fhir_path_data_types.String,
                 _fhir_path_data_types.Integer,
-            }
+            },
+            cardinality=_fhir_path_data_types.Cardinality.COLLECTION,
         ),
     )
 
@@ -2250,6 +2255,10 @@ class FhirPathExpressionsTest(
 
     self.assertEqual(builder.fhir_path, 'name.given | {}')
     self.assertEqual(builder.node.return_type, _fhir_path_data_types.String)
+    self.assertEqual(
+        builder.node.return_type.cardinality,
+        _fhir_path_data_types.Cardinality.COLLECTION,
+    )
 
     builder_expr = (
         python_compiled_expressions.PythonCompiledExpression.from_builder(
