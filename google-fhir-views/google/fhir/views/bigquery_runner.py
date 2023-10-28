@@ -64,7 +64,7 @@ class BigQueryRunner:
           Union[bigquery.table.Table, bigquery.table.TableReference, str]
       ] = None,
       snake_case_resource_tables: bool = False,
-      internal_default_to_v2_runner: bool = False,
+      internal_default_to_v2_runner: bool = True,
   ) -> None:
     """Initializer.
 
@@ -212,9 +212,7 @@ class BigQueryRunner:
     Returns:
       bigquery.QueryJob: the job for the running query.
     """
-    return self._client.query(
-        self.to_sql(view, limit=limit)
-    )
+    return self._client.query(self.to_sql(view, limit=limit))
 
   def summarize_codes(
       self,
@@ -251,7 +249,7 @@ class BigQueryRunner:
       The datframe is ordered by count is in descending order.
     """
     expr_array_query = self._build_sql_generator(
-        internal_v2=False, view=view
+        internal_v2=self._internal_default_to_v2_runner, view=view
     ).build_select_for_summarize_code(code_expr)
 
     node_type = code_expr.node.return_type

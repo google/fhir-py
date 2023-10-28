@@ -120,6 +120,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         self.mock_bigquery_client,
         'test_dataset',
         value_set_codes_table=value_set_codes_table,
+        internal_default_to_v2_runner=True,
     )
     self.assertEqual(runner._value_set_codes_table, expected_table_name)  # pylint: disable=protected-access
     self.assertEqual(

@@ -52,6 +52,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         self.mock_bigquery_client,
         'test_dataset',
         value_set_codes_table='vs_project.vs_dataset.vs_table',
+        internal_default_to_v2_runner=False,
     )
     self._context = context.LocalFhirPathContext(self._fhir_package)
     self._views = r4.from_definitions(self._context)
@@ -117,6 +118,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         self.mock_bigquery_client,
         'test_dataset',
         value_set_codes_table=value_set_codes_table,
+        internal_default_to_v2_runner=False,
     )
     self.assertEqual(runner._value_set_codes_table, expected_table_name)
     self.assertEqual(runner._value_set_manager.value_set_codes_table,  # pylint: disable=protected-access
@@ -175,6 +177,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
         'test_dataset',
         value_set_codes_table='vs_project.vs_dataset.vs_table',
         snake_case_resource_tables=True,
+        internal_default_to_v2_runner=False,
     )
 
     pat = self._views.view_of('Patient')
