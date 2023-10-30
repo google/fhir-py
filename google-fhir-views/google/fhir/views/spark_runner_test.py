@@ -394,7 +394,7 @@ class SparkRunnerTest(parameterized.TestCase):
         ' 1, 2, 3 ORDER BY count DESC'
     )
     self.mock_read_sql_query.assert_called_once_with(
-        expected_sql, self.mock_spark_engine
+        expected_sql, self.mock_spark_engine.raw_connection()
     )
 
   def test_summarize_codes_for_observation_status_code_succeeds(self):
@@ -407,7 +407,7 @@ class SparkRunnerTest(parameterized.TestCase):
         ' VIEW EXPLODE(c.target) as code GROUP BY 1 ORDER BY count DESC'
     )
     self.mock_read_sql_query.assert_called_once_with(
-        expected_sql, self.mock_spark_engine
+        expected_sql, self.mock_spark_engine.raw_connection()
     )
 
   def test_summarize_codes_for_observation_coding_succeeds(self):
@@ -423,7 +423,7 @@ class SparkRunnerTest(parameterized.TestCase):
         ' AS codings GROUP BY 1, 2, 3 ORDER BY count DESC'
     )
     self.mock_read_sql_query.assert_called_once_with(
-        expected_sql, self.mock_spark_engine
+        expected_sql, self.mock_spark_engine.raw_connection()
     )
 
   def test_summarize_codes_for_observation_non_code_field_raises_error(self):

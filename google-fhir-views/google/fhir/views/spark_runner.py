@@ -137,7 +137,7 @@ class SparkRunner:
     """
     df = pandas.read_sql_query(
         sql=self.to_sql(view, limit=limit),
-        con=self._engine,
+        con=self._engine.raw_connection(),
     )
     return runner_utils.clean_dataframe(
         df, view.get_select_columns_to_return_type()
@@ -229,7 +229,9 @@ class SparkRunner:
           f'got {node_type.url}.'
       )
 
-    return pandas.read_sql_query(sql=count_query, con=self._engine)
+    return pandas.read_sql_query(
+        sql=count_query, con=self._engine.raw_connection()
+    )
 
   def create_database_view(self, view: views.View, view_name: str) -> None:
     """Creates a Spark view with the given name in the runner's view_dataset.
