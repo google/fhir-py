@@ -147,15 +147,15 @@ class SparkRunnerTest(parameterized.TestCase):
 
     self.ast_and_expression_tree_test_runner(
         expected_output=(
-            'SELECT (SELECT COLLECT_LIST(given_element_) FROM '
-            '(SELECT given_element_ FROM (SELECT name_element_ FROM '
-            '(SELECT EXPLODE(name_element_) AS name_element_ FROM '
-            '(SELECT name AS name_element_))) '
-            'LATERAL VIEW POSEXPLODE(name_element_.given) AS '
-            'index_given_element_, given_element_) '
-            'WHERE given_element_ IS NOT NULL) AS name,'
-            '(SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate '
-            'FROM `default`.Patient'
+            'SELECT (SELECT COLLECT_LIST(name_element__given_element_) FROM'
+            ' (SELECT name_element__given_element_ FROM (SELECT name_element_'
+            ' FROM (SELECT EXPLODE(name_element_) AS name_element_ FROM (SELECT'
+            ' name AS name_element_))) LATERAL VIEW'
+            ' POSEXPLODE(name_element_.given) AS'
+            ' index_name_element__given_element_, name_element__given_element_)'
+            ' WHERE name_element__given_element_ IS NOT NULL) AS name,(SELECT'
+            ' CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM'
+            ' `default`.Patient'
         ),
         view=simple_view,
         runner=self.runner,
@@ -234,17 +234,16 @@ class SparkRunnerTest(parameterized.TestCase):
     # TODO(b/208900793): Remove array offsets when the SQL generator can
     # return single values.
     expected_sql = (
-        'SELECT (SELECT COLLECT_LIST(given_element_) '
-        'FROM (SELECT given_element_ FROM (SELECT name_element_ FROM '
-        '(SELECT EXPLODE(name_element_) AS name_element_ FROM '
-        '(SELECT name AS name_element_))) '
-        'LATERAL VIEW POSEXPLODE(name_element_.given) AS index_given_element_, '
-        'given_element_) WHERE given_element_ IS NOT NULL) AS name,'
-        '(SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate '
-        'FROM `default`.Patient '
-        'WHERE (SELECT EXISTS(*, x -> x IS true) FROM '
-        '(SELECT COLLECT_LIST(active) FROM (SELECT active) '
-        'WHERE active IS NOT NULL))'
+        'SELECT (SELECT COLLECT_LIST(name_element__given_element_) FROM (SELECT'
+        ' name_element__given_element_ FROM (SELECT name_element_ FROM (SELECT'
+        ' EXPLODE(name_element_) AS name_element_ FROM (SELECT name AS'
+        ' name_element_))) LATERAL VIEW POSEXPLODE(name_element_.given) AS'
+        ' index_name_element__given_element_, name_element__given_element_)'
+        ' WHERE name_element__given_element_ IS NOT NULL) AS name,(SELECT'
+        ' CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM'
+        ' `default`.Patient WHERE (SELECT EXISTS(*, x -> x IS true) FROM'
+        ' (SELECT COLLECT_LIST(active) FROM (SELECT active) WHERE active IS NOT'
+        ' NULL))'
     )
     self.ast_and_expression_tree_test_runner(
         expected_output=expected_sql,
@@ -269,20 +268,18 @@ class SparkRunnerTest(parameterized.TestCase):
 
     self.ast_and_expression_tree_test_runner(
         expected_output=(
-            'SELECT (SELECT COLLECT_LIST(given_element_) FROM '
-            '(SELECT given_element_ FROM (SELECT name_element_ FROM '
-            '(SELECT EXPLODE(name_element_) AS name_element_ FROM '
-            '(SELECT name AS name_element_))) '
-            'LATERAL VIEW POSEXPLODE(name_element_.given) AS '
-            'index_given_element_, given_element_) '
-            'WHERE given_element_ IS NOT NULL) AS name,'
-            '(SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate '
-            'FROM `default`.Patient '
-            'WHERE (SELECT EXISTS(*, x -> x IS true) FROM '
-            '(SELECT COLLECT_LIST(comparison_) FROM '
-            '(SELECT CAST(birthDate AS TIMESTAMP) < '
-            "CAST('1960-01-01' AS TIMESTAMP) AS comparison_) "
-            'WHERE comparison_ IS NOT NULL))'
+            'SELECT (SELECT COLLECT_LIST(name_element__given_element_) FROM'
+            ' (SELECT name_element__given_element_ FROM (SELECT name_element_'
+            ' FROM (SELECT EXPLODE(name_element_) AS name_element_ FROM (SELECT'
+            ' name AS name_element_))) LATERAL VIEW'
+            ' POSEXPLODE(name_element_.given) AS'
+            ' index_name_element__given_element_, name_element__given_element_)'
+            ' WHERE name_element__given_element_ IS NOT NULL) AS name,(SELECT'
+            ' CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM'
+            ' `default`.Patient WHERE (SELECT EXISTS(*, x -> x IS true) FROM'
+            ' (SELECT COLLECT_LIST(comparison_) FROM (SELECT CAST(birthDate AS'
+            " TIMESTAMP) < CAST('1960-01-01' AS TIMESTAMP) AS comparison_)"
+            ' WHERE comparison_ IS NOT NULL))'
         ),
         view=born_before_1960,
         runner=self.runner,
@@ -308,28 +305,31 @@ class SparkRunnerTest(parameterized.TestCase):
         expected_output=(
             'SELECT (SELECT id) AS id,(SELECT gender) AS gender,(SELECT'
             ' CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthdate,(SELECT'
-            ' line_element_ FROM (SELECT FIRST(line_element_) AS line_element_'
-            ' FROM (SELECT line_element_ FROM (SELECT address_element_ FROM'
+            ' address_element__line_element_ FROM (SELECT'
+            ' FIRST(address_element__line_element_) AS'
+            ' address_element__line_element_ FROM (SELECT'
+            ' address_element__line_element_ FROM (SELECT address_element_ FROM'
             ' (SELECT FIRST(address_element_) AS address_element_ FROM (SELECT'
             ' address_element_ FROM (SELECT EXPLODE(address_element_) AS'
             ' address_element_ FROM (SELECT address AS address_element_)) WHERE'
             ' (address_element_.period IS NULL)))) LATERAL VIEW'
-            ' POSEXPLODE(address_element_.line) AS index_line_element_,'
-            ' line_element_))) AS street,(SELECT address_element_.city FROM'
-            ' (SELECT FIRST(address_element_) AS address_element_ FROM (SELECT'
-            ' address_element_ FROM (SELECT EXPLODE(address_element_) AS'
-            ' address_element_ FROM (SELECT address AS address_element_)) WHERE'
-            ' (address_element_.period IS NULL)))) AS city,(SELECT'
-            ' address_element_.state FROM (SELECT FIRST(address_element_) AS'
+            ' POSEXPLODE(address_element_.line) AS'
+            ' index_address_element__line_element_,'
+            ' address_element__line_element_))) AS street,(SELECT'
+            ' address_element_.city FROM (SELECT FIRST(address_element_) AS'
             ' address_element_ FROM (SELECT address_element_ FROM (SELECT'
             ' EXPLODE(address_element_) AS address_element_ FROM (SELECT'
             ' address AS address_element_)) WHERE (address_element_.period IS'
-            ' NULL)))) AS state,(SELECT address_element_.postalCode FROM'
-            ' (SELECT FIRST(address_element_) AS address_element_ FROM (SELECT'
+            ' NULL)))) AS city,(SELECT address_element_.state FROM (SELECT'
+            ' FIRST(address_element_) AS address_element_ FROM (SELECT'
             ' address_element_ FROM (SELECT EXPLODE(address_element_) AS'
             ' address_element_ FROM (SELECT address AS address_element_)) WHERE'
-            ' (address_element_.period IS NULL)))) AS zip FROM'
-            ' `default`.Patient'
+            ' (address_element_.period IS NULL)))) AS state,(SELECT'
+            ' address_element_.postalCode FROM (SELECT FIRST(address_element_)'
+            ' AS address_element_ FROM (SELECT address_element_ FROM (SELECT'
+            ' EXPLODE(address_element_) AS address_element_ FROM (SELECT'
+            ' address AS address_element_)) WHERE (address_element_.period IS'
+            ' NULL)))) AS zip FROM `default`.Patient'
         ),
         view=simple_pats,
         runner=self.runner,
@@ -344,12 +344,14 @@ class SparkRunnerTest(parameterized.TestCase):
 
     self.ast_and_expression_tree_test_runner(
         expected_output=(
-            'SELECT (SELECT COLLECT_LIST(given_element_) FROM (SELECT'
-            ' given_element_ FROM (SELECT name_element_ FROM (SELECT'
-            ' EXPLODE(name_element_) AS name_element_ FROM (SELECT name AS'
-            ' name_element_))) LATERAL VIEW POSEXPLODE(name_element_.given) AS'
-            ' index_given_element_, given_element_) WHERE given_element_ IS NOT'
-            ' NULL) AS name,(SELECT COLLECT_LIST(start) FROM (SELECT'
+            'SELECT (SELECT COLLECT_LIST(name_element__given_element_) FROM'
+            ' (SELECT name_element__given_element_ FROM (SELECT name_element_'
+            ' FROM (SELECT EXPLODE(name_element_) AS name_element_ FROM (SELECT'
+            ' name AS name_element_))) LATERAL VIEW'
+            ' POSEXPLODE(name_element_.given) AS'
+            ' index_name_element__given_element_, name_element__given_element_)'
+            ' WHERE name_element__given_element_ IS NOT NULL) AS name,(SELECT'
+            ' COLLECT_LIST(start) FROM (SELECT'
             ' CAST(telecom_element_.period.start AS TIMESTAMP) AS start FROM'
             ' (SELECT EXPLODE(telecom_element_) AS telecom_element_ FROM'
             ' (SELECT telecom AS telecom_element_))) WHERE start IS NOT NULL)'
@@ -414,13 +416,13 @@ class SparkRunnerTest(parameterized.TestCase):
     obs = self._views.view_of('Observation')
     self.runner.summarize_codes(obs, obs.code.coding)
     expected_sql = (
-        'WITH c AS (SELECT (SELECT COLLECT_LIST(coding_element_)\nFROM (SELECT'
-        ' coding_element_\nFROM (SELECT code) LATERAL VIEW'
-        ' POSEXPLODE(code.coding) AS index_coding_element_,'
-        ' coding_element_)\nWHERE coding_element_ IS NOT NULL) as target FROM'
-        ' `default`.Observation) SELECT codings.system, codings.code,'
-        ' codings.display, COUNT(*) count FROM c LATERAL VIEW EXPLODE(c.target)'
-        ' AS codings GROUP BY 1, 2, 3 ORDER BY count DESC'
+        'WITH c AS (SELECT (SELECT COLLECT_LIST(code_coding_element_)\nFROM'
+        ' (SELECT code_coding_element_\nFROM (SELECT code) LATERAL VIEW'
+        ' POSEXPLODE(code.coding) AS index_code_coding_element_,'
+        ' code_coding_element_)\nWHERE code_coding_element_ IS NOT NULL) as'
+        ' target FROM `default`.Observation) SELECT codings.system,'
+        ' codings.code, codings.display, COUNT(*) count FROM c LATERAL VIEW'
+        ' EXPLODE(c.target) AS codings GROUP BY 1, 2, 3 ORDER BY count DESC'
     )
     self.mock_read_sql_query.assert_called_once_with(
         expected_sql, self.mock_spark_engine.raw_connection()

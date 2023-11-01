@@ -240,17 +240,18 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
             sql_dialect=_sql_data_types.SqlDialect.SPARK,
         )
       else:
-        sql_alias = f'{sql_alias}_element_'
         if parent_result:
+          sql_alias = f'{parent_result.sql_alias}_{sql_alias}_element_'
           identifier_str = f'{parent_result.sql_alias}.{raw_identifier_str}'
         else:
+          sql_alias = f'{sql_alias}_element_'
           # Identifiers need to be escaped if they are referenced directly.
           identifier_str = f'{_escape_identifier(raw_identifier_str)}'
           return _sql_data_types.IdentifierSelect(
               select_part=_sql_data_types.Identifier(sql_alias, sql_data_type),
               from_part=(
                   f'(SELECT EXPLODE({sql_alias}) AS {sql_alias} '
-                  f'FROM (SELECT {raw_identifier_str} AS {sql_alias}))'
+                  f'FROM (SELECT {identifier_str} AS {sql_alias}))'
               ),
               sql_dialect=_sql_data_types.SqlDialect.SPARK,
           )

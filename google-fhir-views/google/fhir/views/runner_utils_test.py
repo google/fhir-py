@@ -140,17 +140,15 @@ class RunnerUtilsTest(absltest.TestCase):
         encoder=encoder,
         dataset='test_dataset',
     ).build_sql_statement()
-    expected_output = textwrap.dedent(
-        """\
-        SELECT (SELECT COLLECT_LIST(given_element_)
-        FROM (SELECT given_element_
+    expected_output = textwrap.dedent("""\
+        SELECT (SELECT COLLECT_LIST(name_element__given_element_)
+        FROM (SELECT name_element__given_element_
         FROM (SELECT name_element_
-        FROM (SELECT EXPLODE(name_element_) AS name_element_ FROM (SELECT name AS name_element_))) LATERAL VIEW POSEXPLODE(name_element_.given) AS index_given_element_, given_element_)
-        WHERE given_element_ IS NOT NULL) AS name,(SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_dataset`.Patient
+        FROM (SELECT EXPLODE(name_element_) AS name_element_ FROM (SELECT name AS name_element_))) LATERAL VIEW POSEXPLODE(name_element_.given) AS index_name_element__given_element_, name_element__given_element_)
+        WHERE name_element__given_element_ IS NOT NULL) AS name,(SELECT CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_dataset`.Patient
         WHERE (SELECT EXISTS(*, x -> x IS true) FROM (SELECT COLLECT_LIST(active)
         FROM (SELECT active)
-        WHERE active IS NOT NULL))"""
-    )
+        WHERE active IS NOT NULL))""")
     self.assertMultiLineEqual(expected_output, sql_statement)
 
   def test_build_sql_statement_with_snake_case_resource_tables_spark(self):
