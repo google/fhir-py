@@ -375,102 +375,60 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     lhs_result = self.visit(equality.left)
     rhs_result = self.visit(equality.right)
 
-    if (
-        equality.op == _ast.EqualityRelation.Op.EQUAL
-        or equality.op == _ast.EqualityRelation.Op.EQUIVALENT
-    ):
-      collection_check_func_name = 'NOT EXISTS'
-      scalar_check_op = '='
-    else:  # NOT_*
-      collection_check_func_name = 'EXISTS'
-      scalar_check_op = '!='
+    valid_ops = [
+        _ast.EqualityRelation.Op.EQUAL,
+        _ast.EqualityRelation.Op.EQUIVALENT,
+    ]
+
+    collection_check_func_name = (
+        'NOT EXISTS' if equality.op in valid_ops else 'EXISTS'
+    )
+
+    scalar_check_op = (
+        '=' if collection_check_func_name == 'NOT EXISTS' else '!='
+    )
 
     sql_alias = 'eq_'
     sql_data_type = _sql_data_types.Boolean
 
-    # Both sides are scalars.
-    if _fhir_path_data_types.returns_scalar(
+    left_scalar = _fhir_path_data_types.returns_scalar(
         equality.left.return_type
-    ) and _fhir_path_data_types.returns_scalar(equality.right.return_type):
-      # Use the simpler query.
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.RawExpression(
-              (
-                  f'({lhs_result.as_operand()} '
-                  f'{scalar_check_op} '
-                  f'{rhs_result.as_operand()})'
-              ),
-              _sql_data_type=sql_data_type,
-              _sql_alias=sql_alias,
-          ),
-          from_part=None,
-          sql_dialect=_sql_data_types.SqlDialect.SPARK,
+    )
+    right_scalar = _fhir_path_data_types.returns_scalar(
+        equality.right.return_type
+    )
+
+    if left_scalar and right_scalar:
+      return _create_scalar_select(
+          lhs_result, rhs_result, scalar_check_op, sql_data_type, sql_alias
       )
 
-    elif not _fhir_path_data_types.returns_scalar(
-        equality.left.return_type
-    ) and _fhir_path_data_types.returns_scalar(equality.right.return_type):
-      nested_query = (
-          f'ARRAY({rhs_result})'
-          if isinstance(equality.right, _evaluation.LiteralNode)
-          else f'ARRAY_AGG({rhs_result.sql_alias}) FROM ({rhs_result})'
-      )
-      sql_expr = (
-          'ARRAY_EXCEPT('
-          f'(SELECT ARRAY({lhs_result.sql_alias})), '
-          f'(SELECT {nested_query})'
-          ')'
-      )
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.FunctionCall(
-              name=collection_check_func_name,
-              params=[
-                  _sql_data_types.RawExpression(
-                      sql_expr, _sql_data_type=_sql_data_types.Int64
-                  ),
-                  'x -> x IS NOT NULL',
-              ],
-              _sql_data_type=sql_data_type,
-              _sql_alias=sql_alias,
-          ),
-          from_part=f'(SELECT {lhs_result.as_operand()})',
-          sql_dialect=_sql_data_types.SqlDialect.SPARK,
+    if not left_scalar and right_scalar:
+      return _create_non_scalar_select(
+          equality.left,
+          equality.right,
+          lhs_result,
+          rhs_result,
+          collection_check_func_name,
+          sql_data_type,
+          sql_alias,
       )
 
-    elif _fhir_path_data_types.returns_scalar(
-        equality.left.return_type
-    ) and not _fhir_path_data_types.returns_scalar(equality.right.return_type):
-      nested_query = (
-          f'ARRAY({lhs_result})'
-          if isinstance(equality.left, _evaluation.LiteralNode)
-          else f'ARRAY_AGG({lhs_result.sql_alias}) FROM ({lhs_result})'
+    if left_scalar and not right_scalar:
+      return _create_non_scalar_select(
+          equality.right,
+          equality.left,
+          rhs_result,
+          lhs_result,
+          collection_check_func_name,
+          sql_data_type,
+          sql_alias,
       )
-      sql_expr = (
-          'ARRAY_EXCEPT('
-          f'(SELECT ARRAY({rhs_result.sql_alias})), '
-          f'(SELECT {nested_query})'
-          ')'
-      )
-      return _sql_data_types.Select(
-          select_part=_sql_data_types.FunctionCall(
-              name=collection_check_func_name,
-              params=[
-                  _sql_data_types.RawExpression(
-                      sql_expr, _sql_data_type=_sql_data_types.Int64
-                  ),
-                  'x -> x IS NOT NULL',
-              ],
-              _sql_data_type=sql_data_type,
-              _sql_alias=sql_alias,
-          ),
-          from_part=f'(SELECT {rhs_result.as_operand()})',
-          sql_dialect=_sql_data_types.SqlDialect.SPARK,
-      )
-    else:
-      raise NotImplementedError(
-          'Spark SQL does not support equality when both the left and'
-          ' right-hand sides are non-scalar'
-      )
+
+    raise NotImplementedError(
+        'Spark SQL does not support equality when both the left and right-hand'
+        ' sides are non-scalar'
+    )
 
   def visit_comparison(
       self, comparison: _evaluation.ComparisonNode
@@ -655,3 +613,110 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
   def wrap_where_expression(self, where_expression: str) -> str:
     """Wraps where expression to take care of repeated fields."""
     return f'(SELECT EXISTS(*, x -> x IS true) FROM {where_expression})'
+
+
+def _create_scalar_select(
+    lhs_result: _sql_data_types.StandardSqlExpression,
+    rhs_result: _sql_data_types.StandardSqlExpression,
+    scalar_check_op: str,
+    sql_data_type: _sql_data_types.StandardSqlDataType,
+    sql_alias: str,
+):
+  """Construct a Spark SQL select statement for scalar values.
+
+  Args:
+      lhs_result: The result of the left-hand side expression.
+      rhs_result: The result of the right-hand side expression.
+      scalar_check_op: The scalar operation to be applied ('=' or '!=').
+      sql_data_type: The SQL data type for the result.
+      sql_alias: The SQL alias for the result.
+
+  Returns:
+      A compiled Spark SQL select statement.
+  """
+  return _sql_data_types.Select(
+      select_part=_sql_data_types.RawExpression(
+          f'({lhs_result.as_operand()} {scalar_check_op} {rhs_result.as_operand()})',
+          _sql_data_type=sql_data_type,
+          _sql_alias=sql_alias,
+      ),
+      from_part=None,
+      sql_dialect=_sql_data_types.SqlDialect.SPARK,
+  )
+
+
+def _create_non_scalar_select(
+    main_expr: _evaluation.ExpressionNode,
+    other_expr: _evaluation.ExpressionNode,
+    main_result: _sql_data_types.StandardSqlExpression,
+    other_result: _sql_data_types.StandardSqlExpression,
+    collection_check_func_name: str,
+    sql_data_type: _sql_data_types.StandardSqlDataType,
+    sql_alias: str,
+):
+  """Construct a Spark SQL select statement for non-scalar values.
+
+  Args:
+      main_expr: The primary (either left or right) expression being evaluated.
+      other_expr: The secondary (opposite of main) expression.
+      main_result: The result of evaluating the main expression.
+      other_result: The result of evaluating the other expression.
+      collection_check_func_name: The function name for collection checking
+        ('EXISTS' or 'NOT EXISTS').
+      sql_data_type: The SQL data type for the result.
+      sql_alias: The SQL alias for the result.
+
+  Returns:
+      A compiled Spark SQL select statement.
+  """
+  if isinstance(other_expr, _evaluation.LiteralNode):
+    expression = _build_main_expr(main_expr)
+    sql_expr = f'ARRAY_CONTAINS({expression}, {other_expr})'
+    return _sql_data_types.Select(
+        select_part=_sql_data_types.RawExpression(
+            sql_expr, _sql_data_type=sql_data_type, _sql_alias=sql_alias
+        ),
+        from_part=None,
+        sql_dialect=_sql_data_types.SqlDialect.SPARK,
+    )
+
+  nested_query = (
+      f'ARRAY({other_result})'
+      if isinstance(main_expr, _evaluation.LiteralNode)
+      else f'ARRAY_AGG({main_result.sql_alias}) FROM ({main_result})'
+  )
+  sql_expr = (
+      'ARRAY_EXCEPT('
+      f'(SELECT ARRAY({main_result.sql_alias})), '
+      f'(SELECT {nested_query})'
+      ')'
+  )
+  return _sql_data_types.Select(
+      select_part=_sql_data_types.FunctionCall(
+          name=collection_check_func_name,
+          params=[
+              _sql_data_types.RawExpression(
+                  sql_expr, _sql_data_type=_sql_data_types.Int64
+              ),
+              'x -> x IS NOT NULL',
+          ],
+          _sql_data_type=sql_data_type,
+          _sql_alias=sql_alias,
+      ),
+      from_part=f'(SELECT {main_result.as_operand()})',
+      sql_dialect=_sql_data_types.SqlDialect.SPARK,
+  )
+
+
+def _build_main_expr(main_expr: _evaluation.ExpressionNode) -> str:
+  """Constructs a string representation of the hierarchy of nodes."""
+  if isinstance(main_expr.parent_node, _evaluation.RootMessageNode):
+    return main_expr.to_path_token()
+  elif isinstance(main_expr, _evaluation.OfTypeFunction):
+    return (
+        _build_main_expr(main_expr.parent_node) + '.' + main_expr.base_type_str
+    )
+
+  return (
+      _build_main_expr(main_expr.parent_node) + '.' + main_expr.to_path_token()
+  )

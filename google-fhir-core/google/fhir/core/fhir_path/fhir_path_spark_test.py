@@ -687,24 +687,18 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
         'testcase_name': '_with_scalar_complex_comparison_right_side_scalar',
         'fhir_path_expression': "bar.bats.struct.value = '123'",
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
-            " ARRAY_EXCEPT((SELECT ARRAY(value)), (SELECT ARRAY('123'))), x ->"
-            ' x IS NOT NULL) AS eq_ FROM (SELECT (SELECT'
-            ' bats_element_.struct.value FROM (SELECT bar) LATERAL VIEW'
-            ' POSEXPLODE(bar.bats) AS index_bats_element_, bats_element_)))'
-            ' WHERE eq_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(eq_) FROM (SELECT'
+            " ARRAY_CONTAINS(bar.bats.struct.value, '123') AS eq_) WHERE eq_ IS"
+            ' NOT NULL)'
         ),
     },
     {
         'testcase_name': '_with_scalar_complex_comparison_left_side_scalar',
         'fhir_path_expression': " '123' = bar.bats.struct.value",
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
-            " ARRAY_EXCEPT((SELECT ARRAY(value)), (SELECT ARRAY('123'))), x ->"
-            ' x IS NOT NULL) AS eq_ FROM (SELECT (SELECT'
-            ' bats_element_.struct.value FROM (SELECT bar) LATERAL VIEW'
-            ' POSEXPLODE(bar.bats) AS index_bats_element_, bats_element_)))'
-            ' WHERE eq_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(eq_) FROM (SELECT'
+            " ARRAY_CONTAINS(bar.bats.struct.value, '123') AS eq_) WHERE eq_ IS"
+            ' NOT NULL)'
         ),
     },
 ]
@@ -883,16 +877,9 @@ _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
             " 'test'"
         ),
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(eq_) FROM (SELECT NOT EXISTS('
-            " ARRAY_EXCEPT((SELECT ARRAY(system)), (SELECT ARRAY('test'))), x"
-            ' -> x IS NOT NULL) AS eq_ FROM (SELECT (SELECT'
-            ' coding_element_.system FROM (SELECT'
-            ' multipleChoiceExample_element_.CodeableConcept AS ofType_ FROM'
-            ' (SELECT EXPLODE(multipleChoiceExample_element_) AS'
-            ' multipleChoiceExample_element_ FROM (SELECT multipleChoiceExample'
-            ' AS multipleChoiceExample_element_))) LATERAL VIEW'
-            ' POSEXPLODE(ofType_.coding) AS index_coding_element_,'
-            ' coding_element_))) WHERE eq_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(eq_) FROM (SELECT'
+            ' ARRAY_CONTAINS(multipleChoiceExample.CodeableConcept.coding.system,'
+            " 'test') AS eq_) WHERE eq_ IS NOT NULL)"
         ),
     },
 ]
