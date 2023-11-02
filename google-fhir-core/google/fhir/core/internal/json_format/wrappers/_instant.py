@@ -53,7 +53,7 @@ def _parse(json_str: str, primitive_cls: Type[Instant]) -> Instant:
   datetime_str, timezone_str = _primitive_time_utils.split_timezone(json_str)
   try:
     dt = datetime.datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M:%S')
-    return _primitive_time_utils.build_date_like(
+    return _primitive_time_utils.build_date_like(  # pytype: disable=wrong-arg-types  # use-enum-overlay
         dt, timezone_str, _primitive_time_utils.TimePrecision.SECOND,
         primitive_cls)
   except ValueError:
@@ -63,13 +63,13 @@ def _parse(json_str: str, primitive_cls: Type[Instant]) -> Instant:
     dt = datetime.datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M:%S.%f')
     if (_primitive_time_utils.PRECISION_PATTERN_MILLISECOND.search(datetime_str)
         is not None):
-      return _primitive_time_utils.build_date_like(
+      return _primitive_time_utils.build_date_like(  # pytype: disable=wrong-arg-types  # use-enum-overlay
           dt, timezone_str, _primitive_time_utils.TimePrecision.MILLISECOND,
           primitive_cls)
     elif (
         _primitive_time_utils.PRECISION_PATTERN_MICROSECOND.search(datetime_str)
         is not None):
-      return _primitive_time_utils.build_date_like(
+      return _primitive_time_utils.build_date_like(  # pytype: disable=wrong-arg-types  # use-enum-overlay
           dt, timezone_str, _primitive_time_utils.TimePrecision.MICROSECOND,
           primitive_cls)
   except ValueError:
