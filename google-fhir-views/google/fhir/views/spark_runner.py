@@ -93,12 +93,6 @@ class SparkRunner:
     Returns:
       The SQL used to run the given view.
     """
-    if view.has_unnest_or_sub_select():
-      raise ValueError(
-          "Spark runner does not support translating View's fields with"
-          ' unnesting or sub-selects to SQL.'
-      )
-
     encoder = _spark_interpreter.SparkSqlInterpreter(
         value_set_codes_table='VALUESET_VIEW',
     )

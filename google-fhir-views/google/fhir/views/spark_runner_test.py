@@ -161,18 +161,70 @@ class SparkRunnerTest(parameterized.TestCase):
         runner=self.runner,
     )
 
-  def test_select_with_unnest_to_sql_for_patient_raises_error(self):
+  def test_select_with_unnest_to_sql_with_nested_selects_succeeds(self):
+    pats = self._views.view_of('Patient')
+    name = pats.name.first()
+    period = name.period.where(name.period.start.exists()).first()
+    simple_view = pats.select(
+        [
+            name.select(
+                [
+                    period.select([
+                        period.start.alias('period_start'),
+                        period.end.alias('period_end'),
+                    ])
+                ]
+            )
+        ]
+    )
+    expected_sql = (
+        'SELECT (SELECT CAST(period.start AS TIMESTAMP) AS start) AS'
+        ' period_start,(SELECT CAST(period.end AS TIMESTAMP) AS `end`) AS'
+        ' period_end FROM (SELECT (SELECT COLLECT_LIST(period) FROM (SELECT'
+        ' period FROM (SELECT FIRST(period) AS period FROM (SELECT'
+        ' name_element_.period FROM (SELECT name_element_.period.*) AS period'
+        ' WHERE (period.start IS NOT NULL)))) WHERE period IS NOT NULL) AS'
+        ' period_needs_unnest_ FROM (SELECT (SELECT COLLECT_LIST(name_element_)'
+        ' FROM (SELECT name_element_ FROM (SELECT FIRST(name_element_) AS'
+        ' name_element_ FROM (SELECT name_element_ FROM (SELECT'
+        ' EXPLODE(name_element_) AS name_element_ FROM (SELECT name AS'
+        ' name_element_))))) WHERE name_element_ IS NOT NULL) AS'
+        ' name_element__needs_unnest_ FROM `default`.Patient) LATERAL VIEW'
+        ' EXPLODE(name_element__needs_unnest_) AS name_element_) LATERAL VIEW'
+        ' EXPLODE(period_needs_unnest_) AS period'
+    )
+    self.ast_and_expression_tree_test_runner(
+        expected_output=expected_sql,
+        view=simple_view,
+        runner=self.runner,
+    )
+
+  def test_select_with_unnest_to_sql_for_patient_succeeds(self):
     pat = self._views.view_of('Patient')
     simple_view = pat.select([
         pat.name.given.forEach().alias('name'),
     ])
+    expected_sql = (
+        'SELECT (SELECT name) AS name FROM (SELECT (SELECT'
+        ' COLLECT_LIST(name_element__given_element_) FROM (SELECT'
+        ' name_element__given_element_ FROM (SELECT name_element_ FROM (SELECT'
+        ' EXPLODE(name_element_) AS name_element_ FROM (SELECT name AS'
+        ' name_element_))) LATERAL VIEW POSEXPLODE(name_element_.given) AS'
+        ' index_name_element__given_element_, name_element__given_element_)'
+        ' WHERE name_element__given_element_ IS NOT NULL) AS name_needs_unnest_'
+        ' FROM `default`.Patient) LATERAL VIEW EXPLODE(name_needs_unnest_) AS'
+        ' name'
+    )
 
-    with self.assertRaises(ValueError):
-      self.runner.to_sql(simple_view)
+    self.ast_and_expression_tree_test_runner(
+        expected_output=expected_sql,
+        view=simple_view,
+        runner=self.runner,
+    )
 
-  def test_select_with_subselects_to_sql_for_patient_raises_error(self):
+  def test_select_with_subselects_to_sql_for_patient_succeeds(self):
     pat = self._views.view_of('Patient')
-    name = pat.name.where(pat.name.count() == 2)
+    name = pat.name
     simple_view = pat.select(
         [
             name.forEach().select([
@@ -181,11 +233,30 @@ class SparkRunnerTest(parameterized.TestCase):
             ])
         ]
     )
+    expected_sql = (
+        'SELECT (SELECT family_name) AS family_name,(SELECT given_names) AS'
+        ' given_names FROM (SELECT (SELECT name_element_.family) AS'
+        ' family_name,(SELECT COLLECT_LIST(name_element__given_element_) FROM'
+        ' (SELECT name_element__given_element_ FROM (SELECT name_element_)'
+        ' LATERAL VIEW POSEXPLODE(name_element_.given) AS'
+        ' index_name_element__given_element_, name_element__given_element_)'
+        ' WHERE name_element__given_element_ IS NOT NULL) AS'
+        ' given_names_needs_unnest_ FROM (SELECT (SELECT'
+        ' COLLECT_LIST(name_element_) FROM (SELECT name_element_ FROM (SELECT'
+        ' EXPLODE(name_element_) AS name_element_ FROM (SELECT name AS'
+        ' name_element_))) WHERE name_element_ IS NOT NULL) AS'
+        ' name_element__needs_unnest_ FROM `default`.Patient) LATERAL VIEW'
+        ' EXPLODE(name_element__needs_unnest_) AS name_element_) LATERAL VIEW'
+        ' EXPLODE(given_names_needs_unnest_) AS given_names'
+    )
 
-    with self.assertRaises(ValueError):
-      self.runner.to_sql(simple_view)
+    self.ast_and_expression_tree_test_runner(
+        expected_output=expected_sql,
+        view=simple_view,
+        runner=self.runner,
+    )
 
-  def test_select_with_nested_subselects_to_sql_for_patient_raises_error(self):
+  def test_select_with_nested_subselects_to_sql_for_patient_succeeds(self):
     pat = self._views.view_of('Patient')
     name = pat.name.where(pat.name.count() == 2).first()
     period = name.period
@@ -201,8 +272,37 @@ class SparkRunnerTest(parameterized.TestCase):
         pat.birthDate.alias('birth_date_field'),
     ])
 
-    with self.assertRaises(ValueError):
-      self.runner.to_sql(simple_view)
+    expected_sql = (
+        'SELECT (SELECT birth_date_field) AS birth_date_field,(SELECT'
+        ' family_name) AS family_name,(SELECT given_names) AS'
+        ' given_names,(SELECT CAST(period.start AS TIMESTAMP) AS start) AS'
+        ' period_start,(SELECT CAST(period.end AS TIMESTAMP) AS `end`) AS'
+        ' period_end FROM (SELECT (SELECT birth_date_field) AS'
+        ' birth_date_field,(SELECT name_element_.family) AS family_name,(SELECT'
+        ' COLLECT_LIST(name_element__given_element_) FROM (SELECT'
+        ' name_element__given_element_ FROM (SELECT name_element_) LATERAL VIEW'
+        ' POSEXPLODE(name_element_.given) AS'
+        ' index_name_element__given_element_, name_element__given_element_)'
+        ' WHERE name_element__given_element_ IS NOT NULL) AS'
+        ' given_names,(SELECT COLLECT_LIST(period) FROM (SELECT'
+        ' name_element_.period) WHERE period IS NOT NULL) AS'
+        ' period_needs_unnest_ FROM (SELECT (SELECT COLLECT_LIST(name_element_)'
+        ' FROM (SELECT name_element_ FROM (SELECT FIRST(name_element_) AS'
+        ' name_element_ FROM (SELECT name_element_ FROM (SELECT'
+        ' EXPLODE(name_element_) AS name_element_ FROM (SELECT name AS'
+        ' name_element_)) WHERE ((SELECT COUNT( name_element_) AS count_ FROM'
+        ' (SELECT name_element_)) = 2)))) WHERE name_element_ IS NOT NULL) AS'
+        ' name_element__needs_unnest_,(SELECT CAST(birthDate AS TIMESTAMP) AS'
+        ' birthDate) AS birth_date_field FROM `default`.Patient) LATERAL VIEW'
+        ' EXPLODE(name_element__needs_unnest_) AS name_element_) LATERAL VIEW'
+        ' EXPLODE(period_needs_unnest_) AS period'
+    )
+
+    self.ast_and_expression_tree_test_runner(
+        expected_output=expected_sql,
+        view=simple_view,
+        runner=self.runner,
+    )
 
   def test_snake_case_table_name_for_patient_raises_error(self):
     """Tests snake_case_resource_tables setting."""

@@ -132,8 +132,7 @@ class RunnerSqlGenerator:
       The select expressions and next from expressions computed form the given
       builders.
     """
-    select_expressions = []
-    next_from_expressions = []
+    select_expressions, next_from_expressions = [], []
 
     for column_name in columns_selected:
       select_expressions.append(f'(SELECT {column_name}) AS {column_name}')
@@ -141,19 +140,9 @@ class RunnerSqlGenerator:
     for builder in builders:
       child_builders.extend(builder.children)
 
+      column_alias = _get_column_alias(builder)
       if builder.column_name:
-        column_alias = builder.column_name
-        columns_selected.append(builder.column_name)
-      else:
-        # Find the last invoke node's identifier as the intermediate name.
-        invoke_node = builder.node
-        while (
-            invoke_node
-            and not hasattr(invoke_node, 'identifier')
-            or not invoke_node.identifier
-        ):
-          invoke_node = invoke_node.parent_node
-        column_alias = invoke_node.identifier
+        columns_selected.append(column_alias)
 
       needs_unnest = builder.needs_unnest or builder.children
       select_expression = self._encode(
@@ -165,12 +154,22 @@ class RunnerSqlGenerator:
             f'{select_expression} AS {column_alias}_needs_unnest_'
         )
         next_from_expressions.append(
-            f'UNNEST({column_alias}_needs_unnest_) AS {column_alias}'
+            self._build_next_from_expression(column_alias)
         )
       else:
         select_expression = f'{select_expression} AS {column_alias}'
       select_expressions.append(select_expression)
     return (select_expressions, next_from_expressions)
+
+  def _build_next_from_expression(self, column_alias: str) -> str:
+    """Build FROM statement."""
+    if isinstance(self._encoder, _spark_interpreter.SparkSqlInterpreter):
+      return (
+          f'LATERAL VIEW EXPLODE({column_alias}_needs_unnest_) AS'
+          f' {column_alias}'
+      )
+    else:
+      return f'UNNEST({column_alias}_needs_unnest_) AS {column_alias}'
 
   def _build_where_expressions(
       self,
@@ -198,10 +197,16 @@ class RunnerSqlGenerator:
       where_expressions: MutableSequence[str],
   ) -> str:
     """Build SQL statement from list of select and where statements."""
-    select_clause = (
-        f'SELECT {",".join(select_expressions)} '
-        f'FROM {",".join(from_expressions)}'
-    )
+    if isinstance(self._encoder, _spark_interpreter.SparkSqlInterpreter):
+      select_clause = (
+          f'SELECT {",".join(select_expressions)} '
+          f'FROM {" ".join(from_expressions)}'
+      )
+    else:
+      select_clause = (
+          f'SELECT {",".join(select_expressions)} '
+          f'FROM {",".join(from_expressions)}'
+      )
     where_clause = ''
     if where_expressions:
       where_clause = f'\nWHERE {" AND ".join(where_expressions)}'
@@ -320,6 +325,32 @@ class FhirPathInterpreterVariables:
         for elem in self.struct_def.snapshot.element
         if elem.path.value == self.struct_def.name.value
     )
+
+
+def _get_column_alias(
+    builder: column_expression_builder.ColumnExpressionBuilder,
+) -> str:
+  """Determine the column alias based on the builder's state.
+
+  Args:
+    builder: A ColumnExpressionBuilder object.
+
+  Returns:
+    A string representing the column alias.
+  """
+  if builder.column_name:
+    return builder.column_name
+  else:
+    # Find the last invoke node's identifier as the intermediate name.
+    invoke_node = builder.node
+    while invoke_node and (
+        not hasattr(invoke_node, 'identifier') or not invoke_node.identifier
+    ):
+      invoke_node = invoke_node.parent_node
+    if _fhir_path_data_types.returns_collection(invoke_node.return_type):
+      return f'{invoke_node.identifier}_element_'
+    else:
+      return invoke_node.identifier
 
 
 def _memberof_nodes_from_view(

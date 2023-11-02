@@ -221,7 +221,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             WHERE ((SELECT COUNT(
             name_element_) AS count_
             FROM (SELECT name_element_)) = 2))
-            WHERE name_element_ IS NOT NULL) AS name_needs_unnest_ FROM `test_project.test_dataset`.Patient),UNNEST(name_needs_unnest_) AS name),UNNEST(given_names_needs_unnest_) AS given_names"""
+            WHERE name_element_ IS NOT NULL) AS name_element__needs_unnest_ FROM `test_project.test_dataset`.Patient),UNNEST(name_element__needs_unnest_) AS name_element_),UNNEST(given_names_needs_unnest_) AS given_names"""
         ),
         simple_view,
     )
@@ -259,7 +259,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
             name_element_) AS count_
             FROM (SELECT name_element_)) = 2)
             LIMIT 1)
-            WHERE name_element_ IS NOT NULL) AS name_needs_unnest_,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birth_date_field FROM `test_project.test_dataset`.Patient),UNNEST(name_needs_unnest_) AS name),UNNEST(period_needs_unnest_) AS period"""
+            WHERE name_element_ IS NOT NULL) AS name_element__needs_unnest_,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birth_date_field FROM `test_project.test_dataset`.Patient),UNNEST(name_element__needs_unnest_) AS name_element_),UNNEST(period_needs_unnest_) AS period"""
         ),
         simple_view,
     )

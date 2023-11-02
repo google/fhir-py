@@ -896,7 +896,9 @@ def where_function(
   # Include the asterix in the dummy from clause if the element is a
   # STRUCT, because it's fields may be accessed in the where clause.
   elif isinstance(operand_result.sql_data_type, _sql_data_types.Struct):
-    from_part = f'(SELECT {operand_result.select_part}.*)'
+    from_part = (
+        f'(SELECT {operand_result.select_part}.*) AS {operand_result.sql_alias}'
+    )
 
   return _sql_data_types.Select(
       select_part=operand_result.select_part,

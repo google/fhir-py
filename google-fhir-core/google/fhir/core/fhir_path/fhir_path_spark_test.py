@@ -1239,22 +1239,18 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         'testcase_name': '_with_where',
         'fhir_path_expression': "bat.struct.where(value='')",
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(`struct`) '
-            'FROM (SELECT bat.struct '
-            'FROM (SELECT bat.struct.*) '
-            "WHERE (`struct`.value = '')) "
-            'WHERE `struct` IS NOT NULL)'
+            '(SELECT COLLECT_LIST(`struct`) FROM (SELECT bat.struct FROM'
+            " (SELECT bat.struct.*) AS `struct` WHERE (`struct`.value = ''))"
+            ' WHERE `struct` IS NOT NULL)'
         ),
     },
     {
         'testcase_name': '_with_where_and_empty',
         'fhir_path_expression': "bat.struct.where(value='').empty())",
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(empty_) '
-            'FROM (SELECT bat.struct IS NULL AS empty_ '
-            'FROM (SELECT bat.struct.*) '
-            "WHERE (`struct`.value = '')) "
-            'WHERE empty_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(empty_) FROM (SELECT bat.struct IS NULL AS'
+            ' empty_ FROM (SELECT bat.struct.*) AS `struct` WHERE'
+            " (`struct`.value = '')) WHERE empty_ IS NOT NULL)"
         ),
     },
     {
@@ -1263,12 +1259,9 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
             "bat.struct.where(value='').where(anotherValue='')"
         ),
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(`struct`) '
-            'FROM (SELECT bat.struct '
-            'FROM (SELECT bat.struct.*) '
-            "WHERE (`struct`.value = '') "
-            "AND (`struct`.anotherValue = '')) "
-            'WHERE `struct` IS NOT NULL)'
+            '(SELECT COLLECT_LIST(`struct`) FROM (SELECT bat.struct FROM'
+            " (SELECT bat.struct.*) AS `struct` WHERE (`struct`.value = '') AND"
+            " (`struct`.anotherValue = '')) WHERE `struct` IS NOT NULL)"
         ),
     },
     {
@@ -1277,12 +1270,9 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
             "bat.struct.where(value='' and anotherValue=''))"
         ),
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(`struct`) '
-            'FROM (SELECT bat.struct '
-            'FROM (SELECT bat.struct.*) '
-            "WHERE (`struct`.value = '') "
-            "AND (`struct`.anotherValue = '')) "
-            'WHERE `struct` IS NOT NULL)'
+            '(SELECT COLLECT_LIST(`struct`) FROM (SELECT bat.struct FROM'
+            " (SELECT bat.struct.*) AS `struct` WHERE (`struct`.value = '') AND"
+            " (`struct`.anotherValue = '')) WHERE `struct` IS NOT NULL)"
         ),
     },
     {
@@ -1313,11 +1303,9 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
         'testcase_name': '_with_retrieve_nested_field',
         'fhir_path_expression': "bat.struct.where(value='').anotherValue",
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(anotherValue) '
-            'FROM (SELECT bat.struct.anotherValue '
-            'FROM (SELECT bat.struct.*) '
-            "WHERE (`struct`.value = '')) "
-            'WHERE anotherValue IS NOT NULL)'
+            '(SELECT COLLECT_LIST(anotherValue) FROM (SELECT'
+            ' bat.struct.anotherValue FROM (SELECT bat.struct.*) AS `struct`'
+            " WHERE (`struct`.value = '')) WHERE anotherValue IS NOT NULL)"
         ),
     },
     {
@@ -1328,11 +1316,10 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
             "bat.struct.where(value='').where(anotherValue='').anotherValue"
         ),
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(anotherValue) '
-            'FROM (SELECT bat.struct.anotherValue '
-            'FROM (SELECT bat.struct.*) '
-            "WHERE (`struct`.value = '') AND (`struct`.anotherValue = '')) "
-            'WHERE anotherValue IS NOT NULL)'
+            '(SELECT COLLECT_LIST(anotherValue) FROM (SELECT'
+            ' bat.struct.anotherValue FROM (SELECT bat.struct.*) AS `struct`'
+            " WHERE (`struct`.value = '') AND (`struct`.anotherValue = ''))"
+            ' WHERE anotherValue IS NOT NULL)'
         ),
     },
     {
@@ -1341,13 +1328,11 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
             "bat.struct.where(value='').anotherValue.exists()"
         ),
         'expected_sql_expression': (
-            '(SELECT COLLECT_LIST(exists_) '
-            'FROM (SELECT CASE WHEN COUNT(*) = 0 '
-            'THEN FALSE ELSE TRUE END AS exists_ '
-            'FROM (SELECT bat.struct.anotherValue '
-            "FROM (SELECT bat.struct.*) WHERE (`struct`.value = '')) "
-            'WHERE anotherValue IS NOT NULL) '
-            'WHERE exists_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(exists_) FROM (SELECT CASE WHEN COUNT(*) = 0'
+            ' THEN FALSE ELSE TRUE END AS exists_ FROM (SELECT'
+            ' bat.struct.anotherValue FROM (SELECT bat.struct.*) AS `struct`'
+            " WHERE (`struct`.value = '')) WHERE anotherValue IS NOT NULL)"
+            ' WHERE exists_ IS NOT NULL)'
         ),
     },
     {
