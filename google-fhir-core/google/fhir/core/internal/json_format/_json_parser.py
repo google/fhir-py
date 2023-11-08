@@ -36,19 +36,19 @@ def _get_nested_choice_field_name(field: descriptor.FieldDescriptor,
   if child_field_name.startswith('_'):
     # For primitive extensions, prepend the leading underscore, e.g.:
     # value + _boolean = _valueBoolean
-    return ('_' + field.json_name + child_field_name[1].upper() +
-            child_field_name[2:])
+    return ('_' + proto_utils.json_field_name(field) +
+            child_field_name[1].upper() + child_field_name[2:])
   else:
     # Otherwise, just append together the JSON name, e.g.:
     # value + boolean = valueBoolean
-    return (field.json_name + child_field_name[0].upper() +
+    return (proto_utils.json_field_name(field) + child_field_name[0].upper() +
             child_field_name[1:])
 
 
 def _get_choice_field_name(field: descriptor.FieldDescriptor,
                            nested_field_name: str) -> str:
   """Returns the Choice type field name from a nested field name."""
-  base_index = len(field.json_name)
+  base_index = len(proto_utils.json_field_name(field))
   if nested_field_name.startswith('_'):
     # For primitive extensions, prepent the leading underscore, e.g.:
     # _valueBoolean = boolean
@@ -90,13 +90,13 @@ def _get_field_map(
             field, child_field_name)
         field_map[choice_field_name] = field
     else:
-      field_map[field.json_name] = field
+      field_map[proto_utils.json_field_name(field)] = field
 
       # FHIR JSON represents extensions to primitive fields as separate
       # standalone JSON objects, keyed by '_' + field_name
       if (field.type == descriptor.FieldDescriptor.TYPE_MESSAGE and
           annotation_utils.is_primitive_type(field.message_type)):
-        field_map['_' + field.json_name] = field
+        field_map['_' + proto_utils.json_field_name(field)] = field
 
   # Cache result
   with _field_map_memos_cv:

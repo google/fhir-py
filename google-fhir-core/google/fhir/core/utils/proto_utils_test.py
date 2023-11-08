@@ -79,6 +79,30 @@ class ProtoUtilsTest(absltest.TestCase):
     boolean = datatypes_pb2.Boolean()
     self.assertFalse(proto_utils.is_message_type(boolean, patient_pb2.Patient))
 
+  def test_simple_json_field_name(self):
+    """Test to retrieve the JSON field name from a resource."""
+    default_patient = patient_pb2.Patient()
+    birth_date_field = proto_utils._field_descriptor_for_name(
+        default_patient, "birth_date")
+    self.assertEqual(
+        proto_utils.json_field_name(birth_date_field),
+        "birthDate")
+    active_field = proto_utils._field_descriptor_for_name(
+        default_patient, "active")
+    self.assertEqual(
+        proto_utils.json_field_name(active_field),
+        "active")
+
+  def test_reference_uri_field_name(self):
+    """Test to retrieve the JSON field name from a resource."""
+    reference = datatypes_pb2.Reference()
+    uri_field = proto_utils._field_descriptor_for_name(
+        reference, "uri")
+    # Special case from b/276635321.
+    self.assertEqual(
+        proto_utils.json_field_name(uri_field),
+        "reference")
+
   def test_field_content_length_with_repeated_field_returns_content_length(
       self,
   ):

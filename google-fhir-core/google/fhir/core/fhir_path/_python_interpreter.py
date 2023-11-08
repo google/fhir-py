@@ -36,7 +36,7 @@ def get_children_from_message(
   target_field = None
 
   for field in parent.DESCRIPTOR.fields:
-    if field.json_name == json_name:
+    if proto_utils.json_field_name(field) == json_name:
       target_field = field
       break
 

@@ -58,6 +58,15 @@ def field_is_repeated(field_descriptor: descriptor.FieldDescriptor) -> bool:
   return field_descriptor.label == descriptor.FieldDescriptor.LABEL_REPEATED
 
 
+def json_field_name(desc: descriptor.FieldDescriptor) -> str:
+  """Returns the JSON field name from a FieldDescriptor."""
+  # Handle json name collision from (b/276635321).
+  if desc.name == 'uri' and desc.containing_type.name == 'Reference':
+    return 'reference'
+  else:
+    return desc.json_name
+
+
 def field_content_length(msg: message.Message,
                          field: Union[descriptor.FieldDescriptor, str]) -> int:
   """Returns the size of the field.

@@ -144,7 +144,7 @@ def _validate_fhir_constraints(
 
   # Enumerate and validate fields of the message
   for field in msg.DESCRIPTOR.fields:
-    field_name = f'{base_name}.{field.json_name}'
+    field_name = f'{base_name}.{proto_utils.json_field_name(field)}'
     _validate_field(msg, field, field_name, primitive_handler_)
 
   # Also verify that oneof fields are set. Note that optional choice-types

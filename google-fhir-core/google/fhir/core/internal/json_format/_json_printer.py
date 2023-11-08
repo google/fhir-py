@@ -237,7 +237,7 @@ class JsonPrinter:
       raise ValueError('Oneof not set on choice type: '
                        f'{choice_container.DESCRIPTOR.full_name}.')
     value_field = choice_container.DESCRIPTOR.fields_by_name[set_oneof_name]
-    oneof_field_name = value_field.json_name
+    oneof_field_name = proto_utils.json_field_name(value_field)
     oneof_field_name = oneof_field_name[0].upper() + oneof_field_name[1:]
 
     value = proto_utils.get_value_at_field(choice_container, value_field)
@@ -384,11 +384,14 @@ class JsonPrinter:
     for (i, (set_field, value)) in enumerate(set_fields):
       if (annotation_utils.is_choice_type_field(set_field) and
           self.json_format == _FhirJsonFormat.PURE):
-        self._print_choice_field(set_field.json_name, set_field, value)
+        self._print_choice_field(proto_utils.json_field_name(set_field),
+                                 set_field, value)
       elif annotation_utils.is_primitive_type(set_field.message_type):
-        self._print_primitive_field(set_field.json_name, set_field, value)
+        self._print_primitive_field(proto_utils.json_field_name(set_field),
+                                    set_field, value)
       else:
-        self._print_message_field(set_field.json_name, set_field, value)
+        self._print_message_field(proto_utils.json_field_name(set_field),
+                                  set_field, value)
 
       if i < (len(set_fields) - 1):
         self.generator.push(',')
