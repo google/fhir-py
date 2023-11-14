@@ -18,7 +18,7 @@ This module allows users to run FHIR Views against a Bundle resource response
 from a FHIR search. Users can retrieve the results as a DataFrame.
 """
 
-from typing import Any, List, Mapping
+from typing import Any, Dict, List, Mapping
 import pandas
 from google.protobuf import message
 from google.fhir.r4.proto.core.resources import bundle_and_contained_resource_pb2
@@ -118,7 +118,7 @@ class FhirSearchRunner:
       select_expr: Mapping[
           str, python_compiled_expressions.PythonCompiledExpression
       ],
-  ) -> Mapping[str, Any]:
+  ) -> Dict[str, Any]:
     """Returns a dictionary representing a resource.
 
     Each key matches a column name from the view config select provided by the
