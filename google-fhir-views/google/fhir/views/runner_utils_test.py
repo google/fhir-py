@@ -58,8 +58,7 @@ class RunnerUtilsTest(absltest.TestCase):
         encoder=encoder,
         dataset='test_dataset',
     ).build_sql_statement()
-    expected_output = textwrap.dedent(
-        """\
+    expected_output = textwrap.dedent("""\
         SELECT ARRAY(SELECT given_element_
         FROM (SELECT given_element_
         FROM (SELECT name_element_
@@ -69,8 +68,7 @@ class RunnerUtilsTest(absltest.TestCase):
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT active
         FROM (SELECT active)
-        WHERE active IS NOT NULL)) AS logic_)"""
-    )
+        WHERE active IS NOT NULL)) AS logic_)""")
     self.assertMultiLineEqual(expected_output, sql_statement)
 
   def test_build_sql_statement_with_snake_case_resource_tables_big_query(self):
@@ -114,8 +112,7 @@ class RunnerUtilsTest(absltest.TestCase):
         encoder=encoder,
         dataset='test_dataset',
     ).build_sql_statement()
-    expected_output = textwrap.dedent(
-        """\
+    expected_output = textwrap.dedent("""\
         SELECT ARRAY(SELECT given_element_
         FROM (SELECT given_element_
         FROM (SELECT name_element_
@@ -125,8 +122,7 @@ class RunnerUtilsTest(absltest.TestCase):
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT active
         FROM (SELECT active)
-        WHERE active IS NOT NULL)) AS logic_)"""
-    )
+        WHERE active IS NOT NULL)) AS logic_)""")
     self.assertMultiLineEqual(expected_output, sql_statement)
 
   def test_build_sql_statement_spark_sql_interpreter(self):
