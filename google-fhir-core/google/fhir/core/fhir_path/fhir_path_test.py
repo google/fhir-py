@@ -3524,6 +3524,19 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         actual_bindings[0].fhir_path_expression,
         "softDelete.all($this.matches('^(some regex)$'))",
     )
+    self.assertEqual(
+        actual_bindings[0].sql_expression,
+        textwrap.dedent("""\
+          (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
+          FROM UNNEST(ARRAY(SELECT all_
+          FROM (SELECT IFNULL(
+          LOGICAL_AND(
+          IFNULL(
+          (SELECT REGEXP_CONTAINS(
+          softDelete_element_, '^(some regex)$') AS all_), FALSE)), TRUE) AS all_
+          FROM UNNEST(softDelete) AS softDelete_element_ WITH OFFSET AS element_offset)
+          WHERE all_ IS NOT NULL)) AS result_)"""),
+    )
 
   def test_encode_with_duplicate_sql_requirement_creates_one_constraint(
       self,

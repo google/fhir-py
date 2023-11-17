@@ -290,6 +290,12 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       # the slice will actually be on the slice definition instead which is
       # stored in the value field of the child. This is essentially a shortcut
       # for Foo.bar:slice.value when accessing Foo.bar.slice.
+      #
+      # However, the cardinality for the value element will allways be
+      # scalar. There is only one value per extension, but there can
+      # be many extensions. The slice on extension itself provides the
+      # correct cardinality. So we use value for the element
+      # definition but the slice on extension for the cardinality.
       if _utils.is_slice_on_extension(elem):
         # Complex slices may have its own extensions on it and so will not have
         # a value field.
@@ -298,7 +304,7 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
         slice_elem = return_type.child_defs['value']
         return_type = self.fhir_data_type_generator(
             slice_elem, json_name, parent
-        )
+        ).with_cardinality(return_type.cardinality)
         # If there is only one type, then extract the type and return it on its
         # lonesome. This logic only applies to extensions as they will alwyas
         # have a field called Extension.value[x] regardless if the actual value
@@ -308,7 +314,9 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
             isinstance(return_type, _fhir_path_data_types.PolymorphicDataType)
             and len(return_type.urls) == 1
         ):
-          return_type = next(iter(return_type.types.values()))
+          return_type = next(iter(return_type.types.values())).with_cardinality(
+              return_type.cardinality
+          )
 
       return return_type
 
