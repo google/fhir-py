@@ -565,8 +565,7 @@ class StructureDataType(FhirPathDataType):
   base_type: str
   element_type: str
   backbone_element_path: Optional[str]
-  _child_defs: CollectionType[Tuple[str, message.Message]]
-  _direct_children: CollectionType[Tuple[str, message.Message]]
+  _child_defs: Mapping[str, message.Message]
   _other_descendants: CollectionType[Tuple[str, message.Message]]
   _slices: Tuple[Slice, ...]
   _raw_url: str
@@ -578,8 +577,7 @@ class StructureDataType(FhirPathDataType):
       base_type: str,
       element_type: str,
       backbone_element_path: Optional[str],
-      _child_defs: CollectionType[Tuple[str, message.Message]],
-      _direct_children: CollectionType[Tuple[str, message.Message]],
+      _child_defs: Mapping[str, message.Message],
       _other_descendants: CollectionType[Tuple[str, message.Message]],
       _slices: Tuple[Slice, ...],
       _raw_url: str,
@@ -594,7 +592,6 @@ class StructureDataType(FhirPathDataType):
     object.__setattr__(self, 'element_type', element_type)
     object.__setattr__(self, 'backbone_element_path', backbone_element_path)
     object.__setattr__(self, '_child_defs', _child_defs)
-    object.__setattr__(self, '_direct_children', _direct_children)
     object.__setattr__(self, '_other_descendants', _other_descendants)
     object.__setattr__(self, '_slices', _slices)
     object.__setattr__(self, '_raw_url', _raw_url)
@@ -605,7 +602,7 @@ class StructureDataType(FhirPathDataType):
 
   @property
   def child_defs(self) -> Mapping[str, message.Message]:
-    return {k: v for k, v in self._child_defs}
+    return self._child_defs
 
   @classmethod
   def from_proto(
@@ -640,7 +637,6 @@ class StructureDataType(FhirPathDataType):
     )
 
     child_defs = {}
-    direct_children = []
     other_descendants = []
     # A map of slice ID (e.g. some.path:SomeSlice) to the _SliceBuilder
     # object representing that slice.
@@ -704,8 +700,9 @@ class StructureDataType(FhirPathDataType):
               f' definition {struct_def.url.value}.'
           )
           child_defs[relative_path] = elem
-
-        if closest_slice_ancestor is not None:
+        elif closest_slice_ancestor is None:
+          other_descendants.append((relative_path, elem))
+        else:
           # Gather all the element definitions which describe the same
           # slice into a single data structure.
           slice_def = slices[closest_slice_ancestor[1]]
@@ -716,10 +713,6 @@ class StructureDataType(FhirPathDataType):
           else:
             # This is a constraint describing the slice, e.g. Foo.bar:baz.quux.
             slice_def.slice_rules.append((relative_path, elem))
-        elif direct_child:
-          direct_children.append((relative_path, elem))
-        else:
-          other_descendants.append((relative_path, elem))
 
     if not root_element_definition:
       raise ValueError(
@@ -734,8 +727,7 @@ class StructureDataType(FhirPathDataType):
         backbone_element_path=backbone_element_path,
         base_type=base_type,
         element_type=element_type,
-        _child_defs=tuple(child_defs.items()),
-        _direct_children=tuple(direct_children),
+        _child_defs=child_defs,
         _other_descendants=tuple(other_descendants),
         _slices=tuple(slice_def.to_slice() for slice_def in slices.values()),
         _raw_url=raw_url,
@@ -768,7 +760,7 @@ class StructureDataType(FhirPathDataType):
 
     Contains all entries in `child_defs`. Does not contain slices.
     """
-    return iter(self._direct_children)
+    return self._child_defs.items()
 
   def iter_all_descendants(self) -> Iterable[Tuple[str, message.Message]]:
     """Returns an iterator over all element definitions.
@@ -777,7 +769,7 @@ class StructureDataType(FhirPathDataType):
     definitions for elements describing descendants deeper than direct children.
     Does not contain slices.
     """
-    return itertools.chain(self._direct_children, self._other_descendants)
+    return itertools.chain(self._child_defs.items(), self._other_descendants)
 
   def iter_slices(self) -> Iterable[Slice]:
     """Returns an iterator over all slices.
@@ -831,7 +823,6 @@ class QuantityStructureDataType(StructureDataType, _Quantity):
         base_type=struct_type.base_type,
         element_type=struct_type.element_type,
         _child_defs=struct_type._child_defs,  # pylint: disable=protected-access
-        _direct_children=struct_type._direct_children,  # pylint: disable=protected-access
         _other_descendants=struct_type._other_descendants,  # pylint: disable=protected-access
         _slices=struct_type._slices,  # pylint: disable=protected-access
         _raw_url=struct_type._raw_url,  # pylint: disable=protected-access
@@ -863,8 +854,7 @@ class ReferenceStructureDataType(StructureDataType):
       base_type: str,
       element_type: str,
       backbone_element_path: Optional[str],
-      _child_defs: CollectionType[Tuple[str, message.Message]],
-      _direct_children: CollectionType[Tuple[str, message.Message]],
+      _child_defs: Mapping[str, message.Message],
       _other_descendants: CollectionType[Tuple[str, message.Message]],
       _slices: Tuple[Slice, ...],
       _raw_url: str,
@@ -877,7 +867,6 @@ class ReferenceStructureDataType(StructureDataType):
         base_type=base_type,
         element_type=element_type,
         _child_defs=_child_defs,
-        _direct_children=_direct_children,
         _other_descendants=_other_descendants,
         _slices=_slices,
         _raw_url=_raw_url,
@@ -924,7 +913,6 @@ class ReferenceStructureDataType(StructureDataType):
         base_type=struct_type.base_type,
         element_type=struct_type.element_type,
         _child_defs=struct_type._child_defs,  # pylint: disable=protected-access
-        _direct_children=struct_type._direct_children,  # pylint: disable=protected-access
         _other_descendants=struct_type._other_descendants,  # pylint: disable=protected-access
         _slices=struct_type._slices,  # pylint: disable=protected-access
         _raw_url=struct_type._raw_url,  # pylint: disable=protected-access
