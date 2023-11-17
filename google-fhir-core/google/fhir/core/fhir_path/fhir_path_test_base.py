@@ -14,7 +14,7 @@
 # limitations under the License.
 """Module for encapsulating  synthetic resources for FHIRPath traversal."""
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from google.fhir.r4.proto.core import codes_pb2
 from google.fhir.r4.proto.core import datatypes_pb2
@@ -23,7 +23,6 @@ from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _structure_definitions as sdefs
 from google.fhir.core.fhir_path import context as context_lib
 from google.fhir.core.fhir_path import expressions
-from google.fhir.core.fhir_path import fhir_path
 from google.fhir.r4 import primitive_handler
 
 
@@ -92,8 +91,6 @@ class FhirPathTestBase:
   Class Attributes:
     foo: A reference to the "Foo" `StructureDefinition`.
     foo_root: A reference to the "Foo" `ElementDefinition`.
-    fhir_path_encoder: A reference to a `fhir_path.FhirPathEncoder` that has
-      been initialized with the resource graph noted above.
   """
 
   # string datatype
@@ -482,22 +479,22 @@ class FhirPathTestBase:
   foo = foo
   foo_root = foo_root_element_definition
   struct_element_def = struct_element_definition
-  fhir_path_encoder = fhir_path.FhirPathStandardSqlEncoder(resources)
 
   div = div
   div_root = div_root_element_definition
 
   def create_builder_from_str(
       self,
-      structdef_name: str,
+      structdef_name: Union[str, _fhir_path_data_types.StructureDataType],
       fhir_path_expression: str,
       fhir_context: Optional[context_lib.FhirPathContext] = None,
   ) -> expressions.Builder:
     """Creates an expression Builder from a FHIRPath string.
 
     Args:
-      structdef_name: Name of the resource for the fhir_path_expression.
-        Structure Definition is fetched from the fhir_context.
+      structdef_name: Either a structure definition for or the name of the
+        resource for the fhir_path_expression. If a string, the structure
+        definition is fetched from the fhir_context.
       fhir_path_expression: A FHIR path string to parse.
       fhir_context: An optional context to use. If not specified, will use
         self.context by default.
@@ -505,19 +502,21 @@ class FhirPathTestBase:
     Returns:
       An equivalent expressions.Builder to the fhir_path_expression.
     """
-    structdef_type = None
-    if not fhir_context:
-      fhir_context = self.context
+    if isinstance(structdef_name, _fhir_path_data_types.StructureDataType):
+      structdef_type = structdef_name
+    else:
+      if not fhir_context:
+        fhir_context = self.context
 
-    structdef = fhir_context.get_structure_definition(structdef_name)
-    if not structdef:
-      raise ValueError(
-          f'Structdef {structdef_name} was not found in the provided context.'
+      structdef = fhir_context.get_structure_definition(structdef_name)
+      if not structdef:
+        raise ValueError(
+            f'Structdef {structdef_name} was not found in the provided context.'
+        )
+
+      structdef_type = _fhir_path_data_types.StructureDataType.from_proto(
+          structdef
       )
-
-    structdef_type = _fhir_path_data_types.StructureDataType.from_proto(
-        structdef
-    )
 
     return expressions.from_fhir_path_expression(
         fhir_path_expression,
