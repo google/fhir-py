@@ -23,7 +23,6 @@ from absl.testing import absltest
 from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _spark_interpreter
 from google.fhir.core.fhir_path import context
-from google.fhir.core.fhir_path import fhir_path
 from google.fhir.core.utils import fhir_package
 from google.fhir.r4 import r4_package
 from google.fhir.views import r4
@@ -101,11 +100,8 @@ class RunnerUtilsTest(absltest.TestCase):
     deps = self._context.get_dependency_definitions(url)
     deps.append(struct_def)
 
-    encoder = fhir_path.FhirPathStandardSqlEncoder(
-        deps,
-        options=fhir_path.SqlGenerationOptions(
-            value_set_codes_table='VALUESET_VIEW'
-        ),
+    encoder = _bigquery_interpreter.BigQuerySqlInterpreter(
+        value_set_codes_table='VALUESET_VIEW'
     )
     sql_statement = runner_utils.RunnerSqlGenerator(
         view=simple_view,
@@ -118,7 +114,7 @@ class RunnerUtilsTest(absltest.TestCase):
         FROM (SELECT name_element_
         FROM UNNEST(name) AS name_element_ WITH OFFSET AS element_offset),
         UNNEST(name_element_.given) AS given_element_ WITH OFFSET AS element_offset)
-        WHERE given_element_ IS NOT NULL) AS name,PARSE_DATE("%Y-%m-%d", (SELECT birthDate)) AS birthDate FROM `test_dataset`.Patient
+        WHERE given_element_ IS NOT NULL) AS name,(SELECT SAFE_CAST(birthDate AS TIMESTAMP) AS birthDate) AS birthDate FROM `test_dataset`.Patient
         WHERE (SELECT LOGICAL_AND(logic_)
         FROM UNNEST(ARRAY(SELECT active
         FROM (SELECT active)

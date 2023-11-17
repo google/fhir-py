@@ -27,7 +27,6 @@ import pandas
 from google.fhir.r4.proto.core.resources import value_set_pb2
 from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _fhir_path_data_types
-from google.fhir.core.fhir_path import fhir_path
 from google.fhir.r4.terminology import terminology_service_client
 from google.fhir.r4.terminology import value_sets
 from google.fhir.views import bigquery_value_set_manager
@@ -64,7 +63,6 @@ class BigQueryRunner:
           Union[bigquery.table.Table, bigquery.table.TableReference, str]
       ] = None,
       snake_case_resource_tables: bool = False,
-      internal_default_to_v2_runner: bool = True,
   ) -> None:
     """Initializer.
 
@@ -93,9 +91,6 @@ class BigQueryRunner:
       snake_case_resource_tables: Whether to use snake_case names for resource
         tables in BigQuery for compatiblity with some exports. Defaults to
         False.
-      internal_default_to_v2_runner: Internal only. Whether to use the
-        refactored SQL generation logic by default. This will be removed prior
-        to the 1.0 release.
     """
     super().__init__()
     self._client = client
@@ -107,7 +102,6 @@ class BigQueryRunner:
     )
     self._as_of = as_of
     self._snake_case_resource_tables = snake_case_resource_tables
-    self._internal_default_to_v2_runner = internal_default_to_v2_runner
 
     if value_set_codes_table is None:
       self._value_set_codes_table = bigquery.table.TableReference(
@@ -130,23 +124,17 @@ class BigQueryRunner:
       self,
       view: views.View,
       limit: Optional[int] = None,
-      internal_v2: Optional[bool] = None,
   ) -> str:
     """Returns the SQL used to run the given view in BigQuery.
 
     Args:
       view: the view used to generate the SQL.
       limit: optional limit to attach to the generated SQL.
-      internal_v2: For incremental development use only and will be removed
-        prior to a 1.0 release.
 
     Returns:
       The SQL used to run the given view.
     """
-    if internal_v2 is None:
-      internal_v2 = self._internal_default_to_v2_runner
-
-    sql_generator = self._build_sql_generator(internal_v2, view)
+    sql_generator = self._build_sql_generator(view)
     sql_statement = sql_generator.build_sql_statement()
 
     view_table_name = (
@@ -249,7 +237,7 @@ class BigQueryRunner:
       The datframe is ordered by count is in descending order.
     """
     expr_array_query = self._build_sql_generator(
-        internal_v2=self._internal_default_to_v2_runner, view=view
+        view=view
     ).build_select_for_summarize_code(code_expr)
 
     node_type = code_expr.node.return_type
@@ -298,23 +286,16 @@ class BigQueryRunner:
 
     return self._client.query(count_query).result().to_dataframe()
 
-  def _build_sql_generator(self, internal_v2: bool, view: views.View):
+  def _build_sql_generator(self, view: views.View):
     """Build a RunnerSqlGenerator depending on the runner version."""
     fhir_context = view.get_fhir_path_context()
     url = view.get_structdef_url()
     struct_def = fhir_context.get_structure_definition(url)
     deps = fhir_context.get_dependency_definitions(url)
     deps.append(struct_def)
-    encoder = fhir_path.FhirPathStandardSqlEncoder(
-        deps,
-        options=fhir_path.SqlGenerationOptions(
-            value_set_codes_table='VALUESET_VIEW'
-        ),
+    encoder = _bigquery_interpreter.BigQuerySqlInterpreter(
+        value_set_codes_table='VALUESET_VIEW',
     )
-    if internal_v2:
-      encoder = _bigquery_interpreter.BigQuerySqlInterpreter(
-          value_set_codes_table='VALUESET_VIEW',
-      )
 
     # URLs to various expressions and tables:
     dataset = f'{self._fhir_dataset.project}.{self._fhir_dataset.dataset_id}'

@@ -16,7 +16,7 @@
 
 import itertools
 import re
-from typing import Collection, Mapping, MutableSequence, Optional, Tuple, Union
+from typing import Collection, Mapping, MutableSequence, Tuple, Union
 
 import numpy
 import pandas as pd
@@ -25,7 +25,6 @@ from google.fhir.core.fhir_path import _bigquery_interpreter
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _spark_interpreter
-from google.fhir.core.fhir_path import fhir_path
 from google.fhir.views import column_expression_builder
 from google.fhir.views import views
 
@@ -44,7 +43,6 @@ class RunnerSqlGenerator:
       encoder: Union[
           _bigquery_interpreter.BigQuerySqlInterpreter,
           _spark_interpreter.SparkSqlInterpreter,
-          fhir_path.FhirPathStandardSqlEncoder,
       ],
       dataset: str,
       snake_case_resource_tables: bool = False,
@@ -64,11 +62,6 @@ class RunnerSqlGenerator:
     self._dataset = dataset
     self._table_name = self._get_view_resource_table_name(
         snake_case_resource_tables
-    )
-    self._v1_extras: Optional[FhirPathInterpreterVariables] = (
-        FhirPathInterpreterVariables(view)
-        if isinstance(encoder, fhir_path.FhirPathStandardSqlEncoder)
-        else None
     )
 
   def build_sql_statement(self) -> str:
@@ -283,19 +276,10 @@ class RunnerSqlGenerator:
       select_scalars_as_array: bool,
   ) -> str:
     """Encodes the expression to SQL."""
-    if self._v1_extras:
-      sql_statemet = self._encoder.encode(
-          structure_definition=self._v1_extras.struct_def,
-          element_definition=self._v1_extras.elem_def,
-          fhir_path_expression=builder.fhir_path,
-          select_scalars_as_array=select_scalars_as_array,
-      )
-      return fhir_path.wrap_datetime_sql(builder.builder, sql_statemet)
-    else:
-      return self._encoder.encode(
-          builder=builder.builder,
-          select_scalars_as_array=select_scalars_as_array,
-      )
+    return self._encoder.encode(
+        builder=builder.builder,
+        select_scalars_as_array=select_scalars_as_array,
+    )
 
   def _get_view_resource_table_name(
       self, snake_case_resource_tables: bool
