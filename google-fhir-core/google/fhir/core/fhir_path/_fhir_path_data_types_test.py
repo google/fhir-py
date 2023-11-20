@@ -146,8 +146,20 @@ class StructureDataTypeTest(absltest.TestCase):
     test_resource = sdefs.build_resource_definition(
         id_='Test', element_definitions=element_definitions
     )
+
+    # Add an override from a parent setting a different cardinality.
+    parent_definitions = _fhir_path_data_types.ChildDefinitions()
+    parent_definitions.add_definition(
+        'field',
+        sdefs.build_element_definition(
+            id_='Test.field',
+            type_codes=['string'],
+            cardinality=sdefs.Cardinality(min=1, max='*'),
+        ),
+    )
+
     structure_definition = _fhir_path_data_types.StructureDataType.from_proto(
-        test_resource
+        test_resource, parent_definitions=parent_definitions
     )
 
     self.assertCountEqual(
@@ -159,7 +171,7 @@ class StructureDataTypeTest(absltest.TestCase):
                 'field-with-hyphen',
                 element_definitions_by_id['Test.field-with-hyphen'],
             ),
-            ('field', element_definitions_by_id['Test.field']),
+            ('field', parent_definitions['field']),
             ('collection', element_definitions_by_id['Test.collection']),
             (
                 'extension_field',
@@ -176,7 +188,7 @@ class StructureDataTypeTest(absltest.TestCase):
                 'field-with-hyphen',
                 element_definitions_by_id['Test.field-with-hyphen'],
             ),
-            ('field', element_definitions_by_id['Test.field']),
+            ('field', parent_definitions['field']),
             ('field.deeper', element_definitions_by_id['Test.field.deeper']),
             ('collection', element_definitions_by_id['Test.collection']),
             (
@@ -406,6 +418,184 @@ class FhirPathDataTypeTest(parameterized.TestCase):
     )
 
     self.assertNotEqual(poly_type_2, poly_type_3)
+
+
+class ChildDefinitionsTest(absltest.TestCase):
+
+  def test_getters_retrieve_element_definition(self):
+    element_definition_a = sdefs.build_element_definition(
+        id_='a',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    element_definition_b = sdefs.build_element_definition(
+        id_='b',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    definitions = _fhir_path_data_types.ChildDefinitions()
+    definitions.add_definition('a', element_definition_a)
+    definitions.add_definition('b', element_definition_b)
+
+    self.assertIn('a', definitions)
+    self.assertEqual(definitions.get('a'), element_definition_a)
+    self.assertEqual(definitions['a'], element_definition_a)
+
+  def test_getters_indicate_missing_item(self):
+    definitions = _fhir_path_data_types.ChildDefinitions()
+
+    self.assertNotIn('a', definitions)
+    self.assertIsNone(definitions.get('a'))
+    with self.assertRaises(KeyError):
+      _ = definitions['a']
+
+  def test_getters_indicate_missing_for_edges(self):
+    element_definition_a_b = sdefs.build_element_definition(
+        id_='a.b',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+
+    definitions = _fhir_path_data_types.ChildDefinitions()
+    # a is present in the tree, but only as an edge.
+    definitions.add_definition('a.b', element_definition_a_b)
+
+    self.assertNotIn('a', definitions)
+    self.assertIsNone(definitions.get('a'))
+    with self.assertRaises(KeyError):
+      _ = definitions['a']
+
+  def test_get_child_definitions_returns_empty_containers_when_missing(self):
+    definitions = _fhir_path_data_types.ChildDefinitions()
+    self.assertIsNone(definitions.get_child_definitions('a').get('b'))
+
+  def test_add_nested_definition_inserts_definition(self):
+    definitions = _fhir_path_data_types.ChildDefinitions()
+
+    element_definition = sdefs.build_element_definition(
+        id_='a.b.c',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    definitions.add_definition('a.b.c', element_definition)
+
+    self.assertEqual(
+        definitions.get_child_definitions('a')
+        .get_child_definitions('b')
+        .get('c'),
+        element_definition,
+    )
+
+  def test_iterators_yield_appropriate_definitions(self):
+    definitions = _fhir_path_data_types.ChildDefinitions()
+
+    element_definition_a = sdefs.build_element_definition(
+        id_='a',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    element_definition_a_b = sdefs.build_element_definition(
+        id_='a.b',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    element_definition_a_b_c = sdefs.build_element_definition(
+        id_='a.b.c',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    element_definition_a_c = sdefs.build_element_definition(
+        id_='a.c',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    element_definition_b_c = sdefs.build_element_definition(
+        id_='b.c',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+
+    definitions.add_definition('a', element_definition_a)
+    definitions.add_definition('a.b', element_definition_a_b)
+    definitions.add_definition('a.b.c', element_definition_a_b_c)
+    definitions.add_definition('a.c', element_definition_a_c)
+    definitions.add_definition('b.c', element_definition_b_c)
+
+    self.assertCountEqual(
+        definitions.iter_all_definitions(),
+        [
+            ('a', element_definition_a),
+            ('a.b', element_definition_a_b),
+            ('a.b.c', element_definition_a_b_c),
+            ('a.c', element_definition_a_c),
+            ('b.c', element_definition_b_c),
+        ],
+    )
+
+    self.assertCountEqual(
+        definitions.iter_child_definitions(),
+        [('a', element_definition_a)],
+    )
+
+    self.assertCountEqual(
+        definitions.keys(),
+        ['a'],
+    )
+
+  def test_update_merges_all_child_definitions(self):
+    definitions_a = _fhir_path_data_types.ChildDefinitions()
+    definitions_b = _fhir_path_data_types.ChildDefinitions()
+
+    element_definition_a_old = sdefs.build_element_definition(
+        id_='a_old',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    element_definition_a_new = sdefs.build_element_definition(
+        id_='a_new',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    element_definition_a_b = sdefs.build_element_definition(
+        id_='a.b',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    element_definition_a_b_c = sdefs.build_element_definition(
+        id_='a.b.c',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    element_definition_a_c = sdefs.build_element_definition(
+        id_='a.c',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    element_definition_b = sdefs.build_element_definition(
+        id_='b',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+
+    definitions_a.add_definition('a', element_definition_a_old)
+    definitions_a.add_definition('b', element_definition_b)
+    definitions_a.add_definition('a.b', element_definition_a_b)
+
+    definitions_b.add_definition('a', element_definition_a_new)
+    definitions_b.add_definition('a.b.c', element_definition_a_b_c)
+    definitions_b.add_definition('a.c', element_definition_a_c)
+
+    definitions_a.update(definitions_b)
+    self.assertCountEqual(
+        definitions_a.iter_all_definitions(),
+        [
+            ('a', element_definition_a_new),
+            ('a.b', element_definition_a_b),
+            ('a.b.c', element_definition_a_b_c),
+            ('a.c', element_definition_a_c),
+            ('b', element_definition_b),
+        ],
+    )
 
 
 if __name__ == '__main__':

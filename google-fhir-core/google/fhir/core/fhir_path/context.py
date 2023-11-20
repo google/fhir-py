@@ -125,6 +125,9 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       type_code: Optional[str],
       element_definition: Optional[ElementDefinition],
       profile: Optional[str] = None,
+      parent_definitions: Optional[
+          _fhir_path_data_types.ChildDefinitions
+      ] = None,
   ) -> _fhir_path_data_types.FhirPathDataType:
     """Returns a FhirPathDataType from a type code string."""
     return_type = None
@@ -150,7 +153,9 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
         )
       else:
         return _fhir_path_data_types.StructureDataType.from_proto(
-            struct_def_proto=child_structdef, element_type=type_code
+            struct_def_proto=child_structdef,
+            element_type=type_code,
+            parent_definitions=parent_definitions,
         )
 
     if not element_definition:
@@ -188,6 +193,16 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
     """Generated a FhirPathDataType from the parent and element definition."""
     elem = cast(Any, element_definition)
 
+    # See if the parent structure definition has defined any element
+    # definitions along dotted paths going through `json_name`. If it
+    # has, we need to pass them forward to ensure the parent's element
+    # definitions are used to build child structure definitions using
+    # the elements defined by the parent.
+    if parent is None:
+      parent_definitions = None
+    else:
+      parent_definitions = parent.child_defs.get_child_definitions(json_name)
+
     if _utils.is_backbone_element(elem):
       if not parent:
         raise ValueError(
@@ -201,7 +216,7 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
           else json_name
       )
       return_type = _fhir_path_data_types.StructureDataType.from_proto(
-          structdef, elem_path
+          structdef, elem_path, parent_definitions=parent_definitions
       )
 
     elif _utils.is_polymorphic_element(elem):
@@ -227,6 +242,7 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       return_type = _fhir_path_data_types.StructureDataType.from_proto(
           struct_def_proto=parent.structure_definition,
           backbone_element_path=relative_ref,
+          parent_definitions=parent_definitions,
       )
 
     elif not elem.type or not elem.type[0].code.value:
@@ -236,7 +252,9 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       profile = None
       if elem.type[0].profile:
         profile = elem.type[0].profile[0].value
-      return_type = self.get_fhir_type_from_string(type_code, elem, profile)
+      return_type = self.get_fhir_type_from_string(
+          type_code, elem, profile, parent_definitions
+      )
 
     return_type = self._maybe_return_collection_type(elem, return_type, parent)
     # If the root_element_definition has already been set, then avoid setting it
@@ -276,14 +294,16 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       else:
         raise ValueError(
             f'Identifier {json_name} not found as a choice types or as an'
-            f' element of any possible choice type: {possible_types.keys()}'
+            ' element of any possible choice type:'
+            f' {", ".join(possible_types.keys())}'
         )
 
     if isinstance(parent, _fhir_path_data_types.StructureDataType):
       elem = parent.child_defs.get(json_name)
       if elem is None:
         raise ValueError(
-            f'Identifier {json_name} not in {parent.child_defs.keys()}'
+            f'Identifier {json_name} not in'
+            f' {", ".join(parent.child_defs.keys())}'
         )
       return_type = self.fhir_data_type_generator(elem, json_name, parent)
       # If the element is a slice on an extension, the element definition for
@@ -291,7 +311,7 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
       # stored in the value field of the child. This is essentially a shortcut
       # for Foo.bar:slice.value when accessing Foo.bar.slice.
       #
-      # However, the cardinality for the value element will allways be
+      # However, the cardinality for the value element will always be
       # scalar. There is only one value per extension, but there can
       # be many extensions. The slice on extension itself provides the
       # correct cardinality. So we use value for the element
@@ -352,7 +372,8 @@ class MockFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
     result = self._struct_defs.get(qualified_url)
     if not result:
       raise ValueError(
-          f'Missing structdef {qualified_url} from {self._struct_defs.keys()}'
+          f'Missing structdef {qualified_url} from'
+          f' {", ".join(self._struct_defs.keys())}'
       )
     return result
 

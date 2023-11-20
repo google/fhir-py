@@ -2704,7 +2704,6 @@ class FhirPathStandardSqlEncoderTest(
       )
     self.assertIsInstance(te.exception, ValueError)
 
-  @unittest.skip('b/254866189 fails in v2')
   def test_encode_with_inline_profiled_element_succeeds(self):
     """Creates a simple one-off resource graph with an inline profile.
 

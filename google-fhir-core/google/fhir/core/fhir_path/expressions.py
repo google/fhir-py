@@ -707,7 +707,7 @@ class Builder:
         _fhir_path_data_types.StructureDataType, node_type
     ).child_defs
     choice_fields = collections.defaultdict(list)
-    for name, elem_def in children.items():
+    for name, elem_def in children.iter_child_definitions():
       # Include field and type codes for choice types (fields with > 1 type),
       # such as Observation values Quantity, CodeableConcept, etc.
       if len(elem_def.type) > 1:

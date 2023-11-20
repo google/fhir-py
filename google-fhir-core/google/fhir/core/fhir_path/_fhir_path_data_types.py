@@ -139,6 +139,161 @@ class _SliceBuilder:
     return Slice(self.slice_def, self.relative_path, self.slice_rules)
 
 
+@dataclasses.dataclass
+class _ChildDefinition:
+  """A node and child edges in the ChildDefinitions tree described below.
+
+  element_definition is the node and child_definitions are edges descending from
+  the node. element_definition will be None if there are edges along this path
+  but no definition at this path. For example, if the path a.b has an element
+  definition but a does not, then the node for a will be None.
+  """
+
+  __slots__ = ('element_definition', 'child_definitions')
+
+  element_definition: Optional[message.Message]
+  child_definitions: 'ChildDefinitions'
+
+
+@dataclasses.dataclass
+class ChildDefinitions:
+  """A tree of element definitions.
+
+  A tree whose nodes are element definitions and edges are the paths to those
+  definitions. For example, element definitions for the paths a.b, a.c and d.e
+  would be represented as a tree like:
+  {
+    'a': {
+      'b': element_definition
+      'c': element_definition
+    },
+    'd': {
+      'e': element_definition
+    }
+  }
+
+  Supports dict-like access for elements in the top level of the tree (e.g. 'a'
+  and 'd' in the above example) but not lower levels of the tree.
+
+  get_child_definitions can be used to retrieve the next sub-tree. e.g.
+  get_child_definitions('a') would return the sub-tree with nodes 'b' and 'c' in
+  the above example.
+  """
+
+  __slots__ = ('_definitions',)
+
+  _definitions: Dict[str, '_ChildDefinition']
+
+  def __init__(self):
+    self._definitions = {}
+
+  def __getitem__(self, key: str) -> message.Message:
+    """Retrieves a top-level definition. Does not search dotted paths."""
+    element = self._definitions[key].element_definition
+    if element is None:
+      # An edge going through `key` is present but not a node.
+      raise KeyError(key)
+    else:
+      return element
+
+  def get(self, key: str) -> Optional[message.Message]:
+    """Retrieves a top-level definition. Does not search dotted paths."""
+    definition = self._definitions.get(key)
+    if definition is None:
+      return None
+    else:
+      return definition.element_definition
+
+  def keys(self) -> Iterable[str]:
+    """Lists all top-level paths. Does not return dotted paths."""
+    return (
+        key
+        for key, definition in self._definitions.items()
+        # Make sure it's not just an edge.
+        if definition.element_definition is not None
+    )
+
+  def __contains__(self, key: str) -> bool:
+    """Indicates if the name is present among top-level paths."""
+    # We have to check if the element definition is None in case the
+    # key is present but only as an edge.
+    return self.get(key) is not None
+
+  def get_child_definitions(self, key: str) -> 'ChildDefinitions':
+    """Retrieves the sub-tree at `key`. Does not search dotted paths."""
+    definition = self._definitions.get(key)
+    if definition is None:
+      return ChildDefinitions()
+    else:
+      return definition.child_definitions
+
+  def add_definition(
+      self, path: str, element_definition: message.Message
+  ) -> None:
+    """Adds an element definition across the dotted `path` to the tree."""
+    self._add_definition(path.split('.'), element_definition)
+
+  def iter_child_definitions(self) -> Iterable[Tuple[str, message.Message]]:
+    """Yields (path, definition) tuples for top-level elements."""
+    return (
+        (path, definition.element_definition)
+        for path, definition in self._definitions.items()
+        # Make sure it's not just an edge.
+        if definition.element_definition is not None
+    )
+
+  def iter_all_definitions(self) -> Iterable[Tuple[str, message.Message]]:
+    """Yields (path, definition) tuples for all elements in the tree."""
+    return self._iter_all_definitions(prefix=None)
+
+  def update(self, other: 'ChildDefinitions') -> None:
+    """Adds all nodes in `other` to `self`."""
+    for key, other_definition in other._definitions.items():  # pylint: disable=protected-access
+      self_definition = self._definitions.get(key)
+      if self_definition is None:
+        self._definitions[key] = other_definition
+      else:
+        if other_definition.element_definition is not None:
+          self_definition.element_definition = (
+              other_definition.element_definition
+          )
+        self_definition.child_definitions.update(
+            other_definition.child_definitions
+        )
+
+  def _add_definition(
+      self, path_elements: Sequence[str], element_definition: message.Message
+  ) -> None:
+    """Adds a definition at the end of the edges `path_elements` to the tree."""
+    # Create the next edge if it doesn't exist.
+    definition = self._definitions.setdefault(
+        path_elements[0], _ChildDefinition(None, ChildDefinitions())
+    )
+    # If this is the last edge, add the node.
+    if len(path_elements) == 1:
+      definition.element_definition = element_definition
+    else:
+      definition.child_definitions._add_definition(  # pylint: disable=protected-access
+          path_elements[1:], element_definition
+      )
+
+  def _iter_all_definitions(
+      self, prefix: Optional[str]
+  ) -> Iterable[Tuple[str, message.Message]]:
+    """Yields (path, definition) tuples for all elements in the tree."""
+    for path_elem, definition in self._definitions.items():
+      # Rebuild the dotted paths as we descend the tree.
+      if prefix is None:
+        path_prefix = path_elem
+      else:
+        path_prefix = f'{prefix}.{path_elem}'
+
+      if definition.element_definition is not None:
+        yield path_prefix, definition.element_definition
+
+      yield from definition.child_definitions._iter_all_definitions(path_prefix)  # pylint: disable=protected-access
+
+
 @dataclasses.dataclass(frozen=True, eq=False)
 class FhirPathDataType(metaclass=abc.ABCMeta):
   """An abstract base class defining a FHIRPath system primitive.
@@ -565,8 +720,7 @@ class StructureDataType(FhirPathDataType):
   base_type: str
   element_type: str
   backbone_element_path: Optional[str]
-  _child_defs: Mapping[str, message.Message]
-  _other_descendants: CollectionType[Tuple[str, message.Message]]
+  _child_defs: ChildDefinitions
   _slices: Tuple[Slice, ...]
   _raw_url: str
 
@@ -577,8 +731,7 @@ class StructureDataType(FhirPathDataType):
       base_type: str,
       element_type: str,
       backbone_element_path: Optional[str],
-      _child_defs: Mapping[str, message.Message],
-      _other_descendants: CollectionType[Tuple[str, message.Message]],
+      _child_defs: ChildDefinitions,
       _slices: Tuple[Slice, ...],
       _raw_url: str,
       cardinality: Cardinality = Cardinality.SCALAR,
@@ -592,7 +745,6 @@ class StructureDataType(FhirPathDataType):
     object.__setattr__(self, 'element_type', element_type)
     object.__setattr__(self, 'backbone_element_path', backbone_element_path)
     object.__setattr__(self, '_child_defs', _child_defs)
-    object.__setattr__(self, '_other_descendants', _other_descendants)
     object.__setattr__(self, '_slices', _slices)
     object.__setattr__(self, '_raw_url', _raw_url)
 
@@ -601,7 +753,7 @@ class StructureDataType(FhirPathDataType):
     return set()
 
   @property
-  def child_defs(self) -> Mapping[str, message.Message]:
+  def child_defs(self) -> ChildDefinitions:
     return self._child_defs
 
   @classmethod
@@ -610,6 +762,7 @@ class StructureDataType(FhirPathDataType):
       struct_def_proto: message.Message,
       backbone_element_path: Optional[str] = None,
       element_type: Optional[str] = None,
+      parent_definitions: Optional[ChildDefinitions] = None,
   ) -> 'StructureDataType':
     """Creates a StructureDataType from a proto.
 
@@ -618,6 +771,15 @@ class StructureDataType(FhirPathDataType):
         definition.
       backbone_element_path: Optional path to the structure def.
       element_type: Potential alternative type name for the type.
+      parent_definitions: Element definitions defined by parent structure
+        definitions which should override definitions in `struct_def_proto`. If
+        structure definitions supply element definitions at nested paths, e.g.
+        Foo.bar.baz.quux, those element definitions need to be passed via the
+        `parent_definitions` argument to ensure element definitions will be
+        chosen from the parent rather than `struct_def_proto`. e.g. if
+        `struct_def_proto` defines 'Baz.quux,' the parent's 'Foo.bar.baz.quux'
+        definition must be provided here in order to be chosen over the
+        `struct_def_proto` definition.
 
     Returns:
       A StructureDataType.
@@ -636,8 +798,7 @@ class StructureDataType(FhirPathDataType):
         else element_type
     )
 
-    child_defs = {}
-    other_descendants = []
+    child_defs = ChildDefinitions()
     # A map of slice ID (e.g. some.path:SomeSlice) to the _SliceBuilder
     # object representing that slice.
     slices: dict[str, _SliceBuilder] = collections.defaultdict(
@@ -692,16 +853,9 @@ class StructureDataType(FhirPathDataType):
             rf'^{qualified_path}[\.]?(.*(?<!.extension):[\w-]+)(?:$|\.)',
             elem.id.value,
         )
-        direct_child = '.' not in relative_path
 
-        if direct_child and closest_slice_ancestor is None:
-          assert relative_path not in child_defs, (
-              f'{relative_path} found twice among children in structure'
-              f' definition {struct_def.url.value}.'
-          )
-          child_defs[relative_path] = elem
-        elif closest_slice_ancestor is None:
-          other_descendants.append((relative_path, elem))
+        if closest_slice_ancestor is None:
+          child_defs.add_definition(relative_path, elem)
         else:
           # Gather all the element definitions which describe the same
           # slice into a single data structure.
@@ -713,6 +867,15 @@ class StructureDataType(FhirPathDataType):
           else:
             # This is a constraint describing the slice, e.g. Foo.bar:baz.quux.
             slice_def.slice_rules.append((relative_path, elem))
+
+    # If a parent structure definition has element definitions for the
+    # same path, use the parent's.  Structure definitions can contain
+    # element definitions for nested paths, e.g. Foo.bar.baz.quux. If
+    # we are processing a Baz resource while following the path
+    # Foo.bar.baz, we need to use Foo's definition for quux rather
+    # than the Baz's.
+    if parent_definitions is not None:
+      child_defs.update(parent_definitions)
 
     if not root_element_definition:
       raise ValueError(
@@ -728,7 +891,6 @@ class StructureDataType(FhirPathDataType):
         base_type=base_type,
         element_type=element_type,
         _child_defs=child_defs,
-        _other_descendants=tuple(other_descendants),
         _slices=tuple(slice_def.to_slice() for slice_def in slices.values()),
         _raw_url=raw_url,
         root_element_definition=root_element_definition,
@@ -760,7 +922,7 @@ class StructureDataType(FhirPathDataType):
 
     Contains all entries in `child_defs`. Does not contain slices.
     """
-    return self._child_defs.items()
+    return self._child_defs.iter_child_definitions()
 
   def iter_all_descendants(self) -> Iterable[Tuple[str, message.Message]]:
     """Returns an iterator over all element definitions.
@@ -769,7 +931,7 @@ class StructureDataType(FhirPathDataType):
     definitions for elements describing descendants deeper than direct children.
     Does not contain slices.
     """
-    return itertools.chain(self._child_defs.items(), self._other_descendants)
+    return self._child_defs.iter_all_definitions()
 
   def iter_slices(self) -> Iterable[Slice]:
     """Returns an iterator over all slices.
@@ -816,6 +978,7 @@ class QuantityStructureDataType(StructureDataType, _Quantity):
     struct_type = StructureDataType.from_proto(
         struct_def_proto=struct_def_proto,
         backbone_element_path=backbone_element_path,
+        parent_definitions=None,
     )
     return cls(
         structure_definition=struct_type.structure_definition,
@@ -823,7 +986,6 @@ class QuantityStructureDataType(StructureDataType, _Quantity):
         base_type=struct_type.base_type,
         element_type=struct_type.element_type,
         _child_defs=struct_type._child_defs,  # pylint: disable=protected-access
-        _other_descendants=struct_type._other_descendants,  # pylint: disable=protected-access
         _slices=struct_type._slices,  # pylint: disable=protected-access
         _raw_url=struct_type._raw_url,  # pylint: disable=protected-access
         root_element_definition=struct_type.root_element_definition,
@@ -854,8 +1016,7 @@ class ReferenceStructureDataType(StructureDataType):
       base_type: str,
       element_type: str,
       backbone_element_path: Optional[str],
-      _child_defs: Mapping[str, message.Message],
-      _other_descendants: CollectionType[Tuple[str, message.Message]],
+      _child_defs: ChildDefinitions,
       _slices: Tuple[Slice, ...],
       _raw_url: str,
       cardinality: Cardinality = Cardinality.SCALAR,
@@ -867,7 +1028,6 @@ class ReferenceStructureDataType(StructureDataType):
         base_type=base_type,
         element_type=element_type,
         _child_defs=_child_defs,
-        _other_descendants=_other_descendants,
         _slices=_slices,
         _raw_url=_raw_url,
         root_element_definition=root_element_definition,
@@ -893,6 +1053,7 @@ class ReferenceStructureDataType(StructureDataType):
       struct_def_proto: message.Message,
       backbone_element_path: Optional[str] = None,
       element_type: Optional[str] = None,
+      parent_definitions: Optional[ChildDefinitions] = None,
       element_definition: Optional[message.Message] = None,
   ) -> 'ReferenceStructureDataType':
     target_profiles = [
@@ -903,6 +1064,7 @@ class ReferenceStructureDataType(StructureDataType):
         struct_def_proto=struct_def_proto,
         backbone_element_path=backbone_element_path,
         element_type=None,
+        parent_definitions=parent_definitions,
     )
 
     # pylint: disable=unexpected-keyword-arg
@@ -913,7 +1075,6 @@ class ReferenceStructureDataType(StructureDataType):
         base_type=struct_type.base_type,
         element_type=struct_type.element_type,
         _child_defs=struct_type._child_defs,  # pylint: disable=protected-access
-        _other_descendants=struct_type._other_descendants,  # pylint: disable=protected-access
         _slices=struct_type._slices,  # pylint: disable=protected-access
         _raw_url=struct_type._raw_url,  # pylint: disable=protected-access
         root_element_definition=struct_type.root_element_definition,
