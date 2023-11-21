@@ -37,7 +37,7 @@ from google.fhir.core.fhir_path import _structure_definitions as sdefs
 from google.fhir.core.fhir_path import context as context_lib
 from google.fhir.core.fhir_path import expressions
 from google.fhir.core.fhir_path import fhir_path_test_base
-from google.fhir.core.fhir_path import fhir_path_validator_v2
+from google.fhir.core.fhir_path import fhir_path_validator
 from google.fhir.r4 import primitive_handler
 from google.fhir.r4 import r4_package
 
@@ -2927,14 +2927,10 @@ class FhirProfileStandardSqlEncoderTestBase(
     )
 
     error_reporter = fhir_errors.ListErrorReporter()
-    profile_std_sql_encoder = (
-        fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
-            unittest.mock.Mock(
-                iter_structure_definitions=lambda: all_resources
-            ),
-            primitive_handler.PrimitiveHandler(),
-            error_reporter,
-        )
+    profile_std_sql_encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(iter_structure_definitions=lambda: all_resources),
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
     )
     actual_bindings = profile_std_sql_encoder.encode(profile)
     self.assertEmpty(error_reporter.errors)
@@ -2980,14 +2976,10 @@ class FhirProfileStandardSqlEncoderTestBase(
     all_resources = list(self.resources.values())
     error_reporter = fhir_errors.ListErrorReporter()
 
-    profile_std_sql_encoder = (
-        fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
-            unittest.mock.Mock(
-                iter_structure_definitions=lambda: all_resources
-            ),
-            primitive_handler.PrimitiveHandler(),
-            error_reporter,
-        )
+    profile_std_sql_encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(iter_structure_definitions=lambda: all_resources),
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
     )
     actual_bindings = profile_std_sql_encoder.encode(resource)
 
@@ -3042,14 +3034,10 @@ class FhirProfileStandardSqlEncoderTestBase(
     all_resources = [profile] + list(self.resources.values())
 
     error_reporter = fhir_errors.ListErrorReporter()
-    profile_std_sql_encoder = (
-        fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
-            unittest.mock.Mock(
-                iter_structure_definitions=lambda: all_resources
-            ),
-            primitive_handler.PrimitiveHandler(),
-            error_reporter,
-        )
+    profile_std_sql_encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(iter_structure_definitions=lambda: all_resources),
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
     )
     _ = profile_std_sql_encoder.encode(profile)
     self.assertLen(error_reporter.errors, 1)
@@ -3077,7 +3065,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
   @parameterized.named_parameters(
       dict(
           testcase_name='with_add_value_set_bindings_option',
-          options=fhir_path_validator_v2.SqlGenerationOptions(
+          options=fhir_path_validator.SqlGenerationOptions(
               add_value_set_bindings=True,
               value_set_codes_table='VALUESET_VIEW',
           ),
@@ -3097,7 +3085,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
       ),
       dict(
           testcase_name='with_value_set_codes_table_option',
-          options=fhir_path_validator_v2.SqlGenerationOptions(
+          options=fhir_path_validator.SqlGenerationOptions(
               add_value_set_bindings=True,
               value_set_codes_table=bigquery.TableReference(
                   bigquery.DatasetReference('project', 'dataset'), 'table'
@@ -3148,7 +3136,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     )
 
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(
             iter_structure_definitions=unittest.mock.Mock(
                 return_value=[foo, bar]
@@ -3190,15 +3178,15 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
     # Standup encoder; skip 'always-fail-constraint-key'
     error_reporter = fhir_errors.ListErrorReporter()
-    options = fhir_path_validator_v2.SqlGenerationOptions(
+    options = fhir_path_validator.SqlGenerationOptions(
         skip_keys=set(['always-fail-constraint-key'])
     )
 
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(iter_structure_definitions=lambda: [profile]),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=cast(fhir_path_validator_v2.SqlGenerationOptions, options),
+        options=cast(fhir_path_validator.SqlGenerationOptions, options),
     )
     actual_bindings = encoder.encode(profile)
     self.assertEmpty(error_reporter.warnings)
@@ -3245,7 +3233,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
     # Stand up encoder
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(iter_structure_definitions=lambda: [foo, extension]),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
@@ -3296,7 +3284,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
     # Stand up encoder
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(iter_structure_definitions=lambda: [foo, extension]),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
@@ -3354,7 +3342,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
     # Stand up encoder
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(iter_structure_definitions=lambda: [foo, extension]),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
@@ -3415,7 +3403,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
     # Stand up encoder
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(
             iter_structure_definitions=lambda: [  # pylint: disable=g-long-lambda
                 foo,
@@ -3425,7 +3413,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         ),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=fhir_path_validator_v2.SqlGenerationOptions(
+        options=fhir_path_validator.SqlGenerationOptions(
             add_primitive_regexes=True
         ),
     )
@@ -3500,7 +3488,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
     # Stand up encoder
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(
             iter_structure_definitions=lambda: [  # pylint: disable=g-long-lambda
                 foo,
@@ -3510,7 +3498,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         ),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=fhir_path_validator_v2.SqlGenerationOptions(
+        options=fhir_path_validator.SqlGenerationOptions(
             add_primitive_regexes=True
         ),
     )
@@ -3560,7 +3548,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
     # Standup encoder
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(iter_structure_definitions=lambda: [foo]),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
@@ -3647,7 +3635,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
     # Standup encoder
     error_reporter = fhir_errors.ListErrorReporter()
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(iter_structure_definitions=lambda: [foo, bar]),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
@@ -3689,14 +3677,14 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         replacement_expression='4 + 5',
     )
 
-    options = fhir_path_validator_v2.SqlGenerationOptions(
+    options = fhir_path_validator.SqlGenerationOptions(
         expr_replace_list=replace_list
     )
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(iter_structure_definitions=lambda: [foo]),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=cast(fhir_path_validator_v2.SqlGenerationOptions, options),
+        options=cast(fhir_path_validator.SqlGenerationOptions, options),
     )
 
     # Ensure that we only produce a single Standard SQL requirement, and that
@@ -3758,14 +3746,14 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         replacement_expression='4 + 5',
     )
 
-    options = fhir_path_validator_v2.SqlGenerationOptions(
+    options = fhir_path_validator.SqlGenerationOptions(
         expr_replace_list=replace_list
     )
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(iter_structure_definitions=lambda: [foo, bar]),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=cast(fhir_path_validator_v2.SqlGenerationOptions, options),
+        options=cast(fhir_path_validator.SqlGenerationOptions, options),
     )
 
     # Ensure that we only produce a single Standard SQL requirement, and that
@@ -3815,17 +3803,17 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
 
     # Standup encoder; adding profile and string structure definitions.
     error_reporter = fhir_errors.ListErrorReporter()
-    options = fhir_path_validator_v2.SqlGenerationOptions(
+    options = fhir_path_validator.SqlGenerationOptions(
         skip_keys=set(['always-fail-constraint-key'])
     )
 
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(
             iter_structure_definitions=lambda: [profile, string]
         ),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=cast(fhir_path_validator_v2.SqlGenerationOptions, options),
+        options=cast(fhir_path_validator.SqlGenerationOptions, options),
     )
     # We are expecting to not see 'always-fail-constraint-key' here because we
     # skipped encoding fields on the primitive `string`.
@@ -3835,7 +3823,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(actual_bindings)
 
 
-class FhirProfileStandardSqlEncoderV2ConstraintTest(
+class FhirProfileStandardSqlEncoderConstraintTest(
     FhirProfileStandardSqlEncoderTestBase
 ):
   """Tests Standard SQL encoding over synthetic types.
@@ -4624,11 +4612,11 @@ class FhirProfileStandardSqlEncoderV2ConstraintTest(
     """
     error_reporter = fhir_errors.ListErrorReporter()
     all_resources = list(self.resources.values())
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(iter_structure_definitions=lambda: all_resources),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
-        options=fhir_path_validator_v2.SqlGenerationOptions(
+        options=fhir_path_validator.SqlGenerationOptions(
             verbose_error_reporting=True
         ),
     )
@@ -4737,7 +4725,7 @@ class FhirProfileStandardSqlEncoderCyclicResourceGraphTest(
     error_reporter = fhir_errors.ListErrorReporter()
 
     all_resources = list(self.resources.values())
-    encoder = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
         unittest.mock.Mock(iter_structure_definitions=lambda: all_resources),
         primitive_handler.PrimitiveHandler(),
         error_reporter,
@@ -6290,14 +6278,10 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
     # Encode as Standard SQL expression.
     all_resources = list(self.resources.values())
     error_reporter = fhir_errors.ListErrorReporter()
-    profile_std_sql_encoder = (
-        fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
-            unittest.mock.Mock(
-                iter_structure_definitions=lambda: all_resources
-            ),
-            primitive_handler.PrimitiveHandler(),
-            error_reporter,
-        )
+    profile_std_sql_encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(iter_structure_definitions=lambda: all_resources),
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
     )
     actual_bindings = profile_std_sql_encoder.encode(resource)
 

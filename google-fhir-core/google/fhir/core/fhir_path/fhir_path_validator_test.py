@@ -16,7 +16,7 @@
 from unittest import mock
 
 from absl.testing import absltest
-from google.fhir.core.fhir_path import fhir_path_validator_v2
+from google.fhir.core.fhir_path import fhir_path_validator
 
 
 class FhirProfileStandardSqlEncoderTest(absltest.TestCase):
@@ -24,7 +24,7 @@ class FhirProfileStandardSqlEncoderTest(absltest.TestCase):
   def test_error_message_for_exception_with_verbose_error_reporting_reports_stack_trace(
       self,
   ):
-    validator = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    validator = fhir_path_validator.FhirProfileStandardSqlEncoder(
         mock.MagicMock(),
         mock.MagicMock(),
         mock.MagicMock(),
@@ -43,7 +43,7 @@ class FhirProfileStandardSqlEncoderTest(absltest.TestCase):
   def test_error_message_for_exception_without_verbose_error_reporting_reports_stack_trace(
       self,
   ):
-    validator = fhir_path_validator_v2.FhirProfileStandardSqlEncoder(
+    validator = fhir_path_validator.FhirProfileStandardSqlEncoder(
         mock.MagicMock(),
         mock.MagicMock(),
         mock.MagicMock(),

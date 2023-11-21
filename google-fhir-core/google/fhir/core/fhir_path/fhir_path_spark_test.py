@@ -25,7 +25,7 @@ from google.fhir.core.fhir_path import fhir_path_test_base
 from google.fhir.core.utils import fhir_package
 
 
-_WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_DATETIME_LITERAL_SUCCEEDS_CASES = [
     {
         'testcase_name': '_with_null',
         'fhir_path_expression': '{ }',
@@ -215,7 +215,7 @@ _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES = [
     },
 ]
 
-_WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_ARITHMETIC_SUCCEEDS_CASES = [
     {
         'testcase_name': '_with_integer_addition',
         'fhir_path_expression': '1 + 2',
@@ -371,7 +371,7 @@ _WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES = [
     },
 ]
 
-_WITH_FHIRPATH_V2_INDEXER_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_INDEXER_SUCCEEDS_CASES = [
     {
         'testcase_name': '_with_integer_indexer',
         'fhir_path_expression': '7[0]',
@@ -402,7 +402,7 @@ _WITH_FHIRPATH_V2_INDEXER_SUCCEEDS_CASES = [
     },
 ]
 
-_WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_BOOLEAN_SUCCEEDS_CASES = [
     {
         'testcase_name': '_with_boolean_and',
         'fhir_path_expression': 'true and false',
@@ -445,7 +445,7 @@ _WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES = [
     },
 ]
 
-_WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_COMPARISON_SUCCEEDS_CASES = [
     {
         'testcase_name': '_with_integer_greater_than',
         'fhir_path_expression': '4 > 3',
@@ -508,7 +508,7 @@ _WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES = [
     },
 ]
 
-_WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_POLARITY_SUCCEEDS_CASES = [
     {
         'testcase_name': '_with_integer_positive_polarity',
         'fhir_path_expression': '+5',
@@ -605,7 +605,7 @@ _WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES = [
     },
 ]
 
-_WITH_FHIRPATH_V2_MEMBERSHIP_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_MEMBERSHIP_SUCCEEDS_CASES = [
     {
         'testcase_name': '_with_integer_in',
         'fhir_path_expression': '3 in 4',
@@ -626,7 +626,7 @@ _WITH_FHIRPATH_V2_MEMBERSHIP_SUCCEEDS_CASES = [
     },
 ]
 
-_WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_EQUALITY_SUCCEEDS_CASES = [
     {
         'testcase_name': '_with_integer_equal',
         'fhir_path_expression': '3 = 4',
@@ -703,7 +703,7 @@ _WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES = [
     },
 ]
 
-_WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES = [
     {
         'testcase_name': '_with_single_member_access',
         'fhir_path_expression': 'bar',
@@ -782,7 +782,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES = [
     },
 ]
 
-_WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
     # TODO(b/262544393): Add examples with exists() and where() once functions
     # are implemented
     {
@@ -883,7 +883,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES = [
 ]
 
 
-_WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
     {
         'testcase_name': '_with_member_count',
         'fhir_path_expression': 'bar.count()',
@@ -1381,7 +1381,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES = [
     },
 ]
 
-_WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
+_WITH_FHIRPATH_FHIRPATH_NOOPERAND_RAISES_ERROR = [
     {'testcase_name': '_with_count', 'fhir_path_expression': 'count()'},
     {'testcase_name': '_with_empty', 'fhir_path_expression': 'empty()'},
     {'testcase_name': '_with_exists', 'fhir_path_expression': 'exists()'},
@@ -1396,7 +1396,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR = [
     {'testcase_name': '_with_any_true', 'fhir_path_expression': 'anyTrue()'},
 ]
 
-_WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_VALUE_ERROR = [
+_WITH_FHIRPATH_FHIRPATH_FUNCTION_INVOCATION_RAISES_VALUE_ERROR = [
     {
         'testcase_name': '_with_array_scalar_member_exists',
         'fhir_path_expression': 'bar.exists(struct)',
@@ -1411,7 +1411,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_VALUE_ERROR = [
     },
 ]
 
-_WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_NOT_IMPLEMENTED_ERROR = [
+_WITH_FHIRPATH_FHIRPATH_FUNCTION_INVOCATION_RAISES_NOT_IMPLEMENTED_ERROR = [
     {
         'testcase_name': '_with_scalar_child_of_collection_right_side_union',
         'fhir_path_expression': "bar.bats.struct.value = ('abc' | '123')",
@@ -1422,7 +1422,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_NOT_IMPLEMENTED_ERROR = [
     },
 ]
 
-_WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_UNION_FUNCTION_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_FHIRPATH_MEMBER_FUNCTION_UNION_FUNCTION_SUCCEEDS_CASES = [
     {
         'testcase_name': '_with_integer_union',
         'fhir_path_expression': '3 | 4',
@@ -1468,7 +1468,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_UNION_FUNCTION_SUCCEEDS_CASES = [
     },
 ]
 
-_WITH_FHIRPATH_V2_FHIRPATH_MEMBER_OF_VECTOR_EXPRESSIONS_RAISES_ERROR = [
+_WITH_FHIRPATH_FHIRPATH_MEMBER_OF_VECTOR_EXPRESSIONS_RAISES_ERROR = [
     {
         'testcase_name': '_with_vector_code_member_of',
         'fhir_path_expression': (
@@ -1493,7 +1493,7 @@ _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_OF_VECTOR_EXPRESSIONS_RAISES_ERROR = [
     },
 ]
 
-_WITH_FHIRPATH_V2_MEMBER_OF_AGAINST_LOCAL_VALUESET_DEFINITIONS_SUCCEEDS_CASES = [
+_WITH_FHIRPATH_MEMBER_OF_AGAINST_LOCAL_VALUESET_DEFINITIONS_SUCCEEDS_CASES = [
     {
         'testcase_name': '_with_scalar_code_member_of',
         'fhir_path_expression': (
@@ -1592,17 +1592,17 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_DATETIME_LITERAL_SUCCEEDS_CASES
+      _WITH_FHIRPATH_DATETIME_LITERAL_SUCCEEDS_CASES
   )
-  def test_encode_with_fhir_path_v2_date_time_literal_succeeds(
+  def test_encode_with_fhir_path_date_time_literal_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
         'Foo', fhir_path_expression, expected_sql_expression
     )
 
-  @parameterized.named_parameters(_WITH_FHIRPATH_V2_ARITHMETIC_SUCCEEDS_CASES)
-  def test_encode_with_fhir_path_v2_literal_arithmetic_succeeds(
+  @parameterized.named_parameters(_WITH_FHIRPATH_ARITHMETIC_SUCCEEDS_CASES)
+  def test_encode_with_fhir_path_literal_arithmetic_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1611,8 +1611,8 @@ class FhirPathSparkSqlEncoderTest(
         expected_sql_expression=expected_sql_expression,
     )
 
-  @parameterized.named_parameters(_WITH_FHIRPATH_V2_INDEXER_SUCCEEDS_CASES)
-  def test_encode_with_fhir_path_v2_literal_indexer_succeeds(
+  @parameterized.named_parameters(_WITH_FHIRPATH_INDEXER_SUCCEEDS_CASES)
+  def test_encode_with_fhir_path_literal_indexer_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1621,8 +1621,8 @@ class FhirPathSparkSqlEncoderTest(
         expected_sql_expression=expected_sql_expression,
     )
 
-  @parameterized.named_parameters(_WITH_FHIRPATH_V2_BOOLEAN_SUCCEEDS_CASES)
-  def test_encode_with_fhir_path_v2_literal_boolean_succeeds(
+  @parameterized.named_parameters(_WITH_FHIRPATH_BOOLEAN_SUCCEEDS_CASES)
+  def test_encode_with_fhir_path_literal_boolean_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1631,8 +1631,8 @@ class FhirPathSparkSqlEncoderTest(
         expected_sql_expression=expected_sql_expression,
     )
 
-  @parameterized.named_parameters(_WITH_FHIRPATH_V2_COMPARISON_SUCCEEDS_CASES)
-  def test_encode_with_fhir_path_v2_literal_comparison_succeeds(
+  @parameterized.named_parameters(_WITH_FHIRPATH_COMPARISON_SUCCEEDS_CASES)
+  def test_encode_with_fhir_path_literal_comparison_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1641,8 +1641,8 @@ class FhirPathSparkSqlEncoderTest(
         expected_sql_expression=expected_sql_expression,
     )
 
-  @parameterized.named_parameters(_WITH_FHIRPATH_V2_POLARITY_SUCCEEDS_CASES)
-  def test_encode_with_fhir_path_v2_literal_polarity_succeeds(
+  @parameterized.named_parameters(_WITH_FHIRPATH_POLARITY_SUCCEEDS_CASES)
+  def test_encode_with_fhir_path_literal_polarity_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1656,8 +1656,8 @@ class FhirPathSparkSqlEncoderTest(
         expected_sql_expression=expected_sql_expression,
     )
 
-  @parameterized.named_parameters(_WITH_FHIRPATH_V2_EQUALITY_SUCCEEDS_CASES)
-  def test_encode_with_fhir_path_v2_literal_equality_succeeds(
+  @parameterized.named_parameters(_WITH_FHIRPATH_EQUALITY_SUCCEEDS_CASES)
+  def test_encode_with_fhir_path_literal_equality_succeeds(
       self,
       fhir_path_expression: str,
       expected_sql_expression: str,
@@ -1668,8 +1668,8 @@ class FhirPathSparkSqlEncoderTest(
         expected_sql_expression=expected_sql_expression,
     )
 
-  @parameterized.named_parameters(_WITH_FHIRPATH_V2_MEMBERSHIP_SUCCEEDS_CASES)
-  def test_encode_with_fhir_path_v2_literal_membership_relation_succeeds(
+  @parameterized.named_parameters(_WITH_FHIRPATH_MEMBERSHIP_SUCCEEDS_CASES)
+  def test_encode_with_fhir_path_literal_membership_relation_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1679,9 +1679,9 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES
+      _WITH_FHIRPATH_FHIRPATH_MEMBER_ACCESS_SUCCEEDS_CASES
   )
-  def test_encode_with_fhir_path_v2_member_access_succeeds(
+  def test_encode_with_fhir_path_member_access_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1691,9 +1691,9 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES
+      _WITH_FHIRPATH_FHIRPATH_OFTYPE_FUNCTION_SUCCEEDS_CASES
   )
-  def test_encode_with_fhir_path_v2_of_type_invocation_succeeds(
+  def test_encode_with_fhir_path_of_type_invocation_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1703,9 +1703,9 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES
+      _WITH_FHIRPATH_FHIRPATH_FUNCTION_INVOCATION_SUCCEEDS_CASES
   )
-  def test_encode_with_fhir_path_v2_function_invocation_succeeds(
+  def test_encode_with_fhir_path_function_invocation_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1716,9 +1716,9 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_MEMBER_OF_AGAINST_LOCAL_VALUESET_DEFINITIONS_SUCCEEDS_CASES
+      _WITH_FHIRPATH_MEMBER_OF_AGAINST_LOCAL_VALUESET_DEFINITIONS_SUCCEEDS_CASES
   )
-  def test_encode_with_fhir_path_v2_member_function_against_local_value_set_definitions_succeeds(
+  def test_encode_with_fhir_path_member_function_against_local_value_set_definitions_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     expanded_value_set_1 = value_set_pb2.ValueSet()
@@ -1763,7 +1763,7 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_FHIRPATH_NOOPERAND_RAISES_ERROR
+      _WITH_FHIRPATH_FHIRPATH_NOOPERAND_RAISES_ERROR
   )
   def test_encode_with_fhir_path_function_no_operand_raises_error(
       self, fhir_path_expression: str
@@ -1773,7 +1773,7 @@ class FhirPathSparkSqlEncoderTest(
       _spark_interpreter.SparkSqlInterpreter().encode(builder)
 
   @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_VALUE_ERROR
+      _WITH_FHIRPATH_FHIRPATH_FUNCTION_INVOCATION_RAISES_VALUE_ERROR
   )
   def test_encode_with_fhir_path_function_invocation_raises_value_error(
       self, fhir_path_expression: str
@@ -1782,7 +1782,7 @@ class FhirPathSparkSqlEncoderTest(
       self.create_builder_from_str('Foo', fhir_path_expression)
 
   @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_FHIRPATH_FUNCTION_INVOCATION_RAISES_NOT_IMPLEMENTED_ERROR
+      _WITH_FHIRPATH_FHIRPATH_FUNCTION_INVOCATION_RAISES_NOT_IMPLEMENTED_ERROR
   )
   def test_encode_with_fhir_path_function_invocation_raises_not_implemented_error(
       self, fhir_path_expression: str
@@ -1793,9 +1793,9 @@ class FhirPathSparkSqlEncoderTest(
       _spark_interpreter.SparkSqlInterpreter().encode(builder)
 
   @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_OF_VECTOR_EXPRESSIONS_RAISES_ERROR
+      _WITH_FHIRPATH_FHIRPATH_MEMBER_OF_VECTOR_EXPRESSIONS_RAISES_ERROR
   )
-  def test_encode_with_fhir_path_v2_member_of_function_with_vector_expression_raises_error(
+  def test_encode_with_fhir_path_member_of_function_with_vector_expression_raises_error(
       self, fhir_path_expression: str
   ):
     with self.assertRaises(NotImplementedError):
@@ -1804,7 +1804,7 @@ class FhirPathSparkSqlEncoderTest(
           value_set_codes_table='VALUESET_VIEW'
       ).encode(builder)
 
-  def test_encode_with_fhir_path_v2_select_scalars_as_array_false_for_literal_succeeds(
+  def test_encode_with_fhir_path_select_scalars_as_array_false_for_literal_succeeds(
       self,
   ):
     fhir_path_expression = 'true'
@@ -1817,9 +1817,9 @@ class FhirPathSparkSqlEncoderTest(
     )
 
   @parameterized.named_parameters(
-      _WITH_FHIRPATH_V2_FHIRPATH_MEMBER_FUNCTION_UNION_FUNCTION_SUCCEEDS_CASES
+      _WITH_FHIRPATH_FHIRPATH_MEMBER_FUNCTION_UNION_FUNCTION_SUCCEEDS_CASES
   )
-  def test_encode_with_fhir_path_member_v2_literal_union_succeeds(
+  def test_encode_with_fhir_path_member_literal_union_succeeds(
       self, fhir_path_expression: str, expected_sql_expression: str
   ):
     self.assertEvaluationNodeSqlCorrect(
@@ -1828,7 +1828,7 @@ class FhirPathSparkSqlEncoderTest(
         expected_sql_expression=expected_sql_expression,
     )
 
-  def test_encode_with_fhir_path_member_v2_literal_root_succeeds(self):
+  def test_encode_with_fhir_path_member_literal_root_succeeds(self):
     expected_sql_expression = (
         '(SELECT COLLECT_LIST(bar) FROM (SELECT Foo.bar) WHERE bar IS NOT NULL)'
     )
@@ -1839,7 +1839,7 @@ class FhirPathSparkSqlEncoderTest(
         use_resource_alias=True,
     )
 
-  def test_encode_with_fhir_path_member_v2_id_for_succeeds(self):
+  def test_encode_with_fhir_path_member_id_for_succeeds(self):
     self.assertEvaluationNodeSqlCorrect(
         structdef_name='Foo',
         fhir_path_expression="bar.idFor('Bats')",
