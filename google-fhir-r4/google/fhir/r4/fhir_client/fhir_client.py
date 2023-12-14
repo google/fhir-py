@@ -27,6 +27,8 @@ class Client(_fhir_client.FhirClient):
     base_url: The base url of the rest service for the FHIR server. The service
       should implement the FHIR search API following HL7 documentation
       https://www.hl7.org/fhir/search.html.
+    basic_auth: A tuple of (user_name, password) to use when performing basic
+      auth with the FHIR service or None if no authentication is required.
   """
 
   def search(self, search_query):

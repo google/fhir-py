@@ -29,6 +29,7 @@ class ClientTest(absltest.TestCase):
 
   @unittest.mock.patch.object(_fhir_client.requests, 'Session', autospec=True)
   def testSearch_withSimpleQuery_returnsExpectedProto(self, mock_session_get):
+    mock_session_get().headers = {}
     fhir_resource_response = {
         'resourceType': 'Bundle',
         'id': '12345',
@@ -38,6 +39,7 @@ class ClientTest(absltest.TestCase):
 
     client = fhir_client.Client(
         base_url='http://base.url.org',
+        basic_auth=('user', 'pwd'),
     )
     result = client.search('Patient?_count=10')
 
