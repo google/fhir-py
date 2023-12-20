@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, cast
 
 from google.protobuf import descriptor
 from google.protobuf import message
+from google.fhir.core import codes
 from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import quantity
@@ -866,15 +867,18 @@ class PythonInterpreter(_evaluation.ExpressionNodeBaseVisitor):
     if not function.pattern or not operand_result:
       return []
 
-    if len(operand_result) > 1 or not fhir_types.is_string(
-        operand_result[0].message
-    ):
+    if len(operand_result) > 1:
+      raise ValueError('Input collection contains more than one item.')
+
+    if fhir_types.is_type_or_profile_of_code(operand_result[0].message):
+      operand_str = codes.get_code_as_string(operand_result[0].message)
+    elif fhir_types.is_string(operand_result[0].message):
+      operand_str = cast(Any, operand_result[0].message).value
+    else:
       raise ValueError(
-          'Input collection contains more than one item or is not of string '
-          'type.'
+          'Input collection is not of string or code type.'
       )
 
-    operand_str = cast(Any, operand_result[0].message).value
     if not function.pattern.match(operand_str):
       result = False
 

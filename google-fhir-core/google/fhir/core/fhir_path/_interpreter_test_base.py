@@ -451,6 +451,25 @@ class FhirPathExpressionsTest(
         True,
     )
 
+  def test_matches_function_for_resource_with_code_succeeds(self):
+    """Tests the behavior of the matches() function."""
+    patient = self._new_patient()
+    # Gender FEMALE enum value is 2.
+    patient.gender.value = 2
+    self.assert_expression_result(
+        self.compile_expression('Patient', "gender.matches('female')"),
+        self.builder('Patient').gender.matches('female'),
+        patient,
+        True,
+    )
+
+    self.assert_expression_result(
+        self.compile_expression('Patient', "gender.matches('male')"),
+        self.builder('Patient').gender.matches('male'),
+        patient,
+        False,
+    )
+
   def test_has_value_function_for_resource_succeeds(self):
     """Tests the behavior of the has_value() function."""
     patient = self._new_patient()
