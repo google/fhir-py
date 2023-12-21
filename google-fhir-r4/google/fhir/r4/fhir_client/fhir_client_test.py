@@ -51,6 +51,38 @@ class ClientTest(absltest.TestCase):
     )
     self.assertEqual(result, bundle)
 
+  @unittest.mock.patch.object(_fhir_client.requests, 'Session', autospec=True)
+  def testSearch_withFloatValuesInResponse_doesNotThrowError(
+      self, mock_session_get
+  ):
+    mock_session_get().headers = {}
+    fhir_resource_response = {
+        'resourceType': 'Bundle',
+        'id': '12345',
+        'type': 'transaction',
+        'entry': [{
+            'resource': {
+                'resourceType': 'Observation',
+                'status': 'final',
+                'code': {},
+                'valueQuantity': {
+                    'value': 66.0,
+                },
+            }
+        }],
+    }
+    mock_session_get().get('url').json.return_value = fhir_resource_response
+
+    client = fhir_client.Client(
+        base_url='http://base.url.org',
+        basic_auth=('user', 'pwd'),
+    )
+    result = client.search('Observation?_count=1')
+
+    self.assertEqual(
+        result.entry[0].resource.observation.value.quantity.value.value, '66.0'
+    )
+
 
 if __name__ == '__main__':
   absltest.main()

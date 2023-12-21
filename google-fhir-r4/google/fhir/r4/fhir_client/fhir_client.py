@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Provides a client for interacting with FHIR servers returning the protobuf representations of FHIR."""
-
+import json
 
 from google.fhir.r4.proto.core.resources import bundle_and_contained_resource_pb2
 from google.fhir.r4 import json_format
@@ -34,6 +34,8 @@ class Client(_fhir_client.FhirClient):
   def search(self, search_query):
     """Make a search request to the FHIR server and convert response to protobuf."""
     resp_json = super().search(search_query)
-    return json_format.json_fhir_object_to_proto(
-        resp_json, bundle_and_contained_resource_pb2.Bundle
+
+    # TODO(b/317221440): Use json_fhir_object_to_proto instead.
+    return json_format.json_fhir_string_to_proto(
+        json.dumps(resp_json), bundle_and_contained_resource_pb2.Bundle,
     )
