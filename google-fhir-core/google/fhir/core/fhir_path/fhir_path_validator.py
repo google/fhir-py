@@ -1651,6 +1651,9 @@ class FhirProfileStandardSqlEncoder:
             child == 'extension'
             or child == 'link'
             or '#' in cast(Any, elem).content_reference.value
+            # Skip Resource fields, since we don't have contained resources
+            # in analytic FHIR.
+            or 'Resource' in _utils.element_type_codes(elem)
         ):
           continue
 
