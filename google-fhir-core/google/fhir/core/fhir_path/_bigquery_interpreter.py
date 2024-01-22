@@ -293,15 +293,11 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
         _escape_identifier(identifier_str), sql_data_type
     )
     if parent_result:
-      # Append the current identifier to the path chain being selected if the
-      # parent is not a ReferenceNode. If it is a ReferenceNode, we assume that
-      # the parent has already been previously unnested.
-      if not isinstance(identifier.parent_node, _evaluation.ReferenceNode):
-        select_part = parent_result.select_part.dot(
-            raw_identifier_str,
-            sql_data_type,
-            sql_alias=_escape_identifier(sql_alias),
-        )
+      select_part = parent_result.select_part.dot(
+          raw_identifier_str,
+          sql_data_type,
+          sql_alias=_escape_identifier(sql_alias),
+      )
       return dataclasses.replace(parent_result, select_part=select_part)
 
     return _sql_data_types.IdentifierSelect(

@@ -1434,7 +1434,7 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT multipleChoiceExample_element_.CodeableConcept AS ofType_
           FROM UNNEST(multipleChoiceExample) AS multipleChoiceExample_element_ WITH OFFSET AS element_offset),
           UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset
-          WHERE (system = 'test'))
+          WHERE (coding_element_.system = 'test'))
           WHERE coding_element_ IS NOT NULL)"""),
       ),
       dict(
@@ -1449,7 +1449,7 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT coding_element_
           FROM (SELECT choiceExample.CodeableConcept AS ofType_),
           UNNEST(ofType_.coding) AS coding_element_ WITH OFFSET AS element_offset
-          WHERE (system = 'test'))
+          WHERE (coding_element_.system = 'test'))
           WHERE coding_element_ IS NOT NULL)"""),
       ),
   )
@@ -2154,7 +2154,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT `struct`
           FROM (SELECT bat.struct
           FROM (SELECT bat.struct.*)
-          WHERE (value = ''))
+          WHERE (`struct`.value = ''))
           WHERE `struct` IS NOT NULL)"""),
       ),
       dict(
@@ -2164,7 +2164,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT empty_
           FROM (SELECT bat.struct IS NULL AS empty_
           FROM (SELECT bat.struct.*)
-          WHERE (value = ''))
+          WHERE (`struct`.value = ''))
           WHERE empty_ IS NOT NULL)"""),
       ),
       dict(
@@ -2176,7 +2176,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT `struct`
           FROM (SELECT bat.struct
           FROM (SELECT bat.struct.*)
-          WHERE (value = '') AND (anotherValue = ''))
+          WHERE (`struct`.value = '') AND (`struct`.anotherValue = ''))
           WHERE `struct` IS NOT NULL)"""),
       ),
       dict(
@@ -2186,7 +2186,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT `struct`
           FROM (SELECT bat.struct
           FROM (SELECT bat.struct.*)
-          WHERE ((value = '') AND (anotherValue = '')))
+          WHERE ((`struct`.value = '') AND (`struct`.anotherValue = '')))
           WHERE `struct` IS NOT NULL)"""),
       ),
       dict(
@@ -2229,7 +2229,7 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
-          (SELECT (anotherValue = '') AS all_), FALSE)), TRUE) AS all_
+          (SELECT (`struct`.anotherValue = '') AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bat.struct))
           WHERE all_ IS NOT NULL)"""),
       ),
@@ -2243,7 +2243,7 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
-          (SELECT ((anotherValue = '') AND (value = '')) AS all_), FALSE)), TRUE) AS all_
+          (SELECT ((`struct`.anotherValue = '') AND (`struct`.value = '')) AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bat.struct))
           WHERE all_ IS NOT NULL)"""),
       ),
@@ -2255,7 +2255,7 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
-          (SELECT ((anotherValue = '') AND (SELECT `struct` IS NOT NULL)) AS all_), FALSE)), TRUE) AS all_
+          (SELECT ((`struct`.anotherValue = '') AND (SELECT `struct` IS NOT NULL)) AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bat.struct))
           WHERE all_ IS NOT NULL)"""),
       ),
@@ -2284,7 +2284,7 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT IFNULL(
           LOGICAL_AND(
           IFNULL(
-          (SELECT (value = '') AS all_), FALSE)), TRUE) AS all_
+          (SELECT (`struct`.value = '') AS all_), FALSE)), TRUE) AS all_
           FROM (SELECT bats_element_.struct
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset))
@@ -2318,7 +2318,7 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT bats_element_
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
-          WHERE (`struct` IS NOT NULL))
+          WHERE (bats_element_.struct IS NOT NULL))
           WHERE bats_element_ IS NOT NULL)"""),
       ),
       dict(
@@ -2331,7 +2331,7 @@ class FhirPathStandardSqlEncoderTest(
           FROM (SELECT bats_element_
           FROM (SELECT bar),
           UNNEST(bar.bats) AS bats_element_ WITH OFFSET AS element_offset
-          WHERE (`struct` = `struct`))
+          WHERE (bats_element_.struct = bats_element_.struct))
           WHERE bats_element_ IS NOT NULL) AS exists_)
           WHERE exists_ IS NOT NULL)"""),
       ),
@@ -2342,7 +2342,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT anotherValue
           FROM (SELECT bat.struct.anotherValue
           FROM (SELECT bat.struct.*)
-          WHERE (value = ''))
+          WHERE (`struct`.value = ''))
           WHERE anotherValue IS NOT NULL)"""),
       ),
       dict(
@@ -2354,7 +2354,7 @@ class FhirPathStandardSqlEncoderTest(
           ARRAY(SELECT anotherValue
           FROM (SELECT bat.struct.anotherValue
           FROM (SELECT bat.struct.*)
-          WHERE (value = '') AND (anotherValue = ''))
+          WHERE (`struct`.value = '') AND (`struct`.anotherValue = ''))
           WHERE anotherValue IS NOT NULL)"""),
       ),
       dict(
@@ -2368,7 +2368,7 @@ class FhirPathStandardSqlEncoderTest(
           SELECT anotherValue
           FROM (SELECT bat.struct.anotherValue
           FROM (SELECT bat.struct.*)
-          WHERE (value = ''))
+          WHERE (`struct`.value = ''))
           WHERE anotherValue IS NOT NULL) AS exists_)
           WHERE exists_ IS NOT NULL)"""),
       ),
@@ -4406,7 +4406,7 @@ class FhirProfileStandardSqlEncoderConstraintTest(
               coding_element_) AS count_
               FROM (SELECT code),
               UNNEST(code.coding) AS coding_element_ WITH OFFSET AS element_offset
-              WHERE ((system = 'milky_way') AND (version = 'final_frontier'))) = 1) AS eq_)
+              WHERE ((coding_element_.system = 'milky_way') AND (coding_element_.version = 'final_frontier'))) = 1) AS eq_)
               WHERE eq_ IS NOT NULL)) AS result_)"""),
       ),
       dict(
@@ -4469,7 +4469,7 @@ class FhirProfileStandardSqlEncoderConstraintTest(
               FROM (SELECT coding_element_
               FROM (SELECT code),
               UNNEST(code.coding) AS coding_element_ WITH OFFSET AS element_offset
-              WHERE ((system = 'http://loinc.org') AND (code = '8480-6')))
+              WHERE ((coding_element_.system = 'http://loinc.org') AND (coding_element_.code = '8480-6')))
               WHERE coding_element_ IS NOT NULL) AND NOT EXISTS(
               SELECT lhs_.*
               FROM (SELECT ROW_NUMBER() OVER() AS row_, code
@@ -4527,7 +4527,7 @@ class FhirProfileStandardSqlEncoderConstraintTest(
               FROM (SELECT ((SELECT COUNT(
               code_element_) AS count_
               FROM UNNEST(code) AS code_element_ WITH OFFSET AS element_offset
-              WHERE ((((id IS NULL) AND NOT EXISTS(
+              WHERE ((((code_element_.id IS NULL) AND NOT EXISTS(
               SELECT extension_element_
               FROM (SELECT extension_element_
               FROM (SELECT code_element_),
@@ -4582,7 +4582,7 @@ class FhirProfileStandardSqlEncoderConstraintTest(
               FROM (SELECT coding_element_
               FROM (SELECT code_element_),
               UNNEST(code_element_.coding) AS coding_element_ WITH OFFSET AS element_offset)) AS inner_tbl
-              WHERE (inner_tbl.row_ - 1) = 0)))) AND (text IS NULL))) = 1) AS eq_)
+              WHERE (inner_tbl.row_ - 1) = 0)))) AND (code_element_.text IS NULL))) = 1) AS eq_)
               WHERE eq_ IS NOT NULL)) AS result_)"""),
       ),
   )

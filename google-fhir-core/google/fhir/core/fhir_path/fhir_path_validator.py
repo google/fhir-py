@@ -104,6 +104,12 @@ _SKIP_KEYS = frozenset([
     'ext-1',
     # TODO(b/271314399): Handle complex types like SimpleQuantity
     'rng-2',
+    # This constraint enforces the presence of element definition ids
+    # in structure definitions. We're unable to execute it in some
+    # environments because our analytic protos for element definitions
+    # do not have id fields. We don't feel adding the id fields to the
+    # protos is worth being able to run this constraint.
+    'sdf-14',
 ])
 
 # These primitives are excluded from regex encoding because at the point when
