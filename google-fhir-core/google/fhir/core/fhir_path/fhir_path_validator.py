@@ -1054,7 +1054,8 @@ class FhirProfileStandardSqlEncoder:
     # 'and' together the min and max size constraints.
     slice_constraint = functools.reduce(operator.and_, slice_constraints)
     constraint_sql = self._encode_fhir_path_builder_constraint(
-        slice_constraint, root_builder
+        slice_constraint,
+        None,  # Create a top-level constraint.
     )
     if constraint_sql is None:
       return []
@@ -1079,7 +1080,8 @@ class FhirProfileStandardSqlEncoder:
             fhir_path_sql_expression=constraint_sql.fhir_path_sql,
             severity=validation_pb2.ValidationSeverity.SEVERITY_ERROR,
             type=validation_pb2.ValidationType.VALIDATION_TYPE_CARDINALITY,
-            element_path=slice_path,
+            # This is a top-level constraint, so there is no context path.
+            element_path=root_builder.node.get_root_node().to_fhir_path(),
             description=description,
             fhir_path_key=column_name.replace('_', '-'),
             fhir_path_expression=constraint_sql.builder.fhir_path,

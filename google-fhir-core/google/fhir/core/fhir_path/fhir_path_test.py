@@ -4414,84 +4414,54 @@ class FhirProfileStandardSqlEncoderConstraintTest(
               'with_codeable_concept_backbone_slice_encodes_system_requirement'
           ),
           base_id='CodeableConceptBackboneSliceTest',
-          expected_context_element='CodeableConceptBackboneSliceTest.contact',
-          expected_fields_referenced_by_expression=['name'],
-          expected_fhir_path_expression="where(name = 'skeleton').count() >= 2",
+          expected_context_element='CodeableConceptBackboneSliceTest',
+          expected_fields_referenced_by_expression=['contact', 'contact.name'],
+          expected_fhir_path_expression=(
+              "contact.where(name = 'skeleton').count() >= 2"
+          ),
           expected_sql_expression=textwrap.dedent("""\
-          (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
-          FROM (SELECT ARRAY(SELECT comparison_
-          FROM (SELECT ((SELECT COUNT(
-          1) AS count_
-          FROM (SELECT NULL)
-          WHERE NOT EXISTS(
-          SELECT lhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, name
-          FROM (SELECT name)) AS lhs_
-          EXCEPT DISTINCT
-          SELECT rhs_.*
-          FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-          FROM (SELECT 'skeleton' AS literal_)) AS rhs_)) >= 2) AS comparison_)
-          WHERE comparison_ IS NOT NULL) AS subquery_
-          FROM (SELECT AS VALUE ctx_element_
-          FROM UNNEST(ARRAY(SELECT contact_element_
-          FROM (SELECT contact_element_
-          FROM UNNEST(contact) AS contact_element_ WITH OFFSET AS element_offset)
-          WHERE contact_element_ IS NOT NULL)) AS ctx_element_)),
-          UNNEST(subquery_) AS result_)"""),
+              (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
+              FROM UNNEST(ARRAY(SELECT comparison_
+              FROM (SELECT ((SELECT COUNT(
+              contact_element_) AS count_
+              FROM UNNEST(contact) AS contact_element_ WITH OFFSET AS element_offset
+              WHERE (contact_element_.name = 'skeleton')) >= 2) AS comparison_)
+              WHERE comparison_ IS NOT NULL)) AS result_)"""),
       ),
       dict(
           testcase_name='with_blood_pressure_slice_encodes_system_requirement',
           base_id='BloodPressureTest',
-          expected_context_element='BloodPressureTest.component',
+          expected_context_element='BloodPressureTest',
           expected_fields_referenced_by_expression=[
-              'code',
-              'code.coding',
-              'code.coding.code',
-              'code.coding.system',
-              'value',
-              'value.code',
-              'value.system',
+              'component',
+              'component.code',
+              'component.code.coding',
+              'component.code.coding.code',
+              'component.code.coding.system',
+              'component.value',
+              'component.value.code',
+              'component.value.system',
           ],
           expected_fhir_path_expression=(
-              "where(code.coding.where(system = 'http://loinc.org'"
+              "component.where(code.coding.where(system = 'http://loinc.org'"
               " and code = '8480-6').exists() and value.ofType('Quantity').code"
               " = 'mm[Hg]' and value.ofType('Quantity').system ="
               " 'http://unitsofmeasure.org').count() = 1"
           ),
           expected_sql_expression=textwrap.dedent("""\
               (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
-              FROM (SELECT ARRAY(SELECT eq_
+              FROM UNNEST(ARRAY(SELECT eq_
               FROM (SELECT ((SELECT COUNT(
-              1) AS count_
-              FROM (SELECT NULL)
+              component_element_) AS count_
+              FROM UNNEST(component) AS component_element_ WITH OFFSET AS element_offset
               WHERE ((EXISTS(
               SELECT coding_element_
               FROM (SELECT coding_element_
-              FROM (SELECT code),
+              FROM (SELECT component_element_.code),
               UNNEST(code.coding) AS coding_element_ WITH OFFSET AS element_offset
               WHERE ((coding_element_.system = 'http://loinc.org') AND (coding_element_.code = '8480-6')))
-              WHERE coding_element_ IS NOT NULL) AND NOT EXISTS(
-              SELECT lhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, code
-              FROM (SELECT value.Quantity.code)) AS lhs_
-              EXCEPT DISTINCT
-              SELECT rhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-              FROM (SELECT 'mm[Hg]' AS literal_)) AS rhs_)) AND NOT EXISTS(
-              SELECT lhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, system
-              FROM (SELECT value.Quantity.system)) AS lhs_
-              EXCEPT DISTINCT
-              SELECT rhs_.*
-              FROM (SELECT ROW_NUMBER() OVER() AS row_, literal_
-              FROM (SELECT 'http://unitsofmeasure.org' AS literal_)) AS rhs_))) = 1) AS eq_)
-              WHERE eq_ IS NOT NULL) AS subquery_
-              FROM (SELECT AS VALUE ctx_element_
-              FROM UNNEST(ARRAY(SELECT component_element_
-              FROM (SELECT component_element_
-              FROM UNNEST(component) AS component_element_ WITH OFFSET AS element_offset)
-              WHERE component_element_ IS NOT NULL)) AS ctx_element_)),
-              UNNEST(subquery_) AS result_)"""),
+              WHERE coding_element_ IS NOT NULL) AND (component_element_.value.Quantity.code = 'mm[Hg]')) AND (component_element_.value.Quantity.system = 'http://unitsofmeasure.org'))) = 1) AS eq_)
+              WHERE eq_ IS NOT NULL)) AS result_)"""),
       ),
       dict(
           testcase_name=(
