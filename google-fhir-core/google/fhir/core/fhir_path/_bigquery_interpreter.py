@@ -319,6 +319,14 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
           f' {reference_node.return_type}.'
       )
 
+    if (
+        'http://hl7.org/fhir/StructureDefinition/Resource'
+        in reference_node.return_type.target_profiles
+    ):
+      raise NotImplementedError(
+          'Unable to visit Reference(Any) field %s' % identifier.identifier
+      )
+
     # Build a SELECT for the reference struct.
     parent_query = self.visit(reference_node)
 
