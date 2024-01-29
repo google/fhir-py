@@ -691,6 +691,28 @@ class FhirProfileStandardSqlEncoder:
       )
       if result_constraint is None:
         continue  # Failure to generate Standard SQL expression
+
+      if any(
+          node.return_type.url
+          == 'http://hl7.org/fhir/StructureDefinition/Extension'
+          for node in result_constraint.builder.node.iter_nodes()
+      ):
+        # The generated SQL would reference an "extension" struct
+        # member, but the table schema will not include such a
+        # member. We therefore avoid generating this sql. We see this
+        # for example in the constraint rat-1 for ratios:
+        # (numerator.exists() and denominator.exists()) or
+        # (numerator.empty() and denominator.empty() and
+        # extension.exists())
+        self._error_reporter.report_fhir_path_error(
+            self._abs_path_invocation(builder),
+            result_constraint.builder.fhir_path,
+            'Constraints involving extensions are not supported. Unable to'
+            ' enforce this constraint because it references the "extension"'
+            ' field which is not included in the database schema.',
+        )
+        continue
+
       # Constraint type and severity metadata; default to WARNING
       # TODO(b/199419068): Cleanup validation severity mapping
       type_ = validation_pb2.ValidationType.VALIDATION_TYPE_FHIR_PATH_CONSTRAINT

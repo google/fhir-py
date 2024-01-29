@@ -3822,6 +3822,63 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
     self.assertEmpty(error_reporter.errors)
     self.assertEmpty(actual_bindings)
 
+  def test_encode_skips_constraint_referencing_extension_field(self):
+    extension = sdefs.build_resource_definition(
+        id_='Extension',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='Extension',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(1, '1'),
+            )
+        ],
+    )
+    foo = sdefs.build_resource_definition(
+        id_='Foo',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='Foo',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(1, '1'),
+                constraints=[
+                    # Should result in a constraint.
+                    self.build_constraint(
+                        fhir_path_expression='happiness.exists()',
+                        key='some-key',
+                    ),
+                    # Should be skipped and logged in the error reporter.
+                    self.build_constraint(
+                        fhir_path_expression=(
+                            'happiness.exists() or extension.exists()'
+                        ),
+                        key='some-other-key',
+                    ),
+                ],
+            ),
+            sdefs.build_element_definition(
+                id_='Foo.happiness',
+                type_codes=['string'],
+                cardinality=sdefs.Cardinality(0, '*'),
+            ),
+            sdefs.build_element_definition(
+                id_='Foo.extension',
+                type_codes=['Extension'],
+                cardinality=sdefs.Cardinality(0, '*'),
+            ),
+        ],
+    )
+
+    error_reporter = fhir_errors.ListErrorReporter()
+    encoder = fhir_path_validator.FhirProfileStandardSqlEncoder(
+        unittest.mock.Mock(iter_structure_definitions=lambda: [foo, extension]),
+        primitive_handler.PrimitiveHandler(),
+        error_reporter,
+    )
+    actual_constraints = encoder.encode(foo)
+    self.assertEmpty(error_reporter.warnings)
+    self.assertLen(error_reporter.errors, 1)
+    self.assertLen(actual_constraints, 1)
+
 
 class FhirProfileStandardSqlEncoderConstraintTest(
     FhirProfileStandardSqlEncoderTestBase

@@ -20,7 +20,7 @@ import datetime
 import decimal
 import re
 import threading
-from typing import Any, Collection, Dict, FrozenSet, List, Optional, Set, Tuple, cast
+from typing import Any, Collection, Dict, FrozenSet, Iterator, List, Optional, Set, Tuple, cast
 import urllib
 
 from google.protobuf import message
@@ -166,6 +166,14 @@ class ExpressionNode(abc.ABC):
       A tuple of (context, paths) as described above.
     """
 
+  @abc.abstractmethod
+  def iter_nodes(self) -> Iterator['ExpressionNode']:
+    """Iterates over all nodes connected to this node.
+
+    Yields:
+      This node and all nodes connected to it.
+    """
+
   @property
   @abc.abstractmethod
   def operands(self) -> List['ExpressionNode']:
@@ -296,6 +304,11 @@ class BinaryExpressionNode(ExpressionNode):
     _, right_paths = self._right._find_paths_referenced()  # pylint:disable=protected-access
     return None, (*left_paths, *right_paths)
 
+  def iter_nodes(self) -> Iterator[ExpressionNode]:
+    yield self
+    yield from self._left.iter_nodes()
+    yield from self._right.iter_nodes()
+
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     raise ValueError('Unable to visit BinaryExpression node.')
 
@@ -367,6 +380,9 @@ class StructureBaseNode(ExpressionNode):
 
   def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
     return None, ()
+
+  def iter_nodes(self) -> Iterator[ExpressionNode]:
+    yield self
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return None
@@ -454,6 +470,9 @@ class LiteralNode(ExpressionNode):
 
   def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
     return None, ()
+
+  def iter_nodes(self) -> Iterator[ExpressionNode]:
+    yield self
 
   def _validate_operands_and_populate_return_type(
       self,
@@ -585,6 +604,10 @@ class InvokeExpressionNode(ExpressionNode):
     # This path is now the context for other identifiers to chain against.
     return path, (path, *parent_paths)
 
+  def iter_nodes(self) -> Iterator[ExpressionNode]:
+    yield self
+    yield from self._parent_node.iter_nodes()
+
 
 class InvokeReferenceNode(InvokeExpressionNode):
   """An invocation of a 'reference' field against a FHIR Reference resource.
@@ -647,6 +670,10 @@ class IndexerNode(ExpressionNode):
 
   def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
     return self.collection._find_paths_referenced()  # pylint:disable=protected-access
+
+  def iter_nodes(self) -> Iterator[ExpressionNode]:
+    yield self
+    yield from self.collection.iter_nodes()
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_indexer(self)
@@ -724,6 +751,10 @@ class NumericPolarityNode(ExpressionNode):
 
   def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
     return self._operand._find_paths_referenced()  # pylint:disable=protected-access
+
+  def iter_nodes(self) -> Iterator[ExpressionNode]:
+    yield self
+    yield from self._operand.iter_nodes()
 
 
 class FunctionNode(ExpressionNode):
@@ -803,6 +834,12 @@ class FunctionNode(ExpressionNode):
     # like 'a.where(b).c' we'll need to pass the operand's context 'a'
     # forward so we can chain together 'a.c'
     return operand_context, paths
+
+  def iter_nodes(self) -> Iterator[ExpressionNode]:
+    yield self
+    yield from self._operand.iter_nodes()
+    for node in self._params:
+      yield from node.iter_nodes()
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_function(self)
@@ -1410,6 +1447,11 @@ class ReferenceNode(ExpressionNode):
 
   def _find_paths_referenced(self) -> Tuple[Optional[str], Collection[str]]:
     return self._reference_node._find_paths_referenced()  # pylint:disable=protected-access
+
+  def iter_nodes(self) -> Iterator[ExpressionNode]:
+    # We don't need to yield self._reference_node as the original node
+    # will be yielded elsewhere.
+    yield self
 
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_reference(self)

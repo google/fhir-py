@@ -2621,3 +2621,21 @@ class FhirPathExpressionsTest(
     pat = self.builder('Patient')
     builder = builder_func(pat)
     self.assertCountEqual(builder.node.find_paths_referenced(), expected_paths)
+
+  def test_iter_nodes(self):
+    """Ensures we can iterate over all nodes in a builder tree."""
+    pat = self.builder('Patient')
+    builder = pat.name.where(pat.name.use == 'usual').text
+    self.assertCountEqual(
+        [node.to_fhir_path() for node in builder.node.iter_nodes()],
+        [
+            "name.where(use = 'usual').text",
+            "name.where(use = 'usual')",
+            'name',
+            'Patient',
+            "use = 'usual'",
+            'use',
+            '$this',
+            "'usual'",
+        ],
+    )
