@@ -355,6 +355,10 @@ class FhirPackage(
             raw_json, parse_float=decimal.Decimal, parse_int=decimal.Decimal
         )
 
+        # Skip any files that are not JSON objects.
+        if not isinstance(json_obj, dict):
+          continue
+
         if os.path.basename(file_name) == 'package.json':
           ig_info = _parse_ig_info(json_obj)
 
