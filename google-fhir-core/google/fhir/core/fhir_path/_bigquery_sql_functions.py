@@ -496,7 +496,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
       predicate = self._build_predicate_for_coding_in_value_set(
           expanded_value_set, operand_result.select_part
       )
-      return dataclasses.replace(
+      return dataclasses.replace(  # pytype: disable=wrong-arg-types  # dataclasses-replace-types
           operand_result,
           select_part=operand_result.select_part.is_null().or_(
               predicate, _sql_alias=sql_alias
@@ -519,7 +519,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
       predicate = self._build_predicate_for_coding_in_value_set(
           expanded_value_set
       )
-      return dataclasses.replace(
+      return dataclasses.replace(  # pytype: disable=wrong-arg-types  # dataclasses-replace-types
           operand_result,
           select_part=coding_column.is_null().or_(
               _sql_data_types.RawExpression(
