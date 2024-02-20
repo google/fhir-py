@@ -15,11 +15,12 @@
 """Functionality to output BigQuery SQL expressions from FHIRPath expressions."""
 
 import dataclasses
-import functools
 from typing import Any, Optional
 
 from google.cloud import bigquery
 
+from google.protobuf import descriptor
+from google.fhir.r4.proto.core.resources import bundle_and_contained_resource_pb2
 from google.fhir.core.fhir_path import _ast
 from google.fhir.core.fhir_path import _bigquery_sql_functions
 from google.fhir.core.fhir_path import _evaluation
@@ -332,14 +333,33 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
     # Select the first non-null ID field on the struct. Validation
     # should ensure at most one of the fields is not null.
-    type_names = (
-        # Get the base resource type for structure definition URIs in
-        # `target_profiles`.
-        identifier.context.get_fhir_type_from_string(
-            profile=reference, type_code=None, element_definition=None
-        ).base_type
-        for reference in reference_node.return_type.target_profiles
-    )
+
+    if (
+        'http://hl7.org/fhir/StructureDefinition/Resource'
+        in reference_node.return_type.target_profiles
+    ):
+      # If generic Resource is a target type, the table schema will
+      # contain xId fields for all possible resource types X.
+      # Use the message types in the ContainedResource's
+      # oneof_resource field as an enumeration of all possible
+      # resource types.
+      oneof_descriptor = bundle_and_contained_resource_pb2.ContainedResource.DESCRIPTOR.oneofs_by_name[
+          'oneof_resource'
+      ]
+      type_names = (
+          field.message_type.name
+          for field in oneof_descriptor.fields
+          if field.type == descriptor.FieldDescriptor.TYPE_MESSAGE
+      )
+    else:
+      type_names = (
+          # Get the base resource type for structure definition URIs in
+          # `target_profiles`.
+          identifier.context.get_fhir_type_from_string(
+              profile=reference, type_code=None, element_definition=None
+          ).base_type
+          for reference in reference_node.return_type.target_profiles
+      )
 
     # If we have a parent query, append our record access against it.
     if parent_query is not None:
@@ -348,15 +368,18 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       prefix = ''
 
     # Build column names for each resource type, e.g. patientId, deviceId.
-    column_names = (
+    column_names = [
         f'{prefix}{type_name[:1].lower()}{type_name[1:]}Id'
         for type_name in type_names
-    )
-    # Select the first non-null ID column by chaining IFNULL calls, e.g.
-    # IFNULL("a", IFNULL("b", "c"))
-    sql = functools.reduce(
-        lambda acc, column: f'IFNULL({column}, {acc})', sorted(column_names)
-    )
+    ]
+    # Sort to generate consistent SQL across runs.
+    column_names.sort()
+
+    if len(column_names) == 1:
+      sql = column_names[0]
+    else:
+      # Select the first non-null ID column with a COALESCE.
+      sql = f'COALESCE({", ".join(column_names)})'
     select_part = _sql_data_types.RawExpression(
         sql, _sql_data_types.String, 'reference'
     )

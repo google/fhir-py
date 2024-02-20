@@ -1629,7 +1629,7 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression='ref.reference',
           expected_sql_expression=textwrap.dedent("""\
           ARRAY(SELECT reference
-          FROM (SELECT IFNULL(ref.patientId, IFNULL(ref.observationId, ref.deviceId)) AS reference)
+          FROM (SELECT COALESCE(ref.deviceId, ref.observationId, ref.patientId) AS reference)
           WHERE reference IS NOT NULL)"""),
       ),
   )
