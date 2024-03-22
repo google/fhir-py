@@ -41,25 +41,11 @@ from google.fhir.core.fhir_path import expressions
 from google.fhir.core.internal import primitive_handler
 from google.fhir.core.utils import annotation_utils
 from google.fhir.core.utils import fhir_package
-from google.fhir.core.utils import proto_utils
 
 # TODO(b/201107372): Update FHIR-agnostic types to a protocol.
 StructureDefinition = message.Message
 ElementDefinition = message.Message
 Constraint = message.Message
-
-# The `ElementDefinition.base.path` identifies the base element. This matches
-# the `ElementDefinition.path` for that element. Across FHIR, there is only one
-# base definition of any element.
-#
-# `ElementDefinition`s whose `base.path` is present in `_UNSUPPORTED_BASE_PATHS`
-# will be silently skipped during profile traversal, and will raise an exception
-# during FHIRPath-to-Standard-SQL encoding.
-UNSUPPORTED_BASE_PATHS = frozenset([
-    # Contained Resources do not map cleanly to SQL and are not supported by
-    # the SQL-on-FHIR standard.
-    'DomainResource.contained',
-])
 
 # The `ElementDefinition.type.code` is a URL of the datatype or resource used
 # for an element. References are URLs that are relative to:
@@ -152,29 +138,6 @@ class _PathStep:
 class _MessageType(enum.Enum):
   FIXED = 1
   PATTERN = 2
-
-
-def _get_analytic_path(element_definition: ElementDefinition) -> str:
-  """Returns the identifying dot-separated (`.`) analytic path of the element.
-
-  The `analytic path` is:
-  - If the given element is a slice on an extension, it returns the element id
-    with the `extension` part discarded.
-    (e.g: if slice element id is `Foo.extension:slice`, it returns `Foo.slice`)
-  - Else, the element.path attribute.
-
-  Args:
-    element_definition: The element definition that we are operating on.
-  """
-  if _utils.is_slice_on_extension(element_definition):
-    initial_path: str = cast(Any, element_definition).id.value
-    return initial_path.replace('extension:', '')
-
-  if not proto_utils.field_is_set(element_definition, 'path'):
-    raise ValueError(
-        f'Required field "path" is not set for {element_definition}.'
-    )
-  return cast(Any, element_definition).path.value
 
 
 def _last_path_token(builder: expressions.Builder) -> str:
@@ -1491,6 +1454,111 @@ class FhirProfileStandardSqlEncoder:
 
     return None
 
+  def _encode_primitive_regex(
+      self,
+      builder: expressions.Builder,
+      element: ElementDefinition
+  ) -> List[validation_pb2.SqlRequirement]:
+    """Returns regex `SqlRequirement`s for primitive `ElementDefinition`.
+
+    Args:
+      builder: The current builder to encode regexes for.
+      element: The ElementDefinition at this location
+
+    Returns:
+      A list of `SqlRequirement`s representing requirements generated from
+      primitive fields on the element that have regexes .
+    """
+    name = builder.fhir_path.split('.')[-1]
+
+    if _is_disabled(element):
+      return []
+
+    if not _is_elem_supported(element):
+      return []
+
+    # TODO(b/190679571): Handle choice types, which may have more than one
+    # `type.code` value present.
+    # TODO(b/202564733): Properly handle slices on non-simple extensions.
+    if builder.return_type.returns_polymorphic():
+      self._error_reporter.report_fhir_path_error(
+          self._abs_path_invocation(builder),
+          str(builder),
+          f'Element `{builder}` is a choice type which is not currently'
+          ' supported.',
+      )
+      return []
+
+    primitive_regex_info = self._get_regex_from_element(
+        builder, element
+    )
+
+    if primitive_regex_info is None:
+      return []  # Unable to find primitive regexes for this element.
+
+    primitive_regex = primitive_regex_info.regex
+    regex_type_code = primitive_regex_info.type_code
+
+    constraint_key = f'{name}-matches-{regex_type_code}-regex'
+
+    if constraint_key in self._options.skip_keys:
+      return []  # Allows users to skip specific regex checks.
+
+    # Generate the FHIR path expression that checks regexes, while also
+    # accounting for repeated fields, as FHIR doesn't allow function calls to
+    # `matches` where the input collection is repeated.
+    # More info here:
+    # http://hl7.org/fhirpath/index.html#matchesregex-string-boolean.
+    element_is_repeated = _utils.is_repeated_element(element)
+
+    fhir_path_builder = builder.matches(primitive_regex)
+    if regex_type_code == 'positiveInt':
+      fhir_path_builder = builder > 0
+    elif regex_type_code == 'unsignedInt':
+      fhir_path_builder = builder >= 0
+
+    # Handle special typecode cases, while also accounting for repeated
+    # fields, as FHIR doesn't allow direct comparisons involving repeated
+    # fields. More info here:
+    # http://hl7.org/fhirpath/index.html#comparison.
+    if element_is_repeated:
+      fhir_path_builder = builder.all(fhir_path_builder)
+
+    # Note that primitive regex restrictions are encoded from the context of
+    # the parent node - e.g., Foo.bar.birthDate is encoded as a constraint
+    # on "birthDate" in the context of Foo.bar.
+    # Therefore, we need to get the parent builder.
+    parent_builder = builder.get_parent_builder()
+    result = self._encode_fhir_path_builder_constraint(
+        fhir_path_builder, parent_builder
+    )
+    if result is None:
+      return []  # Failure to generate Standard SQL expression.
+
+    # Create the `SqlRequirement`.
+    constraint_key_column_name: str = _key_to_sql_column_name(
+        _path_to_sql_column_name(constraint_key)
+    )
+    parent_path = self._abs_path_invocation(parent_builder)
+    column_name_base: str = _path_to_sql_column_name(parent_path)
+    column_name = f'{column_name_base}_{constraint_key_column_name}'
+    if column_name in self._regex_columns_generated:
+      return []
+    self._regex_columns_generated.add(column_name)
+
+    return [validation_pb2.SqlRequirement(
+        column_name=column_name,
+        sql_expression=result.sql,
+        fhir_path_sql_expression=result.fhir_path_sql,
+        severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
+        type=validation_pb2.ValidationType.VALIDATION_TYPE_PRIMITIVE_REGEX,
+        element_path=parent_path,
+        description=f'{name} needs to match regex of {regex_type_code}.',
+        fhir_path_key=constraint_key,
+        fhir_path_expression=result.builder.fhir_path,
+        fields_referenced_by_expression=[name],
+    )]
+
   def _encode_primitive_regexes(
       self, builder: expressions.Builder
   ) -> List[validation_pb2.SqlRequirement]:
@@ -1529,101 +1597,19 @@ class FhirProfileStandardSqlEncoder:
 
     encoded_requirements: List[validation_pb2.SqlRequirement] = []
     for name, child_message in builder.return_type.iter_children():
-      child = cast(Any, child_message)
+      child_element = cast(ElementDefinition, child_message)
 
-      if _is_disabled(child):
+      if _is_disabled(child_element):
         continue
 
-      if not _is_elem_supported(child):
+      if not _is_elem_supported(child_element):
         continue
 
       child_builder = self._get_new_child_builder(builder, name)
       if not child_builder:
         continue
-
-      # TODO(b/190679571): Handle choice types, which may have more than one
-      # `type.code` value present.
-      # TODO(b/202564733): Properly handle slices on non-simple extensions.
-      if child_builder.return_type.returns_polymorphic():
-        self._error_reporter.report_fhir_path_error(
-            self._abs_path_invocation(child_builder),
-            str(child_builder),
-            f'Element `{child_builder}` is a choice type which is not currently'
-            ' supported.',
-        )
-        continue
-
-      primitive_regex_info = self._get_regex_from_element(
-          child_builder, child_message
-      )
-
-      if primitive_regex_info is None:
-        continue  # Unable to find primitive regexes for this child element.
-
-      primitive_regex = primitive_regex_info.regex
-      regex_type_code = primitive_regex_info.type_code
-
-      constraint_key = f'{name}-matches-{regex_type_code}-regex'
-
-      if constraint_key in self._options.skip_keys:
-        continue  # Allows users to skip specific regex checks.
-
-      # Early-exit if any types overlap with `_SKIP_TYPE_CODES`.
-      type_codes = _utils.element_type_codes(child)
-      if not _SKIP_TYPE_CODES.isdisjoint(type_codes):
-        continue
-
-      # Generate the FHIR path expression that checks regexes, while also
-      # accounting for repeated fields, as FHIR doesn't allow function calls to
-      # `matches` where the input collection is repeated.
-      # More info here:
-      # http://hl7.org/fhirpath/index.html#matchesregex-string-boolean.
-      element_is_repeated = _utils.is_repeated_element(child)
-
-      fhir_path_builder = child_builder.matches(f'{primitive_regex}')
-      if regex_type_code == 'positiveInt':
-        fhir_path_builder = child_builder > 0
-
-      if regex_type_code == 'unsignedInt':
-        fhir_path_builder = child_builder >= 0
-
-      # Handle special typecode cases, while also accounting for repeated
-      # fields, as FHIR doesn't allow direct comparisons involving repeated
-      # fields. More info here:
-      # http://hl7.org/fhirpath/index.html#comparison.
-      if element_is_repeated:
-        fhir_path_builder = child_builder.all(fhir_path_builder)
-
-      element_definition_path = self._abs_path_invocation(builder)
-      result = self._encode_fhir_path_builder_constraint(
-          fhir_path_builder, builder
-      )
-      if result is None:
-        continue  # Failure to generate Standard SQL expression.
-
-      # Create the `SqlRequirement`.
-      constraint_key_column_name: str = _key_to_sql_column_name(
-          _path_to_sql_column_name(constraint_key)
-      )
-      column_name_base: str = _path_to_sql_column_name(element_definition_path)
-      column_name = f'{column_name_base}_{constraint_key_column_name}'
-      if column_name in self._regex_columns_generated:
-        continue
-      self._regex_columns_generated.add(column_name)
-
-      requirement = validation_pb2.SqlRequirement(
-          column_name=column_name,
-          sql_expression=result.sql,
-          fhir_path_sql_expression=result.fhir_path_sql,
-          severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
-          type=validation_pb2.ValidationType.VALIDATION_TYPE_PRIMITIVE_REGEX,
-          element_path=self._abs_path_invocation(builder),
-          description=f'{name} needs to match regex of {regex_type_code}.',
-          fhir_path_key=constraint_key,
-          fhir_path_expression=result.builder.fhir_path,
-          fields_referenced_by_expression=[name],
-      )
-      encoded_requirements.append(requirement)
+      encoded_requirements += (
+          self._encode_primitive_regex(child_builder, child_element))
 
     return encoded_requirements
 
@@ -1635,21 +1621,12 @@ class FhirProfileStandardSqlEncoder:
     """Returns a list of Standard SQL expressions for an `ElementDefinition`."""
     result: List[validation_pb2.SqlRequirement] = []
 
-    element_definition = builder.return_type.root_element_definition
-    if not _is_elem_supported(element_definition):
-      return []
-
-    # `ElementDefinition.base.path` is guaranteed to be present for snapshots
-    base_path: str = cast(Any, element_definition).base.path.value
-    if base_path in UNSUPPORTED_BASE_PATHS:
-      return result  # Early-exit if unsupported `ElementDefinition.base.path`
-
     result += self._encode_reference_type_constraints(
         builder, parent_element_definition
     )
 
-    type_codes = _utils.element_type_codes(element_definition)
-    if not _SKIP_TYPE_CODES.isdisjoint(type_codes):
+    if not _SKIP_TYPE_CODES.isdisjoint(
+        _utils.element_type_codes(builder.return_type.root_element_definition)):
       return result  # Early-exit if any types overlap with `_SKIP_TYPE_CODES`
 
     # Encode all relevant FHIRPath expression constraints, prior to recursing on
@@ -1680,11 +1657,11 @@ class FhirProfileStandardSqlEncoder:
       ):
         return result
 
-      for child, elem in struct_type.iter_all_descendants():
+      for child_name, elem in struct_type.iter_all_descendants():
         # TODO(b/200575760): Add support for more complicated fields
         if (
-            child == 'extension'
-            or child == 'link'
+            child_name == 'extension'
+            or child_name == 'link'
             or '#' in cast(Any, elem).content_reference.value
             # Skip Resource fields, since we don't have contained resources
             # in analytic FHIR.
@@ -1692,7 +1669,7 @@ class FhirProfileStandardSqlEncoder:
         ):
           continue
 
-        new_builder = self._get_new_child_builder(builder, child)
+        new_builder = self._get_new_child_builder(builder, child_name)
         if not new_builder:
           continue
 
@@ -1706,7 +1683,7 @@ class FhirProfileStandardSqlEncoder:
         # TODO(b/200575760): Add support polymorphic choice types
         if not new_builder.return_type.root_element_definition:
           self._error_reporter.report_validation_error(
-              child, 'Root element definition of child is None.'
+              child_name, 'Root element definition of child is None.'
           )
           # Early-exit if Root element definition of child is None.
           return result
