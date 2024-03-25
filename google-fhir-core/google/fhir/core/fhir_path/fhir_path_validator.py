@@ -1661,7 +1661,6 @@ class FhirProfileStandardSqlEncoder:
         # TODO(b/200575760): Add support for more complicated fields
         if (
             child_name == 'extension'
-            or child_name == 'link'
             or '#' in cast(Any, elem).content_reference.value
             # Skip Resource fields, since we don't have contained resources
             # in analytic FHIR.
