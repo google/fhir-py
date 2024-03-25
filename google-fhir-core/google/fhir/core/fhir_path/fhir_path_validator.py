@@ -1702,7 +1702,7 @@ class FhirProfileStandardSqlEncoder:
         # Ensure we don't visit the same slice via the same FHIR path
         # multiple times.
         slice_visit = (
-            self._abs_path_invocation(new_builder),
+            self._abs_path_invocation(builder),
             slice_def.slice_def.id.value,
         )
         if slice_visit in self._visited_slices:
