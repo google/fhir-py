@@ -1559,70 +1559,16 @@ class FhirProfileStandardSqlEncoder:
         fields_referenced_by_expression=[name],
     )]
 
-  def _encode_primitive_regexes(
-      self, builder: expressions.Builder
-  ) -> List[validation_pb2.SqlRequirement]:
-    """Returns regex `SqlRequirement`s for primitives in `ElementDefinition`.
-
-    This function generates regex `SqlRequirement`s specifically for the direct
-    child elements of the given `element_definition`.
-
-    Args:
-      builder: The current builder to encode regexes for.
-
-    Returns:
-      A list of `SqlRequirement`s representing requirements generated from
-      primitive fields on the element that have regexes .
-    """
-    element_definition_path = self._abs_path_invocation(builder)
-    # TODO(b/206986228): Remove this key after we start taking profiles into
-    # account when encoding constraints for fields.
-    if 'comparator' in element_definition_path.split('.'):
-      return []
-
-    if not isinstance(
-        builder.return_type, _fhir_path_data_types.StructureDataType
-    ):
-      return []
-
-    struct_def = cast(
-        _fhir_path_data_types.StructureDataType, builder.return_type
-    ).structure_definition
-
-    # If this is an extension, we don't want to access its children/fields.
-    # TODO(b/200575760): Add support for complex extensions and the fields
-    # inside them.
-    if cast(Any, struct_def).type.value == 'Extension':
-      return []
-
-    encoded_requirements: List[validation_pb2.SqlRequirement] = []
-    for name, child_message in builder.return_type.iter_children():
-      child_element = cast(ElementDefinition, child_message)
-
-      if _is_disabled(child_element):
-        continue
-
-      if not _is_elem_supported(child_element):
-        continue
-
-      child_builder = self._get_new_child_builder(builder, name)
-      if not child_builder:
-        continue
-      encoded_requirements += (
-          self._encode_primitive_regex(child_builder, child_element))
-
-    return encoded_requirements
-
   def _encode_element_definition_of_builder(
       self,
       builder: expressions.Builder,
-      parent_element_definition: ElementDefinition,
+      element_definition: ElementDefinition,
   ) -> List[validation_pb2.SqlRequirement]:
     """Returns a list of Standard SQL expressions for an `ElementDefinition`."""
     result: List[validation_pb2.SqlRequirement] = []
 
     result += self._encode_reference_type_constraints(
-        builder, parent_element_definition
+        builder, element_definition
     )
 
     if not _SKIP_TYPE_CODES.isdisjoint(
@@ -1632,16 +1578,16 @@ class FhirProfileStandardSqlEncoder:
     # Encode all relevant FHIRPath expression constraints, prior to recursing on
     # children.
 
-    result += self._encode_constraints(builder, parent_element_definition)
+    result += self._encode_constraints(builder, element_definition)
     result += self._encode_required_fields(builder)
     result += self._encode_choice_type_exclusivity(builder)
 
     if self._options.add_primitive_regexes:
-      result += self._encode_primitive_regexes(builder)
+      result += self._encode_primitive_regex(builder, element_definition)
 
     if self._options.add_value_set_bindings:
       result += self._encode_value_set_bindings(
-          builder, parent_element_definition
+          builder, element_definition
       )
 
     if isinstance(builder.return_type, _fhir_path_data_types.StructureDataType):
