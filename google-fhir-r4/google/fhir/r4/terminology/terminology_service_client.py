@@ -153,7 +153,12 @@ class TerminologyServiceClient:
 
     auth = self.auth_per_terminology_server.get(base_url)
     if auth is not None:
-      session_.auth = auth
+      if isinstance(auth, tuple) and len(auth) == 2:
+        logging.debug("Using Basic auth for auth")
+        session_.auth = auth
+      else:
+        logging.debug("Using Bearer token for auth")
+        session_.headers["Authorization"] = auth
 
     logging.info(
         'Expanding value set url: %s version: %s using terminology service: %s',
@@ -216,7 +221,12 @@ class TerminologyServiceClient:
     session_ = self.create_session()
     session_.headers.update({'Accept': 'application/json'})
     if auth is not None:
-      session_.auth = auth
+      if isinstance(auth, tuple) and len(auth) == 2:
+        logging.debug("Using Basic auth for auth")
+        session_.auth = auth
+      else:
+        logging.debug("Using Bearer token for auth")
+        session_.headers["Authorization"] = auth
 
     logging.info(
         'Expanding value set url: %s version: %s using terminology service: %s',
