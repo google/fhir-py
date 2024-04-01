@@ -1060,14 +1060,11 @@ class MemberOfFunction(FunctionNode):
   def _validate_operands_and_populate_return_type(
       self,
   ) -> _fhir_path_data_types.FhirPathDataType:
-    if not (
-        isinstance(self._operand.return_type, _fhir_path_data_types._String)  # pylint: disable=protected-access
-        or _fhir_path_data_types.is_coding(self._operand.return_type)
-        or _fhir_path_data_types.is_codeable_concept(self._operand.return_type)
-    ):
+    if not _fhir_path_data_types.is_bindable(self._operand.return_type):
       raise ValueError(
-          'memberOf() must be called on a string, code, coding, or codeable '
-          f'concept. Got {self._operand.return_type} instead.'
+          'memberOf() must be called on a string, code, coding, or codeable'
+          f' concept. Got {self._operand.return_type} instead for'
+          f' {self._operand.to_fhir_path()}.'
       )
 
     if len(self._params) != 1 or not isinstance(self._params[0], LiteralNode):

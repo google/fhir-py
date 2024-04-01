@@ -1387,6 +1387,12 @@ class FhirProfileStandardSqlEncoder:
       self, builder: expressions.Builder, elem: ElementDefinition
   ) -> Optional[_RegexInfo]:
     """Returns the regex of this element_definition if available."""
+
+    assert not builder.return_type.returns_polymorphic(), (
+        f'Polymorphic element builder {builder.fhir_path} not expected in'
+        ' _get_regex_from_element.'
+    )
+
     element_definition = cast(Any, elem)
     type_codes = _utils.element_type_codes(
         builder.return_type.root_element_definition
@@ -1477,10 +1483,15 @@ class FhirProfileStandardSqlEncoder:
     if not _is_elem_supported(element):
       return []
 
+    assert not builder.return_type.returns_polymorphic(), (
+        f'Polymorphic element builder {builder.fhir_path} not expected in'
+        ' _encode_primitive_regex.'
+    )
+
     # TODO(b/190679571): Handle choice types, which may have more than one
     # `type.code` value present.
     # TODO(b/202564733): Properly handle slices on non-simple extensions.
-    if builder.return_type.returns_polymorphic():
+    if len(cast(Any, builder.return_type.root_element_definition).type) > 1:
       self._error_reporter.report_fhir_path_error(
           self._abs_path_invocation(builder),
           str(builder),
@@ -1559,6 +1570,12 @@ class FhirProfileStandardSqlEncoder:
         fields_referenced_by_expression=[name],
     )]
 
+  def _is_extension_slice_element(self, element_definition: Any) -> bool:
+    return (
+        len(element_definition.type) == 1
+        and element_definition.type[0].code.value == 'Extension'
+    )
+
   def _encode_element_definition_of_builder(
       self,
       builder: expressions.Builder,
@@ -1566,6 +1583,7 @@ class FhirProfileStandardSqlEncoder:
   ) -> List[validation_pb2.SqlRequirement]:
     """Returns a list of Standard SQL expressions for an `ElementDefinition`."""
     result: List[validation_pb2.SqlRequirement] = []
+    element_definition_any = cast(Any, element_definition)
 
     result += self._encode_reference_type_constraints(
         builder, element_definition
@@ -1575,12 +1593,31 @@ class FhirProfileStandardSqlEncoder:
         _utils.element_type_codes(builder.return_type.root_element_definition)):
       return result  # Early-exit if any types overlap with `_SKIP_TYPE_CODES`
 
+    if builder.return_type.returns_polymorphic():
+      result += self._encode_choice_type_exclusivity(builder)
+
+      if self._is_extension_slice_element(element_definition_any):
+        self._error_reporter.report_validation_error(
+            'Polymorphic simple extension not yet supported',
+            element_definition_any.id.value,
+        )
+        return result
+
+      # This is a choice type.
+      # Rather than adding any constraints to this field, iterate over all
+      # child types and encode the constraints on the choice type subset of that
+      # type.
+      for choice_type in cast(Any, element_definition).type:
+        result += self._encode_element_definition_of_builder(
+            builder.ofType(choice_type.code.value), element_definition
+        )
+      return result
+
     # Encode all relevant FHIRPath expression constraints, prior to recursing on
     # children.
 
     result += self._encode_constraints(builder, element_definition)
     result += self._encode_required_fields(builder)
-    result += self._encode_choice_type_exclusivity(builder)
 
     if self._options.add_primitive_regexes:
       result += self._encode_primitive_regex(builder, element_definition)
@@ -1625,7 +1662,6 @@ class FhirProfileStandardSqlEncoder:
           continue
         self._visited_element_definitions.add(elem_visit)
 
-        # TODO(b/200575760): Add support polymorphic choice types
         if not new_builder.return_type.root_element_definition:
           self._error_reporter.report_validation_error(
               child_name, 'Root element definition of child is None.'
@@ -1662,9 +1698,12 @@ class FhirProfileStandardSqlEncoder:
       self, builder: expressions.Builder, element_definition: ElementDefinition
   ) -> List[validation_pb2.SqlRequirement]:
     """Encode .memberOf calls implied by elements bound to value sets."""
-    if isinstance(
-        builder.return_type, _fhir_path_data_types.PolymorphicDataType
-    ):
+    assert (
+        not builder.return_type.returns_polymorphic()
+    ), 'Polymorphic type not expected in _encode_value_set_bindings'
+
+    if not _fhir_path_data_types.is_bindable(builder.return_type):
+      # Bindings cannot apply to this return type.
       return []
 
     # Ensure the element defines a value set binding.

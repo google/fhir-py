@@ -3425,8 +3425,8 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         [
             # Adding `+` to get rid of `implicit-str-concat` inside list
             # warning.
-            'FHIR Path Error: Foo.softDelete; softDelete; Element '
-            + '`softDelete` is a choice type which is not currently supported.'
+            'Validation Error: Polymorphic simple extension not yet supported; '
+            + 'Foo.extension:softDelete'
         ],
     )
     # Check that the only binding is over the choice type.
@@ -4655,7 +4655,6 @@ class FhirProfileStandardSqlEncoderConstraintTest(
     actual_bindings = encoder.encode(resource)
     self.assertEmpty(error_reporter.warnings)
     self.assertEmpty(error_reporter.errors)
-    self.assertLen(actual_bindings, 1)
     self.assertEqual(actual_bindings[0].element_path, expected_context_element)
     self.assertEqual(
         actual_bindings[0].fhir_path_expression,

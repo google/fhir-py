@@ -1341,6 +1341,15 @@ def is_codeable_concept(fhir_type: FhirPathDataType) -> bool:
   )
 
 
+def is_bindable(fhir_type: FhirPathDataType) -> bool:
+  """Indicates if the type can be bound to a ValueSet."""
+  return (
+      is_coding(fhir_type)
+      or is_codeable_concept(fhir_type)
+      or isinstance(fhir_type, _String)
+  )
+
+
 def is_collection(return_type: FhirPathDataType) -> bool:
   """Indicates if the return type represents a collection.
 
