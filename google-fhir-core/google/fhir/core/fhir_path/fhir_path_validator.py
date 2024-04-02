@@ -329,7 +329,7 @@ class FhirProfileStandardSqlEncoder:
 
     self._ctx: List[expressions.Builder] = []
     self._in_progress: Set[_PathStep] = set()
-    self._element_id_to_regex_map: Dict[str, _RegexInfo] = {}
+    self._type_code_to_regex_map: Dict[str, _RegexInfo] = {}
     self._regex_columns_generated = set()
     # Used to track duplicate requirements.
     self._requirement_column_names: Set[str] = set()
@@ -1404,11 +1404,10 @@ class FhirProfileStandardSqlEncoder:
       raise ValueError(f'Expected 1 type code, got {type_codes} for {builder}')
 
     current_type_code = type_codes[0]
-    element_id: str = element_definition.id.value
     # TODO(b/208620019): Look more into how this section handles multithreading.
     # If we have memoised the regex of this element, then just return it.
-    if element_id in self._element_id_to_regex_map:
-      return self._element_id_to_regex_map[element_id]
+    if current_type_code in self._type_code_to_regex_map:
+      return self._type_code_to_regex_map[current_type_code]
 
     # Ignore regexes on primitive types that are not represented as strings.
     if current_type_code == 'positiveInt' or current_type_code == 'unsignedInt':
@@ -1455,7 +1454,7 @@ class FhirProfileStandardSqlEncoder:
         # Memoise the regex of this element for quick retrieval
         # later.
         regex_info = _RegexInfo(regex_value, current_type_code)
-        self._element_id_to_regex_map[element_id] = regex_info
+        self._type_code_to_regex_map[current_type_code] = regex_info
         return regex_info
 
     return None
@@ -1841,7 +1840,7 @@ class FhirProfileStandardSqlEncoder:
       self._requirement_column_names.clear()
       self._visited_element_definitions.clear()
       self._visited_slices.clear()
-      self._element_id_to_regex_map.clear()
+      self._type_code_to_regex_map.clear()
       self._regex_columns_generated.clear()
     return result
 
