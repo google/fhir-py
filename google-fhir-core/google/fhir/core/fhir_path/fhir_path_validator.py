@@ -1381,6 +1381,15 @@ class FhirProfileStandardSqlEncoder:
         )
     ]
 
+  # Deduces the type of an "ofType" expression by parsing the argument.
+  # E.g., Patient.deceased[x].ofType('boolean') is a boolean type.
+  def _get_type_code_from_of_type_expression(self, fhir_path: str) -> str:
+    pattern = re.compile(r".*\.ofType\(\'([A-Za-z0-9]+)'\)$")
+    pattern_match = pattern.match(fhir_path)
+    if pattern_match is None:
+      raise ValueError(f'Unable to find type code for {fhir_path}')
+    return pattern_match.group(1)
+
   # TODO(b/207690471): Move important ElementDefinition (and other) functions
   # to their respective utility modules and unit test their public facing apis .
   def _get_regex_from_element(
@@ -1400,10 +1409,13 @@ class FhirProfileStandardSqlEncoder:
 
     if not type_codes:
       return None
-    if len(type_codes) > 1:
-      raise ValueError(f'Expected 1 type code, got {type_codes} for {builder}')
 
-    current_type_code = type_codes[0]
+    current_type_code = (
+        type_codes[0]
+        if len(type_codes) == 1
+        else self._get_type_code_from_of_type_expression(builder.fhir_path)
+    )
+
     # TODO(b/208620019): Look more into how this section handles multithreading.
     # If we have memoised the regex of this element, then just return it.
     if current_type_code in self._type_code_to_regex_map:
@@ -1460,9 +1472,7 @@ class FhirProfileStandardSqlEncoder:
     return None
 
   def _encode_primitive_regex(
-      self,
-      builder: expressions.Builder,
-      element: ElementDefinition
+      self, builder: expressions.Builder, element: ElementDefinition
   ) -> List[validation_pb2.SqlRequirement]:
     """Returns regex `SqlRequirement`s for primitive `ElementDefinition`.
 
@@ -1487,21 +1497,7 @@ class FhirProfileStandardSqlEncoder:
         ' _encode_primitive_regex.'
     )
 
-    # TODO(b/190679571): Handle choice types, which may have more than one
-    # `type.code` value present.
-    # TODO(b/202564733): Properly handle slices on non-simple extensions.
-    if len(cast(Any, builder.return_type.root_element_definition).type) > 1:
-      self._error_reporter.report_fhir_path_error(
-          self._abs_path_invocation(builder),
-          str(builder),
-          f'Element `{builder}` is a choice type which is not currently'
-          ' supported.',
-      )
-      return []
-
-    primitive_regex_info = self._get_regex_from_element(
-        builder, element
-    )
+    primitive_regex_info = self._get_regex_from_element(builder, element)
 
     if primitive_regex_info is None:
       return []  # Unable to find primitive regexes for this element.
@@ -1538,9 +1534,17 @@ class FhirProfileStandardSqlEncoder:
     # the parent node - e.g., Foo.bar.birthDate is encoded as a constraint
     # on "birthDate" in the context of Foo.bar.
     # Therefore, we need to get the parent builder.
-    parent_builder = builder.get_parent_builder()
+    # If this is a subfield type of a polymophic type, go from the context
+    # of the grandparent field.  This prevents an invalid splitting of
+    # `grandparent.ofType('subtype').matches(...)` into
+    # `grandparent` and `ofType('subtype')`, since `ofType` is invalid without
+    # an operand.
+    context_builder = builder.get_parent_builder()
+    if context_builder.return_type.returns_polymorphic():
+      context_builder = context_builder.get_parent_builder()
+
     result = self._encode_fhir_path_builder_constraint(
-        fhir_path_builder, parent_builder
+        fhir_path_builder, context_builder
     )
     if result is None:
       return []  # Failure to generate Standard SQL expression.
@@ -1549,25 +1553,28 @@ class FhirProfileStandardSqlEncoder:
     constraint_key_column_name: str = _key_to_sql_column_name(
         _path_to_sql_column_name(constraint_key)
     )
-    parent_path = self._abs_path_invocation(parent_builder)
-    column_name_base: str = _path_to_sql_column_name(parent_path)
+    column_name_base: str = _path_to_sql_column_name(
+        self._abs_path_invocation(builder.get_parent_builder())
+    )
     column_name = f'{column_name_base}_{constraint_key_column_name}'
     if column_name in self._regex_columns_generated:
       return []
     self._regex_columns_generated.add(column_name)
 
-    return [validation_pb2.SqlRequirement(
-        column_name=column_name,
-        sql_expression=result.sql,
-        fhir_path_sql_expression=result.fhir_path_sql,
-        severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
-        type=validation_pb2.ValidationType.VALIDATION_TYPE_PRIMITIVE_REGEX,
-        element_path=parent_path,
-        description=f'{name} needs to match regex of {regex_type_code}.',
-        fhir_path_key=constraint_key,
-        fhir_path_expression=result.builder.fhir_path,
-        fields_referenced_by_expression=[name],
-    )]
+    return [
+        validation_pb2.SqlRequirement(
+            column_name=column_name,
+            sql_expression=result.sql,
+            fhir_path_sql_expression=result.fhir_path_sql,
+            severity=(validation_pb2.ValidationSeverity.SEVERITY_ERROR),
+            type=validation_pb2.ValidationType.VALIDATION_TYPE_PRIMITIVE_REGEX,
+            element_path=self._abs_path_invocation(context_builder),
+            description=f'{name} needs to match regex of {regex_type_code}.',
+            fhir_path_key=constraint_key,
+            fhir_path_expression=result.builder.fhir_path,
+            fields_referenced_by_expression=[name],
+        )
+    ]
 
   def _is_extension_slice_element(self, element_definition: Any) -> bool:
     return (
@@ -1589,7 +1596,8 @@ class FhirProfileStandardSqlEncoder:
     )
 
     if not _SKIP_TYPE_CODES.isdisjoint(
-        _utils.element_type_codes(builder.return_type.root_element_definition)):
+        _utils.element_type_codes(builder.return_type.root_element_definition)
+    ):
       return result  # Early-exit if any types overlap with `_SKIP_TYPE_CODES`
 
     if builder.return_type.returns_polymorphic():
@@ -1622,9 +1630,7 @@ class FhirProfileStandardSqlEncoder:
       result += self._encode_primitive_regex(builder, element_definition)
 
     if self._options.add_value_set_bindings:
-      result += self._encode_value_set_bindings(
-          builder, element_definition
-      )
+      result += self._encode_value_set_bindings(builder, element_definition)
 
     if isinstance(builder.return_type, _fhir_path_data_types.StructureDataType):
       struct_type = cast(
@@ -1808,7 +1814,6 @@ class FhirProfileStandardSqlEncoder:
       self, structure_definition: StructureDefinition
   ) -> List[validation_pb2.SqlRequirement]:
     """Encodes the provided resource into a list of Standard SQL expressions."""
-    result: List[validation_pb2.SqlRequirement] = []
     try:
       # TODO(b/254866189): Support Extension types.
       if cast(Any, structure_definition).type.value == 'Extension':
@@ -1833,6 +1838,7 @@ class FhirProfileStandardSqlEncoder:
       )
       # Sort so the results are consistent for diff tests.
       result.sort(key=operator.attrgetter('column_name'))
+      return result
 
     finally:
       self._ctx.clear()
@@ -1842,7 +1848,6 @@ class FhirProfileStandardSqlEncoder:
       self._visited_slices.clear()
       self._type_code_to_regex_map.clear()
       self._regex_columns_generated.clear()
-    return result
 
 
 def _num_fields_exist(

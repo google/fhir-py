@@ -1229,7 +1229,7 @@ _PRIMITIVE_TYPES_BY_CODE: Dict[str, FhirPathDataType] = {
 
 
 def primitive_type_from_type_code(type_code: str) -> Optional[FhirPathDataType]:
-  """Returns the FhirPathDataType for the primitive identifed by the URL."""
+  """Returns the FhirPathDataType for the primitive identified by the URL."""
   return _PRIMITIVE_TYPES_BY_CODE.get(type_code.casefold())
 
 
