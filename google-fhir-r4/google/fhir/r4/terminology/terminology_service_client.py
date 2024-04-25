@@ -14,7 +14,7 @@
 # limitations under the License.
 """Provides a client for interacting with terminology servers."""
 
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Union
 import urllib.parse
 
 import logging
@@ -40,14 +40,16 @@ class TerminologyServiceClient:
   Attributes:
     auth_per_terminology_server: The basic auth values to use when communicating
       with each terminology server. The keys of this dictionary should be root
-      URLs of terminology services. The values should be tuples of (username,
-      password) strings for use in basic auth. If the terminology server does
-      not require an authorization to access, the entry for that server may be
-      omitted from api_keys_per_terminology_server or given a value of None.
+      URLs of terminology services. The values can a be tuple of (username,
+      password) strings for use in basic auth or a singular value that is sent
+      as a Bearer auth. If the terminology server does not require an
+      authorization to access, the entry for that server may be omitted from
+      api_keys_per_terminology_server or given a value of None.
   """
 
-  def __init__(self,
-               auth_per_terminology_server: Dict[str, Tuple[str, str]]) -> None:
+  def __init__(
+      self, auth_per_terminology_server: Dict[str, Union[Tuple[str, str], str]]
+  ) -> None:
     self.auth_per_terminology_server = auth_per_terminology_server
 
   def expand_value_set_url(self, value_set_url: str) -> value_set_pb2.ValueSet:
@@ -153,7 +155,12 @@ class TerminologyServiceClient:
 
     auth = self.auth_per_terminology_server.get(base_url)
     if auth is not None:
-      session_.auth = auth
+      if isinstance(auth, tuple) and len(auth) == 2:
+        logging.debug('Using Basic auth for auth')
+        session_.auth = auth
+      else:
+        logging.debug('Using Bearer token for auth')
+        session_.headers['Authorization'] = auth
 
     logging.info(
         'Expanding value set url: %s version: %s using terminology service: %s',
@@ -189,7 +196,7 @@ class TerminologyServiceClient:
       value_set_url: str,
       value_set_version: Optional[str],
       terminology_service_url: str,
-      auth: Optional[Tuple[str, str]],
+      auth: Optional[Union[Tuple[str, str], str]],
   ) -> value_set_pb2.ValueSet:
     """Expands the value set using the requested terminology service.
 
@@ -203,7 +210,8 @@ class TerminologyServiceClient:
       terminology_service_url: The url of the terminology service to use when
         expanding `value_set_url`.
       auth: A tuple of (user_name, password) to use when performing basic auth
-        with the terminology service or None if no authentication is required.
+        with the terminology service or a singular token added to the
+        Authorization header or None if no authentication is required.
 
     Returns:
       The current definition of the value set from the server with its expanded
@@ -216,7 +224,12 @@ class TerminologyServiceClient:
     session_ = self.create_session()
     session_.headers.update({'Accept': 'application/json'})
     if auth is not None:
-      session_.auth = auth
+      if isinstance(auth, tuple) and len(auth) == 2:
+        logging.debug('Using Basic auth for auth')
+        session_.auth = auth
+      else:
+        logging.debug('Using Bearer token for auth')
+        session_.headers['Authorization'] = auth
 
     logging.info(
         'Expanding value set url: %s version: %s using terminology service: %s',
