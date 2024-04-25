@@ -49,7 +49,7 @@ def main():
           'immutabledict~=2.2',
           'backports.zoneinfo~=0.2.1;python_version<"3.9"',
           'pandas~=1.1',
-          'protobuf~=3.19',
+          'protobuf~=4.23',
           'python-dateutil~=2.8',
           'requests~=2.27',
           'requests-mock~=1.9',
