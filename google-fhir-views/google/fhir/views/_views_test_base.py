@@ -64,7 +64,7 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     pat = self.get_views().view_of('Patient')
 
     active_patients = pat.select(
-        [pat.name.given.alias('name'), pat.birthDate.alias('birthDate')]
+        [pat.name.given.named('name'), pat.birthDate.named('birthDate')]
     ).where(pat.active)
     self.assertIsNotNone(active_patients)
 
@@ -84,13 +84,13 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     pat = self.get_views().view_of('Patient')
 
     active_patients = pat.select([
-        pat.name.given.forEach().alias('name'),
+        pat.name.given.forEach().named('name'),
     ]).where(pat.active)
     self.assertIsNotNone(active_patients)
 
     expressions = active_patients.get_select_expressions()
     self.assertLen(expressions, 1)
-    self.assertEqual('name.given.forEach().alias(name)', str(expressions[0]))
+    self.assertEqual('name.given.forEach().named(name)', str(expressions[0]))
     columns = active_patients.get_select_columns_to_return_type()
     self.assertLen(columns, 1)
     self.assertIsInstance(columns['name'], _fhir_path_data_types._String)  # pylint: disable=protected-access
@@ -104,9 +104,9 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     active_patients = pat.select(
         [
             name.forEach().select([
-                name.family.alias('family_name'),
-                name.given.alias('given_names'),
-                name.period.alias('name_period'),
+                name.family.named('family_name'),
+                name.given.named('given_names'),
+                name.period.named('name_period'),
             ])
         ]
     ).where(pat.active)
@@ -118,9 +118,9 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
         str(expressions[0]),
         textwrap.dedent("""\
         name.where($this.count() = 2).forEach().select([
-          family.alias(family_name),
-          given.alias(given_names),
-          period.alias(name_period)
+          family.named(family_name),
+          given.named(given_names),
+          period.named(name_period)
         ])"""),
     )
     columns = active_patients.get_select_columns_to_return_type()
@@ -143,11 +143,11 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     active_patients = pat.select(
         [
             name.select([
-                name.family.alias('family_name'),
-                name.given.alias('given_names'),
+                name.family.named('family_name'),
+                name.given.named('given_names'),
                 period.select([
-                    period.start.alias('period_start'),
-                    period.end.alias('period_end'),
+                    period.start.named('period_start'),
+                    period.end.named('period_end'),
                 ]),
             ])
         ]
@@ -160,11 +160,11 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
         str(expressions[0]),
         textwrap.dedent("""\
         name.where($this.count() = 2).first().select([
-          family.alias(family_name),
-          given.alias(given_names),
+          family.named(family_name),
+          given.named(given_names),
           period.select([
-            start.alias(period_start),
-            end.alias(period_end)
+            start.named(period_start),
+            end.named(period_end)
           ])
         ])"""),
     )
@@ -184,7 +184,7 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     pat = self.get_views().view_of('Patient')
 
     with self.assertRaises(ValueError):
-      pat.select([pat.name.given.alias('name'), pat.birthDate])
+      pat.select([pat.name.given.named('name'), pat.birthDate])
 
   def test_view_to_string_for_patient_base_view(self):
     """Test View object __str__ has expected content."""
@@ -208,8 +208,8 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     self.assertMultiLineEqual(
         textwrap.dedent("""\
           View<http://hl7.org/fhir/StructureDefinition/Patient.select(
-            name.given.alias(name_field),
-            birthDate.alias(birth_date_field)
+            name.given.named(name_field),
+            birthDate.named(birth_date_field)
           )>"""),
         str(patient_name_and_birth_date),
     )
@@ -226,8 +226,8 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     self.assertMultiLineEqual(
         textwrap.dedent("""\
           View<http://hl7.org/fhir/StructureDefinition/Patient.select(
-            name.given.alias(name_field),
-            birthDate.alias(birth_date_field)
+            name.given.named(name_field),
+            birthDate.named(birth_date_field)
           ).where(
             active,
             address.count() < 5
@@ -242,19 +242,19 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     name = pat.name.where(pat.name.count() == 2)
     active_patients = pat.select([
         name.forEach().select([
-            name.family.alias('family_name'),
-            name.given.alias('given_names'),
+            name.family.named('family_name'),
+            name.given.named('given_names'),
         ]),
-        pat.birthDate.alias('birth_date_field'),
+        pat.birthDate.named('birth_date_field'),
     ])
     self.assertMultiLineEqual(
         textwrap.dedent("""\
           View<http://hl7.org/fhir/StructureDefinition/Patient.select(
             name.where($this.count() = 2).forEach().select([
-              family.alias(family_name),
-              given.alias(given_names)
+              family.named(family_name),
+              given.named(given_names)
             ]),
-            birthDate.alias(birth_date_field)
+            birthDate.named(birth_date_field)
           )>"""),
         str(active_patients),
     )
@@ -267,27 +267,27 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     period = name.period
     active_patients = pat.select([
         name.select([
-            name.family.alias('family_name'),
-            name.given.alias('given_names'),
+            name.family.named('family_name'),
+            name.given.named('given_names'),
             period.select([
-                period.start.alias('period_start'),
-                period.end.alias('period_end'),
+                period.start.named('period_start'),
+                period.end.named('period_end'),
             ]),
         ]),
-        pat.birthDate.alias('birth_date_field'),
+        pat.birthDate.named('birth_date_field'),
     ])
     self.assertMultiLineEqual(
         textwrap.dedent("""\
           View<http://hl7.org/fhir/StructureDefinition/Patient.select(
             name.where($this.count() = 2).first().select([
-              family.alias(family_name),
-              given.alias(given_names),
+              family.named(family_name),
+              given.named(given_names),
               period.select([
-                start.alias(period_start),
-                end.alias(period_end)
+                start.named(period_start),
+                end.named(period_end)
               ])
             ]),
-            birthDate.alias(birth_date_field)
+            birthDate.named(birth_date_field)
           )>"""),
         str(active_patients),
     )
@@ -387,8 +387,8 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     view_definition = {
         'resource': 'Patient',
         'select': [
-            {'alias': 'name', 'path': 'name.given'},
-            {'alias': 'birthDate', 'path': 'birthDate'},
+            {'name': 'name', 'path': 'name.given'},
+            {'name': 'birthDate', 'path': 'birthDate'},
         ],
     }
 
@@ -406,8 +406,8 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     view_definition = {
         'resource': 'Patient',
         'select': [
-            {'alias': 'name', 'path': 'name.given'},
-            {'alias': 'birthDate', 'path': 'birthDate'},
+            {'name': 'name', 'path': 'name.given'},
+            {'name': 'birthDate', 'path': 'birthDate'},
         ],
         'where': [{'path': 'active'}],
     }
@@ -424,8 +424,8 @@ class FhirViewsTest(absltest.TestCase, metaclass=abc.ABCMeta):
     view_definition = {
         'resource': 'Patient',
         'select': [
-            {'alias': 'name', 'path': 'name.given'},
-            {'alias': 'birthDate', 'path': 'birthDate'},
+            {'name': 'name', 'path': 'name.given'},
+            {'name': 'birthDate', 'path': 'birthDate'},
         ],
         'where': [{'path': 'address'}],
     }

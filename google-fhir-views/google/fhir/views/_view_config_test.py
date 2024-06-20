@@ -42,8 +42,8 @@ class ConfigTest(absltest.TestCase):
     view_definition = {
         'resource': 'Patient',
         'select': [
-            {'alias': 'patient_id', 'path': 'id'},
-            {'alias': 'birth_date', 'path': 'birthDate'},
+            {'name': 'patient_id', 'path': 'id'},
+            {'name': 'birth_date', 'path': 'birthDate'},
         ],
     }
     config = _view_config.ViewConfig(
@@ -52,18 +52,18 @@ class ConfigTest(absltest.TestCase):
     self.assertEqual(config.resource, 'Patient')
     self.assertEqual(
         repr(config.column_builders[0]),
-        'ColumnExpressionBuilder("id.alias(patient_id)")',
+        'ColumnExpressionBuilder("id.named(patient_id)")',
     )
     self.assertEqual(
         repr(config.column_builders[1]),
-        'ColumnExpressionBuilder("birthDate.alias(birth_date)")',
+        'ColumnExpressionBuilder("birthDate.named(birth_date)")',
     )
 
   def test_config_without_resource_raises_error(self):
     view_definition = {
         'select': [
-            {'alias': 'patient_id', 'path': 'id'},
-            {'alias': 'birth_date', 'path': 'birthDate'},
+            {'name': 'patient_id', 'path': 'id'},
+            {'name': 'birth_date', 'path': 'birthDate'},
         ],
     }
     with self.assertRaises(KeyError):
@@ -76,11 +76,11 @@ class ConfigTest(absltest.TestCase):
     with self.assertRaises(KeyError):
       _view_config.ViewConfig(self._context, self._handler, view_definition)
 
-  def test_config_with_non_string_select_alias_raises_error(self):
+  def test_config_with_non_string_select_name_raises_error(self):
     view_definition = {
         'resource': 'Patient',
         'select': [
-            {'alias': 100, 'path': 'id'},
+            {'name': 100, 'path': 'id'},
         ],
     }
     with self.assertRaises(ValueError):
@@ -90,13 +90,13 @@ class ConfigTest(absltest.TestCase):
     view_definition = {
         'resource': 'Patient',
         'select': [
-            {'alias': 'patient_id', 'path': 100},
+            {'name': 'patient_id', 'path': 100},
         ],
     }
     with self.assertRaises(ValueError):
       _view_config.ViewConfig(self._context, self._handler, view_definition)
 
-  def test_config_with_not_alias_path_select_raises_error(self):
+  def test_config_with_not_name_path_select_raises_error(self):
     view_definition = {
         'resource': 'Patient',
         'select': [
@@ -110,8 +110,8 @@ class ConfigTest(absltest.TestCase):
     view_definition = {
         'resource': 'Patient',
         'select': [
-            {'alias': 'patient_id', 'path': 'id'},
-            {'alias': 'birth_date', 'path': 'birthDate'},
+            {'name': 'patient_id', 'path': 'id'},
+            {'name': 'birth_date', 'path': 'birthDate'},
         ],
         'where': [{'path': 'birthDate < @1990-01-01'}],
     }
@@ -128,8 +128,8 @@ class ConfigTest(absltest.TestCase):
     view_definition = {
         'resource': 'Patient',
         'select': [
-            {'alias': 'patient_id', 'path': 'id'},
-            {'alias': 'birth_date', 'path': 'birthDate'},
+            {'name': 'patient_id', 'path': 'id'},
+            {'name': 'birth_date', 'path': 'birthDate'},
         ],
         'where': [{'description': 'birthDate < @1990-01-01'}],
     }
@@ -140,8 +140,8 @@ class ConfigTest(absltest.TestCase):
     view_definition = {
         'resource': 'Patient',
         'select': [
-            {'alias': 'patient_id', 'path': 'id'},
-            {'alias': 'birth_date', 'path': 'birthDate'},
+            {'name': 'patient_id', 'path': 'id'},
+            {'name': 'birth_date', 'path': 'birthDate'},
         ],
         'where': [{'path': False}],
     }

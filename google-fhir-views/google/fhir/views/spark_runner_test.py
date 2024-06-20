@@ -170,8 +170,8 @@ class SparkRunnerTest(parameterized.TestCase):
             name.select(
                 [
                     period.select([
-                        period.start.alias('period_start'),
-                        period.end.alias('period_end'),
+                        period.start.named('period_start'),
+                        period.end.named('period_end'),
                     ])
                 ]
             )
@@ -202,7 +202,7 @@ class SparkRunnerTest(parameterized.TestCase):
   def test_select_with_unnest_to_sql_for_patient_succeeds(self):
     pat = self._views.view_of('Patient')
     simple_view = pat.select([
-        pat.name.given.forEach().alias('name'),
+        pat.name.given.forEach().named('name'),
     ])
     expected_sql = (
         'SELECT (SELECT name) AS name FROM (SELECT (SELECT'
@@ -228,8 +228,8 @@ class SparkRunnerTest(parameterized.TestCase):
     simple_view = pat.select(
         [
             name.forEach().select([
-                name.family.alias('family_name'),
-                name.given.forEach().alias('given_names'),
+                name.family.named('family_name'),
+                name.given.forEach().named('given_names'),
             ])
         ]
     )
@@ -262,14 +262,14 @@ class SparkRunnerTest(parameterized.TestCase):
     period = name.period
     simple_view = pat.select([
         name.select([
-            name.family.alias('family_name'),
-            name.given.alias('given_names'),
+            name.family.named('family_name'),
+            name.given.named('given_names'),
             period.select([
-                period.start.alias('period_start'),
-                period.end.alias('period_end'),
+                period.start.named('period_start'),
+                period.end.named('period_end'),
             ]),
         ]),
-        pat.birthDate.alias('birth_date_field'),
+        pat.birthDate.named('birth_date_field'),
     ])
 
     expected_sql = (

@@ -55,35 +55,35 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
         'ColumnExpressionBuilder("name")',
     )
 
-  def test_alias(self):
+  def test_named(self):
     column_name = 'patient_name'
-    builder_with_alias = self._view.name.alias(column_name)
+    builder_with_name = self._view.name.named(column_name)
 
-    self.assertEqual(builder_with_alias.column_name, column_name)
-    self.assertEmpty(builder_with_alias.children)
-    self.assertFalse(builder_with_alias.needs_unnest)
-    self.assertTrue(builder_with_alias.sealed)
-    self.assertEqual(str(builder_with_alias), 'name.alias(patient_name)')
+    self.assertEqual(builder_with_name.column_name, column_name)
+    self.assertEmpty(builder_with_name.children)
+    self.assertFalse(builder_with_name.needs_unnest)
+    self.assertTrue(builder_with_name.sealed)
+    self.assertEqual(str(builder_with_name), 'name.named(patient_name)')
 
-  def test_alias_after_foreach(self):
+  def test_name_after_foreach(self):
     column_name = 'patient_name'
-    builder_with_foreach_alias = self._view.name.forEach().alias(column_name)
+    builder_with_foreach_name = self._view.name.forEach().named(column_name)
 
-    self.assertEqual(builder_with_foreach_alias.column_name, column_name)
-    self.assertEmpty(builder_with_foreach_alias.children)
-    self.assertTrue(builder_with_foreach_alias.needs_unnest)
-    self.assertTrue(builder_with_foreach_alias.sealed)
+    self.assertEqual(builder_with_foreach_name.column_name, column_name)
+    self.assertEmpty(builder_with_foreach_name.children)
+    self.assertTrue(builder_with_foreach_name.needs_unnest)
+    self.assertTrue(builder_with_foreach_name.sealed)
     self.assertEqual(
-        str(builder_with_foreach_alias), 'name.forEach().alias(patient_name)'
+        str(builder_with_foreach_name), 'name.forEach().named(patient_name)'
     )
 
-  def test_alias_after_select_raises_error(self):
+  def test_name_after_select_raises_error(self):
     with self.assertRaises(AttributeError):
       name = self._view.name
       name.select([
-          name.family.alias('family_name'),
-          name.given.first().alias('given_name'),
-      ]).alias('patient_name')
+          name.family.named('family_name'),
+          name.given.first().named('given_name'),
+      ]).named('patient_name')
 
   def test_foreach(self):
     builder_with_foreach = self._view.name.forEach()
@@ -106,8 +106,8 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
   def test_foreach_select(self):
     name = self._view.name.where(self._view.name.exists())
     builder_with_foreach_select = name.forEach().select([
-        name.family.alias('family_name'),
-        name.given.first().alias('given_name'),
+        name.family.named('family_name'),
+        name.given.first().named('given_name'),
     ])
 
     self.assertIsNone(builder_with_foreach_select.column_name)
@@ -130,16 +130,16 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
         str(builder_with_foreach_select),
         textwrap.dedent("""\
         name.where($this.exists()).forEach().select([
-          family.alias(family_name),
-          given.first().alias(given_name)
+          family.named(family_name),
+          given.first().named(given_name)
         ])"""),
     )
 
   def test_select(self):
     name = self._view.name.first()
     builder_with_select = name.select([
-        name.family.alias('family_name'),
-        name.given.first().alias('given_name'),
+        name.family.named('family_name'),
+        name.given.first().named('given_name'),
     ])
 
     self.assertIsNone(builder_with_select.column_name)
@@ -158,8 +158,8 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
         str(builder_with_select),
         textwrap.dedent("""\
         name.first().select([
-          family.alias(family_name),
-          given.first().alias(given_name)
+          family.named(family_name),
+          given.first().named(given_name)
         ])"""),
     )
 
@@ -169,8 +169,8 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
     builder_with_nested_select = name.select(
         [
             period.select([
-                period.start.alias('period_start'),
-                period.end.alias('period_end'),
+                period.start.named('period_start'),
+                period.end.named('period_end'),
             ])
         ]
     )
@@ -185,20 +185,20 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
         textwrap.dedent("""\
         name.first().select([
           period.where(start.exists()).first().select([
-            start.alias(period_start),
-            end.alias(period_end)
+            start.named(period_start),
+            end.named(period_end)
           ])
         ])"""),
     )
 
-  def test_select_children_without_alias_or_children_raises_error(self):
+  def test_select_children_without_name_or_children_raises_error(self):
     with self.assertRaises(AttributeError):
       name = self._view.name
       name.first().select([name.family])
 
-  def test_select_after_alias_raises_error(self):
+  def test_select_after_name_raises_error(self):
     with self.assertRaises(AttributeError):
-      self._view.name.alias('patient_name').select([])
+      self._view.name.named('patient_name').select([])
 
   def test_select_on_collection_raises_error(self):
     with self.assertRaises(AttributeError):
@@ -213,9 +213,9 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
 
     self.assertEqual(builder.fhir_path, 'name.first()')
 
-  def test_keep_building_fhir_path_after_alias_raises_error(self):
+  def test_keep_building_fhir_path_after_name_raises_error(self):
     with self.assertRaises(AttributeError):
-      self._view.name.alias('patient_name').first()
+      self._view.name.named('patient_name').first()
 
   def test_keep_building_fhir_path_after_foreach_raises_error(self):
     with self.assertRaises(AttributeError):
@@ -230,8 +230,8 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
 
     self.assertIsInstance(node, _evaluation.ExpressionNode)
 
-  def test_get_non_builder_attribute_after_alias(self):
-    node = self._view.name.alias('a').node
+  def test_get_non_builder_attribute_after_named(self):
+    node = self._view.name.named('a').node
 
     self.assertIsInstance(node, _evaluation.ExpressionNode)
 
@@ -260,9 +260,9 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
 
     self.assertEqual(builder.fhir_path, 'name[0]')
 
-  def test_get_item_after_alias_raises_error(self):
+  def test_get_item_after_name_raises_error(self):
     with self.assertRaises(AttributeError):
-      self._view.name.alias('a')[0]  # pylint: disable=expression-not-assigned
+      self._view.name.named('a')[0]  # pylint: disable=expression-not-assigned
 
   def test_get_non_existent_item_raises_error(self):
     with self.assertRaises(TypeError):
@@ -390,9 +390,9 @@ class ColumnExpressionBuilderTest(absltest.TestCase):
         'ColumnExpressionBuilder("name.count() mod 2")',
     )
 
-  def test_call_operation_after_alias_raises_error(self):
+  def test_call_operation_after_name_raises_error(self):
     with self.assertRaises(AttributeError):
-      self._view.name.count().alias('a') + 1  # pylint: disable=expression-not-assigned
+      self._view.name.count().named('a') + 1  # pylint: disable=expression-not-assigned
 
 
 if __name__ == '__main__':

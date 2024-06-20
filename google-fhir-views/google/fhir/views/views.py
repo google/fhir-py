@@ -44,8 +44,8 @@ class View:
 
   >>> active_patients = (
   >>>   pat.select([
-  >>>       pat.name.given.alias('name'),
-  >>>       pat.birthDate.alias('birthDate')
+  >>>       pat.name.given.named('name'),
+  >>>       pat.birthDate.named('birthDate')
   >>>   }]).where(pat.active))
 
   Users will define these in this class, and use a runner to apply the view
@@ -110,7 +110,7 @@ class View:
 
     if isinstance(fields, dict):
       fields_tuple = tuple(
-          field if field.column_name else field.alias(name)
+          field if field.column_name else field.named(name)
           for name, field in fields.items()
       )
     else:

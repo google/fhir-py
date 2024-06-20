@@ -16,10 +16,13 @@
 
 from typing import Any, Iterable, List, Optional, Union
 
+import deprecated
+
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import expressions
 from google.fhir.core.internal import primitive_handler
+
 
 BuilderOperand = Union[
     expressions.Comparable,
@@ -35,15 +38,15 @@ class ColumnExpressionBuilder:
   1. allow users to easily build the View column expressions on top of the
      FHIRPath expressions, such as:
 
-     >>> Patient.name.first().given.alias('given_name')
+     >>> Patient.name.first().given.named('given_name')
 
-     , where the `alias` function does not belong to the FHIRPath builder.
+     , where the `named` function does not belong to the FHIRPath builder.
 
   2. NOT allow users to keep building the FHIRPath expressions once they have
      already called the FHIRViews functions. For example,
      if the users write:
 
-     >>> Patient.name.first().alias('patient_name').given
+     >>> Patient.name.first().named('patient_name').given
 
      , it should throw an error.
   """
@@ -62,10 +65,15 @@ class ColumnExpressionBuilder:
     self._needs_unnest: bool = needs_unnest
     self._sealed: bool = sealed
 
+  @deprecated.deprecated('Use named() instead.')
   def alias(self, name: str) -> 'ColumnExpressionBuilder':
-    """The alias() function.
+    """Deprecated. Use named() instead."""
+    return self.named(name)
 
-    Sets the column name of a given FHIR path in the View. Once the colomn
+  def named(self, name: str) -> 'ColumnExpressionBuilder':
+    """The named() function.
+
+    Sets the column name of a given FHIR path in the View. Once the column
     name is set, the FHIR path is sealed to be immutable.
 
     Args:
@@ -76,8 +84,8 @@ class ColumnExpressionBuilder:
     """
     if self._children:
       raise AttributeError(
-          'alias() must not be called on a builder with child selects. '
-          f'Got alias called on {str(self)}.'
+          'named() must not be called on a builder with child selects. '
+          f'Got named called on {str(self)}.'
       )
 
     return ColumnExpressionBuilder(
@@ -114,7 +122,7 @@ class ColumnExpressionBuilder:
     """
     if self._column_name:
       raise AttributeError(
-          'select() must not be called on a builder with alias set already. '
+          'select() must not be called on a builder with name set already. '
           f'Got select called on {str(self)}.'
       )
 
@@ -139,7 +147,7 @@ class ColumnExpressionBuilder:
     for child_builder in children:
       if not child_builder.column_name and not child_builder.children:
         raise AttributeError(
-            'select() child builders must either have alias names or children. '
+            'select() child builders must either have name names or children. '
             f'Got {str(child_builder)}'
         )
 
@@ -267,11 +275,11 @@ class ColumnExpressionBuilder:
     """Function to recursively print the operands of the input operand."""
     indent_string = f'{"  " * indent}'
     foreach_string = '.forEach()' if builder.needs_unnest else ''
-    alias_string = (
-        f'.alias({builder.column_name})' if builder.column_name else ''
+    named_string = (
+        f'.named({builder.column_name})' if builder.column_name else ''
     )
     base_string = (
-        f'{indent_string}{builder.fhir_path}{foreach_string}{alias_string}'
+        f'{indent_string}{builder.fhir_path}{foreach_string}{named_string}'
     )
     child_strings = []
     if builder.children:

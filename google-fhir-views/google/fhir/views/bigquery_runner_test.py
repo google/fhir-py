@@ -177,7 +177,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     """Tests select with unnest."""
     pat = self._views.view_of('Patient')
     simple_view = pat.select([
-        pat.name.given.forEach().alias('name'),
+        pat.name.given.forEach().named('name'),
     ])
 
     self.ast_and_expression_tree_test_runner(
@@ -199,8 +199,8 @@ class BigqueryRunnerTest(parameterized.TestCase):
     name = pat.name.where(pat.name.count() == 2)
     simple_view = pat.select([
         name.forEach().select([
-            name.family.alias('family_name'),
-            name.given.forEach().alias('given_names'),
+            name.family.named('family_name'),
+            name.given.forEach().named('given_names'),
         ])
     ])
 
@@ -229,14 +229,14 @@ class BigqueryRunnerTest(parameterized.TestCase):
     period = name.period
     simple_view = pat.select([
         name.select([
-            name.family.alias('family_name'),
-            name.given.alias('given_names'),
+            name.family.named('family_name'),
+            name.given.named('given_names'),
             period.select([
-                period.start.alias('period_start'),
-                period.end.alias('period_end'),
+                period.start.named('period_start'),
+                period.end.named('period_end'),
             ]),
         ]),
-        pat.birthDate.alias('birth_date_field'),
+        pat.birthDate.named('birth_date_field'),
     ])
 
     self.ast_and_expression_tree_test_runner(

@@ -45,6 +45,7 @@ def main():
       python_requires='>=3.8, <3.12',
       install_requires=[
           'absl-py~=1.1',
+          'deprecated~=1.2',
           f'google-fhir-core~={version}',
           'immutabledict~=2.2',
           'backports.zoneinfo~=0.2.1;python_version<"3.9"',
