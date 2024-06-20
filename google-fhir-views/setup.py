@@ -48,6 +48,8 @@ def main():
           f'google-fhir-core~={version}',
           'immutabledict~=2.2',
           'backports.zoneinfo~=0.2.1;python_version<"3.9"',
+          # Pin to numpy 1 to avoid binary compatibility changes in numpy 2.
+          'numpy~=1.24',
           'pandas~=1.1',
           'protobuf~=3.19',
           'python-dateutil~=2.8',

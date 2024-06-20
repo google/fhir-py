@@ -23,7 +23,9 @@ python3 -m venv ./test_env
 export FHIR_PY_VERSION=`cat VERSION`
 
 pip install wheel
-pip install pytest
+
+# Version pinned for https://github.com/pytest-dev/pytest/issues/12275
+pip install pytest==8.1.2
 
 # Create wheels and install and test them to ensure they are built correctly.
 pip wheel ./google-fhir-core --wheel-dir wheels
