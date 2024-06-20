@@ -591,7 +591,7 @@ class Function(Expression):
     # Non-FHIRPath Functions to simplify data analysis workloads.
     # TODO(b/221322122): Consider separating these to avoid tight coupling
     # of FHIRPath and additional functions.
-    ID_FOR = 'idFor'
+    GET_REFERENCE_KEY = 'getReferenceKey'
 
   def __init__(
       self, identifier: Identifier, params: Optional[List[Expression]] = None
@@ -1196,15 +1196,15 @@ def _append_path_to_context(context: Optional[str], path: str) -> str:
     return f'{context}.{path}'
 
 
-def contains_reference_without_id_for(node: AbstractSyntaxTree) -> bool:
-  """Checks if the AST contains a reference without a corresponding idFor call.
+def contains_reference_without_get_key(node: AbstractSyntaxTree) -> bool:
+  """Checks if the AST contains a reference without a getReferenceKey call.
 
   Args:
     node: The root node of the abstract syntax tree to search.
 
   Returns:
     True if the abstract syntax tree contains an identifier to a reference
-    without an idFor call against it. False otherwise.
+    without a getReferenceKey call against it. False otherwise.
   """
   # Check if the node is an identifier of a reference type.
   if (
@@ -1213,13 +1213,13 @@ def contains_reference_without_id_for(node: AbstractSyntaxTree) -> bool:
       and node.data_type.element_type == 'Reference'
   ):
     # Try to find a parent invocation with the reference node on the
-    # left and an idFor function on the right.
+    # left and a getReferenceKey function on the right.
     if not node.has_parent or not isinstance(node.parent, Invocation):
       return True
 
-    # For a path like 'reference.idFor' the reference would be on the
+    # For a path like 'reference.getReferenceKey' the reference would be on the
     # left of an invocation with the function call on the right. For a
-    # path like 'foo.reference.idFor' the reference would be on the
+    # path like 'foo.reference.getReferenceKey' the reference would be on the
     # right with another parent invocation containing the function
     # call on its right.
     if node.parent.lhs == node:
@@ -1231,16 +1231,16 @@ def contains_reference_without_id_for(node: AbstractSyntaxTree) -> bool:
         return True
       parent_invocation = node.parent.parent
 
-    # Ensure the reference has an idFor call against it.
+    # Ensure the reference has a getReferenceKey call against it.
     if (
         not isinstance(parent_invocation.rhs, Function)
-        or parent_invocation.rhs.identifier.value != 'idFor'
+        or parent_invocation.rhs.identifier.value != 'getReferenceKey'
     ):
       return True
 
   # Recursively check each child node.
   for child in node.children or ():
-    if contains_reference_without_id_for(child):
+    if contains_reference_without_get_key(child):
       return True
 
   return False

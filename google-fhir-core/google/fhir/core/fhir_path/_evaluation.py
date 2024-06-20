@@ -922,36 +922,36 @@ class HasValueFunction(FunctionNode):
 
 
 # TODO(b/220344555): Fully define this placeholder for more than analytic use.
-class IdForFunction(FunctionNode):
-  """idFor() implementation to get raw ids specific to a reference type.
+class GetReferenceKeyFunction(FunctionNode):
+  """getReferenceKey() gets join keys specific to a reference type.
 
-  For example, observation.subject.idFor('Patient') returns the raw id for
-  the patient resource, rather than the typical 'Patient/<id>' string. This
+  For example, observation.subject.getReferenceKey('Patient') returns the raw id
+  for the patient resource, rather than the typical 'Patient/<id>' string. This
   is convenient for tools that join data based on IDs, such as SQL or
   dataframe tables.
   """
 
-  NAME = 'idFor'
+  NAME = 'getReferenceKey'
   base_type_str: str
   struct_def_url: str
 
   def _validate_operands_and_populate_return_type(
       self,
   ) -> _fhir_path_data_types.FhirPathDataType:
-    # TODO(b/244184211): Resolve typing for idFor function.
+    # TODO(b/244184211): Resolve typing for getReferenceKey function.
     if not (
         len(self._params) == 1
         and isinstance(self._params[0], LiteralNode)
         and fhir_types.is_string(cast(LiteralNode, self._params[0]).get_value())
     ):
       raise ValueError(
-          'IdFor() requires a single parameter of the resource type.'
+          'getReferenceKey() requires a single parameter of the resource type.'
       )
 
     if isinstance(
         self._operand.return_type, _fhir_path_data_types.PolymorphicDataType
     ):
-      raise ValueError('idFor() does not operate on a choice type.')
+      raise ValueError('getReferenceKey() does not operate on a choice type.')
     # Determine the expected FHIR type to use as the node's return type.
     type_param_str = cast(Any, self._params[0]).get_value().value
 
@@ -1575,7 +1575,7 @@ _FUNCTION_NODE_MAP: Dict[str, Any] = {
     'not': NotFunction,
     'first': FirstFunction,
     'hasValue': HasValueFunction,
-    'idFor': IdForFunction,
+    'getReferenceKey': GetReferenceKeyFunction,
     'memberOf': MemberOfFunction,
     'ofType': OfTypeFunction,
     'where': WhereFunction,

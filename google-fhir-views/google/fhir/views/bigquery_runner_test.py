@@ -742,7 +742,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     meds = self._views.view_of('MedicationRequest')
 
     statin_meds = meds.select({
-        'patient': meds.subject.idFor('Patient'),
+        'patient': meds.subject.getReferenceKey('Patient'),
         'authoredOn': meds.authoredOn,
     }).where(
         meds.medication.ofType('CodeableConcept').memberOf(
@@ -813,14 +813,14 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
     obs_with_raw_patient_id_view = obs.select({
         'id': obs.id,
-        'patientId': obs.subject.idFor('Patient'),
+        'patientId': obs.subject.getReferenceKey('Patient'),
         'status': obs.status,
     })
 
     self.ast_and_expression_tree_test_runner(
         textwrap.dedent(
             """\
-        SELECT (SELECT id) AS id,(SELECT subject.patientId AS idFor_) AS patientId,(SELECT status) AS status FROM `test_project.test_dataset`.Observation"""
+        SELECT (SELECT id) AS id,(SELECT subject.patientId AS getReferenceKey_) AS patientId,(SELECT status) AS status FROM `test_project.test_dataset`.Observation"""
         ),
         obs_with_raw_patient_id_view,
     )
@@ -833,7 +833,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
 
     obs_with_raw_patient_id_view = obs.select({
         'id': obs.id,
-        'patientId': obs.subject.idFor(
+        'patientId': obs.subject.getReferenceKey(
             'http://hl7.org/fhir/StructureDefinition/Patient'
         ),
         'status': obs.status,
@@ -842,7 +842,7 @@ class BigqueryRunnerTest(parameterized.TestCase):
     self.ast_and_expression_tree_test_runner(
         textwrap.dedent(
             """\
-        SELECT (SELECT id) AS id,(SELECT subject.patientId AS idFor_) AS patientId,(SELECT status) AS status FROM `test_project.test_dataset`.Observation"""
+        SELECT (SELECT id) AS id,(SELECT subject.patientId AS getReferenceKey_) AS patientId,(SELECT status) AS status FROM `test_project.test_dataset`.Observation"""
         ),
         obs_with_raw_patient_id_view,
     )

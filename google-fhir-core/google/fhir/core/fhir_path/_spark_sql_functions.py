@@ -398,17 +398,17 @@ def of_type_function(
   )
 
 
-def id_for_function(
-    function: _evaluation.IdForFunction,
+def get_reference_key_function(
+    function: _evaluation.GetReferenceKeyFunction,
     operand_result: Optional[_sql_data_types.IdentifierSelect],
     params_result: Collection[_sql_data_types.StandardSqlExpression],
 ) -> _sql_data_types.Select:
   """Returns the raw ID for a given resource type."""
   if operand_result is None:
-    raise ValueError('idFor() cannot be called without an operand.')
+    raise ValueError('getReferenceKey() cannot be called without an operand.')
 
   if len(params_result) != 1:
-    raise ValueError('IdForFunction must have a resource type parameter.')
+    raise ValueError('GetReferenceKey must have a resource type parameter.')
 
   # As described in
   # https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md,
@@ -421,7 +421,9 @@ def id_for_function(
   return dataclasses.replace(
       operand_result,
       select_part=operand_result.select_part.dot(
-          f'{resource_type}Id', _sql_data_types.String, sql_alias='idFor_'
+          f'{resource_type}Id',
+          _sql_data_types.String,
+          sql_alias='getReferenceKey_',
       ),
   )
 
@@ -1005,7 +1007,7 @@ FUNCTION_MAP: Mapping[str, Callable[..., _sql_data_types.Select]] = (
         _evaluation.MatchesFunction.NAME: matches_function,
         _evaluation.OfTypeFunction.NAME: of_type_function,
         _evaluation.NotFunction.NAME: not_function,
-        _evaluation.IdForFunction.NAME: id_for_function,
+        _evaluation.GetReferenceKeyFunction.NAME: get_reference_key_function,
         _evaluation.MemberOfFunction.NAME: member_of_function,
         _evaluation.AllFunction.NAME: all_function,
         _evaluation.WhereFunction.NAME: where_function,

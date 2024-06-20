@@ -215,7 +215,9 @@ class View:
     else:
       patient_ref = patients[0]
 
-    return self._root_resource.__getattr__(patient_ref).idFor('patient')
+    return self._root_resource.__getattr__(patient_ref).getReferenceKey(
+        'patient'
+    )
 
   def get_select_expressions(
       self,

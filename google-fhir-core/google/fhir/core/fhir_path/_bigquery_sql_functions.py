@@ -848,26 +848,26 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
 
 # TODO(b/221322122): Separate custom functions from core FHIRPath functions,
 # and add dedicated tests for the different function classes.
-class _IdForFunction(_FhirPathFunctionStandardSqlEncoder):
+class _GetReferenceKeyFunction(_FhirPathFunctionStandardSqlEncoder):
   """Returns the raw ID for a given resource type."""
 
   def __call__(  # pytype: disable=signature-mismatch  # overriding-parameter-type-checks
       self,
-      function: _evaluation.IdForFunction,
+      function: _evaluation.GetReferenceKeyFunction,
       operand_result: Optional[_sql_data_types.IdentifierSelect],
       params_result: List[_sql_data_types.StandardSqlExpression],
   ) -> _sql_data_types.Select:
     if operand_result is None:
-      raise ValueError('idFor() cannot be called without an operand.')
+      raise ValueError('getReferenceKey() cannot be called without an operand.')
 
     if len(params_result) != 1:
-      raise ValueError('IdForFunction must have a resource type parameter.')
+      raise ValueError('GetReferenceKey must have a resource type parameter.')
 
     # As described in
     # https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md,
     # this is a special case where the name of the field is based on the desired
     # reference target, e.g. patientId or organizationId.
-    sql_alias = 'idFor_'
+    sql_alias = 'getReferenceKey_'
     resource_type = function.base_type_str
     # Make the first character lowercase to match the column names.
     resource_type = resource_type[:1].lower() + resource_type[1:]
@@ -1134,7 +1134,7 @@ FUNCTION_MAP: Dict[str, _FhirPathFunctionStandardSqlEncoder] = {
     _evaluation.FirstFunction.NAME: _FirstFunction(),
     _evaluation.AnyTrueFunction.NAME: _AnyTrueFunction(),
     _evaluation.HasValueFunction.NAME: _HasValueFunction(),
-    _evaluation.IdForFunction.NAME: _IdForFunction(),
+    _evaluation.GetReferenceKeyFunction.NAME: _GetReferenceKeyFunction(),
     _evaluation.NotFunction.NAME: _NotFunction(),
     _evaluation.MatchesFunction.NAME: _MatchesFunction(),
     _evaluation.MemberOfFunction.NAME: _MemberOfFunction(),

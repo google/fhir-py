@@ -1341,7 +1341,7 @@ class FhirProfileStandardSqlEncoder:
     # If there are more than one possible reference types, ensure only
     # one is filled.
     num_references_exist: expressions.Builder = _num_fields_exist(
-        builder.idFor(reference_type)
+        builder.getReferenceKey(reference_type)
         for reference_type in sorted(allowed_reference_types)
     )
 

@@ -73,7 +73,7 @@ class RunnerUtilsTest(absltest.TestCase):
   def test_build_sql_statement_with_snake_case_resource_tables_big_query(self):
     med_rec = self._views.view_of('MedicationRequest')
     med_rec_patient_view = med_rec.select({
-        'patient': med_rec.subject.idFor('Patient'),
+        'patient': med_rec.subject.getReferenceKey('Patient'),
     })
     encoder = _bigquery_interpreter.BigQuerySqlInterpreter(
         value_set_codes_table='VALUESET_VIEW'
@@ -86,7 +86,7 @@ class RunnerUtilsTest(absltest.TestCase):
     ).build_sql_statement()
     expected_output = textwrap.dedent(
         """\
-        SELECT (SELECT subject.patientId AS idFor_) AS patient FROM `test_dataset`.medication_request"""
+        SELECT (SELECT subject.patientId AS getReferenceKey_) AS patient FROM `test_dataset`.medication_request"""
     )
     self.assertMultiLineEqual(expected_output, sql_statement)
 
@@ -146,7 +146,7 @@ class RunnerUtilsTest(absltest.TestCase):
   def test_build_sql_statement_with_snake_case_resource_tables_spark(self):
     med_rec = self._views.view_of('MedicationRequest')
     med_rec_patient_view = med_rec.select({
-        'patient': med_rec.subject.idFor('Patient'),
+        'patient': med_rec.subject.getReferenceKey('Patient'),
     })
     encoder = _spark_interpreter.SparkSqlInterpreter()
     sql_statement = runner_utils.RunnerSqlGenerator(
@@ -157,7 +157,7 @@ class RunnerUtilsTest(absltest.TestCase):
     ).build_sql_statement()
     expected_output = textwrap.dedent(
         """\
-        SELECT (SELECT subject.patientId AS idFor_) AS patient FROM `test_dataset`.medication_request"""
+        SELECT (SELECT subject.patientId AS getReferenceKey_) AS patient FROM `test_dataset`.medication_request"""
     )
     self.assertMultiLineEqual(expected_output, sql_statement)
 

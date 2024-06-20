@@ -2483,11 +2483,13 @@ class FhirPathExpressionsTest(
     # Multiple arguments
     self.assertMultiLineEqual(
         textwrap.dedent("""\
-          + subject.idFor('patient') <IdForFunction> (
+          + subject.getReferenceKey('patient') <GetReferenceKeyFunction> (
           | + subject <InvokeExpressionNode> (
           | | + Encounter <RootMessageNode> ())
           | + 'patient' <LiteralNode> ())"""),
-        self.builder('Encounter').subject.idFor('patient').debug_string(),
+        self.builder('Encounter')
+        .subject.getReferenceKey('patient')
+        .debug_string(),
     )
 
     # Complicated FHIRView
@@ -2545,12 +2547,12 @@ class FhirPathExpressionsTest(
     )
     self.assertEqual(
         enc.basedOn.all(
-            enc.basedOn.idFor('CarePlan').exists().toInteger()
-            + enc.basedOn.idFor('DeviceRequest').exists().toInteger()
+            enc.basedOn.getReferenceKey('CarePlan').exists().toInteger()
+            + enc.basedOn.getReferenceKey('DeviceRequest').exists().toInteger()
             <= 1
         ).fhir_path,
-        "basedOn.all($this.idFor('CarePlan').exists().toInteger() +"
-        " $this.idFor('DeviceRequest').exists().toInteger() <= 1)",
+        "basedOn.all($this.getReferenceKey('CarePlan').exists().toInteger() +"
+        " $this.getReferenceKey('DeviceRequest').exists().toInteger() <= 1)",
     )
 
   @parameterized.named_parameters(

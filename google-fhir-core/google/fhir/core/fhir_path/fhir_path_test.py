@@ -1518,8 +1518,8 @@ class FhirPathStandardSqlEncoderTest(
           fhir_path_expression='choiceExample.toInteger()',
       ),
       dict(
-          testcase_name='with_id_for',
-          fhir_path_expression="choiceExample.idFor('Patient')",
+          testcase_name='with_get_reference_key',
+          fhir_path_expression="choiceExample.getReferenceKey('Patient')",
       ),
       dict(
           testcase_name='with_matches',
@@ -4405,8 +4405,8 @@ class FhirProfileStandardSqlEncoderConstraintTest(
           expected_context_element='ReferenceTest',
           expected_fields_referenced_by_expression=['bar'],
           expected_fhir_path_expression=(
-              "bar.idFor('Device').exists().toInteger() +"
-              " bar.idFor('Patient').exists().toInteger() <= 1"
+              "bar.getReferenceKey('Device').exists().toInteger() +"
+              " bar.getReferenceKey('Patient').exists().toInteger() <= 1"
           ),
           expected_sql_expression=textwrap.dedent("""\
             (SELECT IFNULL(LOGICAL_AND(result_), TRUE)
@@ -4425,8 +4425,8 @@ class FhirProfileStandardSqlEncoderConstraintTest(
           expected_fields_referenced_by_expression=['bar'],
           expected_fhir_path_expression=(
               'bar.all('
-              "$this.idFor('Device').exists().toInteger() +"
-              " $this.idFor('Patient').exists().toInteger() <= 1)"
+              "$this.getReferenceKey('Device').exists().toInteger() +"
+              " $this.getReferenceKey('Patient').exists().toInteger() <= 1)"
           ),
           expected_sql_expression=textwrap.dedent("""\
               (SELECT IFNULL(LOGICAL_AND(result_), TRUE)

@@ -364,22 +364,25 @@ class Builder:
         _evaluation.HasValueFunction(self.node.context, self.node, [])
     )
 
-  def idFor(self, resource_type: str) -> 'Builder':  # pylint: disable=invalid-name
-    """Function that returns the raw id for the given resource type.
+  def getReferenceKey(self, resource_type: str) -> 'Builder':  # pylint: disable=invalid-name
+    """Function that returns a reference key for the given resource type.
 
-    This is used in FHIR references. For example, subject.idFor('Patient')
-    returns the raw patient id.
+    This is used in FHIR references. For example,
+    subject.getReferenceKey('Patient') returns the raw patient key, which may
+    simply be the patient id.
 
     Args:
-      resource_type: The FHIR resource to get the id for, e.g. 'Patient' or
+      resource_type: The FHIR resource to get the key for, e.g. 'Patient' or
         'http://hl7.org/fhir/StructureDefinition/Patient'
 
     Returns:
-      An expression retrieving the resource id.
+      An expression retrieving the reference key.
     """
     param_nodes = self._function_args_to_nodes(self.node, [resource_type])
     return self._to_builder(
-        _evaluation.IdForFunction(self.node.context, self.node, param_nodes)
+        _evaluation.GetReferenceKeyFunction(
+            self.node.context, self.node, param_nodes
+        )
     )
 
   def memberOf(self, value_set: Union[str, message.Message]) -> 'Builder':  # pylint: disable=invalid-name

@@ -287,39 +287,43 @@ class FhirPathAstTest(parameterized.TestCase):
           expected_result=True,
       ),
       dict(
-          testcase_name='withReferenceAndNonIdForFunctionCall_returnsTrue',
+          testcase_name='withReferenceAndNonGetReferenceKeyCall_returnsTrue',
           fhir_path_expression='reference.exists()',
           expected_result=True,
       ),
       dict(
           testcase_name=(
-              '_withNestedReferenceAndNonIdForFunctionCall_returnsTrue'
+              '_withNestedReferenceAndNonGetReferenceKeyCall_returnsTrue'
           ),
           fhir_path_expression='foo.reference.exists()',
           expected_result=True,
       ),
       dict(
-          testcase_name='withReferenceAndIdForCall_returnsFalse',
-          fhir_path_expression="reference.idFor('Patient')",
-          expected_result=False,
-      ),
-      dict(
-          testcase_name='withNestedReferenceAndIdForCall_returnsFalse',
-          fhir_path_expression="foo.reference.idFor('Patient')",
+          testcase_name='withReferenceAndGetReferenceKeyCall_returnsFalse',
+          fhir_path_expression="reference.getReferenceKey('Patient')",
           expected_result=False,
       ),
       dict(
           testcase_name=(
-              '_withReferenceAndIdForCallAndTrailingCall_returnsFalse'
+              'withNestedReferenceAndGetReferenceKeyCall_returnsFalse'
           ),
-          fhir_path_expression="reference.idFor('Patient').exists()",
+          fhir_path_expression="foo.reference.getReferenceKey('Patient')",
           expected_result=False,
       ),
       dict(
           testcase_name=(
-              '_withNestedReferenceAndIdForCallAndTrailingCall_returnsFalse'
+              '_withReferenceAndGetReferenceKeyCallAndTrailingCall_returnsFalse'
           ),
-          fhir_path_expression="foo.reference.idFor('Patient').exists()",
+          fhir_path_expression="reference.getReferenceKey('Patient').exists()",
+          expected_result=False,
+      ),
+      dict(
+          testcase_name=(
+              '_withNestedReferenceAndGetReferenceKeyCallAndTrailingCall_returnsFalse'
+          ),
+          fhir_path_expression=(
+              "foo.reference.getReferenceKey('Patient').exists()"
+          ),
           expected_result=False,
       ),
   )
@@ -329,7 +333,7 @@ class FhirPathAstTest(parameterized.TestCase):
     ast = _ast.build_fhir_path_ast(fhir_path_expression)
     _decorate_ast_reference_data_types(ast)
     self.assertEqual(
-        _ast.contains_reference_without_id_for(ast), expected_result
+        _ast.contains_reference_without_get_key(ast), expected_result
     )
 
 

@@ -1389,7 +1389,10 @@ _WITH_FHIRPATH_FHIRPATH_NOOPERAND_RAISES_ERROR = [
     {'testcase_name': '_with_has_value', 'fhir_path_expression': 'hasValue()'},
     {'testcase_name': '_with_matches', 'fhir_path_expression': 'matches()'},
     {'testcase_name': '_with_of_type', 'fhir_path_expression': 'ofType()'},
-    {'testcase_name': '_with_id_for', 'fhir_path_expression': 'idFor()'},
+    {
+        'testcase_name': '_with_id_for',
+        'fhir_path_expression': 'getReferenceKey()',
+    },
     {'testcase_name': '_with_all', 'fhir_path_expression': 'all()'},
     {'testcase_name': '_with_member_of', 'fhir_path_expression': 'memberOf()'},
     {'testcase_name': '_with_not', 'fhir_path_expression': 'not()'},
@@ -1842,10 +1845,10 @@ class FhirPathSparkSqlEncoderTest(
   def test_encode_with_fhir_path_member_id_for_succeeds(self):
     self.assertEvaluationNodeSqlCorrect(
         structdef_name='Foo',
-        fhir_path_expression="bar.idFor('Bats')",
+        fhir_path_expression="bar.getReferenceKey('Bats')",
         expected_sql_expression=(
-            '(SELECT COLLECT_LIST(idFor_) FROM (SELECT bar.batsId AS'
-            ' idFor_) WHERE idFor_ IS NOT NULL)'
+            '(SELECT COLLECT_LIST(getReferenceKey_) FROM (SELECT bar.batsId AS'
+            ' getReferenceKey_) WHERE getReferenceKey_ IS NOT NULL)'
         ),
     )
 
