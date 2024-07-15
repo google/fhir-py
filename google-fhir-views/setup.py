@@ -38,7 +38,7 @@ def main():
       author='Google LLC',
       author_email='google-fhir-pypi@google.com',
       url='https://github.com/google/fhir-py',
-      download_url='https://github.com/google-py/fhir/releases',
+      download_url='https://github.com/google/fhir-py/releases',
       packages=namespace_packages,
       include_package_data=True,
       license='Apache 2.0',
