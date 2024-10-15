@@ -52,7 +52,7 @@ def main():
           # Pin to numpy 1 to avoid binary compatibility changes in numpy 2.
           'numpy~=1.24',
           'pandas~=1.1',
-          'protobuf~=3.19',
+          'protobuf~=4.23',
           'python-dateutil~=2.8',
           'requests~=2.27',
           'requests-mock~=1.9',

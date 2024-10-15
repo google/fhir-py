@@ -7,6 +7,12 @@ jobs:
       matrix:
         python-version: ["3.8", "3.10", "3.11"]
     steps:
+      # Use 25.x for protobuf 4 compatibility: https://protobuf.dev/support/version-support/#python
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "25.x"
+
       - name: Checkout
         uses: actions/checkout@v3
 
@@ -14,9 +20,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: Install protoc
-        run: sudo apt install -y protobuf-compiler
 
       - name: Test
         run: ./run_tests.sh
