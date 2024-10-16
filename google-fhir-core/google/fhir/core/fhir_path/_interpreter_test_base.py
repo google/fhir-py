@@ -22,7 +22,7 @@ import textwrap
 from typing import List, Union, cast
 from google.protobuf import descriptor
 from google.protobuf import message
-from google.protobuf import symbol_database
+from google.protobuf import message_factory
 from absl.testing import parameterized
 from google.fhir.core.fhir_path import _evaluation
 from google.fhir.core.fhir_path import _fhir_path_data_types
@@ -67,12 +67,10 @@ class FhirPathExpressionsTest(
     pass
 
   def _new_patient(self):
-    return symbol_database.Default().GetPrototype(self.patient_descriptor())()
+    return message_factory.GetMessageClass(self.patient_descriptor())()
 
   def _new_observation(self):
-    return symbol_database.Default().GetPrototype(
-        self.observation_descriptor()
-    )()
+    return message_factory.GetMessageClass(self.observation_descriptor())()
 
   @abc.abstractmethod
   def value_set_builder(self, url: str):

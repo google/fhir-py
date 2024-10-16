@@ -18,7 +18,7 @@ from unittest import mock
 
 import pandas as pd
 
-from google.protobuf import symbol_database
+from google.protobuf import message_factory
 from absl.testing import absltest
 from google.fhir.r4.proto.core.resources import bundle_and_contained_resource_pb2
 from google.fhir.r4.proto.core.resources import observation_pb2
@@ -33,17 +33,15 @@ from google.fhir.views import r4
 class FhirSearchRunnerTest(absltest.TestCase):
 
   def _new_patient(self):
-    return symbol_database.Default().GetPrototype(
-        patient_pb2.Patient.DESCRIPTOR
-    )()
+    return message_factory.GetMessageClass(patient_pb2.Patient.DESCRIPTOR)()
 
   def _new_observation(self):
-    return symbol_database.Default().GetPrototype(
+    return message_factory.GetMessageClass(
         observation_pb2.Observation.DESCRIPTOR
     )()
 
   def _new_bundle(self):
-    return symbol_database.Default().GetPrototype(
+    return message_factory.GetMessageClass(
         bundle_and_contained_resource_pb2.Bundle.DESCRIPTOR
     )()
 
