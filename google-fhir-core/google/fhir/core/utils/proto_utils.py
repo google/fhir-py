@@ -22,8 +22,6 @@ from google.protobuf import text_format
 
 _T = TypeVar('_T', bound=message.Message)
 
-_factory = message_factory.MessageFactory()
-
 
 def _field_descriptor_for_name(msg: message.Message,
                                field_name: str) -> descriptor.FieldDescriptor:
@@ -273,7 +271,7 @@ def set_in_parent_or_add(
 def get_message_class_from_descriptor(
     desc: descriptor.Descriptor) -> Type[message.Message]:
   """Returns the class of the message type corresponding to the descriptor."""
-  return _factory.GetPrototype(desc)
+  return message_factory.GetMessageClass(desc)
 
 
 def create_message_from_descriptor(desc: descriptor.Descriptor,
