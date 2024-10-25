@@ -721,7 +721,6 @@ class FhirProfileStandardSqlEncoder:
 
     return result
 
-  # TODO(b/222541838): Handle general cardinality requirements.
   def _encode_required_fields(
       self, builder: expressions.Builder
   ) -> List[validation_pb2.SqlRequirement]:
