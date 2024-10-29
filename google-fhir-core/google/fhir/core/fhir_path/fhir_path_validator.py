@@ -834,9 +834,13 @@ class FhirProfileStandardSqlEncoder:
     if constraint_key in self._options.skip_keys:
       return None  # Allows users to skip required field constraints.
 
-    # Early-exit if any types overlap with `_SKIP_TYPE_CODES`.
+    # Early-exit if any types overlap with `_SKIP_TYPE_CODES`. Reference types
+    # are not fully supported but do support cardinality constraints, so
+    # we add them back here.
     type_codes = _utils.element_type_codes(element)
-    if not _SKIP_TYPE_CODES.isdisjoint(type_codes):
+    if 'Reference' not in type_codes and not _SKIP_TYPE_CODES.isdisjoint(
+        type_codes
+    ):
       return None
 
     result = self._encode_fhir_path_builder_constraint(
