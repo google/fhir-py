@@ -232,7 +232,7 @@ class FhirPathExpressionsTest(
     # TODO(b/208900793): Consider revisiting when EvaluationResult supports
     # other types and messages.
     patient = self._new_patient()
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'name.first().given.first()'),
         self.builder('Patient').name.first().given.first(),
         patient,
@@ -306,7 +306,7 @@ class FhirPathExpressionsTest(
     # TODO(b/208900793): Consider revisiting when EvaluationResult supports
     # other types and messages.
     patient = self._new_patient()
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'name[0].given[0]'),
         self.builder('Patient').name[0].given[0],
         patient,
@@ -325,7 +325,7 @@ class FhirPathExpressionsTest(
     )
 
     # Index out of bounds should result in an empty array.
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'name[0].given[2]'),
         self.builder('Patient').name[0].given[2],
         patient,
@@ -418,7 +418,7 @@ class FhirPathExpressionsTest(
   def test_matches_function_for_resource_succeeds(self):
     """Tests the behavior of the matches() function."""
     patient = self._new_patient()
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', "name.first().given.matches('B')"),
         self.builder('Patient').name.first().given.matches('B'),
         patient,
@@ -858,9 +858,9 @@ class FhirPathExpressionsTest(
       return
 
     if right == 0:
-      self.assert_expression_result(div_expr, div_builder, patient, None)
-      self.assert_expression_result(mod_expr, mod_builder, patient, None)
-      self.assert_expression_result(
+      self.assert_expression_result(div_expr, div_builder, patient, None)  # pytype: disable=wrong-arg-types
+      self.assert_expression_result(mod_expr, mod_builder, patient, None)  # pytype: disable=wrong-arg-types
+      self.assert_expression_result(  # pytype: disable=wrong-arg-types
           trunc_div_expr, trunc_div_builder, patient, None
       )
     else:
@@ -899,7 +899,7 @@ class FhirPathExpressionsTest(
   def test_numeric_addition_arithmetic(self):
     """Tests addition logic for numeric values defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'telecom.rank + 1'),
         self.builder('Patient').telecom.rank + 1,
         patient,
@@ -916,7 +916,7 @@ class FhirPathExpressionsTest(
   def test_numeric_subtraction_arithmetic(self):
     """Tests subtraction logic for numeric values defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'telecom.rank - 1'),
         self.builder('Patient').telecom.rank - 1,
         patient,
@@ -939,7 +939,7 @@ class FhirPathExpressionsTest(
   def test_numeric_division_arithmetic(self):
     """Tests division logic on numeric values defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'telecom.rank / 1'),
         self.builder('Patient').telecom.rank / 1,
         patient,
@@ -952,7 +952,7 @@ class FhirPathExpressionsTest(
         patient,
         3.25,
     )
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'telecom.rank / 0'),
         self.builder('Patient').telecom.rank / 0,
         patient,
@@ -962,7 +962,7 @@ class FhirPathExpressionsTest(
   def test_numeric_modular_arithmetic(self):
     """Tests modulo logic on numeric values defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'telecom.rank mod 1'),
         self.builder('Patient').telecom.rank % 1,
         patient,
@@ -975,7 +975,7 @@ class FhirPathExpressionsTest(
         patient,
         7.0,
     )
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'telecom.rank mod 0'),
         self.builder('Patient').telecom.rank % 0,
         patient,
@@ -985,7 +985,7 @@ class FhirPathExpressionsTest(
   def test_numeric_trunc_div_arithmetic(self):
     """Tests truncated division logic defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'telecom.rank div 1'),
         self.builder('Patient').telecom.rank // 1,
         patient,
@@ -998,7 +998,7 @@ class FhirPathExpressionsTest(
         patient,
         2.0,
     )
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'telecom.rank div 0'),
         self.builder('Patient').telecom.rank // 0,
         patient,
@@ -1008,7 +1008,7 @@ class FhirPathExpressionsTest(
   def test_numeric_multiplication_arithmetic(self):
     """Tests multiplication logic on numeric values defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'telecom.rank * 1'),
         self.builder('Patient').telecom.rank * 1,
         patient,
@@ -1051,7 +1051,7 @@ class FhirPathExpressionsTest(
   def test_string_arithmetic(self):
     """Tests string addition and concatenation logic defined at https://hl7.org/fhirpath/#math-2."""
     patient = self._new_patient()
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', "address.city + '1'"),
         self.builder('Patient').address.city + '1',
         patient,
@@ -1597,7 +1597,7 @@ class FhirPathExpressionsTest(
     compiled_expr = self.compile_expression('Observation', 'value.system')
     built_expr = self.builder('Observation').value.system
 
-    self.assert_expression_result(compiled_expr, built_expr, observation, None)
+    self.assert_expression_result(compiled_expr, built_expr, observation, None)  # pytype: disable=wrong-arg-types
 
   def test_choice_type_invalid_sub_field_access_fails(self) -> None:
     with self.assertRaisesRegex(
@@ -1692,7 +1692,7 @@ class FhirPathExpressionsTest(
     address = patient.address.add()
     address.state.value = 'abc'
 
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'address.state.toInteger()'),
         self.builder('Patient').address.state.toInteger(),
         patient,
@@ -1736,7 +1736,7 @@ class FhirPathExpressionsTest(
     patient = self._new_patient()
     patient.gender.value = 1
 
-    self.assert_expression_result(
+    self.assert_expression_result(  # pytype: disable=wrong-arg-types
         self.compile_expression('Patient', 'gender.toInteger()'),
         self.builder('Patient').gender.toInteger(),
         patient,

@@ -80,7 +80,7 @@ def is_choice_type(message_or_descriptor: MessageOrDescriptorBase) -> bool:
   Raises:
     ValueError: Unable to retrieve options for type: <type>.
   """
-  return get_value_for_annotation_extension(message_or_descriptor,
+  return get_value_for_annotation_extension(message_or_descriptor,  # pytype: disable=bad-return-type
                                             annotations_pb2.is_choice_type)
 
 
