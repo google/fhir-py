@@ -339,7 +339,7 @@ class StructureBaseNode(ExpressionNode):
   def __init__(
       self,
       fhir_context: context.FhirPathContext,
-      return_type: Optional[_fhir_path_data_types.FhirPathDataType],
+      return_type: _fhir_path_data_types.FhirPathDataType,
   ) -> None:
     self._fixed_return_type = return_type
     super().__init__(fhir_context)
@@ -448,8 +448,10 @@ class LiteralNode(ExpressionNode):
   def accept(self, visitor: 'ExpressionNodeBaseVisitor') -> Any:
     return visitor.visit_literal(self)
 
-  def get_value(self) -> message.Message:
+  def get_value(self) -> Optional[message.Message]:
     """Returns a defensive copy of the literal value."""
+    if self._value is None:
+      return None
     return copy.deepcopy(self._value)
 
   def to_path_token(self) -> str:
