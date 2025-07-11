@@ -53,7 +53,7 @@ def field_is_primitive(field_descriptor: descriptor.FieldDescriptor) -> bool:
 
 def field_is_repeated(field_descriptor: descriptor.FieldDescriptor) -> bool:
   """Indicates if the provided field_descriptor describes a repeated field."""
-  return field_descriptor.label == descriptor.FieldDescriptor.LABEL_REPEATED
+  return field_descriptor.is_repeated
 
 
 def json_field_name(desc: descriptor.FieldDescriptor) -> str:
