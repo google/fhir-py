@@ -231,10 +231,30 @@ class JsonParser:
             f'Attempted to merge a repeated field, {field.name}, a json_value '
             f'with type {type(json_value)} instead of a list.')
 
-      if existing_field_size != 0 and existing_field_size != len(json_value):
+      # Check if this is the special case where a size mismatch is allowed:
+      # a repeated primitive field with one existing element that has no
+      # value. This is to cover a special case:
+      # A repeated primitive field that currently has exactly one
+      # element, and that element does not yet have a value (implying it's a
+      # placeholder for extensions).
+      is_primitive_with_placeholder = (
+          annotation_utils.is_primitive_type(field.message_type)
+          and existing_field_size == 1
+          and not self.primitive_handler.primitive_wrapper_from_primitive(
+              proto_utils.get_value_at_field_index(parent, field, 0)
+          ).has_value()
+      )
+      if (
+          existing_field_size != 0
+          and existing_field_size != len(json_value)
+          and not is_primitive_with_placeholder
+      ):
         raise ValueError(
-            'Repeated primitive list length does not match extension list for '
-            'field: {field.full_name!r}.')
+            'Repeated primitive list length does not match extension list '
+            f'for field: {field.full_name!r}.'
+        )
+    else:
+      is_primitive_with_placeholder = False
 
     # Set the JSON values, taking care to clear the PRIMITIVE_HAS_NO_VALUE_URL
     # if we've already visited the field before.
@@ -243,10 +263,49 @@ class JsonParser:
     for (i, value) in enumerate(json_value):
       parsed_value = self._parse_field_value(field, value)
       if existing_field_size > 0:
-        field_value = proto_utils.get_value_at_field_index(parent, field, i)
-        field_value.MergeFrom(parsed_value)
-        extensions.clear_fhir_extensions_with_url(
-            field_value, extensions.PRIMITIVE_HAS_NO_VALUE_URL)
+        if is_primitive_with_placeholder and existing_field_size == 1:
+          # If this is the special case where a repeated primitive field has
+          # exactly one element that has no value, then we can just merge into
+          # that element normally.
+          placeholder_with_extensions_but_no_value = (
+              proto_utils.get_value_at_field_index(parent, field, 0)
+          )
+          # Make a copy of the existing extensions.
+          extension_field_desc = placeholder_with_extensions_but_no_value.DESCRIPTOR.fields_by_name.get(
+              'extension'
+          )
+          copied_extensions = []
+          if extension_field_desc:
+            copied_extensions = list(
+                getattr(placeholder_with_extensions_but_no_value, 'extension')
+            )
+          if i == 0:
+            placeholder_with_extensions_but_no_value.MergeFrom(parsed_value)
+            extensions.clear_fhir_extensions_with_url(
+                placeholder_with_extensions_but_no_value,
+                extensions.PRIMITIVE_HAS_NO_VALUE_URL,
+            )
+          else:
+            field_value = proto_utils.set_in_parent_or_add(parent, field)
+            field_value.MergeFrom(parsed_value)
+            extension_field = field_value.DESCRIPTOR.fields_by_name.get(
+                'extension'
+            )
+            if extension_field is not None:
+              for extension in copied_extensions:
+                proto_utils.append_value_at_field(
+                    field_value, extension_field, extension
+                )
+            extensions.clear_fhir_extensions_with_url(
+                field_value, extensions.PRIMITIVE_HAS_NO_VALUE_URL
+            )
+
+        else:
+          field_value = proto_utils.get_value_at_field_index(parent, field, i)
+          field_value.MergeFrom(parsed_value)
+          extensions.clear_fhir_extensions_with_url(
+              field_value, extensions.PRIMITIVE_HAS_NO_VALUE_URL
+          )
       else:
         field_value = proto_utils.set_in_parent_or_add(parent, field)
         field_value.MergeFrom(parsed_value)
