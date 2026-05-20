@@ -19,6 +19,7 @@ import re
 from typing import Any, List, Optional, cast
 
 from google.protobuf import message
+
 from google.fhir.core.utils import proto_utils
 
 # TODO(b/201107372): Update FHIR-agnostic types to a protocol.

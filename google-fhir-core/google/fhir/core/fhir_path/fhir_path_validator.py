@@ -26,8 +26,8 @@ import traceback
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 
 from google.cloud import bigquery
-
 from google.protobuf import message
+
 from google.fhir.core.proto import fhirpath_replacement_list_pb2
 from google.fhir.core.proto import validation_pb2
 from google.fhir.core import codes

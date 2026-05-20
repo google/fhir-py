@@ -16,9 +16,9 @@
 import abc
 from typing import Any, Dict, Generic, Iterable, List, Optional, Type, TypeVar, cast
 
+from google.protobuf import message
 import requests
 
-from google.protobuf import message
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _utils
 from google.fhir.core.internal import primitive_handler

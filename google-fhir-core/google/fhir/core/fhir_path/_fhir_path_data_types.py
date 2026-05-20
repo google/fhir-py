@@ -29,9 +29,9 @@ import operator
 import re
 from typing import Any, Collection as CollectionType, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple, cast
 
+from google.protobuf import message
 import stringcase
 
-from google.protobuf import message
 
 # Tokens that are keywords in FHIRPath.
 # If used as identifier tokens in FHIRPath expressions, they must be escaped
