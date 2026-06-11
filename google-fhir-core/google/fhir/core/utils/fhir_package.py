@@ -24,8 +24,8 @@ from typing import Any, BinaryIO, Callable, Collection, Dict, Generic, Iterable,
 import zipfile
 
 import logging
-
 from google.protobuf import message
+
 from google.fhir.core.internal import primitive_handler
 from google.fhir.core.internal.json_format import _json_parser
 

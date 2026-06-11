@@ -27,9 +27,9 @@ from unittest import mock
 import zipfile
 
 from absl import flags
-
 from google.protobuf import message
 from google.protobuf import text_format
+
 from absl.testing import absltest
 from absl.testing import parameterized
 from google.fhir.core.utils import fhir_package

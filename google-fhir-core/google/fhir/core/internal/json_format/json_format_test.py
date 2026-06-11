@@ -21,6 +21,7 @@ import json
 from typing import Any, Callable, Optional, Type, TypeVar
 
 from google.protobuf import message
+
 from absl.testing import parameterized
 from google.fhir.core.testing import testdata_utils
 

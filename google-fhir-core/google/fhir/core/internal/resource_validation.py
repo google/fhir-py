@@ -14,9 +14,9 @@
 # limitations under the License.
 """Performs basic FHIR constraint and resource validation."""
 
-from google.protobuf import any_pb2
 from google.protobuf import descriptor
 from google.protobuf import message
+from google.protobuf import any_pb2
 from google.fhir.core.proto import annotations_pb2
 from google.fhir.core import fhir_errors
 from google.fhir.core.internal import _primitive_time_utils

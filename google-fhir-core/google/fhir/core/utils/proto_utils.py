@@ -14,7 +14,6 @@
 # limitations under the License.
 """Utilities to make it easier to work with proto reflection."""
 from typing import Any, Type, Union, TypeVar
-
 from google.protobuf import descriptor
 from google.protobuf import message
 from google.protobuf import message_factory

@@ -17,6 +17,7 @@
 from typing import Any, List, Type, TypeVar, cast
 
 from google.protobuf import message
+
 from google.fhir.core.utils import fhir_types
 from google.fhir.core.utils import path_utils
 from google.fhir.core.utils import proto_utils
