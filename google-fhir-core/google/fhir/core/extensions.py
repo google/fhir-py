@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Type, TypeVar, cast
 
 from google.protobuf import descriptor
 from google.protobuf import message
+
 from google.fhir.core.proto import annotations_pb2
 from google.fhir.core import codes
 from google.fhir.core import fhir_errors

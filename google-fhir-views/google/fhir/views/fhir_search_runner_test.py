@@ -16,9 +16,9 @@
 
 from unittest import mock
 
+from google.protobuf import message_factory
 import pandas as pd
 
-from google.protobuf import message_factory
 from absl.testing import absltest
 from google.fhir.r4.proto.core.resources import bundle_and_contained_resource_pb2
 from google.fhir.r4.proto.core.resources import observation_pb2

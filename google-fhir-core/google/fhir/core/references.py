@@ -19,6 +19,7 @@ from typing import Optional
 
 from google.protobuf import descriptor
 from google.protobuf import message
+
 from google.fhir.core.utils import annotation_utils
 from google.fhir.core.utils import path_utils
 from google.fhir.core.utils import proto_utils

@@ -19,8 +19,8 @@ from a FHIR search. Users can retrieve the results as a DataFrame.
 """
 
 from typing import Any, Dict, List, Mapping
-import pandas
 from google.protobuf import message
+import pandas
 from google.fhir.r4.proto.core.resources import bundle_and_contained_resource_pb2
 from google.fhir.core.fhir_path import python_compiled_expressions
 from google.fhir.core.utils import proto_utils

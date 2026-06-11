@@ -61,6 +61,7 @@ from google.protobuf import descriptor
 from google.protobuf import descriptor_pool
 from google.protobuf import message
 from google.protobuf import text_format
+
 from absl.testing import absltest
 
 _T = TypeVar('_T', bound=message.Message)

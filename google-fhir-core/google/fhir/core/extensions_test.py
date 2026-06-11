@@ -19,6 +19,7 @@ import os
 from typing import Type
 
 from google.protobuf import message
+
 from absl.testing import absltest
 from google.fhir.core import extensions
 from google.fhir.core.testing import testdata_utils
