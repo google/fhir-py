@@ -20,6 +20,7 @@ import json
 from typing import Any, Tuple, Type, TypeVar, cast
 
 from google.protobuf import message
+
 from google.fhir.core.internal.json_format.wrappers import _primitive_wrappers
 
 Decimal = TypeVar('Decimal', bound=message.Message)

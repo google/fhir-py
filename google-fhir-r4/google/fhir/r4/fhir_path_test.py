@@ -16,6 +16,7 @@
 from typing import Any
 
 from google.protobuf import descriptor
+
 from absl.testing import absltest
 from google.fhir.r4.proto.core.resources import observation_pb2
 from google.fhir.r4.proto.core.resources import patient_pb2

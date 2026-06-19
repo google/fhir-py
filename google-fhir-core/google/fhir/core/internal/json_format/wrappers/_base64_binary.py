@@ -20,6 +20,7 @@ import binascii
 from typing import Any, List, Tuple, Type, TypeVar, cast
 
 from google.protobuf import message
+
 from google.fhir.core import extensions
 from google.fhir.core import fhir_errors
 from google.fhir.core.internal.json_format.wrappers import _primitive_wrappers

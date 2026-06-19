@@ -17,6 +17,7 @@
 from typing import Any, Dict, Optional, Type
 
 from google.protobuf import message
+
 from google.fhir.r4.proto import fhirproto_extensions_pb2
 from google.fhir.r4.proto.core import datatypes_pb2
 from google.fhir.r4.proto.core.resources import bundle_and_contained_resource_pb2
