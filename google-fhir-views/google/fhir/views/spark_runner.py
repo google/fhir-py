@@ -83,12 +83,14 @@ class SparkRunner:
       self,
       view: views.View,
       limit: Optional[int] = None,
+      offset: Optional[int] = None,
   ) -> str:
     """Returns the SQL used to run the given view in Spark.
 
     Args:
       view: the view used to generate the SQL.
       limit: optional limit to attach to the generated SQL.
+      offset: optional offset to attach to the generated SQL.
 
     Returns:
       The SQL used to run the given view.
@@ -112,16 +114,21 @@ class SparkRunner:
       raise ValueError('Query limits must be positive integers.')
     limit_clause = '' if limit is None else f' LIMIT {limit}'
 
-    return f'{valuesets_clause}{sql_statement}{limit_clause}'
+    if offset is not None and offset < 0:
+      raise ValueError("Query offsets must be non-negative integers.")
+    offset_clause = "" if offset is None else f" OFFSET {offset}"
+
+    return f"{valuesets_clause}{sql_statement}{limit_clause}{offset_clause}"
 
   def to_dataframe(
-      self, view: views.View, limit: Optional[int] = None
+      self, view: views.View, limit: Optional[int] = None, offset: Optional[int] = None,
   ) -> pandas.DataFrame:
     """Returns a Pandas dataframe of the results.
 
     Args:
       view: the view that defines the query to run.
       limit: optional limit of the number of items to return.
+      offset: optional offset of the items to return.
 
     Returns:
       pandas.DataFrame: dataframe of the view contents.
@@ -130,7 +137,7 @@ class SparkRunner:
       ValueError propagated from the Spark client if pandas is not installed.
     """
     df = pandas.read_sql_query(
-        sql=self.to_sql(view, limit=limit),
+        sql=self.to_sql(view, limit=limit, offset=offset),
         con=self._engine.raw_connection(),
     )
     return runner_utils.clean_dataframe(
