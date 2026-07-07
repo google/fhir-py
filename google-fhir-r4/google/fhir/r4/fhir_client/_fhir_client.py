@@ -49,7 +49,7 @@ class FhirClient:
   def create_session(cls) -> requests.Session:
     """Builds a request session with exponential back-off retries."""
     session = requests.Session()
-    retry_policy = requests.packages.urllib3.util.Retry(backoff_factor=2)
+    retry_policy = requests.packages.urllib3.util.Retry(backoff_factor=2)  # pyrefly: ignore[missing-attribute]
     adapter = requests.adapters.HTTPAdapter(max_retries=retry_policy)
     session.mount('http://', adapter)
     session.mount('https://', adapter)

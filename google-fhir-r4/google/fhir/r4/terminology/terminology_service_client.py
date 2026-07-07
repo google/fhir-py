@@ -185,7 +185,7 @@ class TerminologyServiceClient:
   def create_session(cls) -> requests.Session:
     """Builds a request session with exponential back-off retries."""
     session = requests.Session()
-    retry_policy = requests.packages.urllib3.util.Retry(backoff_factor=2)
+    retry_policy = requests.packages.urllib3.util.Retry(backoff_factor=2)  # pyrefly: ignore[missing-attribute]
     adapter = requests.adapters.HTTPAdapter(max_retries=retry_policy)
     session.mount('http://', adapter)
     session.mount('https://', adapter)
@@ -305,7 +305,7 @@ def _paginate_expand_value_set_request(
   while True:
     resp = request_func(offset)
 
-    if resp.status_code >= 400:
+    if resp.status_code >= 400:  # pyrefly: ignore[unsupported-operation]
       logging.error('Error from terminology service: %s', resp.text)
     resp.raise_for_status()
 

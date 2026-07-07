@@ -181,11 +181,11 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       sql_data_type = _sql_data_types.Numeric
     elif isinstance(literal.return_type, _fhir_path_data_types._DateTime):  # pylint: disable=protected-access
       # Date and datetime literals start with an @ and need to be quoted.
-      dt = _primitive_time_utils.get_date_time_value(literal.get_value())
+      dt = _primitive_time_utils.get_date_time_value(literal.get_value())  # pyrefly: ignore[bad-argument-type]
       sql_value = f"'{dt.isoformat()}'"
       sql_data_type = _sql_data_types.Timestamp
     elif isinstance(literal.return_type, _fhir_path_data_types._Date):  # pylint: disable=protected-access
-      dt = _primitive_time_utils.get_date_time_value(literal.get_value()).date()
+      dt = _primitive_time_utils.get_date_time_value(literal.get_value()).date()  # pyrefly: ignore[bad-argument-type]
       sql_value = f"'{str(dt)}'"
       sql_data_type = _sql_data_types.Date
     elif isinstance(literal.return_type, _fhir_path_data_types._String):  # pylint: disable=protected-access
@@ -609,7 +609,7 @@ class SparkSqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
           function, parent_result, params_result, **kwargs
       )
     func = _spark_sql_functions.FUNCTION_MAP.get(function.NAME)
-    return func(function, parent_result, params_result)
+    return func(function, parent_result, params_result)  # pyrefly: ignore[not-callable]
 
   def wrap_where_expression(self, where_expression: str) -> str:
     """Wraps where expression to take care of repeated fields."""
@@ -695,7 +695,7 @@ def _create_non_scalar_select(
   return _sql_data_types.Select(
       select_part=_sql_data_types.FunctionCall(
           name=collection_check_func_name,
-          params=[
+          params=[  # pyrefly: ignore[bad-argument-type]
               _sql_data_types.RawExpression(
                   sql_expr, _sql_data_type=_sql_data_types.Int64
               ),

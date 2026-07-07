@@ -36,7 +36,7 @@ class FhirProfileStandardSqlEncoderTest(absltest.TestCase):
     except ValueError as exc:
       result = validator._error_message_for_exception(exc)
 
-    self.assertIn('_raise_value_error()', result)
+    self.assertIn('_raise_value_error()', result)  # pyrefly: ignore[unbound-name]
     self.assertIn('_more_stack()', result)
     self.assertIn('oh no!', result)
 
@@ -55,7 +55,7 @@ class FhirProfileStandardSqlEncoderTest(absltest.TestCase):
     except ValueError as exc:
       result = validator._error_message_for_exception(exc)
 
-    self.assertEqual(result, 'oh no!')
+    self.assertEqual(result, 'oh no!')  # pyrefly: ignore[unbound-name]
 
 
 def _raise_value_error():

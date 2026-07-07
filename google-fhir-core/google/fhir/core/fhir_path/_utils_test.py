@@ -359,12 +359,12 @@ class FhirPathUtilitiesTest(parameterized.TestCase):
   def test_is_backbone_element_succeeds(self):
     self.assertTrue(
         _utils.is_backbone_element(
-            _utils.get_element(self._patient_structdef, 'contact')
+            _utils.get_element(self._patient_structdef, 'contact')  # pyrefly: ignore[bad-argument-type]
         )
     )
     self.assertFalse(
         _utils.is_backbone_element(
-            _utils.get_element(self._patient_structdef, 'addresses')
+            _utils.get_element(self._patient_structdef, 'addresses')  # pyrefly: ignore[bad-argument-type]
         )
     )
 

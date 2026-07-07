@@ -179,4 +179,4 @@ class SparkValueSetManager:
     else:
       expanded_value_sets = (expander.expand_value_set_url(url) for url in urls)
 
-    self.materialize_value_sets(expanded_value_sets, batch_size=batch_size)
+    self.materialize_value_sets(expanded_value_sets, batch_size=batch_size)  # pyrefly: ignore[bad-argument-type]

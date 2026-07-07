@@ -140,7 +140,7 @@ class RunnerSqlGenerator:
       needs_unnest = builder.needs_unnest or builder.children
       select_expression = self._encode(
           builder=builder,
-          select_scalars_as_array=needs_unnest,
+          select_scalars_as_array=needs_unnest,  # pyrefly: ignore[bad-argument-type]
       )
       if needs_unnest:
         select_expression = (

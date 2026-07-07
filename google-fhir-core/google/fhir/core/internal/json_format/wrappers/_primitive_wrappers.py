@@ -350,7 +350,7 @@ class StringLikePrimitiveWrapper(PrimitiveWrapper):
                     primitive_cls: Type[message.Message],
                     context: Context) -> 'StringLikePrimitiveWrapper':
     """See PrimitiveWrapper.from_json_str."""
-    validate_primitive_json_representation(primitive_cls.DESCRIPTOR, json_str)
+    validate_primitive_json_representation(primitive_cls.DESCRIPTOR, json_str)  # pyrefly: ignore[bad-argument-type]
     primitive = cast(Any, primitive_cls)(value=json_str)
     return cls(primitive, context)
 

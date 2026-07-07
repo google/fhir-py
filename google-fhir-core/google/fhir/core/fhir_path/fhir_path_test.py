@@ -3129,7 +3129,7 @@ class FhirProfileStandardSqlEncoderConfigurationTest(
         type_codes=['string'],
         cardinality=sdefs.Cardinality(min=0, max='1'),
     )
-    bar_code_element_definition.binding.strength.value = 1
+    bar_code_element_definition.binding.strength.value = 1  # pyrefly: ignore[bad-assignment]
     bar_code_element_definition.binding.value_set.value = 'http://value.set/id'
     bar = sdefs.build_resource_definition(
         id_='Bar', element_definitions=[bar_root, bar_code_element_definition]
@@ -6291,7 +6291,7 @@ class FhirProfileStandardSqlEncoderTestWithRequiredFields(
         expected_column_name=expected_column_name,
         expected_sql_expression=expected_sql_expression,
         expected_fhir_path_sql_expression=expected_fhir_path_sql_expression,
-        description=description,
+        description=description,  # pyrefly: ignore[bad-argument-type]
         fhir_path_key=fhir_path_key,
         fhir_path_expression=fhir_path_expression,
         fields_referenced_by_expression=fields_referenced_by_expression,

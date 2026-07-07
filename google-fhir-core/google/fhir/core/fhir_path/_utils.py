@@ -285,7 +285,7 @@ def get_root_element_definition(
 ) -> ElementDefinition:
   """Returns the root element definition in a given structure definition."""
 
-  root_element: ElementDefinition = None
+  root_element: ElementDefinition = None  # pyrefly: ignore[bad-assignment]
   for element_definition in cast(Any, structure_definition).snapshot.element:
     if is_root_element(element_definition):
       if root_element is not None:

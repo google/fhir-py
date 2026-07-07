@@ -250,7 +250,7 @@ class Polarity(UnaryOperator):
   """Positive/negative representation of some numeric operand."""
 
   @enum.unique
-  class Op(*_StrEnum):
+  class Op(*_StrEnum):  # pyrefly: ignore[invalid-inheritance]
     """Polarity operators."""
 
     NEGATIVE = '-'
@@ -286,7 +286,7 @@ class Arithmetic(BinaryOperator):
   """Arithmetic FHIRPath expressions."""
 
   @enum.unique
-  class Op(*_StrEnum):
+  class Op(*_StrEnum):  # pyrefly: ignore[invalid-inheritance]
     """Arithmetic operators."""
 
     ADDITION = '+'
@@ -308,7 +308,7 @@ class TypeExpression(Expression):
   """A FHIRPath type expression."""
 
   @enum.unique
-  class Op(*_StrEnum):
+  class Op(*_StrEnum):  # pyrefly: ignore[invalid-inheritance]
     """Type operators."""
 
     AS = 'as'
@@ -343,7 +343,7 @@ class EqualityRelation(BinaryOperator):
   """Equality comparisons between collections."""
 
   @enum.unique
-  class Op(*_StrEnum):
+  class Op(*_StrEnum):  # pyrefly: ignore[invalid-inheritance]
     """Equality operators."""
 
     EQUAL = '='
@@ -369,7 +369,7 @@ class Comparison(BinaryOperator):
   """
 
   @enum.unique
-  class Op(*_StrEnum):
+  class Op(*_StrEnum):  # pyrefly: ignore[invalid-inheritance]
     """Comparison operators."""
 
     GREATER_THAN = '>'
@@ -398,7 +398,7 @@ class BooleanLogic(BinaryOperator):
   """
 
   @enum.unique
-  class Op(*_StrEnum):
+  class Op(*_StrEnum):  # pyrefly: ignore[invalid-inheritance]
     """Boolean logic operators."""
 
     AND = 'and'
@@ -417,7 +417,7 @@ class MembershipRelation(BinaryOperator):
   """Membership relations between a singular operand and a collection."""
 
   @enum.unique
-  class Op(*_StrEnum):
+  class Op(*_StrEnum):  # pyrefly: ignore[invalid-inheritance]
     """Membership operators."""
 
     CONTAINS = 'contains'
@@ -474,7 +474,7 @@ class Function(Expression):
   """
 
   @enum.unique
-  class Name(*_StrEnum):
+  class Name(*_StrEnum):  # pyrefly: ignore[invalid-inheritance]
     """Supported FHIRPath function names.
 
     Functions are broken into categories to mirror HL7-specified categories.
@@ -597,7 +597,7 @@ class Function(Expression):
       self, identifier: Identifier, params: Optional[List[Expression]] = None
   ) -> None:
     super(Function, self).__init__(
-        [identifier] + (params if params is not None else [])
+        [identifier] + (params if params is not None else [])  # pyrefly: ignore[bad-argument-type]
     )
     self.identifier = identifier
     self.params = params if params is not None else []
@@ -954,7 +954,7 @@ class FhirPathAstBaseVisitor(abc.ABC):
   ) -> List[Any]:
     """Calls `accept` on each child node, passing the caller as a visitor."""
     result: List[Any] = []
-    for c in node.children:
+    for c in node.children:  # pyrefly: ignore[not-iterable]
       result.append(c.accept(self, **kwargs))
     return result
 
@@ -1165,12 +1165,12 @@ def _paths_referenced_by(
         for child_path in child_paths
     )
 
-    return context, paths + child_paths
+    return context, paths + child_paths  # pyrefly: ignore[unsupported-operation]
 
   # Find any identifiers referenced in any child nodes, besides the first which
   # we already visited above.
   child_paths = _get_paths_from_children_except_first(node)
-  return context, paths + child_paths
+  return context, paths + child_paths  # pyrefly: ignore[unsupported-operation]
 
 
 def _get_paths_from_children_except_first(

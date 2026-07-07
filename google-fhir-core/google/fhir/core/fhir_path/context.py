@@ -94,7 +94,7 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
     while urls_to_load:
       url_to_load = urls_to_load.pop()
       base_definition = self.get_structure_definition(url_to_load)
-      for elem in base_definition.snapshot.element:
+      for elem in base_definition.snapshot.element:  # pyrefly: ignore[missing-attribute]
         for elem_type in elem.type:
           type_name = elem_type.code.value
           # Skip primitives and types we have already visited.
@@ -105,7 +105,7 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
           ):
             child_struct = self.get_structure_definition(type_name)
             dependencies[type_name] = child_struct
-            urls_to_load.append(child_struct.url.value)
+            urls_to_load.append(child_struct.url.value)  # pyrefly: ignore[missing-attribute]
 
     return list(dependencies.values())
 
@@ -141,19 +141,19 @@ class FhirPathContext(Generic[_StructDefT, _ValueSetT], abc.ABC):
     # Load the structure definition for the non-primitive type.
     if return_type is None:
       lookup_type = profile if profile else type_code
-      child_structdef = self.get_structure_definition(lookup_type)
-      if child_structdef.url.value == QUANTITY_URL:
+      child_structdef = self.get_structure_definition(lookup_type)  # pyrefly: ignore[bad-argument-type]
+      if child_structdef.url.value == QUANTITY_URL:  # pyrefly: ignore[missing-attribute]
         return _fhir_path_data_types.QuantityStructureDataType.from_proto(
-            struct_def_proto=child_structdef
+            struct_def_proto=child_structdef  # pyrefly: ignore[bad-argument-type]
         )
-      elif child_structdef.url.value == REFERENCE_URL:
+      elif child_structdef.url.value == REFERENCE_URL:  # pyrefly: ignore[missing-attribute]
         return _fhir_path_data_types.ReferenceStructureDataType.from_proto(
-            struct_def_proto=child_structdef,
+            struct_def_proto=child_structdef,  # pyrefly: ignore[bad-argument-type]
             element_definition=element_definition,
         )
       else:
         return _fhir_path_data_types.StructureDataType.from_proto(
-            struct_def_proto=child_structdef,
+            struct_def_proto=child_structdef,  # pyrefly: ignore[bad-argument-type]
             element_type=type_code,
             parent_definitions=parent_definitions,
         )
@@ -364,11 +364,11 @@ class MockFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
       self.add_struct_def(struct_def)
 
   def add_struct_def(self, struct_def: _StructDefT) -> None:
-    self._struct_defs[struct_def.url.value] = struct_def
+    self._struct_defs[struct_def.url.value] = struct_def  # pyrefly: ignore[missing-attribute]
 
   def add_local_value_set(self, value_set: _ValueSetT) -> None:
     """Adds a local valueset to the context so it can be used for valueset membership checks."""
-    self._value_sets[value_set.url.value] = value_set
+    self._value_sets[value_set.url.value] = value_set  # pyrefly: ignore[missing-attribute]
 
   def get_structure_definition(self, url: str) -> _StructDefT:
     qualified_url = _utils.get_absolute_uri_for_structure(url)
@@ -402,7 +402,7 @@ class LocalFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
 
   def add_local_value_set(self, value_set: _ValueSetT) -> None:
     """Adds a local valueset to the context so it can be used for valueset membership checks."""
-    self._value_sets[value_set.url.value] = value_set
+    self._value_sets[value_set.url.value] = value_set  # pyrefly: ignore[missing-attribute]
 
   def get_structure_definition(self, url: str) -> _StructDefT:
     # Add standard prefix to structure if necessary.
@@ -450,7 +450,7 @@ class ServerFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
       resource_json = entry.get('resource', {})
       if resource_json.get('url') == resource_url:
         struct_def = self._struct_def_class()
-        self._json_parser.merge_value(resource_json, struct_def)
+        self._json_parser.merge_value(resource_json, struct_def)  # pyrefly: ignore[bad-argument-type]
         return struct_def
 
     raise UnableToLoadResourceError(
@@ -459,7 +459,7 @@ class ServerFhirPathContext(FhirPathContext[_StructDefT, _ValueSetT]):
 
   def add_local_value_set(self, value_set: _ValueSetT):
     """Adds a local valueset to the context so it can be used for valueset membership checks."""
-    self._value_sets[value_set.url.value] = value_set
+    self._value_sets[value_set.url.value] = value_set  # pyrefly: ignore[missing-attribute]
 
   def get_structure_definition(self, url: str) -> _StructDefT:
     # Add standard prefix to structure if necessary.

@@ -84,13 +84,13 @@ def build_element_definition(
   base_path = id_ if base_path is None else base_path
   type_codes = [] if type_codes is None else type_codes
   profiles = (
-      []
+      []  # pyrefly: ignore[bad-assignment]
       if profiles is None
       else [datatypes_pb2.Canonical(value=profile) for profile in profiles]
   )
   type_ = [
       datatypes_pb2.ElementDefinition.TypeRef(
-          code=datatypes_pb2.Uri(value=code_value), profile=profiles
+          code=datatypes_pb2.Uri(value=code_value), profile=profiles  # pyrefly: ignore[bad-argument-type]
       )
       for code_value in type_codes
   ]
@@ -109,9 +109,9 @@ def build_element_definition(
   if slice_name is not None:
     kwargs['slice_name'] = datatypes_pb2.String(value=slice_name)
   if fixed is not None:
-    kwargs['fixed'] = fixed
+    kwargs['fixed'] = fixed  # pyrefly: ignore[bad-assignment]
   if pattern is not None:
-    kwargs['pattern'] = pattern
+    kwargs['pattern'] = pattern  # pyrefly: ignore[bad-assignment]
 
   return datatypes_pb2.ElementDefinition(**kwargs)
 

@@ -202,7 +202,7 @@ class Builder:
           self.node.context,
           as_message,
           self._primitive_to_fhir_path(operand),
-          primitive_type,
+          primitive_type,  # pyrefly: ignore[bad-argument-type]
       )
 
   @property
@@ -548,7 +548,7 @@ class Builder:
         )
         params.append(
             _evaluation.LiteralNode(
-                self.node.context, rhs_message, fhir_path_str, primitive_type
+                self.node.context, rhs_message, fhir_path_str, primitive_type  # pyrefly: ignore[bad-argument-type]
             )
         )
     return params
@@ -567,7 +567,7 @@ class Builder:
         self._handler,
     )
 
-  def __eq__(self, rhs: BuilderOperand) -> 'Builder':
+  def __eq__(self, rhs: BuilderOperand) -> 'Builder':  # pyrefly: ignore[bad-override]
     return Builder(
         _evaluation.EqualityNode(
             self.node.context,
@@ -578,7 +578,7 @@ class Builder:
         self._handler,
     )
 
-  def __ne__(self, rhs: BuilderOperand) -> 'Builder':
+  def __ne__(self, rhs: BuilderOperand) -> 'Builder':  # pyrefly: ignore[bad-override]
     return Builder(
         _evaluation.EqualityNode(
             self.node.context,
@@ -714,8 +714,8 @@ class Builder:
     for name, elem_def in children.iter_child_definitions():
       # Include field and type codes for choice types (fields with > 1 type),
       # such as Observation values Quantity, CodeableConcept, etc.
-      if len(elem_def.type) > 1:
-        for type_code in elem_def.type:
+      if len(elem_def.type) > 1:  # pyrefly: ignore[missing-attribute]
+        for type_code in elem_def.type:  # pyrefly: ignore[not-iterable]
           choice_fields[name].append(type_code.code.value)
     return choice_fields
 
@@ -776,7 +776,7 @@ def from_fhir_path_expression(
   """
   ast = _ast.build_fhir_path_ast(fhir_path_expression)
 
-  new_context = root_node_context.node if root_node_context else None
+  new_context = root_node_context.node if root_node_context else None  # pyrefly: ignore[not-callable]
   visitor = _evaluation.FhirPathCompilerVisitor(
       handler, fhir_context, structdef_type, new_context
   )

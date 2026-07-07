@@ -299,7 +299,7 @@ class JsonPrinter:
             self.generator.push(',')
             self.generator.add_newline()
           self.generator.add_field(f'_{field_name}')
-          self._print(wrapper.get_element())
+          self._print(wrapper.get_element())  # pyrefly: ignore[bad-argument-type]
 
   def _print_message_field(self, field_name: str,
                            field: descriptor.FieldDescriptor,

@@ -165,7 +165,7 @@ class LocalResolverTest(absltest.TestCase):
 
     include = value_set.compose.include.add()
     filter_ = include.filter.add()
-    filter_.op.value = 1
+    filter_.op.value = 1  # pyrefly: ignore[bad-assignment]
     filter_.value.value = 'medicine'
     self.assertIsNone(
         local_value_set_resolver.LocalResolver(
@@ -206,7 +206,7 @@ class LocalResolverTest(absltest.TestCase):
     expected[1].version.value = 'version'
     expected[1].code.value = 'code_2'
 
-    self.assertCountEqual(result, expected)
+    self.assertCountEqual(result, expected)  # pyrefly: ignore[bad-argument-type]
 
   def testConceptSetToExpansion_wtihInvalidCodeSystem_raisesValueError(self):
     # Include an entire code system...

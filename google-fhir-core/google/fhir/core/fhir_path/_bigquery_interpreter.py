@@ -211,11 +211,11 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       sql_data_type = _sql_data_types.Numeric
     elif isinstance(literal.return_type, _fhir_path_data_types._DateTime):  # pylint: disable=protected-access
       # Date and datetime literals start with an @ and need to be quoted.
-      dt = _primitive_time_utils.get_date_time_value(literal.get_value())
+      dt = _primitive_time_utils.get_date_time_value(literal.get_value())  # pyrefly: ignore[bad-argument-type]
       sql_value = f"'{dt.isoformat()}'"
       sql_data_type = _sql_data_types.Timestamp
     elif isinstance(literal.return_type, _fhir_path_data_types._Date):  # pylint: disable=protected-access
-      dt = _primitive_time_utils.get_date_time_value(literal.get_value()).date()
+      dt = _primitive_time_utils.get_date_time_value(literal.get_value()).date()  # pyrefly: ignore[bad-argument-type]
       sql_value = f"'{str(dt)}'"
       sql_data_type = _sql_data_types.Date
     elif isinstance(literal.return_type, _fhir_path_data_types._String):  # pylint: disable=protected-access
@@ -355,7 +355,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
       type_names = (
           # Get the base resource type for structure definition URIs in
           # `target_profiles`.
-          identifier.context.get_fhir_type_from_string(
+          identifier.context.get_fhir_type_from_string(  # pyrefly: ignore[missing-attribute]
               profile=reference, type_code=None, element_definition=None
           ).base_type
           for reference in reference_node.return_type.target_profiles
@@ -730,7 +730,7 @@ class BigQuerySqlInterpreter(_evaluation.ExpressionNodeBaseVisitor):
           function, parent_result, params_result, **kwargs
       )
     func = _bigquery_sql_functions.FUNCTION_MAP.get(function.NAME)
-    return func(function, parent_result, params_result)
+    return func(function, parent_result, params_result)  # pyrefly: ignore[not-callable]
 
   # TODO(b/208900793): Remove LOGICAL_AND(UNNEST) when the SQL generator
   # can return single values and it's safe to do so for non-repeated

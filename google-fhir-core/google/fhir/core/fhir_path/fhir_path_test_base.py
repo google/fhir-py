@@ -520,7 +520,7 @@ class FhirPathTestBase:
 
     return expressions.from_fhir_path_expression(
         fhir_path_expression,
-        fhir_context,
+        fhir_context,  # pyrefly: ignore[bad-argument-type]
         structdef_type,
         primitive_handler.PrimitiveHandler(),
     )

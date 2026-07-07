@@ -430,7 +430,7 @@ class FhirProfileStandardSqlEncoder:
       created it. May be different from the input builder(s).
     """
     if node_context.get_root_builder().fhir_path == node_context.fhir_path:
-      node_context = None
+      node_context = None  # pyrefly: ignore[bad-assignment]
 
     try:
       new_builder = expressions.from_fhir_path_expression(
@@ -900,7 +900,7 @@ class FhirProfileStandardSqlEncoder:
     # A choice type should have at least one choice, but if it doesn't
     # there's no constraint to impose.
     type_codes = _utils.element_type_codes(
-        builder.return_type.root_element_definition
+        builder.return_type.root_element_definition  # pyrefly: ignore[bad-argument-type]
     )
     if len(type_codes) <= 1:
       return []
@@ -983,7 +983,7 @@ class FhirProfileStandardSqlEncoder:
 
         if slice_element_builder.return_type.returns_polymorphic():
           type_codes = _utils.element_type_codes(
-              slice_element_builder.return_type.root_element_definition
+              slice_element_builder.return_type.root_element_definition  # pyrefly: ignore[bad-argument-type]
           )
           # TODO(b/190679571): Support choice types with more than one type.
           if len(type_codes) > 1:
@@ -1236,7 +1236,7 @@ class FhirProfileStandardSqlEncoder:
     # For a primitive, we just return a 'field_name = message_value'
     # expression.
     if annotation_utils.is_primitive_type(slice_message.DESCRIPTOR):
-      return root_builder == _primitive_message_as_value(slice_message)
+      return root_builder == _primitive_message_as_value(slice_message)  # pyrefly: ignore[bad-return]
 
     # For a non-primitive message, recursively add a constraint for each field
     # on the message, then 'and' each of the constraints together.
@@ -1407,7 +1407,7 @@ class FhirProfileStandardSqlEncoder:
 
     element_definition = cast(Any, elem)
     type_codes = _utils.element_type_codes(
-        builder.return_type.root_element_definition
+        builder.return_type.root_element_definition  # pyrefly: ignore[bad-argument-type]
     )
 
     if not type_codes:
@@ -1599,7 +1599,7 @@ class FhirProfileStandardSqlEncoder:
     )
 
     if not _SKIP_TYPE_CODES.isdisjoint(
-        _utils.element_type_codes(builder.return_type.root_element_definition)
+        _utils.element_type_codes(builder.return_type.root_element_definition)  # pyrefly: ignore[bad-argument-type]
     ):
       return result  # Early-exit if any types overlap with `_SKIP_TYPE_CODES`
 
@@ -1665,7 +1665,7 @@ class FhirProfileStandardSqlEncoder:
 
         # Ensure we don't visit the same element via the same FHIR
         # path multiple times.
-        elem_visit = (self._abs_path_invocation(new_builder), elem.id.value)
+        elem_visit = (self._abs_path_invocation(new_builder), elem.id.value)  # pyrefly: ignore[missing-attribute]
         if elem_visit in self._visited_element_definitions:
           continue
         self._visited_element_definitions.add(elem_visit)
@@ -1692,7 +1692,7 @@ class FhirProfileStandardSqlEncoder:
         # multiple times.
         slice_visit = (
             self._abs_path_invocation(builder),
-            slice_def.slice_def.id.value,
+            slice_def.slice_def.id.value,  # pyrefly: ignore[missing-attribute]
         )
         if slice_visit in self._visited_slices:
           continue
@@ -1806,7 +1806,7 @@ class FhirProfileStandardSqlEncoder:
     if not parent_element_definition:
       parent_element_definition = builder.return_type.root_element_definition
     result = self._encode_element_definition_of_builder(
-        builder, parent_element_definition
+        builder, parent_element_definition  # pyrefly: ignore[bad-argument-type]
     )
 
     self._ctx.pop()

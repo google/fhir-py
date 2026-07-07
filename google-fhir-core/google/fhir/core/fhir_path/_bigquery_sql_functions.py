@@ -484,7 +484,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
 
       return dataclasses.replace(
           operand_result,
-          select_part=operand_result.select_part.is_null().or_(
+          select_part=operand_result.select_part.is_null().or_(  # pyrefly: ignore[bad-argument-type]
               operand_result.select_part.in_(params), _sql_alias=sql_alias
           ),
       )
@@ -498,7 +498,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
       )
       return dataclasses.replace(  # pytype: disable=wrong-arg-types  # dataclasses-replace-types
           operand_result,
-          select_part=operand_result.select_part.is_null().or_(
+          select_part=operand_result.select_part.is_null().or_(  # pyrefly: ignore[bad-argument-type]
               predicate, _sql_alias=sql_alias
           ),
       )
@@ -521,7 +521,7 @@ class _MemberOfFunction(_FhirPathFunctionStandardSqlEncoder):
       )
       return dataclasses.replace(  # pytype: disable=wrong-arg-types  # dataclasses-replace-types
           operand_result,
-          select_part=coding_column.is_null().or_(
+          select_part=coding_column.is_null().or_(  # pyrefly: ignore[bad-argument-type]
               _sql_data_types.RawExpression(
                   (
                       'EXISTS(\n'
@@ -1031,7 +1031,7 @@ class _AllFunction(_FhirPathFunctionStandardSqlEncoder):
 
       internal_if_null_call = _sql_data_types.FunctionCall(
           'IFNULL',
-          [criteria_sql, 'FALSE'],
+          [criteria_sql, 'FALSE'],  # pyrefly: ignore[bad-argument-type]
           _sql_alias=sql_alias,
           _sql_data_type=sql_data_type,
       )
@@ -1050,7 +1050,7 @@ class _AllFunction(_FhirPathFunctionStandardSqlEncoder):
       return _sql_data_types.Select(
           select_part=_sql_data_types.FunctionCall(
               'IFNULL',
-              [logical_and_call, 'TRUE'],
+              [logical_and_call, 'TRUE'],  # pyrefly: ignore[bad-argument-type]
               _sql_alias=sql_alias,
               _sql_data_type=sql_data_type,
           ),

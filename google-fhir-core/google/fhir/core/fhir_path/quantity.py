@@ -41,13 +41,13 @@ class Quantity:
       raise NotImplementedError(
           'Unit conversion is not supported. Units must be the same.')
 
-  def __eq__(self, other: 'Quantity') -> bool:
+  def __eq__(self, other: 'Quantity') -> bool:  # pyrefly: ignore[bad-override]
     if not isinstance(other, type(self)):
       return NotImplemented
     self._validate_units(other)
     return self.value == other.value
 
-  def __ne__(self, other: 'Quantity') -> bool:
+  def __ne__(self, other: 'Quantity') -> bool:  # pyrefly: ignore[bad-override]
     if not isinstance(other, type(self)):
       return NotImplemented
     self._validate_units(other)

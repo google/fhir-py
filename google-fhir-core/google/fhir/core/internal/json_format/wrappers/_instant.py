@@ -55,7 +55,7 @@ def _parse(json_str: str, primitive_cls: Type[Instant]) -> Instant:
   try:
     dt = datetime.datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M:%S')
     return _primitive_time_utils.build_date_like(  # pytype: disable=wrong-arg-types  # use-enum-overlay
-        dt, timezone_str, _primitive_time_utils.TimePrecision.SECOND,
+        dt, timezone_str, _primitive_time_utils.TimePrecision.SECOND,  # pyrefly: ignore[bad-argument-type]
         primitive_cls)
   except ValueError:
     pass  # Fall through
@@ -65,13 +65,13 @@ def _parse(json_str: str, primitive_cls: Type[Instant]) -> Instant:
     if (_primitive_time_utils.PRECISION_PATTERN_MILLISECOND.search(datetime_str)
         is not None):
       return _primitive_time_utils.build_date_like(  # pytype: disable=wrong-arg-types  # use-enum-overlay
-          dt, timezone_str, _primitive_time_utils.TimePrecision.MILLISECOND,
+          dt, timezone_str, _primitive_time_utils.TimePrecision.MILLISECOND,  # pyrefly: ignore[bad-argument-type]
           primitive_cls)
     elif (
         _primitive_time_utils.PRECISION_PATTERN_MICROSECOND.search(datetime_str)
         is not None):
       return _primitive_time_utils.build_date_like(  # pytype: disable=wrong-arg-types  # use-enum-overlay
-          dt, timezone_str, _primitive_time_utils.TimePrecision.MICROSECOND,
+          dt, timezone_str, _primitive_time_utils.TimePrecision.MICROSECOND,  # pyrefly: ignore[bad-argument-type]
           primitive_cls)
   except ValueError:
     pass  # Fall through
@@ -99,7 +99,7 @@ class InstantWrapper(_primitive_wrappers.PrimitiveWrapper):
       raise fhir_errors.InvalidFhirError('Instant missing timezone.')
 
     precision: int = proto_utils.get_value_at_field(self.wrapped, 'precision')
-    f = _FORMAT_FUNCS.get(precision)
+    f = _FORMAT_FUNCS.get(precision)  # pyrefly: ignore[bad-argument-type]
     if f is None:
       raise fhir_errors.InvalidFhirError('Invalid precision on Instant.')
     value_us: int = proto_utils.get_value_at_field(self.wrapped, 'value_us')

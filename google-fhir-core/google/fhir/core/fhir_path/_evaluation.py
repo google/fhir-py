@@ -514,9 +514,9 @@ class InvokeExpressionNode(ExpressionNode):
         parent_node.return_type,
         _fhir_path_data_types.ReferenceStructureDataType,
     ):
-      return super().__new__(InvokeReferenceNode)
+      return super().__new__(InvokeReferenceNode)  # pyrefly: ignore[bad-argument-type]
 
-    return super().__new__(InvokeExpressionNode)
+    return super().__new__(InvokeExpressionNode)  # pyrefly: ignore[bad-argument-type]
 
   def __init__(
       self,
@@ -945,7 +945,7 @@ class GetReferenceKeyFunction(FunctionNode):
     if not (
         len(self._params) == 1
         and isinstance(self._params[0], LiteralNode)
-        and fhir_types.is_string(cast(LiteralNode, self._params[0]).get_value())
+        and fhir_types.is_string(cast(LiteralNode, self._params[0]).get_value())  # pyrefly: ignore[bad-argument-type]
     ):
       raise ValueError(
           'getReferenceKey() requires a single parameter of the resource type.'
@@ -968,7 +968,7 @@ class GetReferenceKeyFunction(FunctionNode):
           profile=self.struct_def_url,
           element_definition=None,
       )
-      self.base_type_str = return_type.base_type
+      self.base_type_str = return_type.base_type  # pyrefly: ignore[missing-attribute]
     else:
       # It's a bare type name such as 'Patient.'
       # Trim the FHIR prefix used for primitive types, if applicable.
@@ -1006,7 +1006,7 @@ class OfTypeFunction(FunctionNode):
     if not (
         len(self._params) == 1
         and isinstance(self._params[0], LiteralNode)
-        and fhir_types.is_string(cast(LiteralNode, self._params[0]).get_value())
+        and fhir_types.is_string(cast(LiteralNode, self._params[0]).get_value())  # pyrefly: ignore[bad-argument-type]
     ):
       raise ValueError('ofType() requires a single parameter of the datatype.')
 
@@ -1043,11 +1043,11 @@ class OfTypeFunction(FunctionNode):
       )
 
     if _fhir_path_data_types.returns_collection(self._operand.return_type):
-      return_type = return_type.with_cardinality(
+      return_type = return_type.with_cardinality(  # pyrefly: ignore[missing-attribute]
           _fhir_path_data_types.Cardinality.CHILD_OF_COLLECTION
       )
 
-    return return_type
+    return return_type  # pyrefly: ignore[bad-return]
 
 
 class MemberOfFunction(FunctionNode):
@@ -1207,7 +1207,7 @@ class MatchesFunction(FunctionNode):
       regex = None
     elif not (
         isinstance(self._params[0], LiteralNode)
-        and fhir_types.is_string(cast(LiteralNode, self._params[0]).get_value())
+        and fhir_types.is_string(cast(LiteralNode, self._params[0]).get_value())  # pyrefly: ignore[bad-argument-type]
     ):
       raise ValueError('matches() requires a single string parameter.')
     else:
@@ -1686,9 +1686,9 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     if root_node_context:
       self._node_context = [root_node_context]
     else:
-      self._node_context = [RootMessageNode(self._context, self._data_type)]
+      self._node_context = [RootMessageNode(self._context, self._data_type)]  # pyrefly: ignore[bad-argument-type]
 
-  def visit_literal(self, literal: _ast.Literal) -> LiteralNode:
+  def visit_literal(self, literal: _ast.Literal) -> LiteralNode:  # pyrefly: ignore[bad-override]
     if literal.value is None:
       return LiteralNode(self._context, None, '{}', _fhir_path_data_types.Empty)
     elif isinstance(literal.value, bool):
@@ -1752,7 +1752,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     elif isinstance(literal.value, _ast.Quantity):
       return LiteralNode(
           self._context,
-          self._handler.new_quantity(literal.value.value, literal.value.unit),
+          self._handler.new_quantity(literal.value.value, literal.value.unit),  # pyrefly: ignore[bad-argument-type]
           str(literal.value),
           _fhir_path_data_types.Quantity,
       )
@@ -1761,7 +1761,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
           f'Unsupported literal value: {literal} {type(literal.value)}.'
       )
 
-  def visit_identifier(self, identifier: _ast.Identifier) -> Any:
+  def visit_identifier(self, identifier: _ast.Identifier) -> Any:  # pyrefly: ignore[bad-override]
     if identifier.value == '$this':
       return self._node_context[-1]
 
@@ -1825,7 +1825,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
         self._context, self.visit(union.lhs), self.visit(union.rhs)
     )
 
-  def visit_polarity(self, polarity: _ast.Polarity) -> ExpressionNode:
+  def visit_polarity(self, polarity: _ast.Polarity) -> ExpressionNode:  # pyrefly: ignore[bad-override]
     operand_node = self.visit(polarity.operand)
 
     # If the operand is a literal, produce a new negated literal if needed.
@@ -1835,9 +1835,9 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
       if polarity.op == _ast.Polarity.Op.NEGATIVE:
         # Decimal types are stored as strings, so simply add a negation prefix.
         if isinstance(modified_value.value, str):
-          modified_value.value = f'-{modified_value.value}'
+          modified_value.value = f'-{modified_value.value}'  # pyrefly: ignore[missing-attribute]
         else:
-          modified_value.value = -1 * modified_value.value
+          modified_value.value = -1 * modified_value.value  # pyrefly: ignore[missing-attribute]
       return LiteralNode(
           self._context,
           modified_value,
@@ -1847,7 +1847,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     else:
       return NumericPolarityNode(self._context, operand_node, polarity)
 
-  def visit_invocation(self, invocation: _ast.Invocation) -> ExpressionNode:
+  def visit_invocation(self, invocation: _ast.Invocation) -> ExpressionNode:  # pyrefly: ignore[bad-override]
     # TODO(b/244184211): Placeholder for limited invocation usage.
     # Function invocation
 
@@ -1863,7 +1863,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
 
     return InvokeExpressionNode(self._context, str(invocation.rhs), lhs_result)
 
-  def visit_function(
+  def visit_function(  # pyrefly: ignore[bad-override]
       self, function: _ast.Function, operand: Optional[_ast.Expression] = None
   ) -> FunctionNode:
     function_name = function.identifier.value
@@ -1885,7 +1885,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
     # For functions, the identifiers can be relative to the operand of the
     # function; not the root FHIR type.
     self._node_context.append(
-        ReferenceNode(self._context, operand_node, unnested=unnested)
+        ReferenceNode(self._context, operand_node, unnested=unnested)  # pyrefly: ignore[bad-argument-type]
     )
     for param in function.params:
       new_param = self.visit(param)

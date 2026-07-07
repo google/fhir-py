@@ -101,12 +101,12 @@ def _parse(json_str: str, primitive_cls: Type[Base64Binary], *,
     separator_stride_extension.separator.value = separator
     separator_stride_extension.stride.value = stride
     extensions.add_message_to_extension(separator_stride_extension,
-                                        result.extension.add())
+                                        result.extension.add())  # pyrefly: ignore[missing-attribute]
 
     json_str = json_str.replace(separator, '')
 
   try:
-    result.value = base64.b64decode(json_str, validate=True)
+    result.value = base64.b64decode(json_str, validate=True)  # pyrefly: ignore[missing-attribute]
   except binascii.Error as e:
     raise fhir_errors.InvalidFhirError('Invalid base64-encoded string.') from e
   return result

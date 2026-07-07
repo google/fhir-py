@@ -663,7 +663,7 @@ def wrap_time_types(
 ) -> str:
   """If the type is a date/timestamp type, wrap the SQL statement with a CAST."""
   if isinstance(sql_type, Array):
-    sql_type = cast(Array, sql_type).contained_type
+    sql_type = cast(Array, sql_type).contained_type  # pyrefly: ignore[bad-assignment]
 
   if raw_sql.startswith('TO_TIMESTAMP'):
     return raw_sql
@@ -1279,7 +1279,7 @@ class Select(StandardSqlExpression):
     query_parts = ['SELECT ']
 
     select_part = wrap_time_types(
-        str(self.select_part), self.sql_data_type, self.sql_dialect
+        str(self.select_part), self.sql_data_type, self.sql_dialect  # pyrefly: ignore[bad-argument-type]
     )
     query_parts.append(select_part)
     # Add an AS statement to match sql_alias if necessary.
@@ -1312,7 +1312,7 @@ class Select(StandardSqlExpression):
       return str(self.to_subquery())
 
     return wrap_time_types(
-        self.select_part.as_operand(), self.sql_data_type, self.sql_dialect
+        self.select_part.as_operand(), self.sql_data_type, self.sql_dialect  # pyrefly: ignore[bad-argument-type]
     )
 
 

@@ -236,7 +236,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'name.first().given.first()'),
         self.builder('Patient').name.first().given.first(),
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
 
     first_name = patient.name.add()
@@ -310,7 +310,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'name[0].given[0]'),
         self.builder('Patient').name[0].given[0],
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
 
     first_name = patient.name.add()
@@ -329,7 +329,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'name[0].given[2]'),
         self.builder('Patient').name[0].given[2],
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
 
     # When called on a non-repeated field with 0 index, indexer is a no-op.
@@ -422,7 +422,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', "name.first().given.matches('B')"),
         self.builder('Patient').name.first().given.matches('B'),
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
 
     first_name = patient.name.add()
@@ -722,10 +722,10 @@ class FhirPathExpressionsTest(
       patient.contact.add().telecom.add().rank.value = right
 
     if left is None or right is None:
-      self.assert_expression_result(gt_expr, gt_builder, patient, None)
-      self.assert_expression_result(lt_expr, lt_builder, patient, None)
-      self.assert_expression_result(ge_expr, ge_builder, patient, None)
-      self.assert_expression_result(le_expr, le_builder, patient, None)
+      self.assert_expression_result(gt_expr, gt_builder, patient, None)  # pyrefly: ignore[bad-argument-type]
+      self.assert_expression_result(lt_expr, lt_builder, patient, None)  # pyrefly: ignore[bad-argument-type]
+      self.assert_expression_result(ge_expr, ge_builder, patient, None)  # pyrefly: ignore[bad-argument-type]
+      self.assert_expression_result(le_expr, le_builder, patient, None)  # pyrefly: ignore[bad-argument-type]
 
     else:
       self.assert_expression_result(gt_expr, gt_builder, patient, left > right)
@@ -847,13 +847,13 @@ class FhirPathExpressionsTest(
       patient.contact.add().telecom.add().rank.value = right
 
     if left is None or right is None:
-      self.assert_expression_result(add_expr, add_builder, patient, None)
-      self.assert_expression_result(sub_expr, sub_builder, patient, None)
-      self.assert_expression_result(mult_expr, mult_builder, patient, None)
-      self.assert_expression_result(div_expr, div_builder, patient, None)
-      self.assert_expression_result(mod_expr, mod_builder, patient, None)
+      self.assert_expression_result(add_expr, add_builder, patient, None)  # pyrefly: ignore[bad-argument-type]
+      self.assert_expression_result(sub_expr, sub_builder, patient, None)  # pyrefly: ignore[bad-argument-type]
+      self.assert_expression_result(mult_expr, mult_builder, patient, None)  # pyrefly: ignore[bad-argument-type]
+      self.assert_expression_result(div_expr, div_builder, patient, None)  # pyrefly: ignore[bad-argument-type]
+      self.assert_expression_result(mod_expr, mod_builder, patient, None)  # pyrefly: ignore[bad-argument-type]
       self.assert_expression_result(
-          trunc_div_expr, trunc_div_builder, patient, None
+          trunc_div_expr, trunc_div_builder, patient, None  # pyrefly: ignore[bad-argument-type]
       )
       return
 
@@ -861,7 +861,7 @@ class FhirPathExpressionsTest(
       self.assert_expression_result(div_expr, div_builder, patient, None)  # pytype: disable=wrong-arg-types
       self.assert_expression_result(mod_expr, mod_builder, patient, None)  # pytype: disable=wrong-arg-types
       self.assert_expression_result(  # pytype: disable=wrong-arg-types
-          trunc_div_expr, trunc_div_builder, patient, None
+          trunc_div_expr, trunc_div_builder, patient, None  # pyrefly: ignore[bad-argument-type]
       )
     else:
       self.assert_expression_result(
@@ -903,7 +903,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'telecom.rank + 1'),
         self.builder('Patient').telecom.rank + 1,
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
     patient.telecom.add().rank.value = 2
     self.assert_expression_result(
@@ -920,7 +920,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'telecom.rank - 1'),
         self.builder('Patient').telecom.rank - 1,
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
     patient.telecom.add().rank.value = 2
     self.assert_expression_result(
@@ -943,7 +943,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'telecom.rank / 1'),
         self.builder('Patient').telecom.rank / 1,
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
     patient.telecom.add().rank.value = 26
     self.assert_expression_result(
@@ -956,7 +956,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'telecom.rank / 0'),
         self.builder('Patient').telecom.rank / 0,
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
 
   def test_numeric_modular_arithmetic(self):
@@ -966,7 +966,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'telecom.rank mod 1'),
         self.builder('Patient').telecom.rank % 1,
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
     patient.telecom.add().rank.value = 23
     self.assert_expression_result(
@@ -979,7 +979,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'telecom.rank mod 0'),
         self.builder('Patient').telecom.rank % 0,
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
 
   def test_numeric_trunc_div_arithmetic(self):
@@ -989,7 +989,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'telecom.rank div 1'),
         self.builder('Patient').telecom.rank // 1,
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
     patient.telecom.add().rank.value = 23
     self.assert_expression_result(
@@ -1002,7 +1002,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'telecom.rank div 0'),
         self.builder('Patient').telecom.rank // 0,
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
 
   def test_numeric_multiplication_arithmetic(self):
@@ -1012,7 +1012,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'telecom.rank * 1'),
         self.builder('Patient').telecom.rank * 1,
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
     patient.telecom.add().rank.value = 8
     self.assert_expression_result(
@@ -1055,7 +1055,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', "address.city + '1'"),
         self.builder('Patient').address.city + '1',
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
     self.assert_expression_result(
         self.compile_expression('Patient', "address.city & '1'"),
@@ -1696,7 +1696,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'address.state.toInteger()'),
         self.builder('Patient').address.state.toInteger(),
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
 
   def test_to_integer_with_true_boolean_returns_one(self) -> None:
@@ -1740,7 +1740,7 @@ class FhirPathExpressionsTest(
         self.compile_expression('Patient', 'gender.toInteger()'),
         self.builder('Patient').gender.toInteger(),
         patient,
-        None,
+        None,  # pyrefly: ignore[bad-argument-type]
     )
 
   def test_to_integer_with_collection_more_than_one_element_raises_error(

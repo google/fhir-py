@@ -301,10 +301,10 @@ class ColumnExpressionBuilder:
     fields.extend(dir(type(self)))
     return fields
 
-  def __eq__(self, rhs: BuilderOperand) -> 'ColumnExpressionBuilder':
+  def __eq__(self, rhs: BuilderOperand) -> 'ColumnExpressionBuilder':  # pyrefly: ignore[bad-override]
     return self._redirect_operation('__eq__', rhs)
 
-  def __ne__(self, rhs: BuilderOperand) -> 'ColumnExpressionBuilder':
+  def __ne__(self, rhs: BuilderOperand) -> 'ColumnExpressionBuilder':  # pyrefly: ignore[bad-override]
     return self._redirect_operation('__ne__', rhs)
 
   def __or__(self, rhs: BuilderOperand) -> 'ColumnExpressionBuilder':

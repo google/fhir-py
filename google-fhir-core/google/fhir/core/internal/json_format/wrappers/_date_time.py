@@ -134,7 +134,7 @@ class DateTimeWrapper(_primitive_wrappers.PrimitiveWrapper):
       raise fhir_errors.InvalidFhirError('DateTime missing timezone.')
 
     precision: int = proto_utils.get_value_at_field(self.wrapped, 'precision')
-    f = _FORMAT_FUNCS.get(precision)
+    f = _FORMAT_FUNCS.get(precision)  # pyrefly: ignore[bad-argument-type]
     if f is None:
       raise fhir_errors.InvalidFhirError('Invalid Precision on DateTime')
 

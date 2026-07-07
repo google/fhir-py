@@ -96,8 +96,8 @@ class LocalResolver:
         value_set.url.value,
         value_set.version.value,
     )
-    includes = itertools.chain.from_iterable(includes)
-    excludes = itertools.chain.from_iterable(excludes)
+    includes = itertools.chain.from_iterable(includes)  # pyrefly: ignore[bad-argument-type]
+    excludes = itertools.chain.from_iterable(excludes)  # pyrefly: ignore[bad-argument-type]
 
     # Build tuples of the fields to use for equality when testing if a code from
     # include is also in exclude.

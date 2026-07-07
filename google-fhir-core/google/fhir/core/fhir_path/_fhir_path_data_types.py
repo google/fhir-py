@@ -753,7 +753,7 @@ class StructureDataType(FhirPathDataType):
     return set()
 
   @property
-  def child_defs(self) -> ChildDefinitions:
+  def child_defs(self) -> ChildDefinitions:  # pyrefly: ignore[bad-override]
     return self._child_defs
 
   @classmethod
@@ -959,7 +959,7 @@ class QuantityStructureDataType(StructureDataType, _Quantity):
     return True
 
   @classmethod
-  def from_proto(
+  def from_proto(  # pyrefly: ignore[bad-override]
       cls,
       struct_def_proto: message.Message,
       backbone_element_path: Optional[str] = None,
@@ -1321,7 +1321,7 @@ def coerce(lhs: FhirPathDataType, rhs: FhirPathDataType) -> FhirPathDataType:
     )
 
   if isinstance(rhs, _Any) or isinstance(lhs, _Any):
-    return _Any
+    return _Any  # pyrefly: ignore[bad-return]
 
   if rhs in lhs.supported_coercion:
     return rhs
@@ -1360,7 +1360,7 @@ def is_collection(return_type: FhirPathDataType) -> bool:
     True if `return_type` represents an element with cardinality greater than
     one. False otherwise.
   """
-  return return_type and return_type.cardinality == Cardinality.COLLECTION
+  return return_type and return_type.cardinality == Cardinality.COLLECTION  # pyrefly: ignore[bad-return]
 
 
 def returns_collection(return_type: FhirPathDataType) -> bool:
@@ -1380,7 +1380,7 @@ def returns_collection(return_type: FhirPathDataType) -> bool:
     False if `return_type` represents a scalar element whose parents are all
     also scalars.
   """
-  return return_type and return_type.returns_collection()
+  return return_type and return_type.returns_collection()  # pyrefly: ignore[bad-return]
 
 
 def returns_scalar(return_type: Optional[FhirPathDataType]) -> bool:

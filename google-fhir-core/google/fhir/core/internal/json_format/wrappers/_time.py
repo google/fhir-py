@@ -92,7 +92,7 @@ class TimeWrapper(_primitive_wrappers.PrimitiveWrapper):
 
   def _nonnull_string_value(self) -> str:
     precision: int = proto_utils.get_value_at_field(self.wrapped, 'precision')
-    f = _FORMAT_FUNCS.get(precision)
+    f = _FORMAT_FUNCS.get(precision)  # pyrefly: ignore[bad-argument-type]
     if f is None:
       raise fhir_errors.InvalidFhirError(
           f'No format string for precision: {precision!r}.')

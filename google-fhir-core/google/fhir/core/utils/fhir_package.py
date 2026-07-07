@@ -122,7 +122,7 @@ class ResourceCollection(Iterable[_T]):
     """Creates a resource collection containing the protos in `resources`."""
     collection = cls(proto_cls, handler, resource_time_zone)
     for resource in resources:
-      collection.resources_by_uri[resource.url.value] = resource
+      collection.resources_by_uri[resource.url.value] = resource  # pyrefly: ignore[missing-attribute]
     return collection
 
   def __init__(
@@ -180,7 +180,7 @@ class ResourceCollection(Iterable[_T]):
       return resource
 
     # The resource needs to be parsed from JSON into a proto.
-    parsed = self._parse_resource(uri, resource)
+    parsed = self._parse_resource(uri, resource)  # pyrefly: ignore[bad-argument-type]
     self.resources_by_uri[uri] = parsed
     return parsed
 
@@ -205,11 +205,11 @@ class ResourceCollection(Iterable[_T]):
         return None
       else:
         target = self.proto_cls()
-        json_parser.merge_value(json_value, target)
+        json_parser.merge_value(json_value, target)  # pyrefly: ignore[bad-argument-type]
         return target
     else:
       target = self.proto_cls()
-      json_parser.merge_value(json_obj, target)
+      json_parser.merge_value(json_obj, target)  # pyrefly: ignore[bad-argument-type]
       return target
 
   def __iter__(self) -> Iterator[_T]:
@@ -416,7 +416,7 @@ class FhirPackage(
     ):
       resource = collection.get(uri)
       if resource is not None:
-        return resource
+        return resource  # pyrefly: ignore[bad-return]
 
     return None
 

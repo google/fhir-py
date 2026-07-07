@@ -324,7 +324,7 @@ class PythonInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
   def __init__(self, handler: primitive_handler.PrimitiveHandler):
     self._primitive_handler = handler
-    self._work_space: WorkSpace = None
+    self._work_space: WorkSpace = None  # pyrefly: ignore[bad-assignment]
 
   def evaluate(
       self, expression: _evaluation.ExpressionNode, work_space: WorkSpace
@@ -393,7 +393,7 @@ class PythonInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
   def visit_arithmetic(
       self, arithmetic: _evaluation.ArithmeticNode
-  ) -> List[WorkSpaceMessage]:
+  ) -> List[WorkSpaceMessage]:  # pyrefly: ignore[bad-return]
     left_messages = self.visit(arithmetic.left)
     right_messages = self.visit(arithmetic.right)
     result = None
@@ -778,7 +778,7 @@ class PythonInterpreter(_evaluation.ExpressionNodeBaseVisitor):
 
       elif fhir_types.is_coding(fhir_message):
         if (
-            _evaluation.CodeValue(coding.system.value, coding.code.value)
+            _evaluation.CodeValue(coding.system.value, coding.code.value)  # pyrefly: ignore[unbound-name]
             in function.code_values
         ):
           result = True

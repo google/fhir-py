@@ -108,19 +108,19 @@ def valueset_codes_insert_statement_for(
             codes.outerjoin(
                 table,
                 sqlalchemy.and_(
-                    codes.c.valueseturi == table.c.valueseturi,
-                    codes.c.valuesetversion == table.c.valuesetversion,
-                    codes.c.system == table.c.system,
-                    codes.c.code == table.c.code,
+                    codes.c.valueseturi == table.c.valueseturi,  # pyrefly: ignore[missing-attribute]
+                    codes.c.valuesetversion == table.c.valuesetversion,  # pyrefly: ignore[missing-attribute]
+                    codes.c.system == table.c.system,  # pyrefly: ignore[missing-attribute]
+                    codes.c.code == table.c.code,  # pyrefly: ignore[missing-attribute]
                 ),
             )
         )
         .where(
             sqlalchemy.and_(
-                table.c.valueseturi.is_(None),
-                table.c.valuesetversion.is_(None),
-                table.c.system.is_(None),
-                table.c.code.is_(None),
+                table.c.valueseturi.is_(None),  # pyrefly: ignore[missing-attribute]
+                table.c.valuesetversion.is_(None),  # pyrefly: ignore[missing-attribute]
+                table.c.system.is_(None),  # pyrefly: ignore[missing-attribute]
+                table.c.code.is_(None),  # pyrefly: ignore[missing-attribute]
             )
         )
     )
@@ -150,12 +150,12 @@ def get_num_code_systems_per_value_set(
     A CodeSystemCounts object for accessing code systems information.
   """
   query = sqlalchemy.select([
-      table.c.valueseturi,
-      table.c.valuesetversion,
-      sqlalchemy.func.array_agg(sqlalchemy.distinct(table.c.system)).label(
+      table.c.valueseturi,  # pyrefly: ignore[missing-attribute]
+      table.c.valuesetversion,  # pyrefly: ignore[missing-attribute]
+      sqlalchemy.func.array_agg(sqlalchemy.distinct(table.c.system)).label(  # pyrefly: ignore[missing-attribute]
           'systems'
       ),
-  ]).group_by(table.c.valueseturi, table.c.valuesetversion)
+  ]).group_by(table.c.valueseturi, table.c.valuesetversion)  # pyrefly: ignore[missing-attribute]
   with engine.connect() as connection:
     systems_per_value_set = connection.execute(query)
     return _query_results_to_code_system_counts(

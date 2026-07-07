@@ -122,7 +122,7 @@ class ViewConfig:
       root: Optional[column_expression_builder.ColumnExpressionBuilder] = None,
   ) -> column_expression_builder.ColumnExpressionBuilder:
     builder = expressions.from_fhir_path_expression(
-        fhir_path, self._context, self._struct_type, self._handler, root
+        fhir_path, self._context, self._struct_type, self._handler, root  # pyrefly: ignore[bad-argument-type]
     )
     return column_expression_builder.ColumnExpressionBuilder.from_fhir_path_builder(
         builder

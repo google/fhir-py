@@ -355,7 +355,7 @@ class FhirPathDataTypeTest(parameterized.TestCase):
       def url(self):
         return _fhir_path_data_types.String.url
 
-      def comparable(self):
+      def comparable(self):  # pyrefly: ignore[bad-override]
         return False
 
     set_test = {
