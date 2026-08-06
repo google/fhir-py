@@ -1834,7 +1834,7 @@ class FhirPathCompilerVisitor(_ast.FhirPathAstBaseVisitor):
       modified_value = operand_node.get_value()
       if polarity.op == _ast.Polarity.Op.NEGATIVE:
         # Decimal types are stored as strings, so simply add a negation prefix.
-        if isinstance(modified_value.value, str):
+        if isinstance(modified_value.value, str):  # pyrefly: ignore[missing-attribute]
           modified_value.value = f'-{modified_value.value}'  # pyrefly: ignore[missing-attribute]
         else:
           modified_value.value = -1 * modified_value.value  # pyrefly: ignore[missing-attribute]
