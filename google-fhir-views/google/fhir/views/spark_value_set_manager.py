@@ -63,9 +63,11 @@ class SparkValueSetManager:
 
     with self._client.connect() as curs:
       curs.execute(
-          'CREATE TABLE IF NOT EXISTS'
-          f' `default`.`{self._value_set_codes_table}` (valueseturi string,'
-          ' valuesetversion String, system String, code String)'
+          sqlalchemy.text(
+              'CREATE TABLE IF NOT EXISTS'
+              f' `default`.`{self._value_set_codes_table}` (valueseturi string,'
+              ' valuesetversion String, system String, code String)'
+          )
       )
 
   # TODO(b/201107372): Update FHIR-agnostic types to a protocol.

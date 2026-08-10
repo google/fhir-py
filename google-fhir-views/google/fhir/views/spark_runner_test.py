@@ -545,7 +545,10 @@ class SparkRunnerTest(parameterized.TestCase):
         'default.simple_patient_view AS\n'
         f'{self.runner.to_sql(simple_view)}'
     )
-    self.mock_spark_engine.execute.assert_called_once_with(expected_sql)
+    executed_stmt = (
+        self.mock_spark_engine.connect.return_value.__enter__.return_value.execute.call_args[0][0]
+    )
+    self.assertEqual(str(executed_stmt), expected_sql)
 
   @mock.patch.object(
       spark_value_set_manager.SparkValueSetManager,

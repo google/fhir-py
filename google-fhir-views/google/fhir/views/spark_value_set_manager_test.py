@@ -66,9 +66,6 @@ class SparkValueSetManagerTest(parameterized.TestCase):
     mock_valueset_codes_insert_statement_for.return_value = (
         mock_insert_statements
     )
-    self.mock_spark_engine.execute.return_value = (
-        'vs_table'
-    )
 
     self.value_set_manager.materialize_value_sets(mock_value_sets)
 
@@ -76,15 +73,23 @@ class SparkValueSetManagerTest(parameterized.TestCase):
     self.assertEqual(self.mock_spark_engine.connect.call_count, 3)
 
     # Ensure we called query with the rendered SQL for the two mock queries
-    self.mock_spark_engine.connect.return_value.__enter__.return_value.execute.assert_has_calls([
-        mock.call(
-            'CREATE TABLE IF NOT EXISTS `default`.`vs_table`'
-            ' (valueseturi string, valuesetversion String, system String, code'
-            ' String)'
-        ),
-        mock.call(mock_insert_statements[0]),
-        mock.call(mock_insert_statements[1]),
-    ])
+    mock_execute = (
+        self.mock_spark_engine.connect.return_value.__enter__.return_value.execute
+    )
+    self.assertEqual(mock_execute.call_count, 3)
+    first_call_stmt = mock_execute.call_args_list[0][0][0]
+    expected_create_table = (
+        'CREATE TABLE IF NOT EXISTS `default`.`vs_table`'
+        ' (valueseturi string, valuesetversion String, system String, code'
+        ' String)'
+    )
+    self.assertEqual(str(first_call_stmt), expected_create_table)
+    self.assertEqual(
+        mock_execute.call_args_list[1][0][0], mock_insert_statements[0]
+    )
+    self.assertEqual(
+        mock_execute.call_args_list[2][0][0], mock_insert_statements[1]
+    )
 
     # Ensure we called valueset_codes_insert_statement_for with the
     # given value sets.
@@ -148,9 +153,6 @@ class SparkValueSetManagerTest(parameterized.TestCase):
     mock_expander = mock.MagicMock(
         spec=terminology_service_client.TerminologyServiceClient
     )
-    self.mock_spark_engine.execute.return_value = (
-        'vs_table'
-    )
 
     self.value_set_manager.materialize_value_set_expansion(
         ['url-1', 'url-2'],
@@ -200,9 +202,12 @@ class SparkValueSetManagerTest(parameterized.TestCase):
         ' (valueseturi string, valuesetversion String, system String, code'
         ' String)'
     )
-    self.mock_spark_engine.connect.return_value.__enter__.return_value.execute.assert_called_once_with(
-        expected_sql
+    mock_execute = (
+        self.mock_spark_engine.connect.return_value.__enter__.return_value.execute
     )
+    self.assertEqual(mock_execute.call_count, 1)
+    call_stmt = mock_execute.call_args[0][0]
+    self.assertEqual(str(call_stmt), expected_sql)
 
 
 if __name__ == '__main__':

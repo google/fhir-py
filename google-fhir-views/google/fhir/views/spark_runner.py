@@ -22,6 +22,7 @@ can be consumed by other tools.
 from typing import Iterable, Optional, Union, cast
 
 import pandas
+import sqlalchemy
 from sqlalchemy import engine
 
 from google.fhir.r4.proto.core.resources import value_set_pb2
@@ -238,7 +239,8 @@ class SparkRunner:
         f'CREATE OR REPLACE VIEW {self._view_dataset}.{view_name} AS\n'
         f'{self.to_sql(view)}'
     )
-    self._engine.execute(view_sql).fetchall()
+    with self._engine.connect() as conn:
+      conn.execute(sqlalchemy.text(view_sql))
 
   # TODO(b/201107372): Update FHIR-agnostic types to a protocol.
   def materialize_value_sets(

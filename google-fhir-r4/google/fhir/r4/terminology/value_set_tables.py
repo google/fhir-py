@@ -19,7 +19,7 @@ https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md#valueset-support
 """
 
 import itertools
-from typing import Collection, Dict, Iterable, Tuple
+from typing import Any, Collection, Dict, Iterable, Tuple
 
 import logging
 import sqlalchemy
@@ -124,7 +124,9 @@ def valueset_codes_insert_statement_for(
             )
         )
     )
-    yield table.insert().from_select(new_codes.subquery().columns, new_codes)
+    yield table.insert().from_select(
+        list(new_codes.subquery().columns), new_codes
+    )
 
 
 def get_num_code_systems_per_value_set(
@@ -149,13 +151,13 @@ def get_num_code_systems_per_value_set(
   Returns:
     A CodeSystemCounts object for accessing code systems information.
   """
-  query = sqlalchemy.select([
+  query = sqlalchemy.select(
       table.c.valueseturi,  # pyrefly: ignore[missing-attribute]
       table.c.valuesetversion,  # pyrefly: ignore[missing-attribute]
       sqlalchemy.func.array_agg(sqlalchemy.distinct(table.c.system)).label(  # pyrefly: ignore[missing-attribute]
           'systems'
       ),
-  ]).group_by(table.c.valueseturi, table.c.valuesetversion)  # pyrefly: ignore[missing-attribute]
+  ).group_by(table.c.valueseturi, table.c.valuesetversion)  # pyrefly: ignore[missing-attribute]
   with engine.connect() as connection:
     systems_per_value_set = connection.execute(query)
     return _query_results_to_code_system_counts(
@@ -193,7 +195,7 @@ def _query_results_to_code_system_counts(
 def _code_as_select_literal(
     value_set: value_set_pb2.ValueSet,
     code: value_set_pb2.ValueSet.Expansion.Contains,
-) -> sqlalchemy.select:
+) -> sqlalchemy.sql.selectable.Select:
   """Builds a SELECT statement for the literals in the given code."""
   return sqlalchemy.select(
       _literal_or_null(value_set.url.value).label('valueseturi'),
