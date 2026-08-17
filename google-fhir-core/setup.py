@@ -100,7 +100,7 @@ def main():
       python_requires='>=3.8, <3.12',
       install_requires=[
           'absl-py~=1.1',
-          'antlr4-python3-runtime~=4.9.3',
+           'antlr4-python3-runtime>=4.9.3',
           'backports.zoneinfo~=0.2.1;python_version<"3.9"',
           'immutabledict~=2.2',
           'protobuf~=4.23',
