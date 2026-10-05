@@ -74,6 +74,8 @@ RESERVED_FHIR_PATH_KEYWORDS = frozenset([
 # captures 'String'
 _TYPE_CODE_URI_RE = re.compile(r'^http://hl7.org/fhirpath/System\.(.+)')
 
+_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/Extension'
+
 
 @enum.unique
 class Cardinality(enum.Enum):
@@ -807,11 +809,12 @@ class StructureDataType(FhirPathDataType):
     root_element_definition = None
 
     for elem in struct_def.snapshot.element:
-      # Extension.url does not provide any additional meaningful information for
-      # extensions so we will skip it as it also conflicts with
-      # Extension.extension:url if there is a subextension type. More info in
-      # b/284998302
-      if elem.base.path.value == 'Extension.url':
+      # For profiled extensions, Extension.url is a fixed value which provides
+      # no meaningful information, and it conflicts with Extension.extension:url
+      # if there is a subextension type, so we skip it. More info in
+      # b/284998302. The base Extension type has no slices, so its url is kept
+      # to support expressions like `extension.where(url = '...')`.
+      if elem.base.path.value == 'Extension.url' and raw_url != _EXTENSION_URL:
         continue
 
       path = _get_analytic_path(elem.path.value, elem.id.value)

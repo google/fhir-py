@@ -129,6 +129,30 @@ class SparkRunnerTest(parameterized.TestCase):
         runner=self.runner,
     )
 
+  def test_extension_filtered_by_url_for_patient_succeeds(self):
+    """Tests selecting an extension value by its url."""
+    patient = self._views.view_of('Patient')
+    simple_view = patient.select({
+        'retired': (
+            patient.extension.where(
+                patient.extension.url == 'http://example.com/retired'
+            ).valueString.first()
+        ),
+    })
+
+    self.ast_and_expression_tree_test_runner(
+        expected_output=(
+            'SELECT (SELECT ofType_ FROM (SELECT FIRST(ofType_) AS ofType_ '
+            'FROM (SELECT extension_element_.value.string AS ofType_ '
+            'FROM (SELECT EXPLODE(extension_element_) AS extension_element_ '
+            'FROM (SELECT extension AS extension_element_)) '
+            "WHERE (extension_element_.url = 'http://example.com/retired')))) "
+            'AS retired FROM `default`.Patient'
+        ),
+        view=simple_view,
+        runner=self.runner,
+    )
+
   def test_no_select_to_sql_for_patient_succeeds(self):
     """Tests that a view with no select fields succeeds."""
     patient = self._views.view_of('Patient')
