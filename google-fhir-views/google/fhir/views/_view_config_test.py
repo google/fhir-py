@@ -59,6 +59,28 @@ class ConfigTest(absltest.TestCase):
         'ColumnExpressionBuilder("birthDate.named(birth_date)")',
     )
 
+  def test_valid_config_with_extension_filtered_by_url(self):
+    view_definition = {
+        'resource': 'Patient',
+        'select': [{
+            'name': 'retired',
+            'path': "extension.where(url = 'http://example.com/retired').value",
+        }],
+        'where': [{'path': 'extension.url.exists()'}],
+    }
+    config = _view_config.ViewConfig(
+        self._context, self._handler, view_definition
+    )
+    self.assertEqual(
+        repr(config.column_builders[0]),
+        'ColumnExpressionBuilder("extension.where(url ='
+        " 'http://example.com/retired').value.named(retired)\")",
+    )
+    self.assertEqual(
+        repr(config.constraint_builders[0]),
+        'ColumnExpressionBuilder("extension.url.exists()")',
+    )
+
   def test_config_without_resource_raises_error(self):
     view_definition = {
         'select': [

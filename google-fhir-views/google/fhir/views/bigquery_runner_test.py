@@ -144,6 +144,28 @@ class BigqueryRunnerTest(parameterized.TestCase):
         simple_view,
     )
 
+  def test_extension_filtered_by_url_for_patient_succeeds(self):
+    """Tests selecting an extension value by its url."""
+    pat = self._views.view_of('Patient')
+    simple_view = pat.select({
+        'retired': (
+            pat.extension.where(
+                pat.extension.url == 'http://example.com/retired'
+            ).valueString.first()
+        ),
+    })
+
+    self.ast_and_expression_tree_test_runner(
+        textwrap.dedent(
+            """\
+          SELECT (SELECT extension_element_.value.string AS ofType_
+          FROM UNNEST(extension) AS extension_element_ WITH OFFSET AS element_offset
+          WHERE (extension_element_.url = 'http://example.com/retired')
+          LIMIT 1) AS retired FROM `test_project.test_dataset`.Patient"""
+        ),
+        simple_view,
+    )
+
   def test_no_select_to_sql_for_patient_succeeds(self):
     """Tests that a view with no select fields succeeds."""
     pat = self._views.view_of('Patient')

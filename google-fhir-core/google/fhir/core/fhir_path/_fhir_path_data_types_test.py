@@ -15,6 +15,7 @@
 
 from absl.testing import absltest
 from absl.testing import parameterized
+from google.fhir.r4.proto.core import codes_pb2
 from google.fhir.core.fhir_path import _fhir_path_data_types
 from google.fhir.core.fhir_path import _structure_definitions as sdefs
 
@@ -269,6 +270,78 @@ class StructureDataTypeTest(absltest.TestCase):
                 ],
             ),
         ],
+    )
+
+  def test_base_extension_includes_url_child(self):
+    url_element = sdefs.build_element_definition(
+        id_='Extension.url',
+        type_codes=['uri'],
+        cardinality=sdefs.Cardinality(min=1, max='1'),
+    )
+    value_element = sdefs.build_element_definition(
+        id_='Extension.value[x]',
+        type_codes=['string'],
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+    )
+    extension = sdefs.build_resource_definition(
+        id_='Extension',
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='Extension',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=0, max='*'),
+            ),
+            url_element,
+            value_element,
+        ],
+    )
+
+    structure_definition = _fhir_path_data_types.StructureDataType.from_proto(
+        extension
+    )
+
+    self.assertCountEqual(
+        list(structure_definition.iter_children()),
+        [('url', url_element), ('value', value_element)],
+    )
+
+  def test_profiled_extension_skips_url_in_favor_of_sub_extension(self):
+    sub_extension_element = sdefs.build_element_definition(
+        id_='Extension.extension:url',
+        path='Extension.extension',
+        base_path='Extension.extension',
+        type_codes=['Extension'],
+        cardinality=sdefs.Cardinality(min=0, max='1'),
+        slice_name='url',
+    )
+    profiled_extension = sdefs.build_structure_definition(
+        url='http://example.com/StructureDefinition/my-extension',
+        name='MyExtension',
+        base_definition='http://hl7.org/fhir/StructureDefinition/Extension',
+        type_='Extension',
+        derivation_code=codes_pb2.TypeDerivationRuleCode.CONSTRAINT,
+        element_definitions=[
+            sdefs.build_element_definition(
+                id_='Extension',
+                type_codes=None,
+                cardinality=sdefs.Cardinality(min=0, max='*'),
+            ),
+            sub_extension_element,
+            sdefs.build_element_definition(
+                id_='Extension.url',
+                type_codes=['uri'],
+                cardinality=sdefs.Cardinality(min=1, max='1'),
+            ),
+        ],
+    )
+
+    structure_definition = _fhir_path_data_types.StructureDataType.from_proto(
+        profiled_extension
+    )
+
+    self.assertCountEqual(
+        list(structure_definition.iter_children()),
+        [('url', sub_extension_element)],
     )
 
 
