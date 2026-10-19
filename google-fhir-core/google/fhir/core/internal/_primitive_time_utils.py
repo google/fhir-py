@@ -32,7 +32,7 @@ from google.fhir.core.utils import proto_utils
 try:
   import zoneinfo
 except ImportError:
-  from backports import zoneinfo  # pytype: disable=import-error
+  from backports import zoneinfo  # pyrefly: ignore[missing-import]
 # pylint: enable=g-import-not-at-top
 
 _T = TypeVar('_T', bound=message.Message)
